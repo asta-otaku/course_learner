@@ -1,0 +1,135 @@
+"use client";
+
+import React from "react";
+import { useRouter } from "next/navigation";
+import { dummyProfiles, courses } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import BackArrow from "@/assets/svgs/arrowback";
+import MailIcon from "@/assets/svgs/mail";
+import { ProgressCard } from "@/components/platform/home/learningCard";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import Homework from "./homeworkTab";
+import WorkSchedule from "./homeworkScheduleTab";
+
+export default function StudentPage({ id }: { id: string }) {
+  const router = useRouter();
+  const profile = dummyProfiles.find((p) => p.id === id);
+
+  if (!profile) {
+    return <div className="p-8">Student not found.</div>;
+  }
+
+  return (
+    <div className="flex flex-col md:flex-row h-full min-h-[90vh]">
+      {/* Left: Student Details */}
+      <div className="w-full md:w-2/5 p-6 m-4 flex flex-col gap-6">
+        <button
+          className="flex items-center gap-2 text-gray-500 hover:text-black"
+          onClick={() => router.back()}
+        >
+          <BackArrow color="#808080" />
+        </button>
+        <div className="flex flex-col items-start gap-4">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={
+                    typeof profile.image === "string"
+                      ? profile.image
+                      : profile.image.src || profile.image.default || ""
+                  }
+                  alt={profile.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      "https://via.placeholder.com/80x80?text=Avatar";
+                  }}
+                />
+              </div>
+              <div>
+                <div className="font-semibold text-lg text-gray-900">
+                  {profile.name}
+                </div>
+              </div>
+            </div>
+            <MailIcon />
+          </div>
+          <div className="flex flex-col gap-2 w-full">
+            <div className="font-medium border px-4 py-2.5 rounded-xl bg-white">
+              DETAILS
+            </div>
+            <div className="flex gap-1 w-full justify-between text-sm">
+              <div className="flex flex-col gap-3">
+                <span className="text-textSubtitle font-medium text-xs">
+                  Year
+                </span>
+                <span className="font-medium">{profile.year}</span>
+              </div>
+              <div className="flex flex-col gap-3">
+                <span className="text-textSubtitle font-medium text-xs">
+                  Subscription Type
+                </span>
+                <div className="flex gap-2">
+                  <span className="font-medium text-sm">
+                    {profile.subscriptionName === "The platform"
+                      ? "Platform"
+                      : profile.subscriptionName}
+                  </span>
+                  <Badge
+                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      profile.status === "active"
+                        ? "bg-[#34C759] text-white"
+                        : "bg-[#F2F2F2] text-[#808080]"
+                    }`}
+                  >
+                    {profile.status === "active" ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3">
+                <span className="text-textSubtitle font-medium text-xs">
+                  Joined
+                </span>
+                <span className="font-medium">
+                  {new Date(profile.subscriptionDate).toLocaleDateString(
+                    "en-GB",
+                    {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    }
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Right: Tabbed Content */}
+      <div className="w-full md:w-3/5 flex flex-col p-4 gap-4 md:border-l border-gray-200">
+        <Tabs defaultValue="progress" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="progress">Progress</TabsTrigger>
+            <TabsTrigger value="homework">Home-Work</TabsTrigger>
+            <TabsTrigger value="schedule">Home-Work Schedule</TabsTrigger>
+          </TabsList>
+          <TabsContent value="progress">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {courses.slice(0, 3).map((course, index) => (
+                <ProgressCard key={index} course={course} />
+              ))}
+            </div>
+          </TabsContent>
+          <TabsContent value="homework">
+            <Homework />
+          </TabsContent>
+          <TabsContent value="schedule">
+            <WorkSchedule />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
