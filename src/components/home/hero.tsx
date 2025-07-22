@@ -62,7 +62,7 @@ function Hero() {
             </Button>
             <Button
               onClick={() => push("/sign-in")}
-              className="bg-demo-gradient text-white rounded-full w-[120px] py-5 shadow-demoShadow hover:opacity-90 transition-opacity"
+              className="bg-demo-gradient border-2 border-white/30 text-white rounded-full w-[120px] py-5 shadow-demoShadow hover:opacity-90 transition-opacity"
             >
               Login
             </Button>

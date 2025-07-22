@@ -17,7 +17,7 @@ function WhyWeAreBest() {
   const { push } = useRouter();
 
   return (
-    <div className="py-32 max-w-xl w-full mx-auto">
+    <div className="py-32 max-w-xl w-full mx-auto px-4">
       <Image
         src="/straight-boy.svg"
         alt="Why We Are Best"
