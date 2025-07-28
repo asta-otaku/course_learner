@@ -1,10 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Info, PlusCircle, X } from "lucide-react";
 import { AccountCreationProps } from "./accountCreation";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { childProfileSchema } from "@/lib/schema";
+import { z } from "zod";
+import { usePostChildProfiles } from "@/lib/api/mutations";
+import { Loader2 } from "lucide-react";
 
 export interface ChildProfile {
   avatar: File | null;
@@ -13,30 +19,36 @@ export interface ChildProfile {
   status: string;
 }
 
+type ChildProfileForm = z.infer<typeof childProfileSchema>;
+
 function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
-  const [data, setData] = useState<ChildProfile>({
-    avatar: null,
-    name: "",
-    year: "",
-    status: "active",
+  const {
+    mutate: postChildProfiles,
+    isPending,
+    isSuccess,
+  } = usePostChildProfiles();
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+  } = useForm<ChildProfileForm>({
+    resolver: zodResolver(childProfileSchema),
+    defaultValues: {
+      avatar: null,
+      name: "",
+      year: "",
+    },
   });
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setData((d) => ({ ...d, [name]: value }));
-  };
-
-  const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      setData((d) => ({ ...d, avatar: e.target.files![0] }));
+  const onSubmit = (data: ChildProfileForm) => {
+    postChildProfiles({
+      ...data,
+      avatar: data.avatar as File,
+    });
+    if (isSuccess) {
+      setCurrentStep(2);
     }
-  };
-
-  const handleNext = () => {
-    // you could validate here
-    setCurrentStep(2);
   };
 
   // build year options from this year down to (this year - 18)
@@ -54,69 +66,87 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
         We are almost there
       </p>
 
-      <div className="w-full max-w-xl">
+      <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-xl">
         {/* Avatar picker */}
         <div className="flex justify-center mb-4">
-          <label
-            htmlFor="avatar-upload"
-            className="relative cursor-pointer rounded-2xl bg-[#E9E9E9] p-0 flex flex-col items-center justify-center avatar-dashed"
-            style={{ width: 222, height: 191 }}
-          >
-            {data.avatar ? (
-              <div className="relative w-full h-full">
-                <img
-                  src={URL.createObjectURL(data.avatar)}
-                  alt="Avatar preview"
-                  className="object-cover rounded-lg w-full h-full"
-                />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    setData((d) => ({ ...d, avatar: null }));
+          <Controller
+            name="avatar"
+            control={control}
+            render={({ field }) => (
+              <label
+                htmlFor="avatar-upload"
+                className="relative cursor-pointer rounded-2xl bg-[#E9E9E9] p-0 flex flex-col items-center justify-center avatar-dashed"
+                style={{ width: 222, height: 191 }}
+              >
+                {field.value ? (
+                  <div className="relative w-full h-full">
+                    <img
+                      src={URL.createObjectURL(field.value)}
+                      alt="Avatar preview"
+                      className="object-cover rounded-lg w-full h-full"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        field.onChange(null);
+                      }}
+                      className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md"
+                    >
+                      <X className="w-4 h-4 text-gray-600" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <PlusCircle className="text-[#6B7280]" />
+                    <div className="text-sm text-[#6B7280] mt-2">
+                      Choose Avatar
+                    </div>
+                  </>
+                )}
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) {
+                      field.onChange(e.target.files[0]);
+                    }
                   }}
-                  className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md"
-                >
-                  <X className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
-            ) : (
-              <>
-                <PlusCircle className="text-[#6B7280]" />
-                <div className="text-sm text-[#6B7280] mt-2">Choose Avatar</div>
-              </>
+                />
+              </label>
             )}
-            <input
-              id="avatar-upload"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleAvatar}
-            />
-          </label>
+          />
         </div>
+        {errors.avatar && (
+          <div className="text-red-500 text-xs text-center mb-2">
+            {errors.avatar.message as string}
+          </div>
+        )}
 
         {/* Name field */}
         <div className="space-y-2">
           <div className="flex flex-col gap-1.5">
             <label className="font-medium">Name</label>
             <Input
-              name="name"
-              value={data.name}
-              onChange={handleChange}
+              {...register("name")}
               placeholder="Child’s name"
               className="!rounded-xl !h-11"
             />
+            {errors.name && (
+              <span className="text-red-500 text-xs">
+                {errors.name.message}
+              </span>
+            )}
           </div>
 
           {/* Year selector */}
           <div className="flex flex-col gap-1.5">
             <label className="font-medium">Year</label>
             <select
-              name="year"
-              value={data.year}
-              onChange={handleChange}
+              {...register("year")}
               className="h-11 rounded-xl bg-transparent border border-[#D1D5DB] px-4 text-base "
             >
               <option value="" disabled>
@@ -128,6 +158,11 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
                 </option>
               ))}
             </select>
+            {errors.year && (
+              <span className="text-red-500 text-xs">
+                {errors.year.message}
+              </span>
+            )}
           </div>
         </div>
 
@@ -143,15 +178,15 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
         {/* Next button */}
         <div className="mt-8">
           <Button
-            type="button"
-            onClick={handleNext}
+            type="submit"
             variant="outline"
+            disabled={isPending}
             className="w-full py-5 rounded-[999px] bg-primaryBlue text-white"
           >
-            Next
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Next"}
           </Button>
         </div>
-      </div>
+      </form>
     </>
   );
 }

@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, PlusCircle, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { tutorAccountCreationSchema } from "@/lib/schema";
+import { z } from "zod";
 
 export interface AccountCreationProps {
   currentStep: number;
@@ -17,41 +21,38 @@ export default function AccountCreation({
   setCurrentStep,
   isAdmin,
 }: AccountCreationProps) {
-  const [formData, setFormData] = useState<{
-    avatar: File | null;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    password: string;
-    confirmPassword: string;
-  }>({
-    avatar: null,
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<z.infer<typeof tutorAccountCreationSchema>>({
+    resolver: zodResolver(tutorAccountCreationSchema),
+    defaultValues: {
+      avatar: null,
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      password: "",
+      confirmPassword: "",
+      howDidYouHearAboutUs: "",
+      referralCode: "",
+    },
   });
   const [passwordVisible, setPasswordVisible] = useState(false);
   const { push } = useRouter();
 
   const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
-      setFormData((d) => ({ ...d, avatar: e.target.files![0] }));
+      setValue("avatar", e.target.files[0]);
     }
   };
 
   const toggleVisibility = () => setPasswordVisible((v) => !v);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((fd) => ({ ...fd, [name]: value }));
-  };
-
-  const handleNext = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const onSubmit = (data: z.infer<typeof tutorAccountCreationSchema>) => {
     if (isAdmin) {
       push("/admin/sign-in");
     } else {
@@ -74,7 +75,7 @@ export default function AccountCreation({
       </p>
 
       <form
-        onSubmit={handleNext}
+        onSubmit={handleSubmit(onSubmit)}
         data-testid="signup-form"
         className="max-w-md w-full mx-auto flex flex-col gap-2"
       >
@@ -85,10 +86,10 @@ export default function AccountCreation({
             className="relative cursor-pointer rounded-2xl bg-[#E9E9E9] p-0 flex flex-col items-center justify-center avatar-dashed"
             style={{ width: 222, height: 191 }}
           >
-            {formData.avatar ? (
+            {watch("avatar") ? (
               <div className="relative w-full h-full">
                 <img
-                  src={URL.createObjectURL(formData.avatar)}
+                  src={URL.createObjectURL(watch("avatar") as File)}
                   alt="Avatar preview"
                   className="object-cover rounded-lg w-full h-full"
                 />
@@ -97,7 +98,7 @@ export default function AccountCreation({
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
-                    setFormData((d) => ({ ...d, avatar: null }));
+                    setValue("avatar", null);
                   }}
                   className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md"
                 >
@@ -119,63 +120,74 @@ export default function AccountCreation({
             />
           </label>
         </div>
+        {errors.avatar && (
+          <span className="text-red-500 text-xs">
+            {errors.avatar.message as string}
+          </span>
+        )}
         {/** First Name */}
         <div className="flex flex-col gap-1">
           <label className="font-medium">First Name</label>
           <Input
-            name="firstName"
-            value={formData.firstName}
-            onChange={handleChange}
+            {...register("firstName")}
             className="!rounded-xl !h-11 placeholder:text-textSubtitle"
             placeholder="John"
           />
+          {errors.firstName && (
+            <span className="text-red-500 text-xs">
+              {errors.firstName.message}
+            </span>
+          )}
         </div>
 
         {/** Last Name */}
         <div className="flex flex-col gap-1">
           <label className="font-medium">Last Name</label>
           <Input
-            name="lastName"
-            value={formData.lastName}
-            onChange={handleChange}
+            {...register("lastName")}
             className="!rounded-xl !h-11 placeholder:text-textSubtitle"
             placeholder="Doe"
           />
+          {errors.lastName && (
+            <span className="text-red-500 text-xs">
+              {errors.lastName.message}
+            </span>
+          )}
         </div>
 
         {/** Email */}
         <div className="flex flex-col gap-1">
           <label className="font-medium">Email Address</label>
           <Input
-            name="email"
+            {...register("email")}
             type="email"
-            value={formData.email}
-            onChange={handleChange}
             className="!rounded-xl !h-11 placeholder:text-textSubtitle"
             placeholder="johndoe@example.com"
           />
+          {errors.email && (
+            <span className="text-red-500 text-xs">{errors.email.message}</span>
+          )}
         </div>
 
         {/** Phone */}
         <div className="flex flex-col gap-1">
           <label className="font-medium">Phone Number</label>
           <Input
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
+            {...register("phone")}
             className="!rounded-xl !h-11 placeholder:text-textSubtitle"
             placeholder="Type Number"
           />
+          {errors.phone && (
+            <span className="text-red-500 text-xs">{errors.phone.message}</span>
+          )}
         </div>
 
         {/** Password */}
         <div className="relative flex flex-col gap-1">
           <label className="font-medium">Password</label>
           <Input
-            name="password"
+            {...register("password")}
             type={passwordVisible ? "text" : "password"}
-            value={formData.password}
-            onChange={handleChange}
             className="!rounded-xl !h-11 placeholder:text-textSubtitle"
             placeholder="Enter Password"
           />
@@ -189,16 +201,19 @@ export default function AccountCreation({
               <EyeOff color="#141B34" className="w-5" />
             )}
           </span>
+          {errors.password && (
+            <span className="text-red-500 text-xs">
+              {errors.password.message}
+            </span>
+          )}
         </div>
 
         {/** Confirm Password */}
         <div className="relative flex flex-col gap-1">
           <label className="font-medium">Confirm Password</label>
           <Input
-            name="confirmPassword"
+            {...register("confirmPassword")}
             type={passwordVisible ? "text" : "password"}
-            value={formData.confirmPassword}
-            onChange={handleChange}
             className="!rounded-xl !h-11 placeholder:text-textSubtitle"
             placeholder="Enter Password"
           />
@@ -212,8 +227,12 @@ export default function AccountCreation({
               <EyeOff color="#141B34" className="w-5" />
             )}
           </span>
+          {errors.confirmPassword && (
+            <span className="text-red-500 text-xs">
+              {errors.confirmPassword.message}
+            </span>
+          )}
         </div>
-
         <Button
           type="submit"
           className="w-full flex gap-2 mt-6 py-5 rounded-[999px] font-medium text-sm bg-demo-gradient text-white shadow-demoShadow"

@@ -3,21 +3,41 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { signinSchema } from "@/lib/schema";
+import { z } from "zod";
+import { usePostLogin } from "@/lib/api/mutations";
 
 function SigninForm({
   setStep,
 }: {
   setStep: React.Dispatch<React.SetStateAction<number>>;
 }) {
-  const [formDetails, setFormDetails] = useState({
-    email: "",
-    password: "",
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<z.infer<typeof signinSchema>>({
+    resolver: zodResolver(signinSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
   });
+  const { mutate: postLogin, isPending, isSuccess } = usePostLogin();
   const [passwordVisible, setPasswordVisible] = useState(false);
   const toggleVisibility = () => setPasswordVisible((v) => !v);
+  const onSubmit = (data: z.infer<typeof signinSchema>) => {
+    postLogin(data);
+    if (isSuccess) {
+      setStep(1);
+    }
+  };
+
   return (
     <div className="w-full flex flex-col items-center">
       <Link href="/" className="absolute top-[5%] left-[5%]">
@@ -29,34 +49,29 @@ function SigninForm({
       <p className="text-textSubtitle font-medium mb-6 text-center">
         Enter your details correctly
       </p>
-      <form className="max-w-xl w-full mx-auto flex flex-col gap-4">
+      <form
+        className="max-w-xl w-full mx-auto flex flex-col gap-4"
+        onSubmit={handleSubmit(onSubmit)}
+      >
         {/* email */}
         <div className="flex flex-col gap-1">
           <label className="font-medium">Email Address</label>
           <Input
-            name="email"
+            {...register("email")}
             type="email"
-            value={formDetails.email}
-            onChange={(e) =>
-              setFormDetails((f) => ({ ...f, email: e.target.value }))
-            }
             className="!rounded-xl !h-11 placeholder:text-textSubtitle"
             placeholder="johndoe@example.com"
           />
+          {errors.email && (
+            <span className="text-red-500 text-xs">{errors.email.message}</span>
+          )}
         </div>
         {/* password */}
         <div className="relative flex flex-col gap-1">
           <label className="font-medium">Password</label>
           <Input
-            name="password"
+            {...register("password")}
             type={passwordVisible ? "text" : "password"}
-            value={formDetails.password}
-            onChange={(e) =>
-              setFormDetails((f) => ({
-                ...f,
-                password: e.target.value,
-              }))
-            }
             className="!rounded-xl !h-11 placeholder:text-textSubtitle"
             placeholder="Enter Password"
           />
@@ -70,26 +85,25 @@ function SigninForm({
               <EyeOff color="#141B34" className="w-5" />
             )}
           </span>
+          {errors.password && (
+            <span className="text-red-500 text-xs">
+              {errors.password.message}
+            </span>
+          )}
         </div>
-
         <Link
           href="/forgot-password"
           className="text-right text-primaryBlue font-medium"
         >
           Forgot Password?
         </Link>
-
         <Button
-          onClick={(e) => {
-            e.preventDefault();
-            setStep(1);
-          }}
           type="submit"
+          disabled={isPending}
           className="w-full flex gap-2 my-3 py-5 rounded-[999px] font-medium text-sm bg-demo-gradient text-white shadow-demoShadow"
         >
-          Sign In
+          {isPending ? <Loader className="w-4 h-4 animate-spin" /> : "Sign In"}
         </Button>
-
         <p className="text-center font-medium">
           Don&apos;t have an account?{" "}
           <Link href="/sign-up" className="text-primaryBlue">

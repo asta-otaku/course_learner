@@ -106,3 +106,209 @@ export interface TutorProfile {
     [day: string]: string[];
   };
 }
+
+// API Response Types
+export interface ApiResponse<T = any> {
+  status: string;
+  message: string;
+  data: T;
+}
+
+// Auth Types
+export interface SignUpData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phoneNumber: string;
+  howDidYouHearAboutUs?: string;
+  referralCode?: string;
+}
+
+export interface TutorSignUpData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phoneNumber: string;
+  avatar?: File;
+}
+
+export interface TimeslotCreateData {
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  chunkSizeMinutes: number;
+}
+
+export interface Timeslot {
+  id: string;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  isRecurring: boolean;
+  isActive: boolean;
+}
+
+export interface LoginData {
+  email: string;
+  password: string;
+}
+
+export interface ForgotPasswordData {
+  email: string;
+}
+
+export interface ResetPasswordData {
+  email: string;
+  otpCode: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface ChangePasswordData {
+  oldPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface AuthResponse {
+  firstName: string;
+  lastName: string;
+  userRole: string;
+  accessToken: string;
+  refreshToken: string;
+}
+
+// Subscription Types
+export interface SubscriptionPlan {
+  description: string;
+  subscriptionId: string;
+  status: string;
+  offerType: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface ManageSubscriptionResponse {
+  url: string;
+}
+
+export interface CreateSubscriptionData {
+  offerType: string;
+}
+
+// Child Profile Types
+export interface ChildProfile {
+  id: string;
+  name: string;
+  year: string;
+  avatar: string;
+}
+
+export interface ParentProfile {
+  id: number;
+  howDidYouHearAboutUs: string;
+  stripeCustomerId: string;
+  referralCode: string;
+  offerType: string;
+}
+
+export interface TutorUser {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  role: string;
+  referralCode: string;
+  tutorProfile: Record<string, never>;
+  parentProfile: ParentProfile;
+}
+
+export interface TutorDetails {
+  id: number;
+  user: TutorUser;
+  avatar: string;
+  assignedStudents: string[];
+  timeSlots: string[];
+}
+
+export interface DetailedChildProfile {
+  id: number;
+  name: string;
+  year: string;
+  avatar: string;
+  parent: ParentProfile;
+  tutor: TutorDetails;
+}
+
+export interface CreateChildProfileData {
+  name: string;
+  year: string;
+  avatar: File;
+}
+
+// Session Types
+export interface SessionTimeSlot {
+  id: number;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  isRecurring: boolean;
+  isActive: boolean;
+}
+
+export interface SessionBookedBy {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
+
+export interface SessionData {
+  id: number;
+  timeSlot: SessionTimeSlot;
+  startTime: string;
+  endTime: string;
+  sessionDate: string;
+  bookedAt: string;
+  bookedBy: SessionBookedBy;
+  status: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Session Mutation Request Types
+export interface BookSessionData {
+  childProfileId: number;
+  notes: string;
+}
+
+export interface ConfirmSessionData {
+  notes: string;
+}
+
+export interface CancelSessionData {
+  reason: string;
+}
+
+export interface RescheduleSessionData {
+  newSessionId: number;
+  reason: string;
+}
+
+// Session API Response Types
+export interface SessionResponse {
+  id: number;
+  timeSlot: SessionTimeSlot;
+  startTime: string;
+  endTime: string;
+  sessionDate: string;
+  bookedAt: string;
+  bookedBy: SessionBookedBy;
+  status: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}

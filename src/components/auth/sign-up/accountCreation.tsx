@@ -3,44 +3,62 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { accountCreationSchema } from "@/lib/schema";
+import { z } from "zod";
+import { usePostSignUp } from "@/lib/api/mutations";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export interface AccountCreationProps {
   currentStep: number;
   setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
 }
 
+type AccountCreationForm = z.infer<typeof accountCreationSchema>;
+
 export default function AccountCreation({
   currentStep,
   setCurrentStep,
 }: AccountCreationProps) {
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    password: "",
-    referral: "",
-  });
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [successStep, setSuccessStep] = useState(false);
+  const { mutate: postSignUp, isPending, isSuccess } = usePostSignUp();
+  const [countryCode, setCountryCode] = useState("+44");
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<AccountCreationForm>({
+    resolver: zodResolver(accountCreationSchema),
+  });
 
   const toggleVisibility = () => setPasswordVisible((v) => !v);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((fd) => ({ ...fd, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Here you could also validate & send formData to your API...
-    setSuccessStep(true);
+  const onSubmit = (data: AccountCreationForm) => {
+    const cleanedPhone = data.phoneNumber.replace(/^0+/, "");
+    const fullPhoneNumber = `${countryCode}${cleanedPhone}`;
+    postSignUp({ ...data, phoneNumber: fullPhoneNumber });
+    if (isSuccess) {
+      setSuccessStep(true);
+    }
   };
 
   const handleNext = () => {
     setCurrentStep(1);
   };
+
+  const countryCodes = [
+    { code: "+44", label: "UK" },
+    { code: "+1", label: "US" },
+  ];
 
   return (
     <>
@@ -69,7 +87,7 @@ export default function AccountCreation({
         </div>
       ) : (
         <form
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmit(onSubmit)}
           data-testid="signup-form"
           className="max-w-md w-full mx-auto flex flex-col gap-2"
         >
@@ -77,59 +95,84 @@ export default function AccountCreation({
           <div className="flex flex-col gap-1">
             <label className="font-medium">First Name</label>
             <Input
-              name="firstName"
-              value={formData.firstName}
-              onChange={handleChange}
+              {...register("firstName")}
               className="!rounded-xl !h-11 placeholder:text-textSubtitle"
               placeholder="John"
             />
+            {errors.firstName && (
+              <span className="text-red-500 text-xs">
+                {errors.firstName.message}
+              </span>
+            )}
           </div>
 
           {/** Last Name */}
           <div className="flex flex-col gap-1">
             <label className="font-medium">Last Name</label>
             <Input
-              name="lastName"
-              value={formData.lastName}
-              onChange={handleChange}
+              {...register("lastName")}
               className="!rounded-xl !h-11 placeholder:text-textSubtitle"
               placeholder="Doe"
             />
+            {errors.lastName && (
+              <span className="text-red-500 text-xs">
+                {errors.lastName.message}
+              </span>
+            )}
           </div>
 
           {/** Email */}
           <div className="flex flex-col gap-1">
             <label className="font-medium">Email Address</label>
             <Input
-              name="email"
+              {...register("email")}
               type="email"
-              value={formData.email}
-              onChange={handleChange}
               className="!rounded-xl !h-11 placeholder:text-textSubtitle"
               placeholder="johndoe@example.com"
             />
+            {errors.email && (
+              <span className="text-red-500 text-xs">
+                {errors.email.message}
+              </span>
+            )}
           </div>
 
           {/** Phone */}
           <div className="flex flex-col gap-1">
             <label className="font-medium">Phone Number</label>
-            <Input
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              className="!rounded-xl !h-11 placeholder:text-textSubtitle"
-              placeholder="Type Number"
-            />
+            <div className="flex gap-2">
+              <Select value={countryCode} onValueChange={setCountryCode}>
+                <SelectTrigger className="w-[100px] !rounded-xl !h-11">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {countryCodes.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                {...register("phoneNumber")}
+                className="!rounded-xl !h-11 placeholder:text-textSubtitle flex-1"
+                placeholder="Type Number"
+                type="tel"
+              />
+            </div>
+            {errors.phoneNumber && (
+              <span className="text-red-500 text-xs">
+                {errors.phoneNumber.message}
+              </span>
+            )}
           </div>
 
           {/** Password */}
           <div className="relative flex flex-col gap-1">
             <label className="font-medium">Password</label>
             <Input
-              name="password"
+              {...register("password")}
               type={passwordVisible ? "text" : "password"}
-              value={formData.password}
-              onChange={handleChange}
               className="!rounded-xl !h-11 placeholder:text-textSubtitle"
               placeholder="Enter Password"
             />
@@ -143,24 +186,37 @@ export default function AccountCreation({
                 <EyeOff color="#141B34" className="w-5" />
               )}
             </span>
+            {errors.password && (
+              <span className="text-red-500 text-xs">
+                {errors.password.message}
+              </span>
+            )}
           </div>
 
           {/** Referral */}
           <div className="flex flex-col gap-1">
             <label className="font-medium">How did you hear about us</label>
             <Input
-              name="referral"
-              value={formData.referral}
-              onChange={handleChange}
+              {...register("howDidYouHearAboutUs")}
               className="!rounded-xl !h-11 placeholder:text-textSubtitle"
             />
+            {errors.howDidYouHearAboutUs && (
+              <span className="text-red-500 text-xs">
+                {errors.howDidYouHearAboutUs.message}
+              </span>
+            )}
           </div>
 
           <Button
             type="submit"
+            disabled={isPending}
             className="w-full flex gap-2 mt-6 py-5 rounded-[999px] font-medium text-sm bg-demo-gradient text-white shadow-demoShadow"
           >
-            Create Account
+            {isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              "Create Account"
+            )}
           </Button>
         </form>
       )}
