@@ -18,6 +18,7 @@ import {
 import { getPlanTypeColors } from "./p";
 
 type TableMetricsProps = {
+  groupedUserData: any[];
   userData: any[];
   setSelectedUser: (id: string) => void;
   setStep: (step: number) => void;
@@ -26,6 +27,7 @@ type TableMetricsProps = {
 };
 
 function TableMetrics({
+  groupedUserData,
   userData,
   setSelectedUser,
   setStep,
@@ -38,15 +40,31 @@ function TableMetrics({
     {}
   );
 
-  const filteredUserData = userData.filter(
-    (user) =>
-      (user.user.toLowerCase().includes(search.toLowerCase()) ||
-        user.childName.toLowerCase().includes(search.toLowerCase())) &&
-      (!filter.planType ||
+  const filteredGroupedData = groupedUserData
+    .map((parent) => ({
+      ...parent,
+      children: parent.children.filter(
+        (child: any) =>
+          !filter.year || filter.year === "all" || child.year === filter.year
+      ),
+    }))
+    .filter((parent) => {
+      const matchesSearch =
+        search === "" ||
+        parent.parentName.toLowerCase().includes(search.toLowerCase()) ||
+        parent.children.some((child: any) =>
+          child.childName.toLowerCase().includes(search.toLowerCase())
+        );
+
+      const matchesPlanType =
+        !filter.planType ||
         filter.planType === "all" ||
-        user.planType === filter.planType) &&
-      (!filter.year || filter.year === "all" || user.year === filter.year)
-  );
+        parent.planType === filter.planType;
+
+      const hasMatchingChildren = parent.children.length > 0;
+
+      return matchesSearch && matchesPlanType && hasMatchingChildren;
+    });
 
   const handleApplyFilter = () => setShowFilter(false);
 
@@ -140,67 +158,123 @@ function TableMetrics({
             <thead className="bg-bgOffwhite">
               <tr>
                 <th className="px-6 py-4 text-left text-sm font-medium text-textSubtitle">
-                  User
+                  Parent
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-textSubtitle">
-                  Child's Name
-                </th>
-                <th className="px-6 py-4 text-center text-sm font-medium text-textSubtitle">
-                  Plan Type
+                  Children
                 </th>
                 <th className="px-6 py-4 text-center text-sm font-medium text-textSubtitle">
                   Year
                 </th>
                 <th className="px-6 py-4 text-center text-sm font-medium text-textSubtitle">
-                  Assigned Tutor
+                  Plan Type
+                </th>
+                <th className="px-6 py-4 text-center text-sm font-medium text-textSubtitle">
+                  Actions
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredUserData.map((user) => (
-                <tr key={user.id}>
+              {filteredGroupedData.map((parent) => (
+                <tr
+                  key={parent.parentId}
+                  className="hover:bg-gray-50 transition-colors"
+                >
+                  {/* Parent Info */}
                   <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-                    {user.user}
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-base">
+                        {parent.parentName}
+                      </span>
+                      <span className="text-xs text-gray-500 mt-1">
+                        {parent.children.length} child
+                        {parent.children.length !== 1 ? "ren" : ""}
+                      </span>
+                    </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-                    {user.childName}
+
+                  {/* Children List */}
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-2">
+                      {parent.children.map((child: any) => (
+                        <div key={child.id} className="flex items-center gap-3">
+                          {child.avatar && (
+                            <img
+                              src={child.avatar}
+                              alt={child.childName}
+                              className="w-6 h-6 rounded-full object-cover"
+                            />
+                          )}
+                          <span className="text-sm font-medium">
+                            {child.childName}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </td>
+
+                  {/* Year Column */}
+                  <td className="px-6 py-4 text-center">
+                    <div className="flex flex-col gap-2">
+                      {parent.children.map((child: any) => (
+                        <div
+                          key={child.id}
+                          className="text-sm font-medium text-gray-900"
+                        >
+                          {child.year}
+                        </div>
+                      ))}
+                    </div>
+                  </td>
+
+                  {/* Plan Type */}
                   <td className="px-6 py-4 text-center">
                     <span
                       className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${getPlanTypeColors(
-                        user.planType
+                        parent.planType
                       )}`}
                     >
-                      {user.planType}
+                      {parent.planType}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 text-center font-medium">
-                    {user.year}
-                  </td>
+
+                  {/* Actions */}
                   <td className="px-6 py-4 text-center">
-                    {user.assignedTutor ? (
-                      <Button
-                        variant="ghost"
-                        className="text-primaryBlue p-0 text-sm font-medium hover:text-blue-700"
-                        onClick={() => {
-                          setSelectedUser(user.id);
-                          setStep(1);
-                        }}
-                      >
-                        {user.assignedTutor}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        className="text-primaryBlue p-0 text-sm font-medium hover:text-blue-700"
-                        onClick={() => {
-                          setSelectedUser(user.id);
-                          setShowTutorModal(true);
-                        }}
-                      >
-                        Assign Tutor
-                      </Button>
-                    )}
+                    <div className="flex flex-col gap-2">
+                      {parent.children.map((child: any) => (
+                        <div key={child.id}>
+                          {!parent.canAssignTutor ? (
+                            <span className="text-gray-500 text-xs">
+                              Not Available
+                            </span>
+                          ) : child.assignedTutorName ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-primaryBlue p-1 text-xs font-medium hover:text-blue-700"
+                              onClick={() => {
+                                setSelectedUser(child.id);
+                                setStep(1);
+                              }}
+                            >
+                              {child.assignedTutorName}
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-primaryBlue p-1 text-xs font-medium hover:text-blue-700"
+                              onClick={() => {
+                                setSelectedUser(child.id);
+                                setShowTutorModal(true);
+                              }}
+                            >
+                              Assign Tutor
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </td>
                 </tr>
               ))}

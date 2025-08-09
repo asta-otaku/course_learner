@@ -12,9 +12,30 @@ import BookingDialog from "./bookingDialog";
 import SessionSection, { EmptySessionsState } from "./sessionCard";
 
 const timeSlots: TimeSlot[] = [
-  { id: "4-5", label: "4 - 5PM", value: "4:00-5:00PM" },
-  { id: "5-6", label: "5 - 6PM", value: "5:00-6:00PM" },
-  { id: "6-7", label: "6 - 7PM", value: "6:00-7:00PM" },
+  {
+    id: "4-5",
+    label: "4 - 5PM",
+    startTime: "4:00",
+    endTime: "5:00",
+    chunkSize: 20,
+    isActive: true,
+  },
+  {
+    id: "5-6",
+    label: "5 - 6PM",
+    startTime: "5:00",
+    endTime: "6:00",
+    chunkSize: 20,
+    isActive: true,
+  },
+  {
+    id: "6-7",
+    label: "6 - 7PM",
+    startTime: "6:00",
+    endTime: "7:00",
+    chunkSize: 20,
+    isActive: true,
+  },
 ];
 
 function Sessions() {

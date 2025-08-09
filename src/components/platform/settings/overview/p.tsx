@@ -2,8 +2,11 @@ import React from "react";
 import { PadlockIcon } from "@/assets/svgs/padlock";
 import { PaymentMethodIcon } from "@/assets/svgs/paymentCard";
 import { ArrowRightIcon } from "@/assets/svgs/arrowRight";
+import { useGetManageSubscription } from "@/lib/api/queries";
+import { toast } from "react-toastify";
 
 function StepZero({ setStep }: { setStep: (step: number) => void }) {
+  const { data } = useGetManageSubscription();
   return (
     <>
       <div className="flex items-center gap-4 w-full">
@@ -24,7 +27,12 @@ function StepZero({ setStep }: { setStep: (step: number) => void }) {
           <ArrowRightIcon />
         </div>
         <div
-          onClick={() => setStep(2)}
+          onClick={() => {
+            if (data?.data?.url) {
+              toast.success(data.message);
+              window.open(data?.data.url, "_self");
+            }
+          }}
           className="bg-bgWhiteGray border border-black/20 cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4"
         >
           <div className="flex items-center gap-2">

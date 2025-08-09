@@ -1,30 +1,39 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { subscriptionPlans } from "@/lib/utils";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import React from "react";
+import { useGetSubscriptionPlans } from "@/lib/api/queries";
+import { usePostSubscription } from "@/lib/api/mutations";
+import { FullSubscriptionPlan } from "@/lib/types";
 
-function Subscriptions({ currentStep }: { currentStep: number }) {
+function Subscriptions({ currentStep }: { currentStep?: number }) {
+  const { data } = useGetSubscriptionPlans();
+  const plans = data?.data as FullSubscriptionPlan[];
   return (
     <div className="max-w-screen-2xl w-full h-full p-4 md:p-8 lg:p-12">
-      <h5 className="text-textSubtitle font-medium uppercase text-sm md:text-base">
-        step {currentStep + 1} out of 3
-      </h5>
+      {currentStep ? (
+        <h5 className="text-textSubtitle font-medium uppercase text-sm md:text-base">
+          step {currentStep + 1} out of 3
+        </h5>
+      ) : null}
       <h2 className="font-semibold text-primaryBlue text-xl md:text-2xl lg:text-4xl my-3 uppercase">
         CHOOSE THE PLAN BEST SUITED FOR YOUR CHILD
       </h2>
       <div className="max-w-[100vw] w-full overflow-y-auto scrollbar-hide flex gap-4 justify-center">
-        {subscriptionPlans.map((plan) => (
-          <Card
-            key={plan.title}
-            title={plan.title}
-            price={plan.price}
-            trialDays={plan.trialDays}
-            features={plan.features}
-          />
-        ))}
+        {plans
+          ?.slice()
+          ?.reverse()
+          .map((plan) => (
+            <Card
+              key={plan.id}
+              title={plan.name}
+              price={plan.default_price.unit_amount}
+              trialDays={plan.description}
+              features={plan.attributes}
+              offerType={plan.metadata.offerType}
+            />
+          ))}
       </div>
     </div>
   );
@@ -37,31 +46,36 @@ function Card({
   price,
   trialDays,
   features,
+  offerType,
 }: {
   title: string;
   price: number;
-  trialDays: number;
+  trialDays: string;
   features: string[];
+  offerType: string;
 }) {
-  const { push } = useRouter();
+  const { mutateAsync: postSubscription } = usePostSubscription();
   return (
-    <div
-      onClick={() => {
-        push("/sign-in");
-      }}
-      className="min-h-[60vh] max-h-[80vh] grow bg-white p-[5px] max-w-[300px] min-w-[300px] md:max-w-[380px] w-full rounded-3xl space-y-6 cursor-pointer"
-    >
+    <div className="min-h-[60vh] max-h-[80vh] grow bg-white p-[5px] max-w-[300px] min-w-[300px] md:max-w-[380px] w-full rounded-3xl space-y-6 cursor-pointer">
       <div className="bg-bgWhiteGray rounded-2xl p-4 space-y-4">
         <h4 className="text-textGray font-geist uppercase font-medium">
           The {title}
         </h4>
         <h2 className="text-textGray font-geist font-medium text-4xl">
-          ${price}
+          ${price / 100}
         </h2>
-        <p className="text-textSubtitle font-medium text-xs font-geist">
-          {trialDays} days free trial included
+        <p className="text-textSubtitle font-medium text-xs font-geist h-8">
+          {trialDays}
         </p>
-        <Button className="w-full flex gap-2 mt-6 py-5 rounded-[999px] font-medium text-sm bg-demo-gradient text-white shadow-demoShadow">
+        <Button
+          onClick={async () => {
+            const res = await postSubscription({ offerType });
+            if (res.status === 201) {
+              window.open(res.data.data.url, "_self");
+            }
+          }}
+          className="w-full flex gap-2 mt-6 py-5 rounded-[999px] font-medium text-sm bg-demo-gradient text-white shadow-demoShadow"
+        >
           Get Started
         </Button>
       </div>

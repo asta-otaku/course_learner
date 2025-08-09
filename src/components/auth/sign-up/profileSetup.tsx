@@ -11,6 +11,7 @@ import { childProfileSchema } from "@/lib/schema";
 import { z } from "zod";
 import { usePostChildProfiles } from "@/lib/api/mutations";
 import { Loader2 } from "lucide-react";
+import { toast } from "react-toastify";
 
 export interface ChildProfile {
   avatar: File | null;
@@ -22,11 +23,7 @@ export interface ChildProfile {
 type ChildProfileForm = z.infer<typeof childProfileSchema>;
 
 function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
-  const {
-    mutate: postChildProfiles,
-    isPending,
-    isSuccess,
-  } = usePostChildProfiles();
+  const { mutateAsync: postChildProfiles, isPending } = usePostChildProfiles();
   const {
     register,
     handleSubmit,
@@ -41,12 +38,13 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
     },
   });
 
-  const onSubmit = (data: ChildProfileForm) => {
-    postChildProfiles({
+  const onSubmit = async (data: ChildProfileForm) => {
+    const res = await postChildProfiles({
       ...data,
       avatar: data.avatar as File,
     });
-    if (isSuccess) {
+    if (res.status === 201) {
+      toast.success(res.data.message);
       setCurrentStep(2);
     }
   };

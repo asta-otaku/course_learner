@@ -3,42 +3,71 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { timeSlots } from "@/lib/utils";
-
-const days = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
+import { useGetTimeslots } from "@/lib/api/queries";
+import { Loader } from "lucide-react";
+import { Timeslot } from "@/lib/types";
+import {
+  days,
+  formatTimeSlotLabel,
+  getAvailableDays,
+  isDaySelected,
+  getTimeslotsForDay,
+} from "@/lib/utils";
+import { usePostTutorAvailability } from "@/lib/api/mutations";
+import { toast } from "react-toastify";
 
 export default function AvailabilitySetup({
   currentStep,
 }: {
   currentStep: number;
 }) {
-  const [availability, setAvailability] = useState<{
-    [day: string]: string[];
-  }>({});
+  const [selectedTimeslotIds, setSelectedTimeslotIds] = useState<string[]>([]);
+  const { data: timeslotsData, isLoading } = useGetTimeslots();
 
-  const toggleSlot = (day: string, slotId: string) => {
-    setAvailability((prev) => {
-      const current = prev[day] || [];
-      const updated = current.includes(slotId)
-        ? current.filter((id) => id !== slotId)
-        : [...current, slotId];
-      return { ...prev, [day]: updated };
+  const toggleSlot = (slotId: string) => {
+    setSelectedTimeslotIds((prev) => {
+      return prev.includes(slotId)
+        ? prev.filter((id) => id !== slotId)
+        : [...prev, slotId];
     });
   };
 
-  const isDaySelected = (day: string) => {
-    return (availability[day] || []).length > 0;
+  const { push } = useRouter();
+  const { mutateAsync: postTutorAvailability, isPending } =
+    usePostTutorAvailability();
+
+  const handleSubmit = async () => {
+    if (selectedTimeslotIds.length === 0) {
+      toast.error("Please select at least one time slot");
+      return;
+    }
+
+    try {
+      const response = await postTutorAvailability({
+        timeSlotIds: selectedTimeslotIds,
+        startToday: false,
+      });
+      if (response.status === 201) {
+        toast.success(response.data.message);
+        push("/tutor");
+      }
+    } catch (error) {
+      console.error("Error submitting availability:", error);
+    }
   };
 
-  const { push } = useRouter();
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-4xl mx-auto">
+        <div className="flex items-center justify-center h-64">
+          <div className="flex items-center gap-2 text-lg text-gray-600">
+            <Loader className="w-4 h-4 animate-spin" />
+            Loading time slots...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -55,7 +84,7 @@ export default function AvailabilitySetup({
       </div>
 
       <div className="max-w-lg mx-auto w-full overflow-auto hide-scrollbar h-[65vh]">
-        {days.map((day) => (
+        {getAvailableDays(timeslotsData).map((day) => (
           <div
             key={day}
             className="bg-white border rounded-2xl p-4 mb-4 shadow-sm"
@@ -64,7 +93,9 @@ export default function AvailabilitySetup({
               <div>
                 <h3
                   className={`font-medium ${
-                    isDaySelected(day) ? "text-primaryBlue" : "text-black"
+                    isDaySelected(day, timeslotsData, selectedTimeslotIds)
+                      ? "text-primaryBlue"
+                      : "text-black"
                   }`}
                 >
                   {day}
@@ -75,7 +106,7 @@ export default function AvailabilitySetup({
               </div>
               <div
                 className={`w-3 h-3 rounded-full border-2 ${
-                  isDaySelected(day)
+                  isDaySelected(day, timeslotsData, selectedTimeslotIds)
                     ? "ring-primaryBlue ring-2 bg-primaryBlue border-white"
                     : "ring-gray-400 ring-2 bg-white border-white"
                 }`}
@@ -83,19 +114,19 @@ export default function AvailabilitySetup({
             </div>
 
             <div className="space-y-2">
-              {timeSlots.map((slot) => {
-                const selected = availability[day]?.includes(slot.id);
+              {getTimeslotsForDay(day, timeslotsData).map((slot: Timeslot) => {
+                const selected = selectedTimeslotIds.includes(slot.id);
                 return (
                   <div
                     key={slot.id}
-                    onClick={() => toggleSlot(day, slot.id)}
+                    onClick={() => toggleSlot(slot.id)}
                     className={`cursor-pointer rounded-lg py-2 text-center font-medium ${
                       selected
                         ? "bg-primaryBlue text-white"
                         : "bg-gray-100 text-black"
                     }`}
                   >
-                    {slot.label}
+                    {formatTimeSlotLabel(slot.startTime, slot.endTime)}
                   </div>
                 );
               })}
@@ -105,10 +136,18 @@ export default function AvailabilitySetup({
       </div>
 
       <Button
-        onClick={() => push("/tutor/sign-in")}
-        className="w-full mt-12 bg-primaryBlue rounded-full"
+        onClick={handleSubmit}
+        disabled={isPending || selectedTimeslotIds.length === 0}
+        className="w-full mt-12 bg-primaryBlue rounded-full flex items-center gap-2"
       >
-        Create Account
+        {isPending ? (
+          <>
+            <Loader className="w-4 h-4 animate-spin" />
+            Creating Account...
+          </>
+        ) : (
+          "Create Account"
+        )}
       </Button>
     </div>
   );

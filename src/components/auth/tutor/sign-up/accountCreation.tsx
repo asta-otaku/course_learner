@@ -3,12 +3,14 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, PlusCircle, X } from "lucide-react";
+import { Eye, EyeOff, PlusCircle, X, Loader } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { tutorAccountCreationSchema } from "@/lib/schema";
+import { usePostTutorSignUp } from "@/lib/api/mutations";
 import { z } from "zod";
+import { toast } from "react-toastify";
 
 export interface AccountCreationProps {
   currentStep: number;
@@ -34,7 +36,7 @@ export default function AccountCreation({
       firstName: "",
       lastName: "",
       email: "",
-      phone: "",
+      phoneNumber: "",
       password: "",
       confirmPassword: "",
       howDidYouHearAboutUs: "",
@@ -42,6 +44,8 @@ export default function AccountCreation({
     },
   });
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const { mutateAsync: postTutorSignUp, isPending } =
+    usePostTutorSignUp(isAdmin);
   const { push } = useRouter();
 
   const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,11 +56,19 @@ export default function AccountCreation({
 
   const toggleVisibility = () => setPasswordVisible((v) => !v);
 
-  const onSubmit = (data: z.infer<typeof tutorAccountCreationSchema>) => {
-    if (isAdmin) {
-      push("/admin/sign-in");
-    } else {
-      setCurrentStep(1);
+  const onSubmit = async (data: z.infer<typeof tutorAccountCreationSchema>) => {
+    const res = await postTutorSignUp(data);
+    if (res.status === 201) {
+      toast.success(res.data.message);
+      localStorage.setItem(
+        isAdmin ? "admin" : "tutor",
+        JSON.stringify(res.data)
+      );
+      if (isAdmin) {
+        push("/admin");
+      } else {
+        setCurrentStep(1);
+      }
     }
   };
 
@@ -173,12 +185,14 @@ export default function AccountCreation({
         <div className="flex flex-col gap-1">
           <label className="font-medium">Phone Number</label>
           <Input
-            {...register("phone")}
+            {...register("phoneNumber")}
             className="!rounded-xl !h-11 placeholder:text-textSubtitle"
             placeholder="Type Number"
           />
-          {errors.phone && (
-            <span className="text-red-500 text-xs">{errors.phone.message}</span>
+          {errors.phoneNumber && (
+            <span className="text-red-500 text-xs">
+              {errors.phoneNumber.message}
+            </span>
           )}
         </div>
 
@@ -235,9 +249,10 @@ export default function AccountCreation({
         </div>
         <Button
           type="submit"
+          disabled={isPending}
           className="w-full flex gap-2 mt-6 py-5 rounded-[999px] font-medium text-sm bg-demo-gradient text-white shadow-demoShadow"
         >
-          Next
+          {isPending ? <Loader className="w-4 h-4 animate-spin" /> : "Next"}
         </Button>
       </form>
     </>

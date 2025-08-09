@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { accountCreationSchema } from "@/lib/schema";
@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "react-toastify";
 
 export interface AccountCreationProps {
   currentStep: number;
@@ -30,7 +31,7 @@ export default function AccountCreation({
 }: AccountCreationProps) {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [successStep, setSuccessStep] = useState(false);
-  const { mutate: postSignUp, isPending, isSuccess } = usePostSignUp();
+  const { mutateAsync: postSignUp, isPending } = usePostSignUp();
   const [countryCode, setCountryCode] = useState("+44");
   const {
     register,
@@ -42,12 +43,21 @@ export default function AccountCreation({
 
   const toggleVisibility = () => setPasswordVisible((v) => !v);
 
-  const onSubmit = (data: AccountCreationForm) => {
-    const cleanedPhone = data.phoneNumber.replace(/^0+/, "");
-    const fullPhoneNumber = `${countryCode}${cleanedPhone}`;
-    postSignUp({ ...data, phoneNumber: fullPhoneNumber });
-    if (isSuccess) {
-      setSuccessStep(true);
+  const onSubmit = async (data: AccountCreationForm) => {
+    try {
+      const cleanedPhone = data.phoneNumber.replace(/^0+/, "");
+      const fullPhoneNumber = `${countryCode}${cleanedPhone}`;
+      const res = await postSignUp({ ...data, phoneNumber: fullPhoneNumber });
+
+      if (res.status === 201) {
+        // Store the user data in localStorage
+        localStorage.setItem("user", JSON.stringify(res.data));
+        setSuccessStep(true);
+        toast.success(res.data.message);
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+      toast.error("An error occurred during account creation.");
     }
   };
 
@@ -213,7 +223,7 @@ export default function AccountCreation({
             className="w-full flex gap-2 mt-6 py-5 rounded-[999px] font-medium text-sm bg-demo-gradient text-white shadow-demoShadow"
           >
             {isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader className="w-4 h-4 animate-spin" />
             ) : (
               "Create Account"
             )}

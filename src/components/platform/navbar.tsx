@@ -22,6 +22,8 @@ import {
 import TagIcon from "@/assets/svgs/tag";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
 import LogoutIcon from "@/assets/svgs/logout";
+import { useAuthGuard } from "../AuthGuard";
+import { logout } from "@/lib/services/axiosInstance";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -30,6 +32,7 @@ export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { activeProfile, changeProfile, isLoaded, profiles } =
     useSelectedProfile();
+  const { isAuthenticated } = useAuthGuard();
 
   const platformRoutes = [
     { name: "Dashboard", path: "/dashboard" },
@@ -50,6 +53,10 @@ export default function Navbar() {
     activeProfile?.subscriptionName === "Tuition"
       ? tuitionRoutes
       : platformRoutes;
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   if (!isLoaded) {
     return (
@@ -167,6 +174,7 @@ export default function Navbar() {
                 <DropdownMenuSeparator className="my-1" />
                 <DropdownMenuItem
                   onClick={() => {
+                    logout();
                     localStorage.removeItem("selectedProfile");
                     localStorage.removeItem("activeProfile");
                     push("/sign-in");

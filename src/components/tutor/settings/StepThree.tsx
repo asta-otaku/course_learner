@@ -1,38 +1,43 @@
 import React, { useState } from "react";
 import BackArrow from "@/assets/svgs/arrowback";
 import { Button } from "@/components/ui/button";
-import { timeSlots } from "@/lib/utils";
-
-const days = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
+import { useGetTimeslots } from "@/lib/api/queries";
+import { Loader } from "lucide-react";
+import { Timeslot } from "@/lib/types";
+import {
+  days,
+  formatTimeSlotLabel,
+  getAvailableDays,
+  isDaySelected,
+  getTimeslotsForDay,
+} from "@/lib/utils";
 
 function StepThree({ setStep }: { setStep: (step: number) => void }) {
-  const [availability, setAvailability] = useState<{ [day: string]: string[] }>(
-    {}
-  );
+  const [selectedTimeslotIds, setSelectedTimeslotIds] = useState<string[]>([]);
   const [editMode, setEditMode] = useState(false);
+  const { data: timeslotsData, isLoading } = useGetTimeslots();
 
-  const toggleSlot = (day: string, slotId: string) => {
+  const toggleSlot = (slotId: string) => {
     if (!editMode) return;
-    setAvailability((prev) => {
-      const current = prev[day] || [];
-      const updated = current.includes(slotId)
-        ? current.filter((id) => id !== slotId)
-        : [...current, slotId];
-      return { ...prev, [day]: updated };
+    setSelectedTimeslotIds((prev) => {
+      return prev.includes(slotId)
+        ? prev.filter((id) => id !== slotId)
+        : [...prev, slotId];
     });
   };
 
-  const isDaySelected = (day: string) => {
-    return (availability[day] || []).length > 0;
-  };
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-4xl mx-auto">
+        <div className="flex items-center justify-center h-64">
+          <div className="flex items-center gap-2 text-lg text-gray-600">
+            <Loader className="w-4 h-4 animate-spin" />
+            Loading time slots...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full flex flex-col items-center px-4">
@@ -67,7 +72,7 @@ function StepThree({ setStep }: { setStep: (step: number) => void }) {
       </h1>
       {/* Schedule Cards */}
       <div className="flex flex-col gap-6 w-full max-w-lg max-h-[60vh] overflow-auto mt-4">
-        {days.map((day) => (
+        {getAvailableDays(timeslotsData).map((day) => (
           <div
             key={day}
             className="bg-white border rounded-2xl p-6 mb-2 shadow-sm"
@@ -76,7 +81,9 @@ function StepThree({ setStep }: { setStep: (step: number) => void }) {
               <div>
                 <h3
                   className={`font-medium ${
-                    isDaySelected(day) ? "text-primaryBlue" : "text-black"
+                    isDaySelected(day, timeslotsData, selectedTimeslotIds)
+                      ? "text-primaryBlue"
+                      : "text-black"
                   }`}
                 >
                   {day}
@@ -87,33 +94,33 @@ function StepThree({ setStep }: { setStep: (step: number) => void }) {
               </div>
               <div
                 className={`w-3 h-3 rounded-full border-2 ${
-                  isDaySelected(day)
+                  isDaySelected(day, timeslotsData, selectedTimeslotIds)
                     ? "ring-primaryBlue ring-2 bg-primaryBlue border-white"
                     : "ring-gray-400 ring-2 bg-white border-white"
                 }`}
               ></div>
             </div>
             <div className="space-y-2">
-              {timeSlots.map((slot) => {
-                const selected = availability[day]?.includes(slot.id);
+              {getTimeslotsForDay(day, timeslotsData).map((slot: Timeslot) => {
+                const selected = selectedTimeslotIds.includes(slot.id);
                 return (
                   <div
                     key={slot.id}
-                    onClick={() => toggleSlot(day, slot.id)}
+                    onClick={() => toggleSlot(slot.id)}
                     className={`cursor-pointer rounded-lg py-2 text-center font-medium transition-all
-                      ${
-                        selected
-                          ? "bg-primaryBlue text-white"
-                          : "bg-gray-100 text-black"
-                      }
-                      ${
-                        editMode
-                          ? "hover:bg-primaryBlue/80 hover:text-white"
-                          : ""
-                      }
-                    `}
+                        ${
+                          selected
+                            ? "bg-primaryBlue text-white"
+                            : "bg-gray-100 text-black"
+                        }
+                        ${
+                          editMode
+                            ? "hover:bg-primaryBlue/80 hover:text-white"
+                            : ""
+                        }
+                      `}
                   >
-                    {slot.label}
+                    {formatTimeSlotLabel(slot.startTime, slot.endTime)}
                   </div>
                 );
               })}

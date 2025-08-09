@@ -216,7 +216,7 @@ export const TopicDetail = ({
                 className="w-full bg-primaryBlue text-white rounded-full py-5 text-sm font-medium"
                 onClick={() => {
                   // Handle recommend action for selected students
-                  console.log("Recommend to:", selectedStudents[idx]);
+
                   setRecommendDialog(null);
                   setSelectedStudents((prev) => ({ ...prev, [idx]: [] }));
                 }}

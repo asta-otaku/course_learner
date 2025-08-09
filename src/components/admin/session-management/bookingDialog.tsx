@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { usePathname } from "next/navigation";
 
 export default function BookingDialog({
   open,
@@ -76,7 +75,7 @@ export default function BookingDialog({
     onBookMeeting({
       date: selectedDate,
       name: title,
-      time: timeSlotData?.value || "",
+      time: timeSlotData?.label || "",
       timeSlot: selectedTimeSlot,
       tutor: selectedTutorData?.name || "",
       student: selectedStudentData?.name || "",
@@ -90,8 +89,6 @@ export default function BookingDialog({
   };
 
   const displayDate = selectedDate ? formatDisplayDate(selectedDate) : null;
-  const pathname = usePathname();
-  const isTutor = pathname.includes("tutor");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

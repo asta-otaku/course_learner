@@ -1,40 +1,55 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, X } from "lucide-react";
-import React from "react";
+import { Loader, PlusCircle, X } from "lucide-react";
+import React, { useState } from "react";
 import { ChildProfile } from "../sign-up/profileSetup";
-import { Profile } from "./p";
 import BackArrow from "@/assets/svgs/arrowback";
+import { usePostChildProfiles } from "@/lib/api/mutations";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { childProfileEditSchema } from "@/lib/schema";
+import { z } from "zod";
 
 function CreateProfile({
   setStep,
-  setProfiles,
   data,
   setData,
   handleAvatar,
-  handleChange,
 }: {
   setStep: React.Dispatch<React.SetStateAction<number>>;
   data: ChildProfile;
   setData: React.Dispatch<React.SetStateAction<ChildProfile>>;
-  setProfiles: React.Dispatch<React.SetStateAction<Profile[]>>;
   handleAvatar: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleChange: (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => void;
 }) {
   const years = Array.from({ length: 5 }, (_, i) => i + 1);
+  const { mutateAsync: postChildProfiles, isPending } = usePostChildProfiles();
 
-  const handleCreateProfile = () => {
-    if (!data.name || !data.year || !data.avatar) return;
-    const url = URL.createObjectURL(data.avatar);
-    setProfiles((prev) => [
-      ...prev,
-      { image: url, name: data.name, year: data.year, status: "active" },
-    ]);
-    setData({ avatar: null, name: "", year: "", status: "active" });
-    setStep(1);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<z.infer<typeof childProfileEditSchema>>({
+    resolver: zodResolver(childProfileEditSchema),
+    defaultValues: {
+      name: data.name || "",
+      year: data.year || "",
+    },
+  });
+
+  const handleCreateProfile = async (
+    formData: z.infer<typeof childProfileEditSchema>
+  ) => {
+    if (!formData.name || !formData.year || !data.avatar) return;
+    const res = await postChildProfiles({
+      ...formData,
+      avatar: data.avatar as File,
+    });
+    if (res.status === 201) {
+      setData({ avatar: null, name: "", year: "", status: "active" });
+      setStep(1);
+    }
   };
+
   return (
     <div className="w-full max-w-xl">
       {/* back button */}
@@ -85,23 +100,22 @@ function CreateProfile({
       </div>
 
       {/* Name & Year */}
-      <div className="space-y-2">
+      <form onSubmit={handleSubmit(handleCreateProfile)} className="space-y-2">
         <div className="flex flex-col gap-1.5">
           <label className="font-medium">Name</label>
           <Input
-            name="name"
-            value={data.name}
-            onChange={handleChange}
-            placeholder="Child’s name"
+            {...register("name")}
+            placeholder="Child's name"
             className="!rounded-xl !h-11"
           />
+          {errors.name && (
+            <span className="text-red-500 text-xs">{errors.name.message}</span>
+          )}
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="font-medium">Year</label>
           <select
-            name="year"
-            value={data.year}
-            onChange={handleChange}
+            {...register("year")}
             className="h-11 rounded-xl bg-transparent border border-[#D1D5DB] px-4 text-base"
           >
             <option value="" disabled>
@@ -113,19 +127,22 @@ function CreateProfile({
               </option>
             ))}
           </select>
+          {errors.year && (
+            <span className="text-red-500 text-xs">{errors.year.message}</span>
+          )}
         </div>
-      </div>
 
-      {/* Create button */}
-      <div className="mt-8">
-        <Button
-          type="button"
-          onClick={handleCreateProfile}
-          className="w-full py-5 rounded-[999px] bg-primaryBlue text-white"
-        >
-          Create
-        </Button>
-      </div>
+        {/* Create button */}
+        <div className="mt-8">
+          <Button
+            type="submit"
+            disabled={isPending}
+            className="w-full py-5 rounded-[999px] bg-primaryBlue text-white flex items-center justify-center gap-2"
+          >
+            {isPending ? <Loader className="w-4 h-4 animate-spin" /> : "Create"}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

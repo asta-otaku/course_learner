@@ -16,21 +16,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { dummyChangeRequests, dummyTutorProfiles } from "@/lib/utils";
 import BackArrow from "@/assets/svgs/arrowback";
 import AvailabilityPopup from "./availabilityPopup";
+import { ChangeRequest, TransformedTutorProfile } from "@/lib/types";
 
-// Tutor Replacement Component
-const TutorReplacement = ({
+// Tutor Replacement Component Props
+interface TutorReplacementProps {
+  request: ChangeRequest;
+  onBack: () => void;
+  onComplete: () => void;
+  onRemoveRequest: (requestId: string) => void;
+  tutors: TransformedTutorProfile[];
+}
+
+const TutorReplacement: React.FC<TutorReplacementProps> = ({
   request,
   onBack,
   onComplete,
   onRemoveRequest,
-}: {
-  request: (typeof dummyChangeRequests)[0];
-  onBack: () => void;
-  onComplete: () => void;
-  onRemoveRequest: (requestId: string) => void;
+  tutors,
 }) => {
   const [selectedTutor, setSelectedTutor] = useState<string | null>(null);
   const [isPopoverOpen, setIsPopoverOpen] = useState<Record<string, boolean>>(
@@ -39,13 +43,13 @@ const TutorReplacement = ({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [tutorSearchQuery, setTutorSearchQuery] = useState("");
 
-  // Get the current tutor data (being replaced) from dummyTutorProfiles
-  const currentTutor = dummyTutorProfiles.find(
+  // Get the current tutor data (being replaced) from actual tutors
+  const currentTutor = tutors.find(
     (tutor) => tutor.id === request.currentTutorId
   );
 
   // Filter available tutors (exclude current tutor being replaced)
-  const availableTutors = dummyTutorProfiles.filter(
+  const availableTutors = tutors.filter(
     (tutor) =>
       tutor.id !== request.currentTutorId &&
       tutor.name.toLowerCase().includes(tutorSearchQuery.toLowerCase())
@@ -219,9 +223,7 @@ const TutorReplacement = ({
                           onClick={() => {
                             if (selectedTutor) {
                               // Handle the assignment logic here
-                              console.log(
-                                `Assigning ${request.className} to tutor ${selectedTutor}`
-                              );
+
                               setIsDialogOpen(false);
                               setSelectedTutor(null);
                               setTutorSearchQuery("");

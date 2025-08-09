@@ -6,13 +6,21 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { resetPasswordSchema } from "@/lib/schema";
 import { z } from "zod";
 import React, { useState } from "react";
+import { usePostResetPassword } from "@/lib/api/mutations";
+import { toast } from "react-toastify";
+import { useRouter } from "next/navigation";
 
 export interface ResetPasswordProps {
-  onSubmit: () => void;
   otp: string;
+  email: string;
+  redirectPath?: string;
 }
 
-export default function ResetPassword({ onSubmit, otp }: ResetPasswordProps) {
+export default function ResetPassword({
+  otp,
+  email,
+  redirectPath = "/sign-in",
+}: ResetPasswordProps) {
   const [passwordvisible, setPasswordVisible] = useState(false);
   const [confirmPasswordvisible, setConfirmPasswordVisible] = useState(false);
   const {
@@ -23,15 +31,26 @@ export default function ResetPassword({ onSubmit, otp }: ResetPasswordProps) {
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { password: "", confirmPassword: "" },
   });
+  const { mutateAsync: postResetPassword, isPending: isResetPasswordPending } =
+    usePostResetPassword();
+  const { push } = useRouter();
+
   const toggleVisibility = () => setPasswordVisible((v) => !v);
   const confirmToggleVisibility = () => setConfirmPasswordVisible((v) => !v);
   return (
     <form
       className="max-w-xl w-full mx-auto flex flex-col gap-2"
-      onSubmit={handleSubmit((data) => {
-        // You can now use otp here as part of the payload
-        // Example: send { ...data, otp } to your API
-        onSubmit();
+      onSubmit={handleSubmit(async (data) => {
+        const res = await postResetPassword({
+          email,
+          otpCode: otp,
+          newPassword: data.password,
+          confirmNewPassword: data.confirmPassword,
+        });
+        if (res.status === 200) {
+          toast.success(res.data.message);
+          push(redirectPath);
+        }
       })}
     >
       <div className="relative flex flex-col gap-1">

@@ -13,34 +13,11 @@ import algebra from "@/assets/algebra.png";
 import ans from "@/assets/ans.png";
 import ratio from "@/assets/ratio.png";
 import measurement from "@/assets/measurement.png";
-import { Course, DateRange, Quiz, VideoTopic, TutorProfile } from "./types";
+import { Course, DateRange, Quiz, VideoTopic, TutorProfile, TutorDetails, TransformedTutorProfile, ChangeRequest } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
-const dummySubscriptionFeature =
-  "We have analysed thousands past paper questions for each topic, to ensure the worksheets are up to exam standard.";
-
-export const subscriptionPlans: {
-  title: string;
-  price: number;
-  trialDays: number;
-  features: string[];
-}[] = [
-  {
-    title: "online learning",
-    price: 100,
-    trialDays: 10,
-    features: Array(3).fill(dummySubscriptionFeature),
-  },
-  {
-    title: "self learning",
-    price: 400,
-    trialDays: 20,
-    features: Array(6).fill(dummySubscriptionFeature),
-  },
-];
 
 export const dummyProfiles = [
   {
@@ -661,6 +638,16 @@ export const months = [
 ];
 export const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THUR", "FRI", "SAT"];
 
+export const days = [
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+];
+
 export const formatDateString = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -830,29 +817,7 @@ export const timeSlots = [
   { id: "6-7", label: "6-7PM", value: "6:00-7:00PM" },
 ];
 
-// Dummy change requests data using real tutors
-export const dummyChangeRequests = [
-  {
-    id: "1",
-    className: "Class Red",
-    currentTutorId: "1",
-    currentTutor: "Mr. Minato",
-    requestedTutorId: "2",
-    requestedTutor: "Michael Jackson",
-    status: "pending",
-    requestDate: "2024-01-15",
-  },
-  {
-    id: "2",
-    className: "Class Blue",
-    currentTutorId: "4",
-    currentTutor: "Michael Jordan",
-    requestedTutorId: "1",
-    requestedTutor: "Mr. Minato",
-    status: "pending",
-    requestDate: "2024-01-14",
-  },
-];
+
 
 // Dummy data for all code requests
 export const allCodeRequests = [
@@ -1037,3 +1002,111 @@ export const allCodeRequests = [
     },
   },
 ];
+
+
+export const formatTime = (timeString: string) => {
+  return timeString.substring(0, 5); // Extract HH:MM from HH:MM:SS
+};
+
+export const formatTimeSlotLabel = (startTime: string, endTime: string) => {
+  const start = formatTime(startTime);
+  const end = formatTime(endTime);
+  return `${start} - ${end}`;
+};
+
+// Utility functions for timeslot availability
+export const getAvailableDays = (timeslotsData: any) => {
+  if (!timeslotsData?.data) return [];
+
+  const daysWithSlots = new Set(
+    timeslotsData.data
+      .filter((slot: any) => slot.isActive)
+      .map((slot: any) => slot.dayOfWeek)
+  );
+
+  // Return days in the original order, but only those with timeslots
+  return days.filter((day) => daysWithSlots.has(day));
+};
+
+export const isDaySelected = (day: string, timeslotsData: any, selectedTimeslotIds: string[]) => {
+  // Check if any timeslots for this day are selected
+  const dayTimeslots =
+    timeslotsData?.data?.filter(
+      (slot: any) => slot.dayOfWeek === day && slot.isActive
+    ) || [];
+  return dayTimeslots.some((slot: any) =>
+    selectedTimeslotIds.includes(slot.id)
+  );
+};
+
+export const getTimeslotsForDay = (day: string, timeslotsData: any) => {
+  return timeslotsData?.data?.filter(
+    (slot: any) => slot.dayOfWeek === day && slot.isActive
+  ) || [];
+};
+
+// Transform API tutor data to component format
+export const transformTutorData = (tutors: TutorDetails[]): TransformedTutorProfile[] => {
+  return tutors.map((tutor) => {
+    // Convert timeSlots to availability format
+    const availability: { [day: string]: string[] } = {
+      Monday: [],
+      Tuesday: [],
+      Wednesday: [],
+      Thursday: [],
+      Friday: [],
+      Saturday: [],
+      Sunday: []
+    };
+
+    tutor.timeSlots.forEach((slot) => {
+      if (slot.isActive) {
+        const dayMap: { [key: string]: string } = {
+          'MONDAY': 'Monday',
+          'TUESDAY': 'Tuesday', 
+          'WEDNESDAY': 'Wednesday',
+          'THURSDAY': 'Thursday',
+          'FRIDAY': 'Friday',
+          'SATURDAY': 'Saturday',
+          'SUNDAY': 'Sunday'
+        };
+        
+        const day = dayMap[slot.dayOfWeek];
+        if (day) {
+          const timeLabel = formatTimeSlotLabel(slot.startTime, slot.endTime);
+          availability[day].push(timeLabel);
+        }
+      }
+    });
+
+    return {
+      id: tutor.id,
+      name: `${tutor.user.firstName} ${tutor.user.lastName}`,
+      activity: "Active tutor", // Default activity since not provided in API
+      time: "Today", // Default time since not provided in API
+      studentCount: tutor.assignedStudents.length,
+      homeworkCount: 0, // Default since not provided in API
+      averageResponseTime: "N/A", // Default since not provided in API
+      availability
+    };
+  });
+};
+
+// Create change requests based on actual tutor data
+export const createChangeRequestsFromTutors = (tutors: TutorDetails[]): ChangeRequest[] => {
+  if (tutors.length < 2) return [];
+  
+  // Create a sample change request using actual tutor data
+  return [
+    {
+      id: "1", 
+      className: "Class Red",
+      currentTutorId: tutors[0].id,
+      currentTutor: `${tutors[0].user.firstName} ${tutors[0].user.lastName}`,
+      requestedTutorId: tutors[1].id,
+      requestedTutor: `${tutors[1].user.firstName} ${tutors[1].user.lastName}`,
+      status: "pending",
+      requestDate: new Date().toISOString().split('T')[0],
+    }
+  ];
+};

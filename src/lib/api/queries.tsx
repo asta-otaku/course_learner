@@ -2,13 +2,16 @@ import { useQuery } from "@tanstack/react-query";
 import { axiosInstance } from "../services/axiosInstance";
 import {
   ApiResponse,
-  SubscriptionPlan,
   ManageSubscriptionResponse,
   ChildProfile,
   DetailedChildProfile,
   TutorDetails,
   Timeslot,
   SessionResponse,
+  FullSubscriptionPlan,
+  APIGetResponse,
+  SubscriptionPlan,
+  ParentDetails,
 } from "../types";
 
 // User Queries
@@ -43,11 +46,15 @@ export const useGetUserById = (id: string) => {
 };
 
 // Subscription Queries
-export const useGetSubscriptionPlans = (id?: string) => {
+export const useGetSubscriptionPlans = (isUser?: boolean, id?: string) => {
   return useQuery({
     queryKey: ["subscription-plans"],
-    queryFn: async (): Promise<ApiResponse<SubscriptionPlan>> => {
-      const url = id ? "/subscriptions/user-subscription" : "/subscriptions";
+    queryFn: async (): Promise<
+      APIGetResponse<FullSubscriptionPlan[] | SubscriptionPlan>
+    > => {
+      const url = isUser
+        ? "/subscriptions/user-subscription"
+        : "/subscriptions";
       const response = await axiosInstance.get(url, {
         params: { parentId: id },
       });
@@ -59,7 +66,7 @@ export const useGetSubscriptionPlans = (id?: string) => {
 export const useGetManageSubscription = () => {
   return useQuery({
     queryKey: ["manage-subscription"],
-    queryFn: async (): Promise<ApiResponse<ManageSubscriptionResponse>> => {
+    queryFn: async (): Promise<APIGetResponse<ManageSubscriptionResponse>> => {
       const response = await axiosInstance.get(
         "/subscriptions/manage-subscription"
       );
@@ -72,7 +79,7 @@ export const useGetManageSubscription = () => {
 export const useGetChildProfile = () => {
   return useQuery({
     queryKey: ["child-profiles"],
-    queryFn: async (): Promise<ApiResponse<ChildProfile[]>> => {
+    queryFn: async (): Promise<APIGetResponse<ChildProfile[]>> => {
       const response = await axiosInstance.get("/child-profiles");
       return response.data;
     },
@@ -103,7 +110,7 @@ export const useGetChildTutor = (id: string) => {
 export const useGetTutors = () => {
   return useQuery({
     queryKey: ["tutors"],
-    queryFn: async (): Promise<ApiResponse<TutorDetails[]>> => {
+    queryFn: async (): Promise<APIGetResponse<TutorDetails[]>> => {
       const response = await axiosInstance.get("/tutors");
       return response.data;
     },
@@ -136,7 +143,7 @@ export const useGetTutorStudent = (id: string) => {
 export const useGetTimeslots = () => {
   return useQuery({
     queryKey: ["timeslots"],
-    queryFn: async (): Promise<ApiResponse<Timeslot[]>> => {
+    queryFn: async (): Promise<APIGetResponse<Timeslot[]>> => {
       const response = await axiosInstance.get("/time-slots");
       return response.data;
     },
@@ -224,6 +231,30 @@ export const useGetAvailableSessions = (childId?: string) => {
         ? `/sessions/available?childId=${childId}`
         : "/sessions/available";
       const response = await axiosInstance.get(url);
+      return response.data;
+    },
+  });
+};
+
+// Tutor Availability Queries
+export const useGetTutorAvailability = (id: string) => {
+  return useQuery({
+    queryKey: ["tutor-availability", id],
+    queryFn: async (): Promise<ApiResponse<TutorDetails>> => {
+      const response = await axiosInstance.get(
+        `/tutor-availability/tutor/${id}`
+      );
+      return response.data;
+    },
+  });
+};
+
+// Parent Queries
+export const useGetAllParents = () => {
+  return useQuery({
+    queryKey: ["all-parents"],
+    queryFn: async (): Promise<APIGetResponse<ParentDetails[]>> => {
+      const response = await axiosInstance.get("/parents");
       return response.data;
     },
   });

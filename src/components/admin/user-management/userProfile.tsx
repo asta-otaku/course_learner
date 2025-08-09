@@ -27,13 +27,26 @@ export default function UserProfile({
 
       {/* User Profile */}
       <div className="flex flex-col items-center">
-        {/* Profile Picture Placeholder */}
-        <div className="w-24 h-24 bg-gray-300 rounded-full mb-4"></div>
+        {/* Profile Picture */}
+        <div className="w-24 h-24 rounded-full mb-4 overflow-hidden border-4 border-white shadow-lg">
+          {user.childAvatar ? (
+            <img
+              src={user.childAvatar}
+              alt={user.childName}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+              <span className="text-gray-500 text-sm">No Photo</span>
+            </div>
+          )}
+        </div>
 
-        {/* User Info */}
+        {/* Child Info */}
         <div className="text-center mb-8">
-          <p className="text-sm text-gray-500 mb-2">YEAR 1</p>
-          <h1 className="text-2xl font-bold text-gray-900">{user.user}</h1>
+          <p className="text-sm text-gray-500 mb-2">{user.year}</p>
+          <h1 className="text-2xl font-bold text-gray-900">{user.childName}</h1>
+          <p className="text-sm text-gray-600 mt-1">Child of {user.user}</p>
         </div>
 
         {/* Details Card */}
@@ -69,35 +82,39 @@ export default function UserProfile({
                   CLASS
                 </p>
                 <p className="text-sm font-medium text-gray-900">
-                  {user.assignedTutor || "No tutor assigned"}
+                  {!user.canAssignTutor
+                    ? "Not available for this plan"
+                    : user.assignedTutor || "No tutor assigned"}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                className="text-primaryBlue p-0 text-sm font-medium hover:text-blue-700"
-                onClick={onChangeTutor}
-              >
-                Change Tutor
-              </Button>
+              {user.canAssignTutor && (
+                <Button
+                  variant="ghost"
+                  className="text-primaryBlue p-0 text-sm font-medium hover:text-blue-700"
+                  onClick={onChangeTutor}
+                >
+                  Change Tutor
+                </Button>
+              )}
             </div>
 
             {/* Email */}
             <div className="border-t border-gray-100 pt-6">
               <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                EMAIL
+                PARENT EMAIL
               </p>
               <p className="text-sm font-medium text-gray-900">
-                {user.user.toLowerCase()}@example.com
+                {user.parentEmail}
               </p>
             </div>
 
             {/* Phone Number */}
             <div className="border-t border-gray-100 pt-6">
               <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                PHONE NUMBER
+                PARENT PHONE
               </p>
               <p className="text-sm font-medium text-gray-900">
-                +234 801 234 5678
+                {user.parentPhone}
               </p>
             </div>
           </div>

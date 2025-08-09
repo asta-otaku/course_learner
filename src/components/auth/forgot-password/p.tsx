@@ -6,21 +6,15 @@ import React, { useState } from "react";
 import ForgetPassword from "./ForgetPassword";
 import OTP from "./OTP";
 import ResetPassword from "./ResetPassword";
-import {
-  usePostForgotPassword,
-  usePostResetPassword,
-} from "@/lib/api/mutations";
+import { usePostForgotPassword } from "@/lib/api/mutations";
+import { toast } from "react-toastify";
 
 function ForgotPassword() {
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const { push } = useRouter();
-  const {
-    mutate: postForgotPassword,
-    isPending,
-    isSuccess,
-  } = usePostForgotPassword();
+  const { mutateAsync: postForgotPassword, isPending } =
+    usePostForgotPassword();
 
   return (
     <div className="w-screen h-screen bg-bgWhiteGray flex justify-center items-center flex-col px-4 relative">
@@ -33,11 +27,12 @@ function ForgotPassword() {
             Enter your registered email address ton recover your password
           </p>
           <ForgetPassword
-            onNext={(email) => {
+            onNext={async (email) => {
               setEmail(email);
-              postForgotPassword({ email });
-              if (isSuccess) {
+              const res = await postForgotPassword({ email });
+              if (res.status === 200) {
                 setStep(1);
+                toast.success(res.data.message);
               }
             }}
             isPending={isPending}
@@ -63,7 +58,7 @@ function ForgotPassword() {
           <p className="text-textSubtitle font-medium mb-6 text-center">
             Create a new password
           </p>
-          <ResetPassword otp={otp} onSubmit={() => push("/sign-in")} />
+          <ResetPassword otp={otp} email={email} />
         </div>
       )}
       <Image

@@ -16,17 +16,25 @@ export const childProfileSchema = z.object({
   year: z.string().min(1, "Year is required"),
 });
 
+export const childProfileEditSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  year: z.string().min(1, "Year is required"),
+});
+
 export const tutorAccountCreationSchema = z.object({
-  avatar: z.instanceof(File).nullable(),
+  avatar: z.instanceof(File).nullable().optional(),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Invalid email address"),
-  phone: z.string().min(1, "Phone number is required"),
+  phoneNumber: z.string().min(1, "Phone number is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string().min(6, "Confirm password is required"),
   howDidYouHearAboutUs: z.string().optional(),
   referralCode: z.string().optional(),
-});
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+});;
 
 export const signinSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -43,6 +51,15 @@ export const resetPasswordSchema = z.object({
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
+});
+
+export const changePasswordSchema = z.object({
+  oldPassword: z.string().min(1, "Old password is required"),
+  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+  confirmNewPassword: z.string().min(6, "Confirm password is required"),
+}).refine((data) => data.newPassword === data.confirmNewPassword, {
+  message: "Passwords do not match",
+  path: ["confirmNewPassword"],
 });
 
 export const otpSchema = z.object({

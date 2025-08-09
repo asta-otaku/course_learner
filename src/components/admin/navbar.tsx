@@ -11,11 +11,11 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const routes = [
-    { name: "Dashboard", path: "/admin/dashboard" },
+    { name: "Dashboard", path: "/admin" },
     { name: "User Management", path: "/admin/user-management" },
     { name: "Session Management", path: "/admin/session-management" },
     { name: "Tutor Management", path: "/admin/tutor-management" },
-    { name: "Code Request Management", path: "/admin/code-request-management" },
+    { name: "Timeslot Management", path: "/admin/timeslot-management" },
     { name: "Report & Analysis", path: "/admin/report-analysis" },
     { name: "Support & Feedback", path: "/admin/support-feedback" },
   ];
@@ -41,7 +41,11 @@ export default function Navbar() {
               key={route.name}
               href={route.path}
               className={`font-medium text-sm whitespace-nowrap ${
-                pathname.startsWith(route.path)
+                (
+                  route.path === "/admin"
+                    ? pathname === route.path
+                    : pathname.startsWith(route.path)
+                )
                   ? "text-blue-500"
                   : "text-textSubtitle"
               } hover:text-blue-500 transition`}
@@ -73,7 +77,11 @@ export default function Navbar() {
                 href={route.path}
                 onClick={() => setMobileOpen(false)}
                 className={`block py-2 px-2 rounded-md font-medium text-sm ${
-                  pathname === route.path
+                  (
+                    route.path === "/admin"
+                      ? pathname === route.path
+                      : pathname.startsWith(route.path)
+                  )
                     ? "bg-blue-50 text-blue-500"
                     : "text-gray-700 hover:bg-gray-100"
                 } transition`}

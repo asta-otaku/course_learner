@@ -1,7 +1,7 @@
 "use client";
 
 import StepZero from "@/components/tutor/settings/p";
-import StepOne from "@/components/tutor/settings/StepOne";
+import StepOne from "@/components/platform/settings/overview/StepOne";
 import StepThree from "@/components/tutor/settings/StepThree";
 import StepTwo from "@/components/tutor/settings/StepTwo";
 import React, { useState } from "react";

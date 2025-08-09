@@ -67,7 +67,7 @@ export default function BookingDialog({
     onBookMeeting({
       date: selectedDate,
       name: title,
-      time: timeSlotData?.value || "",
+      time: timeSlotData?.label || "",
       timeSlot: selectedTimeSlot,
       tutor: selectedTutor,
       issue,

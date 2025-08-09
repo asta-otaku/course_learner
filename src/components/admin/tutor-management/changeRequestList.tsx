@@ -2,8 +2,8 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { dummyChangeRequests } from "@/lib/utils";
 import BackArrow from "@/assets/svgs/arrowback";
+import { ChangeRequest } from "@/lib/types";
 
 // Change Request List Component
 const ChangeRequestList = ({
@@ -12,8 +12,8 @@ const ChangeRequestList = ({
   onCancelRequest,
   onBack,
 }: {
-  requests: typeof dummyChangeRequests;
-  onProceedToReplace: (request: (typeof dummyChangeRequests)[0]) => void;
+  requests: ChangeRequest[];
+  onProceedToReplace: (request: ChangeRequest) => void;
   onCancelRequest: (requestId: string) => void;
   onBack: () => void;
 }) => {

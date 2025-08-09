@@ -1,31 +1,30 @@
 "use client";
 
 import React, { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { Profile } from "./p";
 import Image from "next/image";
-import { MoveLeft, MoveRight, PlusCircle } from "lucide-react";
+import { Loader, MoveLeft, MoveRight, PlusCircle } from "lucide-react";
+import profileImage from "@/assets/profile-background.svg";
+import { useGetChildProfile } from "@/lib/api/queries";
+import { ChildProfile } from "@/lib/types";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { usePatchChildProfile } from "@/lib/api/mutations";
+import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
 
-function ProfileSelection({
-  profiles,
-  setStep,
-  handleAvatar,
-}: {
-  profiles: Profile[];
-  setStep: (step: number) => void;
-  handleAvatar: (e: React.ChangeEvent<HTMLInputElement>) => void;
-}) {
+function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const { data: childProfile } = useGetChildProfile();
+  const { mutateAsync: patchChildProfile, isPending: isPatching } =
+    usePatchChildProfile();
+
+  const [inactiveProfile, setInactiveProfile] = useState<ChildProfile | null>(
+    null
+  );
   const { push } = useRouter();
-
-  // which inactive profile was clicked (or null)
-  const [inactiveProfile, setInactiveProfile] = useState<Profile | null>(null);
-
   const updateScrollButtons = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -57,8 +56,8 @@ function ProfileSelection({
           className="flex gap-4 overflow-x-auto scrollbar-hide px-8"
           onScroll={updateScrollButtons}
         >
-          {profiles.map((profile, i) => {
-            const isInactive = profile.status === "inactive";
+          {childProfile?.data?.map((profile, i) => {
+            const isInactive = profile.deletedAt;
             return (
               <div
                 key={i}
@@ -81,7 +80,7 @@ function ProfileSelection({
                 {/* Profile image */}
                 <div className="relative w-[222px] h-[244px]">
                   <Image
-                    src={profile.image}
+                    src={profile.avatar || profileImage}
                     alt={profile.name}
                     fill
                     className="rounded-2xl object-cover"
@@ -116,19 +115,10 @@ function ProfileSelection({
             htmlFor="avatar-upload"
             className="relative cursor-pointer rounded-2xl bg-[#E9E9E9] p-0 flex-shrink-0 flex flex-col items-center justify-center avatar-dashed"
             style={{ width: 222, height: 244 }}
+            onClick={() => setStep(2)}
           >
             <PlusCircle className="text-[#6B7280]" />
-            <div className="text-sm text-[#6B7280] mt-2">Choose Avatar</div>
-            <input
-              id="avatar-upload"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                handleAvatar(e);
-                setStep(2);
-              }}
-            />
+            <div className="text-sm text-[#6B7280] mt-2">Add profile</div>
           </label>
         </div>
 
@@ -183,29 +173,40 @@ function ProfileSelection({
       >
         <DialogContent className="max-w-2xl w-full !rounded-2xl px-0 overflow-hidden space-y-4">
           <div className="text-textGray font-semibold uppercase text-center">
-            Subscription Alert
+            Profile Inactive
           </div>
 
           <div className="bg-textSubtitle text-white text-center py-3 font-semibold text-lg md:text-2xl uppercase">
-            Your Subscription Has Expired
+            Your Profile Is Inactive
           </div>
 
           <div className="max-w-[480px] mx-auto">
             <div className="text-center text-sm text-textSubtitle">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-              eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut
-              enim ad minim veniam, quis nostrud exercitation ullamco laboris
-              nisi ut.
+              This profile is inactive. To reactivate it, click the button
+              below.
             </div>
 
             <Button
               variant="outline"
               className="w-full py-6 rounded-full bg-primaryBlue text-sm font-medium text-white mt-6 mb-4"
+              onClick={async () => {
+                const res = await patchChildProfile({
+                  id: inactiveProfile?.id || "",
+                  deactivate: false,
+                });
+                if (res.status === 200) {
+                  toast.success(res.data.message);
+                  setInactiveProfile(null);
+                }
+              }}
             >
-              Renew Previous Plan
+              {isPatching ? (
+                <Loader className="w-4 h-4 animate-spin" />
+              ) : (
+                "Reactivate Profile"
+              )}
             </Button>
 
-            {/* 5) Secondary link */}
             <div className="px-6 pb-6 text-center text-sm text-textSubtitle font-medium">
               View all plans &amp; features on the{" "}
               <Link

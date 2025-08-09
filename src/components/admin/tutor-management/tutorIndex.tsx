@@ -9,25 +9,28 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { dummyTutorProfiles } from "@/lib/utils";
+
 import BackArrow from "@/assets/svgs/arrowback";
 import AvailabilityPopup from "./availabilityPopup";
+import { TransformedTutorProfile } from "@/lib/types";
 
 interface TutorIndexProps {
   onNavigateToChangeRequests: () => void;
   changeRequestsCount: number;
+  tutors: TransformedTutorProfile[];
 }
 
 function TutorIndex({
   onNavigateToChangeRequests,
   changeRequestsCount,
+  tutors,
 }: TutorIndexProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isPopoverOpen, setIsPopoverOpen] = useState<Record<string, boolean>>(
     {}
   );
 
-  const filteredTutors = dummyTutorProfiles.filter((tutor) =>
+  const filteredTutors = tutors.filter((tutor) =>
     tutor.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -75,7 +78,7 @@ function TutorIndex({
 
       <div className="bg-white min-h-[80vh] rounded-xl border">
         <div className="overflow-x-auto w-full h-full">
-          {dummyTutorProfiles.length === 0 ? (
+          {tutors.length === 0 ? (
             <div className="flex flex-col items-center min-h-[80vh] justify-center py-16 px-6">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                 <Search className="w-8 h-8 text-gray-400" />

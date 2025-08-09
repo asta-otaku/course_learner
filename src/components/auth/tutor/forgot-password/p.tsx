@@ -65,13 +65,8 @@ function ForgotPassword() {
           </p>
           <ResetPassword
             otp={otp}
-            onSubmit={() => {
-              if (isAdmin) {
-                push("/admin/sign-in");
-              } else {
-                push("/tutor/sign-in");
-              }
-            }}
+            email={email}
+            redirectPath={isAdmin ? "/admin/sign-in" : "/tutor/sign-in"}
           />
         </div>
       )}

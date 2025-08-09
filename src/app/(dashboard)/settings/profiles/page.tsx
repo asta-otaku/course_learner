@@ -3,8 +3,7 @@
 import BackArrow from "@/assets/svgs/arrowback";
 import { ArrowRightIcon } from "@/assets/svgs/arrowRight";
 import EditPencilIcon from "@/assets/svgs/editPencil";
-import { dummyProfiles } from "@/lib/utils";
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -16,95 +15,117 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { Trash2 } from "lucide-react";
-
-type Profile = {
-  id: string;
-  name: string;
-  year: number;
-  image: string;
-  status: string;
-  subscriptionDate: string;
-  duration: number;
-  subscriptionAmount: number;
-  subscriptionName: string;
-};
+import { Trash2, Loader } from "lucide-react";
+import { useGetChildProfile } from "@/lib/api/queries";
+import { ChildProfile } from "@/lib/types";
+import {
+  usePatchChildProfile,
+  usePostChildProfiles,
+} from "@/lib/api/mutations";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { childProfileEditSchema } from "@/lib/schema";
+import { z } from "zod";
+import { toast } from "react-toastify";
 
 function Page() {
-  const [profiles, setProfiles] = React.useState<Profile[]>(dummyProfiles);
-  const [selectedProfile, setSelectedProfile] = React.useState<Profile | null>(
-    null
-  );
+  const { data: childProfiles } = useGetChildProfile();
+  const { mutateAsync: postChildProfiles, isPending } = usePostChildProfiles();
+  const { mutateAsync: patchChildProfile, isPending: isPatching } =
+    usePatchChildProfile();
+
+  const [profiles, setProfiles] = React.useState<ChildProfile[]>([]);
+  const [selectedProfile, setSelectedProfile] =
+    React.useState<ChildProfile | null>(null);
   const [step, setStep] = React.useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Add a new profile
+  const [avatarData, setAvatarData] = React.useState<{
+    avatar: string | null;
+    avatarFile: File | null;
+  }>({
+    avatar: null,
+    avatarFile: null,
+  });
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<z.infer<typeof childProfileEditSchema>>({
+    resolver: zodResolver(childProfileEditSchema),
+    defaultValues: {
+      name: "",
+      year: "",
+    },
+  });
+
+  const watchedName = watch("name");
+
+  useEffect(() => {
+    if (childProfiles?.data) {
+      setProfiles(childProfiles.data);
+    }
+  }, [childProfiles]);
+
+  useEffect(() => {
+    if (selectedProfile) {
+      setValue("name", selectedProfile.name || "");
+      setValue("year", selectedProfile.year || "");
+      setAvatarData({
+        avatar: selectedProfile.avatar || null,
+        avatarFile: null,
+      });
+    }
+  }, [selectedProfile, setValue]);
+
   const addProfile = () => {
-    const newProfile: Profile = {
-      id: Date.now().toString(),
-      name: `New Profile ${profiles.length + 1}`,
-      year: 2023,
-      image: "",
-      status: "active",
-      subscriptionDate: new Date().toISOString().split("T")[0],
-      duration: 30,
-      subscriptionAmount: 0,
-      subscriptionName: "Free",
+    const newProfile: ChildProfile = {
+      id: `${profiles.length}`,
+      name: "Click to set up profile",
+      year: "2",
+      avatar: "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     setProfiles([...profiles, newProfile]);
   };
 
-  // Update profile name
-  const updateProfileName = (id: string, newName: string) => {
-    setProfiles(
-      profiles.map((profile) =>
-        profile.id === id ? { ...profile, name: newName } : profile
-      )
-    );
-
-    if (selectedProfile && selectedProfile.id === id) {
-      setSelectedProfile({ ...selectedProfile, name: newName });
-    }
-  };
-
-  // Delete a profile
-  const deleteProfile = (id: string) => {
-    setProfiles(profiles.filter((profile) => profile.id !== id));
-    if (selectedProfile && selectedProfile.id === id) {
-      setSelectedProfile(null);
-      setStep(0);
-    }
-  };
-
-  // Handle image upload
-  const handleImageUpload = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    profileId: string
-  ) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
       const imageUrl = event.target?.result as string;
-
-      setProfiles(
-        profiles.map((profile) =>
-          profile.id === profileId ? { ...profile, image: imageUrl } : profile
-        )
-      );
-
-      if (selectedProfile && selectedProfile.id === profileId) {
-        setSelectedProfile({ ...selectedProfile, image: imageUrl });
-      }
+      setAvatarData({
+        avatar: imageUrl,
+        avatarFile: file,
+      });
     };
     reader.readAsDataURL(file);
   };
 
-  // Trigger file input click
   const triggerFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+    fileInputRef.current?.click();
+  };
+
+  const handleCreateProfile = async (
+    data: z.infer<typeof childProfileEditSchema>
+  ) => {
+    if (!data.name || !data.year || !avatarData.avatarFile) return;
+
+    const res = await postChildProfiles({
+      name: data.name,
+      year: data.year,
+      avatar: avatarData.avatarFile,
+    });
+
+    if (res.status === 201) {
+      setAvatarData({ avatar: null, avatarFile: null });
+      setStep(0);
     }
   };
 
@@ -115,9 +136,7 @@ function Page() {
         ref={fileInputRef}
         className="hidden"
         accept="image/*"
-        onChange={(e) =>
-          selectedProfile && handleImageUpload(e, selectedProfile.id)
-        }
+        onChange={handleImageUpload}
       />
 
       {
@@ -140,6 +159,7 @@ function Page() {
                   Add Profile
                 </button>
               </div>
+
               <div className="bg-white rounded-2xl p-1.5 border border-black/20 space-y-1">
                 {profiles.map((profile) => (
                   <div
@@ -148,12 +168,14 @@ function Page() {
                       setSelectedProfile(profile);
                       setStep(1);
                     }}
-                    className="bg-bgWhiteGray border border-black/20 cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4"
+                    className={`bg-bgWhiteGray border border-black/20 cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 ${
+                      profile.deletedAt ? "opacity-30" : ""
+                    }`}
                   >
                     <div className="flex items-center gap-2">
-                      {profile.image ? (
+                      {profile.avatar ? (
                         <img
-                          src={profile.image}
+                          src={profile.avatar}
                           alt={profile.name}
                           className="w-6 h-6 rounded-full object-cover"
                         />
@@ -172,7 +194,6 @@ function Page() {
           ),
           1: selectedProfile && (
             <div className="w-full flex flex-col items-center px-4">
-              {/* Back Button */}
               <div
                 className="self-start text-sm cursor-pointer mb-6"
                 onClick={() => setStep(0)}
@@ -180,57 +201,83 @@ function Page() {
                 <BackArrow color="#808080" />
               </div>
 
-              {/* Avatar and Name */}
               <div className="flex flex-col items-center gap-2">
                 <div
                   className="w-24 h-24 rounded-full bg-borderGray relative flex items-center justify-center"
                   onClick={triggerFileInput}
                 >
-                  {selectedProfile.image ? (
+                  {avatarData.avatar ? (
                     <img
-                      src={selectedProfile.image}
-                      alt={selectedProfile.name}
+                      src={avatarData.avatar}
+                      alt="avatar"
                       className="w-full h-full object-cover rounded-full"
                     />
                   ) : (
                     <span className="text-lg font-semibold">
-                      {selectedProfile.name.charAt(0)}
+                      {watchedName.charAt(0)}
                     </span>
                   )}
                   <div className="absolute -bottom-6 right-0 w-10 flex items-center justify-center cursor-pointer">
                     <EditPencilIcon />
                   </div>
                 </div>
-                <div className="font-semibold text-sm">
-                  {selectedProfile.name}
-                </div>
+                <div className="font-semibold text-sm">{watchedName}</div>
               </div>
 
-              {/* Personal Details Section */}
-              <div className="w-full max-w-3xl mt-10">
+              <form
+                onSubmit={handleSubmit(handleCreateProfile)}
+                className="w-full max-w-3xl mt-10 space-y-4"
+              >
                 <h3 className="text-sm font-semibold text-black mb-2">
                   Personal Details
                 </h3>
 
-                <div className="flex justify-between items-center py-2 border-b border-gray-200 w-full">
-                  <div className="w-full">
-                    <div className="text-xs font-medium">Name</div>
-                    <input
-                      type="text"
-                      value={selectedProfile.name}
-                      onChange={(e) =>
-                        updateProfileName(selectedProfile.id, e.target.value)
-                      }
-                      className="text-sm text-textSubtitle font-medium bg-transparent border-none focus:outline-none focus:ring-0 py-2 w-full"
-                    />
-                  </div>
-                  <div className="cursor-pointer w-10 h-10 flex items-center justify-center">
-                    <EditPencilIcon />
-                  </div>
+                <div className="py-2 border-b border-gray-200">
+                  <label className="text-xs font-medium">Name</label>
+                  <input
+                    {...register("name")}
+                    type="text"
+                    className="text-sm text-textSubtitle font-medium bg-transparent border-none focus:outline-none focus:ring-0 py-2 w-full"
+                  />
+                  {errors.name && (
+                    <span className="text-red-500 text-xs">
+                      {errors.name.message}
+                    </span>
+                  )}
                 </div>
-              </div>
 
-              {/* Manage Account Section */}
+                <div className="py-2 border-b border-gray-200">
+                  <label className="text-xs font-medium">Year</label>
+                  <input
+                    {...register("year")}
+                    type="text"
+                    className="text-sm text-textSubtitle font-medium bg-transparent border-none focus:outline-none focus:ring-0 py-2 w-full"
+                  />
+                  {errors.year && (
+                    <span className="text-red-500 text-xs">
+                      {errors.year.message}
+                    </span>
+                  )}
+                </div>
+
+                <div className="pt-4">
+                  <button
+                    type="submit"
+                    className="bg-primaryBlue text-white text-sm font-semibold rounded-full px-4 py-2 flex items-center gap-2"
+                    disabled={isPending}
+                  >
+                    {isPending ? (
+                      <>
+                        <Loader className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </button>
+                </div>
+              </form>
+
               <div className="w-full max-w-3xl mt-8">
                 <h3 className="text-sm font-semibold text-black mb-2">
                   Manage Account
@@ -239,16 +286,25 @@ function Page() {
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="text-xs font-medium text-black">
-                      Delete Account
+                      {selectedProfile?.deletedAt
+                        ? "Reactivate Account"
+                        : "Deactivate Account"}
                     </div>
                     <p className="text-xs text-gray-500 mt-1 font-medium">
-                      Permanently delete profile.
+                      Temporarily deactivate your profile. You can reactivate it
+                      later.
                     </p>
                   </div>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <button className="text-xs text-[#FF0000] font-semibold">
-                        Delete Profile
+                      <button
+                        className={`text-xs ${
+                          selectedProfile?.deletedAt
+                            ? "text-[#008000]"
+                            : "text-[#FF0000]"
+                        } font-semibold`}
+                      >
+                        {selectedProfile?.deletedAt ? "Restore" : "Deactivate"}
                       </button>
                     </AlertDialogTrigger>
                     <AlertDialogContent className="text-center px-6 py-8 max-w-md">
@@ -259,17 +315,37 @@ function Page() {
                             Are you sure?
                           </AlertDialogTitle>
                           <AlertDialogDescription className="text-sm text-gray-500 text-center">
-                            This action cannot be undone. Deleting this profile
-                            will permanently remove all associated data.
+                            {selectedProfile?.deletedAt
+                              ? "This action will restore your profile. You can deactivate it again later."
+                              : "This action will deactivate your profile. You can restore it later."}
                           </AlertDialogDescription>
                         </div>
                       </AlertDialogHeader>
                       <AlertDialogFooter className="grid grid-cols-1 gap-1.5 mt-3">
                         <AlertDialogAction
-                          className="bg-[#FF0000] hover:bg-[#e60000] text-white rounded-full w-full py-2 text-sm font-medium"
-                          onClick={() => deleteProfile(selectedProfile.id)}
+                          className={`${
+                            selectedProfile?.deletedAt
+                              ? "bg-[#008000] hover:bg-[#006600]"
+                              : "bg-[#FF0000] hover:bg-[#e60000]"
+                          } text-white rounded-full w-full py-2 text-sm font-medium`}
+                          onClick={async () => {
+                            const res = await patchChildProfile({
+                              id: selectedProfile.id,
+                              deactivate: !selectedProfile.deletedAt,
+                            });
+                            if (res.status === 200) {
+                              toast.success(res.data.message);
+                              setStep(0);
+                            }
+                          }}
                         >
-                          Delete Profile
+                          {isPatching ? (
+                            <Loader className="w-4 h-4 animate-spin" />
+                          ) : selectedProfile?.deletedAt ? (
+                            "Restore Profile"
+                          ) : (
+                            "Deactivate Profile"
+                          )}
                         </AlertDialogAction>
                         <AlertDialogCancel className="text-xs text-gray-500 hover:text-black border-none shadow-none font-medium">
                           Cancel

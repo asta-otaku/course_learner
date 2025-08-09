@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "../services/axiosInstance";
 import { toast } from "react-toastify";
 import { AxiosError } from "axios";
@@ -22,7 +22,21 @@ import {
   ConfirmSessionData,
   CancelSessionData,
   RescheduleSessionData,
+  TutorDetails,
 } from "../types";
+
+// Helper function to handle error messages
+const handleErrorMessage = (error: AxiosError): void => {
+  const message = (error.response?.data as any)?.message;
+
+  if (Array.isArray(message)) {
+    toast.error(message[0] || "An error occurred");
+  } else if (typeof message === "string") {
+    toast.error(message);
+  } else {
+    toast.error("An error occurred");
+  }
+};
 
 // Auth Mutations
 export const usePostLogin = () => {
@@ -31,11 +45,10 @@ export const usePostLogin = () => {
     mutationFn: (data: LoginData): Promise<ApiResponse<AuthResponse>> =>
       axiosInstance.post("/auth/sign-in", data),
     onSuccess: (data: ApiResponse<AuthResponse>) => {
-      toast.success(data.message);
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
@@ -46,11 +59,10 @@ export const usePostSignUp = () => {
     mutationFn: (data: SignUpData): Promise<ApiResponse<AuthResponse>> =>
       axiosInstance.post("/auth/signup/parent", data),
     onSuccess: (data: ApiResponse<AuthResponse>) => {
-      toast.success(data.message);
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message[0] || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
@@ -64,7 +76,12 @@ export const usePostTutorSignUp = (isAdmin?: boolean) => {
       } else {
         const formData = new FormData();
         Object.entries(data).forEach(([key, value]) => {
-          if (value !== undefined) {
+          if (
+            value !== undefined &&
+            key !== "confirmPassword" &&
+            key !== "howDidYouHearAboutUs" &&
+            key !== "referralCode"
+          ) {
             formData.append(key, value);
           }
         });
@@ -76,11 +93,10 @@ export const usePostTutorSignUp = (isAdmin?: boolean) => {
       }
     },
     onSuccess: (data: ApiResponse<AuthResponse>) => {
-      toast.success(data.message);
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message[0] || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
@@ -88,14 +104,22 @@ export const usePostTutorSignUp = (isAdmin?: boolean) => {
 export const usePostForgotPassword = () => {
   return useMutation({
     mutationKey: ["post-forgot-password"],
-    mutationFn: (data: ForgotPasswordData): Promise<ApiResponse> =>
-      axiosInstance.post("/auth/forgot-password", data),
-    onSuccess: (data: ApiResponse) => {
-      toast.success(data.message);
+    mutationFn: (
+      data: ForgotPasswordData
+    ): Promise<
+      ApiResponse<{
+        message: string;
+      }>
+    > => axiosInstance.post("/auth/forgot-password", data),
+    onSuccess: (
+      data: ApiResponse<{
+        message: string;
+      }>
+    ) => {
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
@@ -106,11 +130,10 @@ export const usePostResetPassword = () => {
     mutationFn: (data: ResetPasswordData): Promise<ApiResponse> =>
       axiosInstance.post("/auth/reset-password", data),
     onSuccess: (data: ApiResponse) => {
-      toast.success(data.message);
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
@@ -119,20 +142,31 @@ export const usePostResetPassword = () => {
 export const usePostChangePassword = () => {
   return useMutation({
     mutationKey: ["post-change-password"],
-    mutationFn: (data: ChangePasswordData): Promise<ApiResponse> =>
-      axiosInstance.patch("/users/change-password", data),
-    onSuccess: (data: ApiResponse) => {
-      toast.success(data.message);
+    mutationFn: (
+      data: ChangePasswordData
+    ): Promise<
+      ApiResponse<{
+        status: string;
+        message: string;
+      }>
+    > => axiosInstance.patch("/users/change-password", data),
+    onSuccess: (
+      data: ApiResponse<{
+        status: string;
+        message: string;
+      }>
+    ) => {
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
 
 // Child Profile Mutations
 export const usePostChildProfiles = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["post-child-profiles"],
     mutationFn: (
@@ -149,16 +183,44 @@ export const usePostChildProfiles = () => {
       });
     },
     onSuccess: (data: ApiResponse<DetailedChildProfile>) => {
-      toast.success(data.message);
+      queryClient.invalidateQueries({
+        queryKey: ["child-profiles"],
+      });
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchChildProfile = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-child-profile"],
+    mutationFn: (data: {
+      id: string;
+      deactivate?: boolean;
+    }): Promise<ApiResponse<DetailedChildProfile>> => {
+      const url = data.deactivate
+        ? `/child-profiles/${data.id}/deactivate`
+        : `/child-profiles/${data.id}/restore`;
+      return axiosInstance.patch(url);
+    },
+    onSuccess: (data: ApiResponse<DetailedChildProfile>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["child-profiles"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
     },
   });
 };
 
 export const usePatchChildTutor = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["patch-child-tutor"],
     mutationFn: (data: {
@@ -169,11 +231,16 @@ export const usePatchChildTutor = () => {
         `/child-profiles/${data.childProfileId}/tutor/${data.tutorId}/assign`
       ),
     onSuccess: (data: ApiResponse<DetailedChildProfile>) => {
-      toast.success(data.message);
+      queryClient.invalidateQueries({
+        queryKey: ["all-parents"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["tutors"],
+      });
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
@@ -187,32 +254,38 @@ export const usePostSubscription = () => {
     ): Promise<ApiResponse<ManageSubscriptionResponse>> =>
       axiosInstance.post("/subscriptions", data),
     onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
-      toast.success(data.message);
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
 
 // Timeslot Mutations
 export const usePostTimeslot = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["post-timeslot"],
     mutationFn: (data: TimeslotCreateData): Promise<ApiResponse<Timeslot>> =>
       axiosInstance.post("/time-slots", data),
     onSuccess: (data: ApiResponse<Timeslot>) => {
-      toast.success(data.message);
+      queryClient.invalidateQueries({
+        queryKey: ["timeslots"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["timeslot"],
+      });
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
 
 export const usePostTimeslots = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["post-timeslots"],
     mutationFn: (data: {
@@ -220,16 +293,22 @@ export const usePostTimeslots = () => {
     }): Promise<ApiResponse<Timeslot[]>> =>
       axiosInstance.post("/time-slots/multiple", data),
     onSuccess: (data: ApiResponse<Timeslot[]>) => {
-      toast.success(data.message);
+      queryClient.invalidateQueries({
+        queryKey: ["timeslots"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["timeslot"],
+      });
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
 
 export const usePatchTimeslot = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["patch-timeslot"],
     mutationFn: (data: {
@@ -242,26 +321,68 @@ export const usePatchTimeslot = () => {
       return axiosInstance.patch(url);
     },
     onSuccess: (data: ApiResponse<Timeslot>) => {
-      toast.success(data.message);
+      queryClient.invalidateQueries({
+        queryKey: ["timeslots"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["timeslot"],
+      });
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePutTimeslot = (deactivate?: boolean) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-timeslot"],
+    mutationFn: (data: {
+      id: string;
+      dayOfWeek: string;
+      startTime: string;
+      endTime: string;
+      chunkSizeMinutes: number;
+    }): Promise<ApiResponse<Timeslot>> => {
+      const url = deactivate
+        ? `/time-slots/${data.id}/deactivate`
+        : `/time-slots/${data.id}/activate`;
+      return axiosInstance.patch(url, data);
+    },
+    onSuccess: (data: ApiResponse<Timeslot>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["timeslots"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["timeslot"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
     },
   });
 };
 
 export const useDeleteTimeslot = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["delete-timeslot"],
     mutationFn: (data: { id: string }): Promise<ApiResponse<Timeslot>> =>
       axiosInstance.delete(`/time-slots/${data.id}`),
     onSuccess: (data: ApiResponse<Timeslot>) => {
-      toast.success(data.message);
+      queryClient.invalidateQueries({
+        queryKey: ["timeslots"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["timeslot"],
+      });
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
@@ -275,11 +396,10 @@ export const usePostBookSession = () => {
     ): Promise<ApiResponse<SessionResponse>> =>
       axiosInstance.post(`/sessions/${data.childProfileId}/book`, data),
     onSuccess: (data: ApiResponse<SessionResponse>) => {
-      toast.success(data.message);
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
@@ -292,11 +412,10 @@ export const usePutConfirmSession = (id: number) => {
     ): Promise<ApiResponse<SessionResponse>> =>
       axiosInstance.put(`/sessions/${id}/confirm`, data),
     onSuccess: (data: ApiResponse<SessionResponse>) => {
-      toast.success(data.message);
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
@@ -309,11 +428,10 @@ export const usePutCancelSession = (id: number) => {
     ): Promise<ApiResponse<SessionResponse>> =>
       axiosInstance.put(`/sessions/${id}/cancel`, data),
     onSuccess: (data: ApiResponse<SessionResponse>) => {
-      toast.success(data.message);
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
@@ -326,11 +444,10 @@ export const usePutRescheduleSession = (id: number) => {
     ): Promise<ApiResponse<SessionResponse>> =>
       axiosInstance.put(`/sessions/${id}/reschedule`, data),
     onSuccess: (data: ApiResponse<SessionResponse>) => {
-      toast.success(data.message);
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
     },
   });
 };
@@ -343,11 +460,53 @@ export const usePutCompleteSession = (id: number) => {
     }): Promise<ApiResponse<SessionResponse>> =>
       axiosInstance.put(`/sessions/${id}/complete`, data),
     onSuccess: (data: ApiResponse<SessionResponse>) => {
-      toast.success(data.message);
+      return data;
     },
     onError: (error: AxiosError) => {
-      //@ts-ignore
-      toast.error(error.response?.data?.message || "An error occurred");
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Tutor Availability Mutations
+export const usePostTutorAvailability = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-tutor-availability"],
+    mutationFn: (data: {
+      timeSlotIds: string[];
+      startToday: boolean;
+    }): Promise<ApiResponse<TutorDetails>> =>
+      axiosInstance.post("/tutor-availability/select-time-slots", data),
+    onSuccess: (data: ApiResponse<TutorDetails>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["tutor-availability"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostDeleteTutorAvailability = (id: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-delete-tutor-availability"],
+    mutationFn: (data: {
+      timeSlotIds: string[];
+      startToday: boolean;
+    }): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.delete(`/tutor-availability/${id}/slots`, { data }),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["tutor-availability", id],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
     },
   });
 };

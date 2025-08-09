@@ -12,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { signinSchema } from "@/lib/schema";
 import { z } from "zod";
 import { usePostLogin } from "@/lib/api/mutations";
+import { toast } from "react-toastify";
 
 function SigninForm() {
   const {
@@ -25,20 +26,18 @@ function SigninForm() {
       password: "",
     },
   });
-  const { mutate: postLogin, isPending, isSuccess } = usePostLogin();
+  const { mutateAsync: postLogin, isPending } = usePostLogin();
   const pathname = usePathname();
   const isAdmin = pathname.includes("admin");
   const [passwordVisible, setPasswordVisible] = useState(false);
   const toggleVisibility = () => setPasswordVisible((v) => !v);
   const { push } = useRouter();
-  const onSubmit = (data: z.infer<typeof signinSchema>) => {
-    postLogin(data);
-    if (isSuccess) {
-      if (isAdmin) {
-        push("/admin/dashboard");
-      } else {
-        push("/tutor/dashboard");
-      }
+  const onSubmit = async (data: z.infer<typeof signinSchema>) => {
+    const res = await postLogin(data);
+    if (res.status === 200) {
+      localStorage.setItem(res.data.data.userRole, JSON.stringify(res.data));
+      toast.success(res.data.message);
+      push(`/${res.data.data.userRole}`);
     }
   };
   return (
