@@ -3,7 +3,6 @@
 import React from "react";
 import { X } from "lucide-react";
 import { CalendarIcon } from "@/assets/svgs/calendar";
-import { timeSlots } from "@/lib/utils";
 
 const daysOfWeek = [
   "Monday",
@@ -26,6 +25,14 @@ const AvailabilityPopup = ({
   tutorName,
   availability,
 }: AvailabilityPopupProps) => {
+  // Get all unique time slots from the availability data
+  const allTimeSlots = new Set<string>();
+  Object.values(availability).forEach((timeSlots) => {
+    timeSlots.forEach((slot) => allTimeSlots.add(slot));
+  });
+
+  const sortedTimeSlots = Array.from(allTimeSlots).sort();
+
   return (
     <div className="p-4 max-w-sm md:max-w-3xl w-full shadow">
       <div className="flex items-center justify-between mb-4">
@@ -53,21 +60,21 @@ const AvailabilityPopup = ({
         </div>
 
         {/* Time slots rows */}
-        {timeSlots.map((slot, index) => (
+        {sortedTimeSlots.map((timeSlot, index) => (
           <div
-            key={slot.id}
+            key={timeSlot}
             className={`grid grid-cols-7 gap-1 col-span-7 ${
               index % 2 === 0 ? "bg-transparent" : "bg-bgWhiteGray/50"
             }`}
           >
             {daysOfWeek.map((day) => {
-              const isAvailable = availability[day]?.includes(slot.id);
+              const isAvailable = availability[day]?.includes(timeSlot);
               return (
                 <div
-                  key={`${day}-${slot.id}`}
+                  key={`${day}-${timeSlot}`}
                   className="text-[10px] md:text-xs p-2 text-center whitespace-nowrap"
                 >
-                  {isAvailable ? slot.label : ""}
+                  {isAvailable ? timeSlot : ""}
                 </div>
               );
             })}

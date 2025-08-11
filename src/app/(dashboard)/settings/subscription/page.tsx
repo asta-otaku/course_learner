@@ -35,15 +35,6 @@ function Page() {
 
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-textSubtitle text-sm">
-                  Subscription ID:
-                </span>
-                <span className="text-textGray font-medium text-sm">
-                  {subscriptionData.subscriptionId}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
                 <span className="text-textSubtitle text-sm">Status:</span>
                 <span
                   className={`text-xs font-medium px-3 py-1 rounded-full ${

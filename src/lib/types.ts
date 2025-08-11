@@ -67,16 +67,34 @@ export const dateRangeLabels: Record<DateRange, string> = {
 };
 
 export type Session = {
-  id: number;
+  id: string;
   date: string;
   name: string;
   time: string;
   timeSlot: string;
   tutor: string;
+  tutorId: string;
   student?: string; // Optional student for admin scheduling
   participants?: string[]; // Array of participants for admin view
   issue?: string;
+  status?: string; // Session status for filtering and display
+  bookedAt?: string | null;
+  bookedBy?: string | null;
+  bookedById?: string | null;
+  notes?: string | null;
 };
+
+export interface APISession {
+  id: string;
+  startTime: string;
+  endTime: string;
+  sessionDate: string;
+  bookedAt: string | null;
+  status: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface Chat {
   id: string;
@@ -401,6 +419,15 @@ export interface SessionData {
   updatedAt: string;
 }
 
+export enum SessionStatus {
+  AVAILABLE = 'available',
+  PENDING = 'pending',
+  CONFIRMED = 'confirmed',
+  CANCELLED = 'cancelled',
+  COMPLETED = 'completed',
+  RESCHEDULED = 'rescheduled',
+}
+
 // Session Mutation Request Types
 export interface BookSessionData {
   childProfileId: number;
@@ -433,6 +460,21 @@ export interface SessionResponse {
   notes: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// New interface for the actual API response structure
+export interface AdminSessionData {
+  id: string;
+  bookedAt: string | null;
+  tutor: string;
+  tutorId: string;
+  bookedBy: string | null;
+  bookedById: string | null;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  notes: string | null;
 }
 
 export interface TimeSlot {

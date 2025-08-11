@@ -8,6 +8,7 @@ import {
   TutorDetails,
   Timeslot,
   SessionResponse,
+  AdminSessionData,
   FullSubscriptionPlan,
   APIGetResponse,
   SubscriptionPlan,
@@ -28,7 +29,7 @@ export const useGetUsers = () => {
 export const useGetCurrentUser = () => {
   return useQuery({
     queryKey: ["current-user"],
-    queryFn: async (): Promise<TutorDetails> => {
+    queryFn: async (): Promise<APIGetResponse<TutorDetails>> => {
       const response = await axiosInstance.get("/users/profile");
       return response.data;
     },
@@ -55,9 +56,10 @@ export const useGetSubscriptionPlans = (isUser?: boolean, id?: string) => {
       const url = isUser
         ? "/subscriptions/user-subscription"
         : "/subscriptions";
-      const response = await axiosInstance.get(url, {
-        params: { parentId: id },
-      });
+      const response = await axiosInstance.get(
+        url,
+        id ? { params: { parentId: id } } : undefined
+      );
       return response.data;
     },
   });
@@ -89,7 +91,7 @@ export const useGetChildProfile = () => {
 export const useGetChildProfileById = (id: string) => {
   return useQuery({
     queryKey: ["child-profile", id],
-    queryFn: async (): Promise<ApiResponse<DetailedChildProfile>> => {
+    queryFn: async (): Promise<APIGetResponse<DetailedChildProfile>> => {
       const response = await axiosInstance.get(`/child-profiles/${id}`);
       return response.data;
     },
@@ -153,7 +155,7 @@ export const useGetTimeslots = () => {
 export const useGetTimeSlotByDayOfWeek = (dayOfWeek: string) => {
   return useQuery({
     queryKey: ["timeslot", dayOfWeek],
-    queryFn: async (): Promise<ApiResponse<Timeslot[]>> => {
+    queryFn: async (): Promise<APIGetResponse<Timeslot[]>> => {
       const response = await axiosInstance.get(`/time-slots/day/${dayOfWeek}`);
       return response.data;
     },
@@ -165,14 +167,25 @@ export const useGetSessions = (options?: {
   dayOfWeek?: string;
   status?: string;
   date?: string;
+  page?: number;
+  limit?: number;
 }) => {
   return useQuery({
-    queryKey: ["sessions", options?.dayOfWeek, options?.status, options?.date],
-    queryFn: async (): Promise<ApiResponse<SessionResponse[]>> => {
+    queryKey: [
+      "sessions",
+      options?.dayOfWeek,
+      options?.status,
+      options?.date,
+      options?.page,
+      options?.limit,
+    ],
+    queryFn: async (): Promise<APIGetResponse<AdminSessionData[]>> => {
       const params = new URLSearchParams();
       if (options?.dayOfWeek) params.append("dayOfWeek", options.dayOfWeek);
       if (options?.status) params.append("status", options.status);
       if (options?.date) params.append("date", options.date);
+      if (options?.page) params.append("page", options.page.toString());
+      if (options?.limit) params.append("limit", options.limit.toString());
 
       const queryString = params.toString();
       const url = queryString ? `/sessions?${queryString}` : "/sessions";
@@ -195,7 +208,7 @@ export const useGetMySessions = (options?: {
       options?.status,
       options?.date,
     ],
-    queryFn: async (): Promise<ApiResponse<SessionResponse[]>> => {
+    queryFn: async (): Promise<APIGetResponse<SessionResponse[]>> => {
       const params = new URLSearchParams();
       if (options?.dayOfWeek) params.append("dayOfWeek", options.dayOfWeek);
       if (options?.status) params.append("status", options.status);
@@ -213,7 +226,7 @@ export const useGetMySessions = (options?: {
 export const useGetBookedSessions = (childId?: string) => {
   return useQuery({
     queryKey: ["booked-sessions", childId],
-    queryFn: async (): Promise<ApiResponse<SessionResponse[]>> => {
+    queryFn: async (): Promise<APIGetResponse<SessionResponse[]>> => {
       const url = childId
         ? `/sessions/booked?childId=${childId}`
         : "/sessions/booked";
@@ -226,7 +239,7 @@ export const useGetBookedSessions = (childId?: string) => {
 export const useGetAvailableSessions = (childId?: string) => {
   return useQuery({
     queryKey: ["available-sessions", childId],
-    queryFn: async (): Promise<ApiResponse<SessionResponse[]>> => {
+    queryFn: async (): Promise<APIGetResponse<SessionResponse[]>> => {
       const url = childId
         ? `/sessions/available?childId=${childId}`
         : "/sessions/available";
@@ -237,13 +250,11 @@ export const useGetAvailableSessions = (childId?: string) => {
 };
 
 // Tutor Availability Queries
-export const useGetTutorAvailability = (id: string) => {
+export const useGetTutorAvailability = () => {
   return useQuery({
-    queryKey: ["tutor-availability", id],
-    queryFn: async (): Promise<ApiResponse<TutorDetails>> => {
-      const response = await axiosInstance.get(
-        `/tutor-availability/tutor/${id}`
-      );
+    queryKey: ["tutor-availability"],
+    queryFn: async (): Promise<APIGetResponse<TutorDetails>> => {
+      const response = await axiosInstance.get("/tutor-availability");
       return response.data;
     },
   });

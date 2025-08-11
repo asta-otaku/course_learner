@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import BackArrow from "@/assets/svgs/arrowback";
 import EditPencilIcon from "@/assets/svgs/editPencil";
 import {
@@ -13,16 +13,36 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { Trash2 } from "lucide-react";
+import { useGetCurrentUser } from "@/lib/api/queries";
 
 function StepTwo({ setStep }: { setStep: (step: number) => void }) {
-  // Local profile state
+  const { data: user } = useGetCurrentUser();
+
+  // Local profile state initialized with fetched user data
   const [profile, setProfile] = useState({
-    name: "Itadori Yuji",
+    name: "",
     image: "",
     phone: "",
     email: "",
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Update profile when user data loads
+  useEffect(() => {
+    if (user?.data) {
+      // Type assertion since the API returns a different structure than TutorDetails
+      const userData = user.data as any;
+      setProfile({
+        name:
+          userData.firstName && userData.lastName
+            ? `${userData.firstName} ${userData.lastName}`
+            : "",
+        image: userData.tutorProfile?.avatar || "",
+        phone: userData.phoneNumber || "",
+        email: userData.email || "",
+      });
+    }
+  }, [user]);
 
   // Handle avatar upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,15 +112,15 @@ function StepTwo({ setStep }: { setStep: (step: number) => void }) {
             className="w-24 h-24 rounded-full bg-borderGray relative flex items-center justify-center cursor-pointer"
             onClick={triggerFileInput}
           >
-            {profile.image ? (
+            {profile.image && profile.image !== "null" ? (
               <img
                 src={profile.image}
                 alt={profile.name}
                 className="w-full h-full object-cover rounded-full"
               />
             ) : (
-              <span className="text-lg font-semibold">
-                {profile.name.charAt(0)}
+              <span className="text-lg font-semibold text-gray-600">
+                {profile.name ? profile.name.charAt(0) : "U"}
               </span>
             )}
             <div className="absolute -bottom-6 right-0 w-10 flex items-center justify-center cursor-pointer">
