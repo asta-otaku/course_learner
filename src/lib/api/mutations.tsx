@@ -164,6 +164,41 @@ export const usePostChangePassword = () => {
   });
 };
 
+export const usePatchUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-user"],
+    mutationFn: (data: {
+      firstName: string;
+      lastName: string;
+      avatar?: File;
+      phoneNumber: string;
+    }): Promise<ApiResponse> => {
+      const formData = new FormData();
+      formData.append("firstName", data.firstName);
+      formData.append("lastName", data.lastName);
+      if (data.avatar) {
+        formData.append("avatar", data.avatar);
+      }
+      formData.append("phoneNumber", data.phoneNumber);
+      return axiosInstance.patch("/users/update-profile", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    },
+    onSuccess: (data: ApiResponse) => {
+      queryClient.invalidateQueries({
+        queryKey: ["current-user"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
 // Child Profile Mutations
 export const usePostChildProfiles = () => {
   const queryClient = useQueryClient();
