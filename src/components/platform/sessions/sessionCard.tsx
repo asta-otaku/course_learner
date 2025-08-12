@@ -17,7 +17,7 @@ const SessionSection = ({
   title: string;
   description: string;
   sessions: Session[];
-  onCancel: (id: number) => void;
+  onCancel: (id: string) => void;
   onReschedule: (session: Session) => void;
 }) => {
   if (sessions.length === 0) return null;

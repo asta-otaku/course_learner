@@ -477,6 +477,20 @@ export interface AdminSessionData {
   notes: string | null;
 }
 
+export interface PaginationInfo {
+  page: number;
+  limit: number;
+  totalCount: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface AdminSessionsResponse {
+  data: AdminSessionData[];
+  pagination: PaginationInfo;
+}
+
 export interface TimeSlot {
   id: string;
   label: string;

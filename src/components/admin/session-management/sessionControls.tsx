@@ -22,6 +22,9 @@ interface SessionControlsProps {
     page: number;
     limit: number;
     total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
   };
   onFilterChange: (key: string, value: string) => void;
   onPageChange: (page: number) => void;
@@ -60,7 +63,6 @@ export default function SessionControls({
   onLimitChange,
   onClearFilters,
 }: SessionControlsProps) {
-  const totalPages = Math.ceil(pagination.total / pagination.limit);
   const hasActiveFilters =
     filters.status || filters.date || filters.dayOfWeek || filters.search;
 
@@ -193,21 +195,21 @@ export default function SessionControls({
             variant="outline"
             size="sm"
             onClick={() => onPageChange(pagination.page - 1)}
-            disabled={pagination.page <= 1}
+            disabled={!pagination.hasPreviousPage}
             className="h-8 w-8 p-0"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
 
           <span className="text-sm text-gray-700 px-2">
-            Page {pagination.page} of {totalPages}
+            Page {pagination.page} of {pagination.totalPages}
           </span>
 
           <Button
             variant="outline"
             size="sm"
             onClick={() => onPageChange(pagination.page + 1)}
-            disabled={pagination.page >= totalPages}
+            disabled={!pagination.hasNextPage}
             className="h-8 w-8 p-0"
           >
             <ChevronRight className="w-4 h-4" />

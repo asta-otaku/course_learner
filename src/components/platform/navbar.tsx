@@ -33,6 +33,14 @@ export default function Navbar() {
   const { activeProfile, changeProfile, isLoaded, profiles } =
     useSelectedProfile();
   const { isAuthenticated } = useAuthGuard();
+  const [user, setUser] = React.useState<any>({});
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      setUser(userData);
+    }
+  }, []);
 
   const platformRoutes = [
     { name: "Dashboard", path: "/dashboard" },
@@ -50,9 +58,7 @@ export default function Navbar() {
   ];
 
   const routes =
-    activeProfile?.subscriptionName === "Tuition"
-      ? tuitionRoutes
-      : platformRoutes;
+    user?.data?.offerType === "Offer One" ? platformRoutes : tuitionRoutes;
 
   if (!isAuthenticated) {
     return null;
@@ -175,8 +181,10 @@ export default function Navbar() {
                 <DropdownMenuItem
                   onClick={() => {
                     logout();
-                    localStorage.removeItem("selectedProfile");
-                    localStorage.removeItem("activeProfile");
+                    if (typeof window !== "undefined") {
+                      localStorage.removeItem("selectedProfile");
+                      localStorage.removeItem("activeProfile");
+                    }
                     push("/sign-in");
                   }}
                   className="px-3 py-2 text-sm cursor-pointer font-inter text-red-500 hover:bg-red-50 hover:text-red-600 rounded-sm flex gap-3 ml-3 items-center"
@@ -190,7 +198,10 @@ export default function Navbar() {
           <button className="flex items-center focus:outline-none cursor-pointer">
             <div className="w-10 h-10 bg-[#D9D9D9] rounded-full flex items-center justify-center overflow-hidden cursor-pointer">
               <span className="text-gray-500 text-sm font-semibold">
-                {activeProfile?.name.slice(0, 2).toUpperCase()}
+                {activeProfile?.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
               </span>
             </div>
           </button>

@@ -13,6 +13,14 @@ function Library() {
   const { activeProfile, isLoaded } = useProfile();
   const [selectedCourse, setSelectedCourse] = useState("");
   const [selectedTopic, setSelectedTopic] = useState("");
+  const [user, setUser] = React.useState<any>({});
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      setUser(userData);
+    }
+  }, []);
 
   // Group courses by course name
   const groupedCourses = useMemo(() => {
@@ -86,7 +94,7 @@ function Library() {
 
   return (
     <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
-      {activeProfile.subscriptionName === "The platform" && (
+      {user?.data?.offerType === "Offer One" && (
         <div>
           <h1 className="text-xl font-medium text-textGray">Library</h1>
           <p className="text-sm text-textSubtitle">

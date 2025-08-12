@@ -36,7 +36,9 @@ export function AuthGuard({
         ];
 
         if (!authPages.some((page) => currentPath.includes(page))) {
-          localStorage.setItem("intendedUrl", currentPath);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("intendedUrl", currentPath);
+          }
         }
 
         // Use replace instead of push to prevent back button issues
@@ -95,7 +97,9 @@ export function useAuthGuard(redirectTo: string = "/sign-in") {
         ];
 
         if (!authPages.some((page) => currentPath.includes(page))) {
-          localStorage.setItem("intendedUrl", currentPath);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("intendedUrl", currentPath);
+          }
         }
 
         router.replace(redirectTo);

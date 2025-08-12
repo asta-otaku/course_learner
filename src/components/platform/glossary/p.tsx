@@ -9,6 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Glossary = () => {
   const { activeProfile, isLoaded } = useProfile();
+  const [user, setUser] = React.useState<any>({});
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      setUser(userData);
+    }
+  }, []);
   const [selectedTopic, setSelectedTopic] = useState<{
     title: string;
     course: string;
@@ -55,7 +63,7 @@ const Glossary = () => {
     }, {} as Record<string, Array<{ title: string; course: string; number_of_quizzes: number; image: string }>>);
 
   // Platform subscription - original design
-  if (activeProfile.subscriptionName === "The platform") {
+  if (user?.data?.offerType === "Offer One") {
     return (
       <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
         {

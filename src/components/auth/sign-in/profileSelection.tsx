@@ -21,6 +21,13 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
   const { mutateAsync: patchChildProfile, isPending: isPatching } =
     usePatchChildProfile();
 
+  // Store profiles in localStorage when they're fetched
+  React.useEffect(() => {
+    if (childProfile?.data && typeof window !== "undefined") {
+      localStorage.setItem("childProfiles", JSON.stringify(childProfile.data));
+    }
+  }, [childProfile?.data]);
+
   const [inactiveProfile, setInactiveProfile] = useState<ChildProfile | null>(
     null
   );
@@ -65,10 +72,12 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
                   if (isInactive) {
                     setInactiveProfile(profile);
                   } else {
-                    localStorage.setItem(
-                      "activeProfile",
-                      JSON.stringify(profile)
-                    );
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem(
+                        "activeProfile",
+                        JSON.stringify(profile)
+                      );
+                    }
                     push("/dashboard");
                   }
                 }}

@@ -71,6 +71,7 @@ export default function BookingDialog({
       timeSlot: selectedTimeSlot,
       tutor: selectedTutor,
       issue,
+      tutorId: selectedTutor,
     });
 
     onOpenChange(false);

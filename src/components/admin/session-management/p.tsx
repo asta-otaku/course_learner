@@ -31,6 +31,9 @@ function Sessions() {
     page: 1,
     limit: 10,
     total: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPreviousPage: false,
   });
 
   // Get sessions with filters and pagination
@@ -66,8 +69,8 @@ function Sessions() {
 
   // Transform API sessions to match the expected Session format
   useEffect(() => {
-    if (sessionsData?.data) {
-      const transformedSessions: Session[] = sessionsData.data.map(
+    if (sessionsData?.data?.data) {
+      const transformedSessions: Session[] = sessionsData.data.data.map(
         (apiSession: AdminSessionData) => {
           // Format the session name with more context
           const sessionName =
@@ -112,9 +115,17 @@ function Sessions() {
       );
       setAllSessions(transformedSessions);
 
-      // Update pagination total with the length of returned data
-      // TODO: Update when backend provides proper pagination metadata
-      setPagination((prev) => ({ ...prev, total: sessionsData.data.length }));
+      // Update pagination with backend metadata
+      if (sessionsData.data.pagination) {
+        setPagination((prev) => ({
+          ...prev,
+          total: sessionsData.data.pagination.totalCount,
+          page: sessionsData.data.pagination.page,
+          totalPages: sessionsData.data.pagination.totalPages,
+          hasNextPage: sessionsData.data.pagination.hasNextPage,
+          hasPreviousPage: sessionsData.data.pagination.hasPreviousPage,
+        }));
+      }
     }
   }, [sessionsData]);
 
@@ -158,7 +169,9 @@ function Sessions() {
   };
 
   const handlePageChange = (page: number) => {
-    setPagination((prev) => ({ ...prev, page }));
+    if (page >= 1 && page <= pagination.totalPages) {
+      setPagination((prev) => ({ ...prev, page }));
+    }
   };
 
   const handleLimitChange = (limit: number) => {

@@ -9,6 +9,7 @@ import {
   Timeslot,
   SessionResponse,
   AdminSessionData,
+  AdminSessionsResponse,
   FullSubscriptionPlan,
   APIGetResponse,
   SubscriptionPlan,
@@ -179,7 +180,7 @@ export const useGetSessions = (options?: {
       options?.page,
       options?.limit,
     ],
-    queryFn: async (): Promise<APIGetResponse<AdminSessionData[]>> => {
+    queryFn: async (): Promise<APIGetResponse<AdminSessionsResponse>> => {
       const params = new URLSearchParams();
       if (options?.dayOfWeek) params.append("dayOfWeek", options.dayOfWeek);
       if (options?.status) params.append("status", options.status);

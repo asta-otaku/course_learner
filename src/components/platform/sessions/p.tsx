@@ -102,14 +102,14 @@ function Sessions() {
       setAllSessions((prev) => [
         ...prev,
         {
-          id: Date.now(),
+          id: Date.now().toString(),
           ...sessionData,
         },
       ]);
     }
   };
 
-  const handleCancel = (id: number) => {
+  const handleCancel = (id: string) => {
     setAllSessions((prev) => prev.filter((session) => session.id !== id));
   };
 

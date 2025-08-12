@@ -8,6 +8,14 @@ import React from "react";
 
 function Page() {
   const { activeProfile, isLoaded } = useProfile();
+  const [user, setUser] = React.useState<any>({});
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      setUser(userData);
+    }
+  }, []);
   if (!isLoaded) {
     return <div>Loading...</div>;
   }
@@ -22,9 +30,9 @@ function Page() {
     );
   }
 
-  return activeProfile.subscriptionName === "The platform" ? (
+  return user?.data?.offerType === "Offer One" ? (
     <Home />
-  ) : activeProfile.subscriptionName === "Tuition" ? (
+  ) : user?.data?.offerType === "Offer Two" ? (
     <TuitionHome />
   ) : (
     <div className="flex items-center justify-center h-screen">

@@ -2,27 +2,39 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { dummyProfiles } from "@/lib/utils";
-import { User } from "@/lib/types";
+import { ChildProfile } from "@/lib/types";
 
 const ACTIVE_PROFILE_KEY = "activeProfile";
+const PROFILES_KEY = "childProfiles";
 const PROFILE_CHANGE_EVENT = "activeProfileChange";
 
 export function useSelectedProfile() {
-  const [activeProfile, setActiveProfile] = useState<User | null>(null);
+  const [activeProfile, setActiveProfile] = useState<ChildProfile | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [profiles, setProfiles] = useState<ChildProfile[]>([]);
 
   // Initialize from localStorage
   useEffect(() => {
-    const storedProfile = localStorage.getItem(ACTIVE_PROFILE_KEY);
-    if (storedProfile) {
-      try {
-        const profile = JSON.parse(storedProfile);
-        if (dummyProfiles.some((p) => p.name === profile.name)) {
-          setActiveProfile(profile);
+    if (typeof window !== "undefined") {
+      const storedProfile = localStorage.getItem(ACTIVE_PROFILE_KEY);
+      const storedProfiles = localStorage.getItem(PROFILES_KEY);
+
+      if (storedProfiles) {
+        try {
+          const profilesData = JSON.parse(storedProfiles);
+          setProfiles(profilesData);
+
+          if (storedProfile) {
+            const profile = JSON.parse(storedProfile);
+            if (
+              profilesData.some((p: ChildProfile) => p.name === profile.name)
+            ) {
+              setActiveProfile(profile);
+            }
+          }
+        } catch (e) {
+          console.error("Error parsing profiles", e);
         }
-      } catch (e) {
-        console.error("Error parsing profile", e);
       }
     }
     setIsLoaded(true);
@@ -30,50 +42,56 @@ export function useSelectedProfile() {
 
   // Listen for profile changes
   useEffect(() => {
-    const handleProfileChange = (e: Event) => {
-      const event = e as CustomEvent;
-      if (
-        event.detail &&
-        dummyProfiles.some((p) => p.name === event.detail.name)
-      ) {
-        setActiveProfile(event.detail);
-      }
-    };
+    if (typeof window !== "undefined") {
+      const handleProfileChange = (e: Event) => {
+        const event = e as CustomEvent;
+        if (
+          event.detail &&
+          profiles.some((p: ChildProfile) => p.name === event.detail.name)
+        ) {
+          setActiveProfile(event.detail);
+        }
+      };
 
-    window.addEventListener(
-      PROFILE_CHANGE_EVENT,
-      handleProfileChange as EventListener
-    );
-    return () =>
-      window.removeEventListener(
+      window.addEventListener(
         PROFILE_CHANGE_EVENT,
         handleProfileChange as EventListener
       );
-  }, []);
+      return () =>
+        window.removeEventListener(
+          PROFILE_CHANGE_EVENT,
+          handleProfileChange as EventListener
+        );
+    }
+  }, [profiles]);
 
   // Cross-tab synchronization
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === ACTIVE_PROFILE_KEY) {
-        const newProfile = e.newValue ? JSON.parse(e.newValue) : null;
-        setActiveProfile(newProfile);
-      }
-    };
+    if (typeof window !== "undefined") {
+      const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === ACTIVE_PROFILE_KEY) {
+          const newProfile = e.newValue ? JSON.parse(e.newValue) : null;
+          setActiveProfile(newProfile);
+        }
+      };
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+      window.addEventListener("storage", handleStorageChange);
+      return () => window.removeEventListener("storage", handleStorageChange);
+    }
   }, []);
 
   const changeProfile = (profileName: string) => {
-    const profile = dummyProfiles.find((p) => p.name === profileName);
+    const profile = profiles.find((p: ChildProfile) => p.name === profileName);
     if (profile) {
       setActiveProfile(profile);
-      localStorage.setItem(ACTIVE_PROFILE_KEY, JSON.stringify(profile));
+      if (typeof window !== "undefined") {
+        localStorage.setItem(ACTIVE_PROFILE_KEY, JSON.stringify(profile));
 
-      // Notify other components
-      window.dispatchEvent(
-        new CustomEvent(PROFILE_CHANGE_EVENT, { detail: profile })
-      );
+        // Notify other components
+        window.dispatchEvent(
+          new CustomEvent(PROFILE_CHANGE_EVENT, { detail: profile })
+        );
+      }
     }
   };
 
@@ -81,6 +99,6 @@ export function useSelectedProfile() {
     activeProfile,
     changeProfile,
     isLoaded,
-    profiles: dummyProfiles,
+    profiles,
   };
 }
