@@ -21,6 +21,7 @@ import { ChildProfile } from "@/lib/types";
 import {
   usePatchChildProfile,
   usePostChildProfiles,
+  usePatchUpdateChildProfile,
 } from "@/lib/api/mutations";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,7 +39,12 @@ function Page() {
   const [selectedProfile, setSelectedProfile] =
     React.useState<ChildProfile | null>(null);
   const [step, setStep] = React.useState(0);
+  const [isEditMode, setIsEditMode] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize mutation after selectedProfile is available
+  const { mutateAsync: patchUpdateChildProfile, isPending: isUpdating } =
+    usePatchUpdateChildProfile(selectedProfile?.id || "");
 
   const [avatarData, setAvatarData] = React.useState<{
     avatar: string | null;
@@ -71,7 +77,7 @@ function Page() {
   }, [childProfiles]);
 
   useEffect(() => {
-    if (selectedProfile) {
+    if (selectedProfile && isEditMode) {
       setValue("name", selectedProfile.name || "");
       setValue("year", selectedProfile.year || "");
       setAvatarData({
@@ -79,18 +85,16 @@ function Page() {
         avatarFile: null,
       });
     }
-  }, [selectedProfile, setValue]);
+  }, [selectedProfile, isEditMode, setValue]);
 
   const addProfile = () => {
-    const newProfile: ChildProfile = {
-      id: `${profiles.length}`,
-      name: "Click to set up profile",
-      year: "2",
-      avatar: "",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setProfiles([...profiles, newProfile]);
+    setSelectedProfile(null);
+    setIsEditMode(false);
+    setStep(1);
+    // Reset form and avatar data
+    setValue("name", "");
+    setValue("year", "");
+    setAvatarData({ avatar: null, avatarFile: null });
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,20 +116,56 @@ function Page() {
     fileInputRef.current?.click();
   };
 
-  const handleCreateProfile = async (
+  const handleSubmitProfile = async (
     data: z.infer<typeof childProfileEditSchema>
   ) => {
-    if (!data.name || !data.year || !avatarData.avatarFile) return;
+    if (!data.name || !data.year) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
 
-    const res = await postChildProfiles({
-      name: data.name,
-      year: data.year,
-      avatar: avatarData.avatarFile,
-    });
+    if (!isEditMode && !avatarData.avatarFile) {
+      toast.error("Please select an avatar image");
+      return;
+    }
 
-    if (res.status === 201) {
-      setAvatarData({ avatar: null, avatarFile: null });
-      setStep(0);
+    try {
+      if (isEditMode && selectedProfile) {
+        // Update existing profile
+        const updateData: any = {
+          name: data.name,
+          year: data.year,
+        };
+
+        if (avatarData.avatarFile) {
+          updateData.avatar = avatarData.avatarFile;
+        }
+
+        const res = await patchUpdateChildProfile(updateData);
+
+        if (res.status === 200) {
+          toast.success("Profile updated successfully!");
+          setAvatarData({ avatar: null, avatarFile: null });
+          setStep(0);
+          setIsEditMode(false);
+        }
+      } else {
+        // Create new profile
+        const res = await postChildProfiles({
+          name: data.name,
+          year: data.year,
+          avatar: avatarData.avatarFile!,
+        });
+
+        if (res.status === 201) {
+          toast.success("Profile created successfully!");
+          setAvatarData({ avatar: null, avatarFile: null });
+          setStep(0);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to save profile:", error);
+      toast.error("Failed to save profile. Please try again.");
     }
   };
 
@@ -146,18 +186,28 @@ function Page() {
               <div className="flex justify-between items-center w-full">
                 <div>
                   <h1 className="text-textGray font-semibold md:text-lg">
-                    Profiles
+                    {step === 1
+                      ? isEditMode
+                        ? "Edit Profile"
+                        : "Add Profile"
+                      : "Profiles"}
                   </h1>
                   <p className="text-textSubtitle text-xs -mt-0.5 font-medium">
-                    Manage your profiles
+                    {step === 1
+                      ? isEditMode
+                        ? "Update profile information"
+                        : "Create a new profile"
+                      : "Manage your profiles"}
                   </p>
                 </div>
-                <button
-                  className="text-primaryBlue text-sm font-medium bg-transparent"
-                  onClick={addProfile}
-                >
-                  Add Profile
-                </button>
+                {step === 0 && (
+                  <button
+                    className="text-primaryBlue text-sm font-medium bg-transparent"
+                    onClick={addProfile}
+                  >
+                    Add Profile
+                  </button>
+                )}
               </div>
 
               <div className="bg-white rounded-2xl p-1.5 border border-black/20 space-y-1">
@@ -166,10 +216,13 @@ function Page() {
                     key={profile.id}
                     onClick={() => {
                       setSelectedProfile(profile);
+                      setIsEditMode(true);
                       setStep(1);
                     }}
-                    className={`bg-bgWhiteGray border border-black/20 cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 ${
-                      profile.deletedAt ? "opacity-30" : ""
+                    className={`bg-bgWhiteGray border cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 relative ${
+                      profile.deletedAt
+                        ? "border-gray-300 bg-gray-50"
+                        : "border-black/20"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -186,22 +239,43 @@ function Page() {
                         {profile.name}
                       </span>
                     </div>
-                    <ArrowRightIcon />
+
+                    <div className="flex items-center gap-2">
+                      {profile.deletedAt && (
+                        <div className="bg-gray-50 border border-gray-200 text-gray-600 text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse"></div>
+                          <span className="font-medium">Deactivated</span>
+                        </div>
+                      )}
+                      <ArrowRightIcon />
+                    </div>
                   </div>
                 ))}
               </div>
             </>
           ),
-          1: selectedProfile && (
-            <div className="w-full flex flex-col items-center px-4">
+          1: (selectedProfile || !isEditMode) && (
+            <div className="w-full flex flex-col items-center p-4">
               <div
                 className="self-start text-sm cursor-pointer mb-6"
-                onClick={() => setStep(0)}
+                onClick={() => {
+                  setStep(0);
+                  setIsEditMode(false);
+                  setSelectedProfile(null);
+                }}
               >
                 <BackArrow color="#808080" />
               </div>
 
               <div className="flex flex-col items-center gap-2">
+                {/* Status Badge for Deactivated Profiles */}
+                {isEditMode && selectedProfile?.deletedAt && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    Profile Deactivated
+                  </div>
+                )}
+
                 <div
                   className="w-24 h-24 rounded-full bg-borderGray relative flex items-center justify-center"
                   onClick={triggerFileInput}
@@ -212,24 +286,36 @@ function Page() {
                       alt="avatar"
                       className="w-full h-full object-cover rounded-full"
                     />
+                  ) : selectedProfile?.avatar && !avatarData.avatarFile ? (
+                    <img
+                      src={selectedProfile.avatar}
+                      alt="avatar"
+                      className="w-full h-full object-cover rounded-full"
+                    />
                   ) : (
                     <span className="text-lg font-semibold">
-                      {watchedName.charAt(0)}
+                      {watchedName.charAt(0) ||
+                        (selectedProfile
+                          ? selectedProfile.name.charAt(0)
+                          : "U")}
                     </span>
                   )}
                   <div className="absolute -bottom-6 right-0 w-10 flex items-center justify-center cursor-pointer">
                     <EditPencilIcon />
                   </div>
                 </div>
-                <div className="font-semibold text-sm">{watchedName}</div>
+                <div className="font-semibold text-sm">
+                  {watchedName ||
+                    (selectedProfile ? selectedProfile.name : "New Profile")}
+                </div>
               </div>
 
               <form
-                onSubmit={handleSubmit(handleCreateProfile)}
+                onSubmit={handleSubmit(handleSubmitProfile)}
                 className="w-full max-w-3xl mt-10 space-y-4"
               >
                 <h3 className="text-sm font-semibold text-black mb-2">
-                  Personal Details
+                  {isEditMode ? "Edit Profile" : "Create New Profile"}
                 </h3>
 
                 <div className="py-2 border-b border-gray-200">
@@ -260,101 +346,119 @@ function Page() {
                   )}
                 </div>
 
+                {!isEditMode && (
+                  <div className="py-2 border-b border-gray-200">
+                    <label className="text-xs font-medium text-gray-500">
+                      Avatar Image *
+                    </label>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Click on the avatar above to upload an image
+                    </p>
+                  </div>
+                )}
+
                 <div className="pt-4">
                   <button
                     type="submit"
                     className="bg-primaryBlue text-white text-sm font-semibold rounded-full px-4 py-2 flex items-center gap-2"
-                    disabled={isPending}
+                    disabled={isPending || isUpdating}
                   >
-                    {isPending ? (
+                    {isPending || isUpdating ? (
                       <>
                         <Loader className="w-4 h-4 animate-spin" />
-                        Saving...
+                        {isEditMode ? "Updating..." : "Creating..."}
                       </>
+                    ) : isEditMode ? (
+                      "Update Profile"
                     ) : (
-                      "Save Changes"
+                      "Create Profile"
                     )}
                   </button>
                 </div>
               </form>
 
-              <div className="w-full max-w-3xl mt-8">
-                <h3 className="text-sm font-semibold text-black mb-2">
-                  Manage Account
-                </h3>
+              {/* Only show Manage Account section when editing an existing profile */}
+              {isEditMode && selectedProfile && (
+                <div className="w-full max-w-3xl mt-8">
+                  <h3 className="text-sm font-semibold text-black mb-2">
+                    Manage Account
+                  </h3>
 
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="text-xs font-medium text-black">
-                      {selectedProfile?.deletedAt
-                        ? "Reactivate Account"
-                        : "Deactivate Account"}
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="text-xs font-medium text-black">
+                        {selectedProfile?.deletedAt
+                          ? "Reactivate Account"
+                          : "Deactivate Account"}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 font-medium">
+                        Temporarily deactivate your profile. You can reactivate
+                        it later.
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 font-medium">
-                      Temporarily deactivate your profile. You can reactivate it
-                      later.
-                    </p>
-                  </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <button
-                        className={`text-xs ${
-                          selectedProfile?.deletedAt
-                            ? "text-[#008000]"
-                            : "text-[#FF0000]"
-                        } font-semibold`}
-                      >
-                        {selectedProfile?.deletedAt ? "Restore" : "Deactivate"}
-                      </button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="text-center px-6 py-8 max-w-md">
-                      <AlertDialogHeader>
-                        <div className="flex flex-col items-center space-y-4">
-                          <Trash2 className="text-red-500 w-6 h-6" />
-                          <AlertDialogTitle className="text-base font-semibold uppercase text-textGray">
-                            Are you sure?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription className="text-sm text-gray-500 text-center">
-                            {selectedProfile?.deletedAt
-                              ? "This action will restore your profile. You can deactivate it again later."
-                              : "This action will deactivate your profile. You can restore it later."}
-                          </AlertDialogDescription>
-                        </div>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter className="grid grid-cols-1 gap-1.5 mt-3">
-                        <AlertDialogAction
-                          className={`${
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          className={`text-xs ${
                             selectedProfile?.deletedAt
-                              ? "bg-[#008000] hover:bg-[#006600]"
-                              : "bg-[#FF0000] hover:bg-[#e60000]"
-                          } text-white rounded-full w-full py-2 text-sm font-medium`}
-                          onClick={async () => {
-                            const res = await patchChildProfile({
-                              id: selectedProfile.id,
-                              deactivate: !selectedProfile.deletedAt,
-                            });
-                            if (res.status === 200) {
-                              toast.success(res.data.message);
-                              setStep(0);
-                            }
-                          }}
+                              ? "text-[#008000]"
+                              : "text-[#FF0000]"
+                          } font-semibold`}
                         >
-                          {isPatching ? (
-                            <Loader className="w-4 h-4 animate-spin" />
-                          ) : selectedProfile?.deletedAt ? (
-                            "Restore Profile"
-                          ) : (
-                            "Deactivate Profile"
-                          )}
-                        </AlertDialogAction>
-                        <AlertDialogCancel className="text-xs text-gray-500 hover:text-black border-none shadow-none font-medium">
-                          Cancel
-                        </AlertDialogCancel>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                          {selectedProfile?.deletedAt
+                            ? "Restore"
+                            : "Deactivate"}
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="text-center px-6 py-8 max-w-md">
+                        <AlertDialogHeader>
+                          <div className="flex flex-col items-center space-y-4">
+                            <Trash2 className="text-red-500 w-6 h-6" />
+                            <AlertDialogTitle className="text-base font-semibold uppercase text-textGray">
+                              Are you sure?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription className="text-sm text-gray-500 text-center">
+                              {selectedProfile?.deletedAt
+                                ? "This action will restore your profile. You can deactivate it again later."
+                                : "This action will deactivate your profile. You can restore it later."}
+                            </AlertDialogDescription>
+                          </div>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="grid grid-cols-1 gap-1.5 mt-3">
+                          <AlertDialogAction
+                            className={`${
+                              selectedProfile?.deletedAt
+                                ? "bg-[#008000] hover:bg-[#006600]"
+                                : "bg-[#FF0000] hover:bg-[#e60000]"
+                            } text-white rounded-full w-full py-2 text-sm font-medium`}
+                            onClick={async () => {
+                              const res = await patchChildProfile({
+                                id: selectedProfile.id,
+                                deactivate: !selectedProfile.deletedAt,
+                              });
+                              if (res.status === 200) {
+                                toast.success(res.data.message);
+                                setStep(0);
+                              }
+                            }}
+                          >
+                            {isPatching ? (
+                              <Loader className="w-4 h-4 animate-spin" />
+                            ) : selectedProfile?.deletedAt ? (
+                              "Restore Profile"
+                            ) : (
+                              "Deactivate Profile"
+                            )}
+                          </AlertDialogAction>
+                          <AlertDialogCancel className="text-xs text-gray-500 hover:text-black border-none shadow-none font-medium">
+                            Cancel
+                          </AlertDialogCancel>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ),
         }[step]

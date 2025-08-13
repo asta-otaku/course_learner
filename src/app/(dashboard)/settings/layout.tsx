@@ -36,7 +36,7 @@ function SettingsLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="bg-bgWhiteGray min-h-screen">
       <Navbar />
-      <div className="my-12 max-w-4xl mx-auto w-full px-4 relative">
+      <div className="mt-12 pb-12 max-w-4xl mx-auto w-full px-4 relative">
         <div className="mb-8">
           <button
             onClick={handleBackClick}

@@ -229,6 +229,39 @@ export const usePostChildProfiles = () => {
   });
 };
 
+export const usePatchUpdateChildProfile = (id: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-update-child-profile", id],
+    mutationFn: (data: {
+      name: string;
+      year: string;
+      avatar?: File;
+    }): Promise<ApiResponse<DetailedChildProfile>> => {
+      const formData = new FormData();
+      formData.append("name", data.name);
+      formData.append("year", data.year);
+      if (data.avatar) {
+        formData.append("avatar", data.avatar);
+      }
+      return axiosInstance.patch(`/child-profiles/${id}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    },
+    onSuccess: (data: ApiResponse<DetailedChildProfile>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["child-profiles"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
 export const usePatchChildProfile = () => {
   const queryClient = useQueryClient();
   return useMutation({

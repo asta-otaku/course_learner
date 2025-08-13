@@ -241,7 +241,7 @@ function StepTwo({ setStep }: { setStep: (step: number) => void }) {
         </div>
 
         {/* Action Buttons */}
-        <div className="w-full mt-8 pt-6 border-t border-gray-200 flex gap-4">
+        <div className="w-full mt-8 pt-6 flex gap-4">
           <button
             onClick={() => {
               // Reset to original values
@@ -261,7 +261,7 @@ function StepTwo({ setStep }: { setStep: (step: number) => void }) {
               }
             }}
             disabled={!hasChanges}
-            className={`flex-1 text-sm font-semibold rounded-full px-6 py-3 flex items-center justify-center gap-2 ${
+            className={`flex-1 text-sm font-semibold rounded-full px-6 py-2 flex items-center justify-center gap-2 ${
               hasChanges
                 ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -273,7 +273,7 @@ function StepTwo({ setStep }: { setStep: (step: number) => void }) {
           <button
             onClick={handleSaveProfile}
             disabled={isPending || !hasChanges}
-            className={`flex-1 text-sm font-semibold rounded-full px-6 py-3 flex items-center justify-center gap-2 ${
+            className={`flex-1 text-sm font-semibold rounded-full px-6 py-2 flex items-center justify-center gap-2 ${
               hasChanges
                 ? "bg-primaryBlue text-white hover:bg-primaryBlue/90"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
