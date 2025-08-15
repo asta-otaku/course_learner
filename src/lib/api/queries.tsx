@@ -201,6 +201,8 @@ export const useGetMySessions = (options?: {
   dayOfWeek?: string;
   status?: string;
   date?: string;
+  page?: number;
+  limit?: number;
 }) => {
   return useQuery({
     queryKey: [
@@ -208,12 +210,16 @@ export const useGetMySessions = (options?: {
       options?.dayOfWeek,
       options?.status,
       options?.date,
+      options?.page,
+      options?.limit,
     ],
     queryFn: async (): Promise<APIGetResponse<SessionResponse[]>> => {
       const params = new URLSearchParams();
       if (options?.dayOfWeek) params.append("dayOfWeek", options.dayOfWeek);
       if (options?.status) params.append("status", options.status);
       if (options?.date) params.append("date", options.date);
+      if (options?.page) params.append("page", options.page.toString());
+      if (options?.limit) params.append("limit", options.limit.toString());
 
       const queryString = params.toString();
       const url = queryString ? `/sessions/me?${queryString}` : "/sessions/me";

@@ -165,7 +165,6 @@ function Page() {
       }
     } catch (error) {
       console.error("Failed to save profile:", error);
-      toast.error("Failed to save profile. Please try again.");
     }
   };
 

@@ -8,8 +8,7 @@ import SessionDetailsDialog from "./sessionDetailsDialog";
 import SessionControls from "./sessionControls";
 import CancelSessionDialog from "./cancelSessionDialog";
 import { useGetSessions } from "@/lib/api/queries";
-import { useMutation } from "@tanstack/react-query";
-import { axiosInstance } from "@/lib/services/axiosInstance";
+import { usePutCancelSession } from "@/lib/api/mutations";
 
 function Sessions() {
   const [allSessions, setAllSessions] = useState<Session[]>([]);
@@ -19,6 +18,7 @@ function Sessions() {
   // Cancellation dialog state
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [sessionToCancel, setSessionToCancel] = useState<Session | null>(null);
+  const [cancelSessionId, setCancelSessionId] = useState("");
 
   // Filter and pagination state
   const [filters, setFilters] = useState({
@@ -48,24 +48,8 @@ function Sessions() {
     // For now, we'll filter client-side
   });
 
-  // Custom mutation for canceling sessions
-  const cancelSessionMutation = useMutation({
-    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      const response = await axiosInstance.put(`/sessions/${id}/cancel`, {
-        reason,
-      });
-      return response.data;
-    },
-    onSuccess: (data, variables) => {
-      // Remove the session from local state after successful cancellation
-      setAllSessions((prev) =>
-        prev.filter((session) => session.id !== variables.id)
-      );
-    },
-    onError: (error) => {
-      // You might want to show a toast notification here
-    },
-  });
+  // Use the defined usePutCancelSession mutation
+  const cancelSessionMutation = usePutCancelSession(cancelSessionId);
 
   // Transform API sessions to match the expected Session format
   useEffect(() => {
@@ -86,7 +70,7 @@ function Sessions() {
           // Determine if session is today, upcoming, or past
           const sessionDate = new Date(apiSession.sessionDate);
           const today = new Date();
-          const isToday = sessionDate.toDateString() === today.toDateString();
+
           const isPast = sessionDate < today;
 
           let statusDisplay = apiSession.status;
@@ -187,6 +171,7 @@ function Sessions() {
   const handleCancel = (id: string) => {
     const session = allSessions.find((s) => s.id === id);
     if (session) {
+      setCancelSessionId(session.id);
       setSessionToCancel(session);
       setShowCancelDialog(true);
     }
@@ -197,14 +182,17 @@ function Sessions() {
 
     try {
       await cancelSessionMutation.mutateAsync({
-        id: sessionToCancel.id,
         reason,
       });
+
+      // Remove the session from local state after successful cancellation
+      setAllSessions((prev) =>
+        prev.filter((session) => session.id !== sessionToCancel.id)
+      );
       setShowCancelDialog(false);
       setSessionToCancel(null);
     } catch (error) {
       console.error("Failed to cancel session:", error);
-      // You might want to show a toast notification here
     }
   };
 

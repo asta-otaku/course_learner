@@ -63,7 +63,6 @@ function StepThree({ setStep }: { setStep: (step: number) => void }) {
       }
     } catch (error) {
       console.error("Error updating availability:", error);
-      toast.error("Failed to update availability");
     } finally {
       setIsUpdating(false);
     }

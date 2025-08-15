@@ -57,7 +57,6 @@ export default function AccountCreation({
       }
     } catch (error) {
       console.error("Signup error:", error);
-      toast.error("An error occurred during account creation.");
     }
   };
 

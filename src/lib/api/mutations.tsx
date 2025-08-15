@@ -472,7 +472,7 @@ export const usePostBookSession = () => {
   });
 };
 
-export const usePutConfirmSession = (id: number) => {
+export const usePutConfirmSession = (id: string) => {
   return useMutation({
     mutationKey: ["put-confirm-session"],
     mutationFn: (
@@ -488,7 +488,7 @@ export const usePutConfirmSession = (id: number) => {
   });
 };
 
-export const usePutCancelSession = (id: number) => {
+export const usePutCancelSession = (id: string) => {
   return useMutation({
     mutationKey: ["put-cancel-session"],
     mutationFn: (
@@ -504,7 +504,7 @@ export const usePutCancelSession = (id: number) => {
   });
 };
 
-export const usePutRescheduleSession = (id: number) => {
+export const usePutRescheduleSession = (id: string) => {
   return useMutation({
     mutationKey: ["put-reschedule-session"],
     mutationFn: (
@@ -520,7 +520,7 @@ export const usePutRescheduleSession = (id: number) => {
   });
 };
 
-export const usePutCompleteSession = (id: number) => {
+export const usePutCompleteSession = (id: string) => {
   return useMutation({
     mutationKey: ["put-complete-session"],
     mutationFn: (data: {

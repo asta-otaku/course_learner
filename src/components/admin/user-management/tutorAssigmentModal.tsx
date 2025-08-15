@@ -46,7 +46,6 @@ export default function TutorAssigmentModal({
       }
     } catch (error) {
       console.error("Error assigning tutor:", error);
-      toast.error("Failed to assign tutor. Please try again.");
     }
   };
   return (

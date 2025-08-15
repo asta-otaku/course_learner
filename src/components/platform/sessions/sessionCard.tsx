@@ -13,12 +13,16 @@ const SessionSection = ({
   sessions,
   onCancel,
   onReschedule,
+  onConfirm,
+  onComplete,
 }: {
   title: string;
   description: string;
   sessions: Session[];
   onCancel: (id: string) => void;
   onReschedule: (session: Session) => void;
+  onConfirm?: (session: Session) => void;
+  onComplete?: (session: Session) => void;
 }) => {
   if (sessions.length === 0) return null;
 
@@ -58,6 +62,24 @@ const SessionSection = ({
                 )}
               </div>
               <div className="flex space-x-2 w-full md:w-fit justify-center md:justify-normal">
+                {onConfirm && session.status === "pending" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => onConfirm(session)}
+                    className="bg-green-600 text-white rounded-full text-xs hover:bg-green-700"
+                  >
+                    Confirm
+                  </Button>
+                )}
+                {onComplete && session.status === "confirmed" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => onComplete(session)}
+                    className="bg-purple-600 text-white rounded-full text-xs hover:bg-purple-700"
+                  >
+                    Complete
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   onClick={() => onReschedule(session)}
