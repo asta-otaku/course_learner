@@ -23,59 +23,44 @@ export default function BookingDialog({
   open,
   onOpenChange,
   selectedDate,
-  timeSlots,
+  availableSessions,
   onBookMeeting,
-  tutors,
   sessionToEdit,
+  isBooking,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDate: string | null;
-  timeSlots: TimeSlot[];
-  onBookMeeting: (session: Omit<Session, "id">) => void;
-  tutors: string[];
+  availableSessions: any[];
+  onBookMeeting: (sessionId: string, notes: string) => Promise<void>;
   sessionToEdit?: Session;
+  isBooking?: boolean;
 }) {
-  const [title, setTitle] = useState(sessionToEdit?.name || "");
-  const [issue, setIssue] = useState(sessionToEdit?.issue || "");
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState(
-    sessionToEdit?.timeSlot || ""
-  );
-  const [selectedTutor, setSelectedTutor] = useState(
-    sessionToEdit?.tutor || tutors[0] || ""
-  );
+  const [selectedSessionId, setSelectedSessionId] = useState("");
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
-    if (sessionToEdit) {
-      setTitle(sessionToEdit.name);
-      setIssue(sessionToEdit.issue || "");
-      setSelectedTimeSlot(sessionToEdit.timeSlot);
-      setSelectedTutor(sessionToEdit.tutor);
-    } else {
-      setTitle("");
-      setIssue("");
-      setSelectedTimeSlot("");
-      setSelectedTutor(tutors[0] || "");
+    // Reset form when dialog opens/closes or date changes
+    setSelectedSessionId("");
+    setNotes("");
+  }, [open, selectedDate]);
+
+  const handleSubmit = async () => {
+    if (!selectedSessionId) return;
+
+    try {
+      await onBookMeeting(selectedSessionId, notes);
+      onOpenChange(false);
+    } catch (error) {
+      // Error is already handled in the parent component
+      // Modal stays open so user can try again
     }
-  }, [sessionToEdit, tutors]);
-
-  const handleSubmit = () => {
-    if (!selectedDate || !selectedTimeSlot || !selectedTutor || !title) return;
-
-    const timeSlotData = timeSlots.find((slot) => slot.id === selectedTimeSlot);
-
-    onBookMeeting({
-      date: selectedDate,
-      name: title,
-      time: timeSlotData?.label || "",
-      timeSlot: selectedTimeSlot,
-      tutor: selectedTutor,
-      issue,
-      tutorId: selectedTutor,
-    });
-
-    onOpenChange(false);
   };
+
+  // Filter sessions for the selected date
+  const sessionsForDate = availableSessions.filter(
+    (session) => session.sessionDate === selectedDate
+  );
 
   const displayDate = selectedDate ? formatDisplayDate(selectedDate) : null;
   const pathname = usePathname();
@@ -105,80 +90,68 @@ export default function BookingDialog({
             </div>
           )}
 
-          {/* Added Session Title Input */}
-          <div>
-            <label className="block text-xs font-medium mb-2">
-              SESSION TITLE
-            </label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Calculus Review Session"
-              className="rounded-xl h-12"
-            />
-          </div>
-
+          {/* Available Sessions */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-2">
-              WHAT ISSUE ARE YOU CURRENTLY FACING?
+              SELECT AVAILABLE SESSION
+            </label>
+            {sessionsForDate.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No available sessions for this date</p>
+                <p className="text-sm">Please select a different date</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+                {sessionsForDate.map((session) => (
+                  <Button
+                    key={session.id}
+                    variant={
+                      selectedSessionId === session.id ? "default" : "outline"
+                    }
+                    onClick={() => setSelectedSessionId(session.id)}
+                    className={`rounded-xl flex flex-col justify-center py-4 h-auto ${
+                      selectedSessionId === session.id
+                        ? "bg-black text-white"
+                        : "bg-bgWhiteGray"
+                    }`}
+                  >
+                    <div className="font-medium">
+                      {session.startTime?.slice(0, 5)} -{" "}
+                      {session.endTime?.slice(0, 5)}
+                    </div>
+                    <div className="text-sm opacity-75">
+                      with {session.tutor}
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Session Notes */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              SESSION NOTES (OPTIONAL)
             </label>
             <Textarea
-              value={issue}
-              onChange={(e) => setIssue(e.target.value)}
-              placeholder="Describe your learning challenge"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add any special notes or requirements for this session..."
               className="rounded-xl"
               rows={3}
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">
-              SELECT TIME SLOT
-            </label>
-            <div className="grid grid-cols-1 gap-2">
-              {timeSlots.map((slot) => (
-                <Button
-                  key={slot.id}
-                  variant={selectedTimeSlot === slot.id ? "default" : "outline"}
-                  onClick={() => setSelectedTimeSlot(slot.id)}
-                  className={`rounded-xl flex justify-center py-5 ${
-                    selectedTimeSlot === slot.id
-                      ? "bg-black text-white"
-                      : "bg-bgWhiteGray"
-                  }`}
-                >
-                  {slot.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">
-              {isTutor ? "SELECT STUDENT" : "SELECT TUTOR"}
-            </label>
-            <Select value={selectedTutor} onValueChange={setSelectedTutor}>
-              <SelectTrigger className="h-12 rounded-xl">
-                <SelectValue
-                  placeholder={isTutor ? "Select student" : "Select tutor"}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {tutors.map((tutor) => (
-                  <SelectItem key={tutor} value={tutor}>
-                    {tutor}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           <Button
             onClick={handleSubmit}
-            disabled={!selectedTimeSlot || !selectedTutor || !title}
+            disabled={!selectedSessionId || isBooking}
             className="w-full rounded-full text-xs py-5 bg-primaryBlue disabled:bg-textSubtitle disabled:cursor-not-allowed"
           >
-            {sessionToEdit ? "Update Meeting" : "Book Meeting"}
+            {isBooking
+              ? "Booking..."
+              : sessionToEdit
+              ? "Update Meeting"
+              : "Book Meeting"}
           </Button>
         </div>
       </DialogContent>

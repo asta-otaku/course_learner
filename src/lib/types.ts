@@ -430,7 +430,7 @@ export enum SessionStatus {
 
 // Session Mutation Request Types
 export interface BookSessionData {
-  childProfileId: number;
+  childProfileId: string;
   notes: string;
 }
 
@@ -443,7 +443,7 @@ export interface CancelSessionData {
 }
 
 export interface RescheduleSessionData {
-  newSessionId: number;
+  newSessionId: string;
   reason: string;
 }
 

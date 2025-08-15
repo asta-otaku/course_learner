@@ -38,8 +38,14 @@ const TutorSessionCard = ({
   if (sessions.length === 0) return null;
 
   const handleSessionClick = (session: Session) => {
-    setSelectedSession(session);
-    setShowModal(true);
+    // Only open modal for sessions that have actionable states
+    const actionableStatuses = ["pending", "confirmed", "completed"];
+
+    if (actionableStatuses.includes(session.status || "")) {
+      setSelectedSession(session);
+      setShowModal(true);
+    }
+    // Do nothing for "available" and "cancelled" sessions
   };
 
   const closeModal = () => {
@@ -94,7 +100,13 @@ const TutorSessionCard = ({
                 </div>
               </div>
               <div
-                className="flex flex-col md:flex-row gap-4 md:gap-1 md:items-center justify-between space-x-4 w-full bg-bgWhiteGray border py-2 px-4 rounded-2xl cursor-pointer hover:bg-gray-100 transition-colors"
+                className={`flex flex-col md:flex-row gap-4 md:gap-1 md:items-center justify-between space-x-4 w-full bg-bgWhiteGray border py-2 px-4 rounded-2xl transition-colors ${
+                  ["pending", "confirmed", "completed"].includes(
+                    session.status || ""
+                  )
+                    ? "cursor-pointer hover:bg-gray-100"
+                    : "cursor-default"
+                }`}
                 onClick={() => handleSessionClick(session)}
               >
                 <div className="text-textSubtitle space-y-2">
@@ -184,17 +196,37 @@ const TutorSessionCard = ({
               </div>
 
               <div className="space-y-3">
-                {selectedSession.status === "available" && (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => handleAction("confirm", selectedSession)}
-                  >
-                    Confirm Session
-                  </Button>
+                {/* Pending sessions: Cancel, Confirm, Reschedule */}
+                {selectedSession.status === "pending" && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleAction("confirm", selectedSession)}
+                    >
+                      Confirm Session
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() =>
+                        handleAction("reschedule", selectedSession)
+                      }
+                    >
+                      Reschedule Session
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      onClick={() => handleAction("cancel", selectedSession)}
+                    >
+                      Cancel Session
+                    </Button>
+                  </>
                 )}
 
-                {selectedSession.status === "booked" && (
+                {/* Confirmed sessions: Cancel, Reschedule */}
+                {selectedSession.status === "confirmed" && (
                   <>
                     <Button
                       variant="outline"
@@ -206,22 +238,44 @@ const TutorSessionCard = ({
                       Reschedule Session
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="destructive"
                       className="w-full"
-                      onClick={() => handleAction("complete", selectedSession)}
+                      onClick={() => handleAction("cancel", selectedSession)}
                     >
-                      Mark as Complete
+                      Cancel Session
                     </Button>
                   </>
                 )}
 
-                <Button
-                  variant="destructive"
-                  className="w-full"
-                  onClick={() => handleAction("cancel", selectedSession)}
-                >
-                  Cancel Session
-                </Button>
+                {/* Cancelled sessions: Reschedule only */}
+                {selectedSession.status === "cancelled" && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => handleAction("reschedule", selectedSession)}
+                  >
+                    Reschedule Session
+                  </Button>
+                )}
+
+                {/* Completed sessions: No actions */}
+                {selectedSession.status === "completed" && (
+                  <p className="text-center text-gray-500 py-4">
+                    This session has been completed
+                  </p>
+                )}
+
+                {/* Available/Expired sessions: Confirm only */}
+                {(selectedSession.status === "available" ||
+                  selectedSession.status === "expired") && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => handleAction("confirm", selectedSession)}
+                  >
+                    Confirm Session
+                  </Button>
+                )}
               </div>
             </div>
           )}

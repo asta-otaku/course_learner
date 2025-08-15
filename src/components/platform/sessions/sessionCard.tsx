@@ -12,7 +12,6 @@ const SessionSection = ({
   description,
   sessions,
   onCancel,
-  onReschedule,
   onConfirm,
   onComplete,
 }: {
@@ -20,7 +19,6 @@ const SessionSection = ({
   description: string;
   sessions: Session[];
   onCancel: (id: string) => void;
-  onReschedule: (session: Session) => void;
   onConfirm?: (session: Session) => void;
   onComplete?: (session: Session) => void;
 }) => {
@@ -80,13 +78,7 @@ const SessionSection = ({
                     Complete
                   </Button>
                 )}
-                <Button
-                  variant="outline"
-                  onClick={() => onReschedule(session)}
-                  className="bg-primaryBlue text-white rounded-full text-xs"
-                >
-                  Reschedule
-                </Button>
+
                 <Button
                   variant="destructive"
                   className="rounded-full text-xs"

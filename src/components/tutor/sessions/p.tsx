@@ -91,11 +91,7 @@ function Sessions() {
         sessionsData as any
       ).data.data.map((apiSession: any) => {
         // Format the session name with more context
-        const sessionName = `Session with ${
-          apiSession.bookedBy
-            ? `${apiSession.bookedBy.firstName} ${apiSession.bookedBy.lastName}`
-            : "Student"
-        }`;
+        const sessionName = `Session with ${apiSession.bookedBy || "Student"}`;
 
         // Format time for better readability
         const startTime = apiSession.startTime?.slice(0, 5) || "00:00"; // Remove seconds
@@ -118,23 +114,15 @@ function Sessions() {
           name: sessionName,
           time: timeDisplay,
           timeSlot: timeDisplay,
-          tutor: "You", // Since this is tutor sessions, the tutor is the current user
-          tutorId: "current-user", // Placeholder for current user
-          student: apiSession.bookedBy
-            ? `${apiSession.bookedBy.firstName} ${apiSession.bookedBy.lastName}`
-            : undefined,
-          participants: apiSession.bookedBy
-            ? [
-                `${apiSession.bookedBy.firstName} ${apiSession.bookedBy.lastName}`,
-              ]
-            : [],
+          tutor: apiSession.tutor || "You", // Use the tutor name from API
+          tutorId: apiSession.tutorId || "current-user",
+          student: apiSession.bookedBy || undefined,
+          participants: apiSession.bookedBy ? [apiSession.bookedBy] : [],
           issue: undefined,
           status: statusDisplay,
           bookedAt: apiSession.bookedAt,
-          bookedBy: apiSession.bookedBy
-            ? `${apiSession.bookedBy.firstName} ${apiSession.bookedBy.lastName}`
-            : null,
-          bookedById: apiSession.bookedBy?.id?.toString() || null,
+          bookedBy: apiSession.bookedBy || null,
+          bookedById: apiSession.bookedById?.toString() || null,
           notes: apiSession.notes,
         };
       });
@@ -286,7 +274,7 @@ function Sessions() {
 
     try {
       await rescheduleSessionMutation.mutateAsync({
-        newSessionId: parseInt(newSessionId),
+        newSessionId,
         reason,
       });
 
@@ -423,7 +411,7 @@ function Sessions() {
         open={showRescheduleSessionDialog}
         onOpenChange={setShowRescheduleSessionDialog}
         session={sessionToReschedule}
-        availableSessions={allSessions}
+        allSessions={allSessions}
         onConfirm={handleConfirmReschedule}
         isLoading={rescheduleSessionMutation.isPending}
       />

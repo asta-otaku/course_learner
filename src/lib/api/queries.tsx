@@ -230,26 +230,70 @@ export const useGetMySessions = (options?: {
   });
 };
 
-export const useGetBookedSessions = (childId?: string) => {
+export const useGetBookedSessions = (
+  childId: string,
+  options?: {
+    status?: string;
+    date?: string;
+    dayOfWeek?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }
+) => {
   return useQuery({
-    queryKey: ["booked-sessions", childId],
-    queryFn: async (): Promise<APIGetResponse<SessionResponse[]>> => {
-      const url = childId
-        ? `/sessions/booked?childId=${childId}`
-        : "/sessions/booked";
+    queryKey: ["booked-sessions", childId, options],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const params = new URLSearchParams();
+
+      if (options?.status && options.status !== "all")
+        params.append("status", options.status);
+      if (options?.date) params.append("date", options.date);
+      if (options?.dayOfWeek && options.dayOfWeek !== "all")
+        params.append("dayOfWeek", options.dayOfWeek);
+      if (options?.search) params.append("search", options.search);
+      if (options?.page) params.append("page", options.page.toString());
+      if (options?.limit) params.append("limit", options.limit.toString());
+
+      const queryString = params.toString();
+      const url = queryString
+        ? `/sessions/booked/${childId}?${queryString}`
+        : `/sessions/booked/${childId}`;
       const response = await axiosInstance.get(url);
       return response.data;
     },
   });
 };
 
-export const useGetAvailableSessions = (childId?: string) => {
+export const useGetAvailableSessions = (
+  childId: string,
+  options?: {
+    status?: string;
+    date?: string;
+    dayOfWeek?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }
+) => {
   return useQuery({
-    queryKey: ["available-sessions", childId],
-    queryFn: async (): Promise<APIGetResponse<SessionResponse[]>> => {
-      const url = childId
-        ? `/sessions/available?childId=${childId}`
-        : "/sessions/available";
+    queryKey: ["available-sessions", childId, options],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const params = new URLSearchParams();
+
+      if (options?.status && options.status !== "all")
+        params.append("status", options.status);
+      if (options?.date) params.append("date", options.date);
+      if (options?.dayOfWeek && options.dayOfWeek !== "all")
+        params.append("dayOfWeek", options.dayOfWeek);
+      if (options?.search) params.append("search", options.search);
+      if (options?.page) params.append("page", options.page.toString());
+      if (options?.limit) params.append("limit", options.limit.toString());
+
+      const queryString = params.toString();
+      const url = queryString
+        ? `/sessions/available/${childId}?${queryString}`
+        : `/sessions/available/${childId}`;
       const response = await axiosInstance.get(url);
       return response.data;
     },

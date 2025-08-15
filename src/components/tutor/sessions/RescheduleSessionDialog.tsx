@@ -23,12 +23,11 @@ import {
 import { Calendar, Clock } from "lucide-react";
 import { Session } from "@/lib/types";
 import { formatDisplayDate } from "@/lib/utils";
-
 interface RescheduleSessionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   session: Session | null;
-  availableSessions: Session[];
+  allSessions: Session[]; // Use existing fetched sessions
   onConfirm: (newSessionId: string, reason: string) => void;
   isLoading?: boolean;
 }
@@ -37,7 +36,7 @@ export default function RescheduleSessionDialog({
   open,
   onOpenChange,
   session,
-  availableSessions,
+  allSessions,
   onConfirm,
   isLoading = false,
 }: RescheduleSessionDialogProps) {
@@ -45,12 +44,24 @@ export default function RescheduleSessionDialog({
   const [reason, setReason] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [dayFilter, setDayFilter] = useState("all");
+  const [searchFilter, setSearchFilter] = useState("");
 
-  // Filter available sessions based on user preferences
-  const filteredSessions = useMemo(() => {
-    let filtered = availableSessions.filter(
+  // Filter available sessions from the already-fetched sessions
+  const availableSessions = useMemo(() => {
+    let filtered = allSessions.filter(
       (s) => s.status === "available" && s.id !== session?.id
     );
+
+    // Apply search filter
+    if (searchFilter.trim()) {
+      const searchTerm = searchFilter.toLowerCase();
+      filtered = filtered.filter(
+        (session) =>
+          session.name.toLowerCase().includes(searchTerm) ||
+          session.tutor.toLowerCase().includes(searchTerm) ||
+          session.time.toLowerCase().includes(searchTerm)
+      );
+    }
 
     // Filter by date if specified
     if (dateFilter) {
@@ -74,23 +85,30 @@ export default function RescheduleSessionDialog({
       if (dateCompare !== 0) return dateCompare;
       return a.time.localeCompare(b.time);
     });
-  }, [availableSessions, session?.id, dateFilter, dayFilter]);
+  }, [allSessions, session?.id, dateFilter, dayFilter, searchFilter]);
+
+  // Filter handlers
+  const handleClearFilters = () => {
+    setDateFilter("");
+    setDayFilter("all");
+    setSearchFilter("");
+  };
 
   const handleConfirm = () => {
     if (selectedSessionId && reason.trim()) {
       onConfirm(selectedSessionId, reason.trim());
       setSelectedSessionId("");
       setReason("");
-      setDateFilter("");
-      setDayFilter("all");
+      // Reset filters
+      handleClearFilters();
     }
   };
 
   const handleCancel = () => {
     setSelectedSessionId("");
     setReason("");
-    setDateFilter("");
-    setDayFilter("all");
+    // Reset filters
+    handleClearFilters();
     onOpenChange(false);
   };
 
@@ -136,7 +154,19 @@ export default function RescheduleSessionDialog({
             <Label className="text-sm font-medium">
               Filter Available Sessions
             </Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="searchFilter" className="text-xs">
+                  Search
+                </Label>
+                <Input
+                  id="searchFilter"
+                  placeholder="Search sessions..."
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  className="h-9"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="dateFilter" className="text-xs">
                   Specific Date
@@ -170,21 +200,31 @@ export default function RescheduleSessionDialog({
                 </Select>
               </div>
             </div>
+            {(dateFilter || dayFilter !== "all" || searchFilter) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearFilters}
+                className="h-8"
+              >
+                Clear Filters
+              </Button>
+            )}
           </div>
 
           {/* Available Sessions */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">
-              Select New Session ({filteredSessions.length} available)
+              Select New Session ({availableSessions.length} available)
             </Label>
             <div className="max-h-48 overflow-y-auto border rounded-md">
-              {filteredSessions.length === 0 ? (
+              {availableSessions.length === 0 ? (
                 <div className="p-4 text-center text-gray-500 text-sm">
                   No available sessions found. Try adjusting your filters.
                 </div>
               ) : (
                 <div className="space-y-1 p-2">
-                  {filteredSessions.map((availableSession) => {
+                  {availableSessions.map((availableSession) => {
                     const displayDate = formatDisplayDate(
                       availableSession.date
                     );

@@ -459,10 +459,14 @@ export const useDeleteTimeslot = () => {
 export const usePostBookSession = () => {
   return useMutation({
     mutationKey: ["post-book-session"],
-    mutationFn: (
-      data: BookSessionData
-    ): Promise<ApiResponse<SessionResponse>> =>
-      axiosInstance.post(`/sessions/${data.childProfileId}/book`, data),
+    mutationFn: async (data: {
+      sessionId: string;
+      childProfileId: string;
+      notes: string;
+    }): Promise<ApiResponse<SessionResponse>> => {
+      const { sessionId, ...payload } = data;
+      return axiosInstance.post(`/sessions/${sessionId}/book`, payload);
+    },
     onSuccess: (data: ApiResponse<SessionResponse>) => {
       return data;
     },
