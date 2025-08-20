@@ -50,7 +50,11 @@ const SessionSection = ({
               </div>
             </div>
             <div
-              className="flex flex-col md:flex-row gap-4 md:gap-1 md:items-center justify-between space-x-4 w-full bg-bgWhiteGray border py-2 px-4 rounded-2xl cursor-pointer hover:bg-gray-100 transition-colors"
+              className={`flex flex-col md:flex-row gap-4 md:gap-1 md:items-center justify-between space-x-4 w-full bg-bgWhiteGray border py-2 px-4 rounded-2xl transition-colors ${
+                session.status === "cancelled"
+                  ? "cursor-default"
+                  : "cursor-pointer hover:bg-gray-100"
+              }`}
               onClick={() => onSessionClick(session)}
             >
               <div className="text-textSubtitle space-y-2">
@@ -102,16 +106,19 @@ const SessionSection = ({
                 )}
               </div>
               <div className="flex space-x-2 w-full md:w-fit justify-center md:justify-normal">
-                <Button
-                  variant="destructive"
-                  className="rounded-full text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent opening the dialog when clicking cancel
-                    onCancel(session.id);
-                  }}
-                >
-                  Cancel
-                </Button>
+                {/* Only show cancel button for non-cancelled sessions */}
+                {session.status !== "cancelled" && (
+                  <Button
+                    variant="destructive"
+                    className="rounded-full text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent opening the dialog when clicking cancel
+                      onCancel(session.id);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                )}
               </div>
             </div>
           </div>

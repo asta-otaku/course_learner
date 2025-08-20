@@ -197,6 +197,12 @@ function Sessions() {
   };
 
   const handleSessionClick = (session: Session) => {
+    // For cancelled sessions, show more info in the card instead of opening dialog
+    if (session.status === "cancelled") {
+      // Don't open dialog for cancelled sessions - they show expanded info in the card
+      return;
+    }
+
     setSelectedSession(session);
     setShowDetailsDialog(true);
   };
