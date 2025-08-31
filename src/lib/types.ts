@@ -14,18 +14,18 @@ export interface Course {
 }
 
 export interface Quiz {
+  id: string;
   title: string;
-  attempts: {
-    label: string;
-    date: string;
-    score: number;
-  }[];
-  questions: {
-    question: string;
-    options?: [string, string, string, string];
-    isFillInBlank?: boolean;
-  }[];
-  correctAnswers: string[];
+  description?: string;
+  status: "draft" | "published" | "archived";
+  categoryId?: string;
+  gradeId?: string;
+  lessonId?: string;
+  tags?: string[];
+  settings?: any;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface VideoTopic {
@@ -519,4 +519,99 @@ export interface ParentDetails {
   referralCode: string;
   offerType: string;
   childProfiles: ChildProfile[];
+}
+
+export interface Question {
+  id: string;
+  title: string;
+  content: string;
+  type: "multiple_choice" | "true_false" | "free_text" | "matching" | "matching_pairs";
+  points: number;
+  difficultyLevel: number | null;
+  explanation: string | null;
+  hint: string | null;
+  timeLimit: number | null;
+  tags: string[];
+  metadata: {
+    correctFeedback?: string;
+    incorrectFeedback?: string;
+    matchingPairs?: any[];
+  } | null;
+  isPublic: boolean;
+  image: string | null;
+  folderId: string | null;
+  createdBy: string | null;
+  answers: QuestionAnswer[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Update Question Payload Interface (matches API expectation)
+export interface UpdateQuestionPayload {
+  title: string;
+  content: string;
+  type: "multiple_choice" | "true_false" | "free_text" | "matching" | "matching_pairs";
+  difficultyLevel: number;
+  points: number;
+  timeLimit: number;
+  tags: string[];
+  hint: string;
+  explanation: string;
+  isPublic: boolean;
+  imageUrl: string;
+  correctFeedback: string;
+  incorrectFeedback: string;
+  answers?: {
+    content: string;
+    isCorrect: boolean;
+    explanation: string;
+    orderIndex: number;
+  }[];
+  metadata?: string;
+  acceptedAnswers?: {
+    content: string;
+    gradingCriteria: string;
+  }[];
+  matchingPairs?: {
+    left: string;
+    right: string;
+  }[];
+}
+
+export interface QuestionAnswer {
+  id: string;
+  questionId: string;
+  content: string;
+  isCorrect: boolean;
+  explanation: string | null;
+  orderIndex: number;
+  gradingCriteria: string | null;
+  sampleAnswer: string | null;
+  matchingPairs: any[] | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuestionQueryOptions {
+  search?: string;
+  type?:
+    | "multiple_choice"
+    | "true_false"
+    | "fill_in_the_gap"
+    | "matching_pairs"
+    | "free_text";
+  difficulty?: number;
+  difficultyMin?: number;
+  difficultyMax?: number;
+  tags?: string[];
+  isPublic?: boolean;
+  createdBy?: string;
+  collectionId?: string;
+  folderId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: "ASC" | "DESC";
 }

@@ -1,0 +1,264 @@
+'use client';
+
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+
+interface DataTableProps<TData, TValue> {
+  columns: ColumnDef<TData, TValue>[];
+  data: TData[];
+  pageCount?: number;
+  page?: number;
+  pageSize?: number;
+  totalItems?: number;
+  searchKey?: string;
+  searchPlaceholder?: string;
+  enableRowSelection?: boolean;
+  onRowSelectionChange?: (selectedRows: Record<string, boolean>) => void;
+  rowSelection?: Record<string, boolean>;
+}
+
+export function DataTable<TData, TValue>({
+  columns,
+  data,
+  pageCount = 1,
+  page = 1,
+  pageSize = 20,
+  totalItems = 0,
+  searchKey = 'title',
+  searchPlaceholder = 'Search...',
+  enableRowSelection = false,
+  onRowSelectionChange,
+  rowSelection: externalRowSelection,
+}: DataTableProps<TData, TValue>) {
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [internalRowSelection, setInternalRowSelection] = useState({});
+  
+  // Use external row selection if provided, otherwise use internal state
+  const rowSelection = externalRowSelection ?? internalRowSelection;
+  const handleRowSelectionChange = (updater: any) => {
+    const newSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
+    if (onRowSelectionChange) {
+      onRowSelectionChange(newSelection);
+    } else {
+      setInternalRowSelection(newSelection);
+    }
+  };
+
+  const table = useReactTable({
+    data,
+    columns,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: handleRowSelectionChange,
+    enableRowSelection,
+    getRowId: (row: any) => row.id, // Use the question ID for row selection
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+    },
+    pageCount,
+    manualPagination: true,
+  });
+
+  return (
+    <div className="w-full">
+      <div className="flex items-center py-4">
+        <Input
+          placeholder={searchPlaceholder}
+          value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ''}
+          onChange={(event) =>
+            table.getColumn(searchKey)?.setFilterValue(event.target.value)
+          }
+          className="max-w-sm"
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="ml-auto">
+              Columns <ChevronDown className="ml-2 h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[150px]">
+            {table
+              .getAllColumns()
+              .filter((column) => column.getCanHide())
+              .map((column) => {
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    className="capitalize"
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value) =>
+                      column.toggleVisibility(!!value)
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    {column.id.replace(/_/g, ' ')}
+                  </DropdownMenuCheckboxItem>
+                );
+              })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  return (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && 'selected'}
+                  className={row.getIsSelected() ? 'bg-blue-50 border-blue-200' : ''}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No results.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="flex items-center justify-between space-x-2 py-4">
+        <div className="flex-1 text-sm text-muted-foreground">
+          {enableRowSelection ? (
+            <>
+              {table.getFilteredSelectedRowModel().rows.length} of{' '}
+              {table.getFilteredRowModel().rows.length} row(s) selected.
+            </>
+          ) : (
+            `Showing ${Math.min(totalItems, pageSize)} of ${totalItems} items`
+          )}
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2">
+            <p className="text-sm text-muted-foreground">Items per page</p>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 w-[70px]">
+                  {pageSize}
+                  <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {[10, 20, 30, 50, 100].map((size) => (
+                  <DropdownMenuItem
+                    key={size}
+                    onClick={() => {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('pageSize', size.toString());
+                      url.searchParams.set('page', '1'); // Reset to first page
+                      window.location.href = url.toString();
+                    }}
+                  >
+                    {size}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Page {page} of {pageCount} ({totalItems} total)
+          </p>
+          <div className="space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const url = new URL(window.location.href);
+                url.searchParams.set('page', Math.max(1, page - 1).toString());
+                window.location.href = url.toString();
+              }}
+              disabled={page <= 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const url = new URL(window.location.href);
+                url.searchParams.set('page', Math.min(pageCount, page + 1).toString());
+                window.location.href = url.toString();
+              }}
+              disabled={page >= pageCount}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

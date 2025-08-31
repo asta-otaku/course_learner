@@ -71,7 +71,7 @@ export default {
       fontFamily: {
         gorditas: ["var(--gorditas)"],
         geist: ["var(--font-geist-sans)"],
-        inter: ["var(--font-inter)"]
+        inter: ["var(--font-inter)"],
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -88,14 +88,35 @@ export default {
       },
       backgroundImage: {
         "custom-gradient": "linear-gradient(45deg, #F95A04 35%, #FD841B 40%);",
-        "demo-gradient":
-          "linear-gradient(35deg, #5FBCFF -38%, #286CFF 65%)",
+        "demo-gradient": "linear-gradient(35deg, #5FBCFF -38%, #286CFF 65%)",
       },
       screens: {
-        "2xl": "1600px"
-      }
+        "2xl": "1600px",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: {
+            height: "0",
+          },
+          to: {
+            height: "var(--radix-accordion-content-height)",
+          },
+        },
+        "accordion-up": {
+          from: {
+            height: "var(--radix-accordion-content-height)",
+          },
+          to: {
+            height: "0",
+          },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+      },
     },
   },
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/forms"), require("@tailwindcss/typography")],
 } satisfies Config;

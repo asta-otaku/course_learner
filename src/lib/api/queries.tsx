@@ -8,12 +8,14 @@ import {
   TutorDetails,
   Timeslot,
   SessionResponse,
-  AdminSessionData,
   AdminSessionsResponse,
   FullSubscriptionPlan,
   APIGetResponse,
   SubscriptionPlan,
   ParentDetails,
+  Question,
+  QuestionQueryOptions,
+  Quiz,
 } from "../types";
 
 // User Queries
@@ -318,6 +320,290 @@ export const useGetAllParents = () => {
     queryFn: async (): Promise<APIGetResponse<ParentDetails[]>> => {
       const response = await axiosInstance.get("/parents");
       return response.data;
+    },
+  });
+};
+
+// Bulk Import Queries
+export const useGetTemplate = (
+  type: "csv" | "json",
+  options?: { enabled?: boolean }
+) => {
+  return useQuery({
+    queryKey: ["template", type],
+    queryFn: async (): Promise<string> => {
+      const response = await axiosInstance.get(`/bulk-import/template/${type}`);
+      return response.data;
+    },
+    enabled: options?.enabled ?? true,
+  });
+};
+
+// Question Queries
+export const useGetQuestions = (options?: QuestionQueryOptions) => {
+  return useQuery({
+    queryKey: ["questions", options],
+    queryFn: async (): Promise<{
+      questions: Question[];
+      pagination: {
+        page: number;
+        limit: number;
+        totalCount: number;
+        totalPages: number;
+        hasNextPage: boolean;
+        hasPreviousPage: boolean;
+      };
+    }> => {
+      const params = new URLSearchParams();
+
+      if (options?.search) params.append("search", options.search);
+      if (options?.type) {
+        params.append("type", options.type);
+      }
+      if (options?.difficulty !== undefined)
+        params.append("difficulty", options.difficulty.toString());
+      if (options?.difficultyMin !== undefined)
+        params.append("difficultyMin", options.difficultyMin.toString());
+      if (options?.difficultyMax !== undefined)
+        params.append("difficultyMax", options.difficultyMax.toString());
+      if (options?.tags && options.tags.length > 0) {
+        options.tags.forEach((tag: string) => params.append("tags", tag));
+      }
+      if (options?.isPublic !== undefined)
+        params.append("isPublic", options.isPublic.toString());
+      if (options?.createdBy) params.append("createdBy", options.createdBy);
+      if (options?.collectionId)
+        params.append("collectionId", options.collectionId);
+      if (options?.folderId) params.append("folderId", options.folderId);
+
+      if (options?.dateFrom) params.append("dateFrom", options.dateFrom);
+      if (options?.dateTo) params.append("dateTo", options.dateTo);
+
+      if (options?.page) params.append("page", options.page.toString());
+      if (options?.limit) params.append("limit", options.limit.toString());
+
+      if (options?.sortBy) params.append("sortBy", options.sortBy);
+      if (options?.sortOrder) params.append("sortOrder", options.sortOrder);
+
+      const queryString = params.toString();
+      const url = queryString ? `/questions?${queryString}` : "/questions";
+
+      const response = await axiosInstance.get(url);
+      const result = response.data;
+
+      // Transform the API response to match our expected structure
+      return {
+        questions: result.data || [],
+        pagination: {
+          page: options?.page || 1,
+          limit: options?.limit || 20,
+          totalCount: result.pagination?.totalCount || 0,
+          totalPages: result.pagination?.totalPages || 1,
+          hasNextPage: result.pagination?.hasNextPage || false,
+          hasPreviousPage: result.pagination?.hasPreviousPage || false,
+        },
+      };
+    },
+  });
+};
+
+export const useGetQuestionById = (id: string) => {
+  return useQuery({
+    queryKey: ["question", id],
+    queryFn: async (): Promise<APIGetResponse<Question>> => {
+      const response = await axiosInstance.get(`/questions/${id}`);
+      return response.data;
+    },
+  });
+};
+
+// Quiz Queries
+export const useGetQuiz = (id: string) => {
+  return useQuery({
+    queryKey: ["quiz", id],
+    queryFn: async (): Promise<APIGetResponse<Quiz>> => {
+      const response = await axiosInstance.get(`/quiz/${id}`);
+      return response.data;
+    },
+  });
+};
+
+export const useGetQuizAttempts = (quizId: string) => {
+  return useQuery({
+    queryKey: ["quiz-attempts", quizId],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const response = await axiosInstance.get(`/quiz/${quizId}/attempts`);
+      return response.data;
+    },
+    enabled: !!quizId,
+  });
+};
+
+export const useGetQuizzes = (options?: {
+  search?: string;
+  status?: "draft" | "published" | "archived";
+  categoryId?: string;
+  gradeId?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  return useQuery({
+    queryKey: ["quizzes", options],
+    queryFn: async (): Promise<APIGetResponse<Quiz[]>> => {
+      const params = new URLSearchParams();
+
+      if (options?.search) params.append("search", options.search);
+      if (options?.status) params.append("status", options.status);
+      if (options?.categoryId) params.append("categoryId", options.categoryId);
+      if (options?.gradeId) params.append("gradeId", options.gradeId);
+      if (options?.page) params.append("page", options.page.toString());
+      if (options?.limit) params.append("limit", options.limit.toString());
+
+      const queryString = params.toString();
+      const url = queryString ? `/quizzes?${queryString}` : "/quizzes";
+
+      const response = await axiosInstance.get(url);
+      return response.data;
+    },
+  });
+};
+
+// Collection Queries
+export const useGetCollections = () => {
+  return useQuery({
+    queryKey: ["collections"],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const response = await axiosInstance.get("/collections");
+      return response.data;
+    },
+  });
+};
+
+export const useGetCollection = (id?: string) => {
+  return useQuery({
+    queryKey: ["collection", id],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      if (!id)
+        return {
+          status: "success",
+          message: "No ID provided",
+          data: { collection: null },
+        };
+      const response = await axiosInstance.get(`/collections/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
+  });
+};
+
+// Curriculum Queries
+export const useGetCurricula = () => {
+  return useQuery({
+    queryKey: ["curricula"],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const response = await axiosInstance.get("/curricula");
+      return response.data;
+    },
+  });
+};
+
+export const useGetCurriculum = (curriculumId?: string) => {
+  return useQuery({
+    queryKey: ["curriculum", curriculumId],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      if (!curriculumId)
+        return {
+          status: "success",
+          message: "No ID provided",
+          data: { curriculum: null },
+        };
+      const response = await axiosInstance.get(`/curricula/${curriculumId}`);
+      return response.data;
+    },
+    enabled: !!curriculumId,
+  });
+};
+
+// Lesson Queries
+export const useGetLessonById = (id: string) => {
+  return useQuery({
+    queryKey: ["lesson", id],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const response = await axiosInstance.get(`/lessons/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
+  });
+};
+
+export const useGetQuizzesForLesson = (lessonId: string) => {
+  return useQuery({
+    queryKey: ["quizzes-for-lesson", lessonId],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const response = await axiosInstance.get(`/lessons/${lessonId}/quizzes`);
+      return response.data;
+    },
+    enabled: !!lessonId,
+  });
+};
+
+// Folder Queries
+export const useGetFolders = () => {
+  return useQuery({
+    queryKey: ["folders"],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const response = await axiosInstance.get("/folder");
+      return response.data;
+    },
+    select: (data: APIGetResponse<any>) => {
+      const flattenFolders = (
+        folders: any[],
+        parentId: string | null = null
+      ): any[] => {
+        const result: any[] = [];
+
+        folders.forEach((folder) => {
+          // Create a copy of the folder with the correct parentFolderId
+          const flattenedFolder = {
+            ...folder,
+            parentFolderId: parentId,
+          };
+
+          result.push(flattenedFolder);
+
+          // Recursively process subfolders
+          if (folder.subFolders && Array.isArray(folder.subFolders)) {
+            const subFolders = flattenFolders(folder.subFolders, folder.id);
+            result.push(...subFolders);
+          }
+        });
+
+        return result;
+      };
+
+      return {
+        ...data,
+        data: flattenFolders(data.data || []),
+        nestedData: data.data || [],
+      };
+    },
+  });
+};
+
+export const useGetFolderById = (id: string) => {
+  return useQuery({
+    queryKey: ["folder", id],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const response = await axiosInstance.get(`/folder/${id}`);
+      return response.data;
+    },
+    select: (data: APIGetResponse<any>) => {
+      // The API returns { status, message, data: {...} }
+      // We want to return the data object directly for easier consumption
+      return {
+        ...data,
+        data: data.data || null,
+      };
     },
   });
 };

@@ -17,12 +17,14 @@ import {
   TutorSignUpData,
   TimeslotCreateData,
   Timeslot,
-  BookSessionData,
   SessionResponse,
   ConfirmSessionData,
   CancelSessionData,
   RescheduleSessionData,
   TutorDetails,
+  Question,
+  Quiz,
+  UpdateQuestionPayload,
 } from "../types";
 
 // Helper function to handle error messages
@@ -574,6 +576,304 @@ export const usePostDeleteTutorAvailability = (id: string) => {
     onSuccess: (data: ApiResponse<{ message: string }>) => {
       queryClient.invalidateQueries({
         queryKey: ["tutor-availability", id],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Bulk Import Mutations
+export const usePostValidate = (type: "csv" | "json") => {
+  return useMutation({
+    mutationKey: ["post-validate", type],
+    mutationFn: (data: {
+      file: File;
+    }): Promise<ApiResponse<{ message: string }>> => {
+      const formData = new FormData();
+      formData.append("file", data.file);
+      return axiosInstance.post(`/bulk-import/validate/${type}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    },
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostBulkImport = (type: "csv" | "json") => {
+  return useMutation({
+    mutationKey: ["post-bulk-import", type],
+    mutationFn: (data: {
+      file: File;
+    }): Promise<ApiResponse<{ message: string }>> => {
+      const formData = new FormData();
+      formData.append("file", data.file);
+      return axiosInstance.post(`/bulk-import/import/${type}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    },
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Question Mutations
+export const usePostQuestion = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-question"],
+    mutationFn: (data: FormData): Promise<ApiResponse<Question>> =>
+      axiosInstance.post("/questions", data, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }),
+    onSuccess: (data: ApiResponse<Question>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["questions"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePutQuestion = (id: string) => {
+  return useMutation({
+    mutationKey: ["put-question", id],
+    mutationFn: (data: FormData): Promise<ApiResponse<Question>> =>
+      axiosInstance.put(`/questions/${id}`, data, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }),
+    onSuccess: (data: ApiResponse<Question>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const useDeleteQuestion = (id: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-question", id],
+    mutationFn: (): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.delete(`/questions/${id}`),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["questions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["question", id],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const useDeleteQuestions = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-questions"],
+    mutationFn: (data: {
+      ids: string[];
+    }): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.delete("/questions/bulk", { data }),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["questions"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Quiz Mutations
+export const usePostQuiz = () => {
+  return useMutation({
+    mutationKey: ["post-quiz"],
+    mutationFn: (data: Quiz): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.post("/quiz", data),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePutQuiz = (id: string) => {
+  return useMutation({
+    mutationKey: ["put-quiz", id],
+    mutationFn: (data: Quiz): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.put(`/quiz/${id}`, data),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostAddQuestionToQuiz = (id: string) => {
+  return useMutation({
+    mutationKey: ["post-add-question-to-quiz", id],
+    mutationFn: (data: { questionId: string }): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.post(`/quiz/${id}/questions`, data),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostAttemptQuiz = (id: string) => {
+  return useMutation({
+    mutationKey: ["post-attempt-quiz", id],
+    mutationFn: (data: { questionId: string }): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.post(`/quiz/${id}/attempt`, data),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostSubmitQuiz = (id: string, attemptId: string) => {
+  return useMutation({
+    mutationKey: ["post-submit-quiz", id, attemptId],
+    mutationFn: (data: { questionId: string }): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.post(`/quiz/${id}/attempt/${attemptId}/submit`, data),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Folder Mutations
+export const usePostFolder = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-folder"],
+    mutationFn: (data: {
+      name: string;
+      description: string;
+      parentFolderId?: string;
+    }): Promise<
+      ApiResponse<{
+        id: string;
+        name: string;
+        description: string;
+        parentFolderId?: string;
+        createdAt: string;
+        updatedAt: string;
+      }>
+    > => axiosInstance.post("/folder", data),
+    onSuccess: (
+      data: ApiResponse<{
+        id: string;
+        name: string;
+        description: string;
+        parentFolderId?: string;
+        createdAt: string;
+        updatedAt: string;
+      }>
+    ) => {
+      queryClient.invalidateQueries({
+        queryKey: ["folders"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const useDeleteFolder = (id: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-folder", id],
+    mutationFn: (): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.delete(`/folder/${id}`),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["folders"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const useDeleteFolderDynamic = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-folder-dynamic"],
+    mutationFn: (folderId: string): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.delete(`/folder/${folderId}`),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["folders"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchFolder = (id: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-folder", id],
+    mutationFn: (data: {
+      name: string;
+      description: string;
+      parentFolderId?: string;
+    }): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.patch(`/folder/${id}`, data),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["folders"],
       });
       return data;
     },
