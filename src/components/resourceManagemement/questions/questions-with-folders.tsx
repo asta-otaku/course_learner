@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, FolderPlus, Upload } from "lucide-react";
 import Link from "next/link";
 import { FolderTree } from "./folder-tree";
-import { QuestionsFilter } from "./questions-filter";
+
 import { columns } from "@/app/admin/(resourceManagement)/questions/columns";
 import { useGetFolders } from "@/lib/api/queries";
 import { usePostFolder, useDeleteFolderDynamic } from "@/lib/api/mutations";
@@ -45,6 +45,10 @@ interface QuestionsWithFoldersProps {
   currentPage: number;
   pageSize: number;
   totalItems: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  selectedFolderId?: string | null;
+  onFolderSelect?: (folderId: string | null) => void;
 }
 
 export function QuestionsWithFolders({
@@ -53,6 +57,10 @@ export function QuestionsWithFolders({
   currentPage,
   pageSize,
   totalItems,
+  onPageChange,
+  onPageSizeChange,
+  selectedFolderId: externalSelectedFolderId,
+  onFolderSelect: externalOnFolderSelect,
 }: QuestionsWithFoldersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -63,7 +71,11 @@ export function QuestionsWithFolders({
   const deleteFolderMutation = useDeleteFolderDynamic();
   // We'll create patch mutations when we need them, since they require a folderId
 
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  // Use external folder selection state if provided, otherwise use internal state
+  const [internalSelectedFolderId, setInternalSelectedFolderId] = useState<
+    string | null
+  >(null);
+  const selectedFolderId = externalSelectedFolderId ?? internalSelectedFolderId;
   const [questions, setQuestions] = useState(initialQuestions);
   const [isLoading, setIsLoading] = useState(false);
   const [breadcrumb, setBreadcrumb] = useState<
@@ -163,20 +175,28 @@ export function QuestionsWithFolders({
   };
 
   const handleFolderSelect = async (folderId: string | null) => {
-    setSelectedFolderId(folderId);
+    // Use external handler if provided, otherwise use internal state
+    if (externalOnFolderSelect) {
+      externalOnFolderSelect(folderId);
+    } else {
+      setInternalSelectedFolderId(folderId);
+    }
+
     setSelectedQuestionIds({}); // Clear selection when changing folders
     setIsLoading(true);
 
-    // Update URL with folder parameter
-    const params = new URLSearchParams(searchParams.toString());
-    if (folderId) {
-      params.set("folder", folderId);
-    } else {
-      params.delete("folder");
-    }
-    params.set("page", "1"); // Reset to first page
+    // Only update URL if we're using internal state management
+    if (!externalOnFolderSelect) {
+      const params = new URLSearchParams(searchParams.toString());
+      if (folderId) {
+        params.set("folder", folderId);
+      } else {
+        params.delete("folder");
+      }
+      params.set("page", "1"); // Reset to first page
 
-    router.push(`/admin/questions?${params.toString()}`);
+      router.push(`/admin/questions?${params.toString()}`);
+    }
 
     // Fetch folder contents (subfolders and questions)
     try {
@@ -346,7 +366,7 @@ export function QuestionsWithFolders({
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex">
       {/* Enhanced Folder sidebar */}
       <div className="w-80 border-r bg-slate-50/50 border-slate-200">
         <div className="p-6 border-b border-slate-200 bg-white/80">
@@ -368,7 +388,7 @@ export function QuestionsWithFolders({
           </div>
         </div>
 
-        <div className="p-4 h-[calc(100vh-180px)] overflow-y-auto">
+        <div className="p-4">
           <FolderTree
             folders={folders}
             selectedFolderId={selectedFolderId}
@@ -434,7 +454,6 @@ export function QuestionsWithFolders({
             </p>
           </div>
           <div className="flex gap-2">
-            <QuestionsFilter />
             <Button variant="outline" onClick={() => setShowBulkUpload(true)}>
               <Upload className="mr-2 h-4 w-4" />
               Bulk Upload
@@ -466,6 +485,8 @@ export function QuestionsWithFolders({
             enableRowSelection={true}
             rowSelection={selectedQuestionIds}
             onRowSelectionChange={setSelectedQuestionIds}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
           />
         )}
 

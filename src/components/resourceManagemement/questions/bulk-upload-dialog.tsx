@@ -219,10 +219,14 @@ export function BulkUploadDialog({
       if (fileType === "csv") {
         result = await csvImportMutation.mutateAsync({
           file,
+          addToQuizId: addToExistingQuiz ? targetQuizId : undefined,
+          folderId: targetFolderId || undefined,
         });
       } else {
         result = await jsonImportMutation.mutateAsync({
           file,
+          addToQuizId: addToExistingQuiz ? targetQuizId : undefined,
+          folderId: targetFolderId || undefined,
         });
       }
 

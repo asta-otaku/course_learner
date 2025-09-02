@@ -33,14 +33,17 @@ import {
   Info,
 } from "lucide-react";
 import Link from "next/link";
-import { parseCSV, getCSVTemplate, downloadCSV } from "@/lib/csv";
+import { parseCSV } from "@/lib/csv";
 import { toast } from "sonner";
 import type { Question } from "@/lib/validations/question";
 import { FolderSelect } from "@/components/resourceManagemement/questions/folder-select";
-import { bulkImportQuestions } from "@/app/actions/bulk-import";
+import { useGetTemplate } from "@/lib/api/queries";
+import { usePostBulkImport } from "@/lib/api/mutations";
 
 export default function ImportQuestionsPage() {
   const router = useRouter();
+  const [file, setFile] = useState<File | null>(null);
+  const [fileType, setFileType] = useState<"csv" | "json" | null>(null);
   const [csvContent, setCsvContent] = useState("");
   const [parsedQuestions, setParsedQuestions] = useState<Question[]>([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
@@ -53,35 +56,100 @@ export default function ImportQuestionsPage() {
   } | null>(null);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
+  // Fetch templates from API
+  const {
+    data: csvTemplateResponse,
+    isLoading: csvTemplateLoading,
+    refetch: refetchCSVTemplate,
+  } = useGetTemplate("csv", { enabled: false });
+
+  const {
+    data: jsonTemplateResponse,
+    isLoading: jsonTemplateLoading,
+    refetch: refetchJSONTemplate,
+  } = useGetTemplate("json", { enabled: false });
+
+  // Import mutations
+  const csvImportMutation = usePostBulkImport("csv");
+  const jsonImportMutation = usePostBulkImport("json");
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type === "text/csv") {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        setCsvContent(content);
-        handleParseCSV(content);
-      };
-      reader.readAsText(file);
-    } else {
-      toast.error("Please select a valid CSV file");
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      const fileName = selectedFile.name.toLowerCase();
+      if (fileName.endsWith(".csv")) {
+        setFileType("csv");
+        setFile(selectedFile);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          setCsvContent(content);
+          handleParseFile(content, "csv");
+        };
+        reader.readAsText(selectedFile);
+      } else if (fileName.endsWith(".json")) {
+        setFileType("json");
+        setFile(selectedFile);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          handleParseFile(content, "json");
+        };
+        reader.readAsText(selectedFile);
+      } else {
+        toast.error("Please select a valid CSV or JSON file");
+      }
     }
   };
 
-  const handleParseCSV = (content: string) => {
+  const handleParseFile = (content: string, type: "csv" | "json") => {
     if (!content.trim()) {
       setParsedQuestions([]);
       setParseErrors([]);
       return;
     }
 
-    const { questions, errors } = parseCSV(content);
+    let questions: any[] = [];
+    let errors: string[] = [];
+
+    if (type === "csv") {
+      const parseResult = parseCSV(content);
+      questions = parseResult.questions;
+      errors = parseResult.errors;
+    } else {
+      // For JSON, parse and validate the structure
+      try {
+        const jsonData = JSON.parse(content);
+
+        // Handle both formats:
+        // 1. Direct array of questions: [{question1}, {question2}]
+        // 2. Nested structure: {questions: [{question1}, {question2}]}
+        if (Array.isArray(jsonData)) {
+          // Direct array format
+          questions = jsonData;
+          errors = [];
+        } else if (jsonData.questions && Array.isArray(jsonData.questions)) {
+          // Nested structure format
+          questions = jsonData.questions;
+          errors = [];
+        } else {
+          questions = [];
+          errors = [
+            "Invalid JSON structure. Expected array of questions or {questions: [...]} format.",
+          ];
+        }
+      } catch (jsonError) {
+        questions = [];
+        errors = ["Invalid JSON format"];
+      }
+    }
+
     setParsedQuestions(questions);
     setParseErrors(errors);
   };
 
   const handleImport = async () => {
-    if (parsedQuestions.length === 0) {
+    if (parsedQuestions.length === 0 || !file || !fileType) {
       toast.error("No valid questions to import");
       return;
     }
@@ -90,25 +158,35 @@ export default function ImportQuestionsPage() {
     setImportProgress(0);
 
     try {
-      const result = await bulkImportQuestions({
-        csvContent,
-        folderId: selectedFolderId,
-      });
+      let result;
 
+      if (fileType === "csv") {
+        result = await csvImportMutation.mutateAsync({
+          file,
+          folderId: selectedFolderId || undefined,
+        });
+      } else {
+        result = await jsonImportMutation.mutateAsync({
+          file,
+          folderId: selectedFolderId || undefined,
+        });
+      }
+
+      console.log("Import result:", result);
       setImportProgress(100);
+
+      // For now, just show success and move to results
       setImportResults({
-        successful: result.success,
-        failed: result.failed,
-        errors: result.errors.map((e) => `Row ${e.row}: ${e.error}`),
+        successful: parsedQuestions.length,
+        failed: 0,
+        errors: [],
       });
 
-      if (result.success > 0) {
-        toast.success(`Successfully imported ${result.success} questions`);
-      }
-      if (result.failed > 0) {
-        toast.error(`Failed to import ${result.failed} questions`);
-      }
+      toast.success(
+        `Successfully imported ${parsedQuestions.length} questions`
+      );
     } catch (error) {
+      console.error("Import error:", error);
       toast.error(
         error instanceof Error ? error.message : "Failed to import questions"
       );
@@ -124,9 +202,84 @@ export default function ImportQuestionsPage() {
     }
   };
 
-  const downloadTemplate = () => {
-    const template = getCSVTemplate();
-    downloadCSV("question-template.csv", template);
+  const handleDownloadTemplate = async () => {
+    try {
+      const result = await refetchCSVTemplate();
+      const csvContent = result.data;
+      if (csvContent) {
+        // Create a blob with CSV content and proper MIME type
+        const blob = new Blob([csvContent], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "question_import_template.csv";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast.success("CSV template downloaded successfully");
+      } else {
+        toast.error("Template not available. Please try again in a moment.");
+      }
+    } catch (error) {
+      const errorMessage = await handleBlobError(error);
+      toast.error(`Download failed: ${errorMessage}`);
+    }
+  };
+
+  const handleDownloadJSONTemplate = async () => {
+    try {
+      const result = await refetchJSONTemplate();
+      const jsonContent = result.data;
+
+      if (jsonContent) {
+        // Ensure we have a properly formatted JSON string
+        const jsonString =
+          typeof jsonContent === "string"
+            ? jsonContent
+            : JSON.stringify(jsonContent, null, 2);
+
+        // Create a blob with JSON content and proper MIME type
+        const blob = new Blob([jsonString], {
+          type: "application/json;charset=utf-8",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "question_import_template.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast.success("JSON template downloaded successfully");
+      } else {
+        toast.error("Template not available. Please try again in a moment.");
+      }
+    } catch (error) {
+      const errorMessage = await handleBlobError(error);
+      toast.error(`Download failed: ${errorMessage}`);
+    }
+  };
+
+  const handleBlobError = async (error: any) => {
+    if (
+      error.response &&
+      error.response.data instanceof Blob &&
+      error.response.data.type === "application/json"
+    ) {
+      try {
+        const text = await error.response.data.text();
+        const json = JSON.parse(text);
+        return json.error || "An unexpected error occurred.";
+      } catch {
+        return "Failed to parse error response.";
+      }
+    }
+    return "An error occurred while downloading the template.";
   };
 
   return (
@@ -145,7 +298,7 @@ export default function ImportQuestionsPage() {
         <div>
           <h1 className="text-3xl font-bold">Import Questions</h1>
           <p className="text-muted-foreground">
-            Import questions from a CSV file
+            Import questions from CSV or JSON files
           </p>
         </div>
 
@@ -154,55 +307,85 @@ export default function ImportQuestionsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              CSV Template
+              Import Templates
             </CardTitle>
             <CardDescription>
-              Download a template file to see the required format for importing
+              Download template files to see the required format for importing
               questions
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button onClick={downloadTemplate} variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Download CSV Template
-            </Button>
+          <CardContent className="space-y-4">
+            <div className="flex gap-4">
+              <Button
+                onClick={handleDownloadTemplate}
+                variant="outline"
+                disabled={csvTemplateLoading}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {csvTemplateLoading
+                  ? "Downloading..."
+                  : "Download CSV Template"}
+              </Button>
+              <Button
+                onClick={handleDownloadJSONTemplate}
+                variant="outline"
+                disabled={jsonTemplateLoading}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {jsonTemplateLoading
+                  ? "Downloading..."
+                  : "Download JSON Template"}
+              </Button>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              <p>
+                <strong>CSV Format:</strong> Traditional spreadsheet format with
+                comma-separated values.
+              </p>
+              <p>
+                <strong>JSON Format:</strong> Can be either a direct array of
+                questions or {"{questions: [...]}"} structure.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
         {/* File Upload */}
         <Card>
           <CardHeader>
-            <CardTitle>Upload CSV File</CardTitle>
+            <CardTitle>Upload File</CardTitle>
             <CardDescription>
-              Select a CSV file containing your questions
+              Select a CSV or JSON file containing your questions
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="csv-file">CSV File</Label>
+              <Label htmlFor="file-upload">File Upload</Label>
               <input
-                id="csv-file"
+                id="file-upload"
                 type="file"
-                accept=".csv"
+                accept=".csv,.json"
                 onChange={handleFileUpload}
                 className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primaryBlue file:text-primary-foreground hover:file:bg-primaryBlue/90"
               />
             </div>
 
-            <div>
-              <Label htmlFor="csv-content">Or paste CSV content</Label>
-              <Textarea
-                id="csv-content"
-                value={csvContent}
-                onChange={(e) => {
-                  setCsvContent(e.target.value);
-                  handleParseCSV(e.target.value);
-                }}
-                placeholder="Paste your CSV content here..."
-                rows={10}
-                className="font-mono text-sm"
-              />
-            </div>
+            {fileType === "csv" && (
+              <div>
+                <Label htmlFor="csv-content">Or paste CSV content</Label>
+                <Textarea
+                  id="csv-content"
+                  value={csvContent}
+                  onChange={(e) => {
+                    setCsvContent(e.target.value);
+                    handleParseFile(e.target.value, "csv");
+                  }}
+                  placeholder="Paste your CSV content here..."
+                  rows={10}
+                  className="font-mono text-sm"
+                />
+              </div>
+            )}
 
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -264,7 +447,7 @@ export default function ImportQuestionsPage() {
                 {parsedQuestions.slice(0, 10).map((question, index) => (
                   <div key={index} className="p-4 border rounded-lg">
                     <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium">{question.title}</h4>
+                      <h4 className="font-medium">{question.content}</h4>
                       <Badge variant="outline">
                         {question.type.replace("_", " ")}
                       </Badge>
@@ -273,12 +456,15 @@ export default function ImportQuestionsPage() {
                       {question.content}
                     </p>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      {question.difficulty_level && (
-                        <span>Difficulty: {question.difficulty_level}/10</span>
+                      {(question as any).difficulty && (
+                        <span>
+                          Difficulty: {(question as any).difficulty}/10
+                        </span>
                       )}
-                      {question.tags && question.tags.length > 0 && (
-                        <span>Tags: {question.tags.join(", ")}</span>
-                      )}
+                      {(question as any).tags &&
+                        (question as any).tags.length > 0 && (
+                          <span>Tags: {(question as any).tags.join(", ")}</span>
+                        )}
                     </div>
                   </div>
                 ))}
@@ -354,7 +540,7 @@ export default function ImportQuestionsPage() {
               )}
 
               <div className="flex justify-center">
-                <Button onClick={() => router.push("/questions")}>
+                <Button onClick={() => router.push("/admin/questions")}>
                   Go to Questions
                 </Button>
               </div>

@@ -70,6 +70,8 @@ interface FolderContentsViewProps {
   enableRowSelection?: boolean;
   rowSelection?: Record<string, boolean>;
   onRowSelectionChange?: (selection: Record<string, boolean>) => void;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
 }
 
 // Sortable folder card component
@@ -233,6 +235,8 @@ export function FolderContentsView({
   enableRowSelection,
   rowSelection,
   onRowSelectionChange,
+  onPageChange,
+  onPageSizeChange,
 }: FolderContentsViewProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [localSubfolders, setLocalSubfolders] = useState(subfolders);
@@ -409,6 +413,9 @@ export function FolderContentsView({
             enableRowSelection={enableRowSelection}
             rowSelection={rowSelection}
             onRowSelectionChange={onRowSelectionChange}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+            hidePagination={true}
           />
         ) : (
           <div className="text-center py-12 text-slate-500">
