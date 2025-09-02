@@ -637,9 +637,57 @@ export function FolderTree({
           return f.parentFolderId || f.parent_id || null;
         };
 
-        // Check if they have the same parent
-        if (getParentId(activeFolder) === getParentId(overFolder)) {
-          // Get all siblings at this level
+        // Check if we're moving into a different folder (changing parent)
+        const currentParentId = getParentId(activeFolder);
+        const targetParentId = overFolder.id;
+
+        // Prevent moving a folder into itself or its descendants
+        if (activeFolder.id === targetParentId) {
+          setActiveId(null);
+          return;
+        }
+
+        // Check if target folder is a descendant of the active folder
+        const isDescendant = (
+          folderId: string,
+          ancestorId: string
+        ): boolean => {
+          const folder = folders.find((f) => f.id === folderId);
+          if (!folder || !folder.path) return false;
+          return folder.path.includes(ancestorId);
+        };
+
+        if (isDescendant(overFolder.id, activeFolder.id)) {
+          setActiveId(null);
+          return;
+        }
+
+        // If moving to a different parent, use direct API call
+        if (currentParentId !== targetParentId) {
+          try {
+            // Import axiosInstance for direct API call
+            const { axiosInstance } = await import(
+              "@/lib/services/axiosInstance"
+            );
+
+            const result = await axiosInstance.patch(
+              `/folder/${activeFolder.id}`,
+              {
+                name: activeFolder.name,
+                description: "",
+                parentFolderId: targetParentId,
+              }
+            );
+
+            if (result.status === 200) {
+              // Call the move handler to refresh the UI
+              onFolderMove(active.id as string, targetParentId);
+            }
+          } catch (error) {
+            console.error("Error moving folder:", error);
+          }
+        } else {
+          // Same parent - handle reordering
           const siblings = folders
             .filter((f) => getParentId(f) === getParentId(activeFolder))
             .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
