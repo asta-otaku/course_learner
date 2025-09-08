@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Gorditas, Inter } from "next/font/google";
+import { Geist, Geist_Mono, Gorditas, Inter, Poppins } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import Providers from "./providers";
@@ -22,6 +22,12 @@ const gorditas = Gorditas({
 
 const inter = Inter({
   variable: "--font-inter",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
+
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
 });
@@ -58,7 +64,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${gorditas.variable} ${generalSans.className}`}
+        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${gorditas.variable} ${generalSans.className} ${poppins.variable} `}
       >
         <Providers>{children}</Providers>
       </body>

@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/select";
 import { useToastError } from "@/hooks/use-toast-error";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { getQuestionById, updateQuestion } from "@/app/actions/questions";
+import { useGetQuestionById } from "@/lib/api/queries";
+import { usePutQuestion } from "@/lib/api/mutations";
 import { TrueFalseEditor } from "./true-false-editor";
 import { FreeTextEditor } from "./free-text-editor";
 import { MatchingEditor } from "./matching-editor";
@@ -31,11 +32,8 @@ import { toast } from "@/components/ui/use-toast";
 import { ImageUpload } from "../editor";
 import { X } from "lucide-react";
 import type { Database } from "@/lib/database.types";
-import type { UpdateQuestion } from "@/lib/validations/question";
 
 type QuestionType = Database["public"]["Enums"]["question_type"];
-type QuestionRow = Database["public"]["Tables"]["questions"]["Row"];
-type AnswerRow = Database["public"]["Tables"]["question_answers"]["Row"];
 
 interface QuestionEditDialogProps {
   questionId: string;
@@ -52,97 +50,167 @@ export function QuestionEditDialog({
 }: QuestionEditDialogProps) {
   const router = useRouter();
   const { showError: toastError } = useToastError();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [question, setQuestion] = useState<QuestionRow | null>(null);
-  const [answers, setAnswers] = useState<AnswerRow[]>([]);
-  const [formData, setFormData] = useState<Partial<UpdateQuestion>>({});
-  const [hasLoaded, setHasLoaded] = useState(false);
+  const [formData, setFormData] = useState<any>({});
 
-  // Load question data when dialog opens
+  // Use React Query hooks
+  const {
+    data: result,
+    isLoading: loading,
+    error,
+  } = useGetQuestionById(questionId);
+
+  const updateQuestionMutation = usePutQuestion(questionId);
+
+  // Load question data when it's available
   useEffect(() => {
-    if (open && questionId && !hasLoaded) {
-      setLoading(true);
-      setHasLoaded(true);
+    if (result?.data && open) {
+      const question = result.data;
 
-      getQuestionById(questionId)
-        .then((result) => {
-          if (result.success) {
-            setQuestion(result.data.question);
-            setAnswers(result.data.answers);
+      // Initialize form data similar to the page editor
+      const questionData: any = { ...question };
 
-            // Initialize form data
-            setFormData({
-              id: result.data.question.id,
-              content: result.data.question.content,
-              type: result.data.question.type as any,
-              time_limit: result.data.question.time_limit,
-              hint: result.data.question.hint,
-              is_public: result.data.question.is_public,
-              image_url: result.data.question.image_url,
-              metadata: result.data.question.metadata as any,
-              correct_feedback: result.data.question.correct_feedback,
-              incorrect_feedback: result.data.question.incorrect_feedback,
-            });
-          } else {
-            toastError((result as any).error);
-            onOpenChange(false);
-          }
-        })
-        .catch(() => {
-          toastError("Failed to load question");
-          onOpenChange(false);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+      // Map the image field from API response to imageUrl for consistency
+      if (question.image) {
+        questionData.imageUrl = question.image;
+        questionData.image = null;
+      }
+
+      // Ensure metadata object exists and has the required fields
+      if (!questionData.metadata) {
+        questionData.metadata = {};
+      }
+
+      // Handle cases where feedback might be in the root of the response
+      if (
+        (question as any).correctFeedback &&
+        !questionData.metadata.correctFeedback
+      ) {
+        questionData.metadata.correctFeedback = (
+          question as any
+        ).correctFeedback;
+      }
+      if (
+        (question as any).incorrectFeedback &&
+        !questionData.metadata.incorrectFeedback
+      ) {
+        questionData.metadata.incorrectFeedback = (
+          question as any
+        ).incorrectFeedback;
+      }
+
+      // Transform answers based on question type
+      const answers = question.answers || [];
+      if (
+        question.type === "multiple_choice" ||
+        question.type === "true_false"
+      ) {
+        questionData.answers = answers.map((a: any) => ({
+          content: a.content,
+          isCorrect: a.isCorrect,
+          explanation: a.explanation,
+          orderIndex: a.orderIndex,
+        }));
+      } else if (question.type === "free_text" && answers.length > 0) {
+        questionData.acceptedAnswers = answers
+          .filter((a: any) => a.isCorrect)
+          .map((a: any) => ({
+            content: a.content,
+            gradingCriteria: a.gradingCriteria,
+          }));
+      } else if (question.type === "matching_pairs") {
+        if (question.metadata?.matchingPairs) {
+          questionData.matchingPairs = question.metadata.matchingPairs;
+        } else if (answers.length > 0 && answers[0].matchingPairs) {
+          questionData.matchingPairs = answers[0].matchingPairs;
+        }
+      }
+
+      setFormData(questionData);
     }
-
-    // Reset hasLoaded when dialog closes
-    if (!open) {
-      setHasLoaded(false);
-    }
-  }, [open, questionId, toastError, onOpenChange]);
+  }, [result, open]);
 
   const handleTypeSpecificChange = (typeData: any) => {
     setFormData((prev) => ({ ...prev, ...typeData }));
   };
 
   const handleSave = async () => {
-    if (!question) return;
+    if (!result?.data) return;
 
-    setSaving(true);
     try {
-      // Prepare update data based on question type
-      const updateData: UpdateQuestion = {
-        id: question.id,
-        ...formData,
-      };
+      // Create FormData for multipart/form-data submission (like the page editor)
+      const formDataToSend = new FormData();
 
-      // Add type-specific data
+      formDataToSend.append("title", formData.title || formData.content);
+      formDataToSend.append("content", formData.content);
+      formDataToSend.append("type", formData.type);
+      formDataToSend.append(
+        "difficultyLevel",
+        String(formData.difficultyLevel || 3)
+      );
+      formDataToSend.append("points", String(formData.points || 0));
+      formDataToSend.append("timeLimit", String(formData.timeLimit || 0));
+      formDataToSend.append("tags", JSON.stringify(formData.tags || []));
+      formDataToSend.append("hint", formData.hint || "");
+      formDataToSend.append("explanation", formData.explanation || "");
+      formDataToSend.append("isPublic", String(formData.isPublic || false));
+      formDataToSend.append(
+        "correctFeedback",
+        formData.metadata?.correctFeedback || ""
+      );
+      formDataToSend.append(
+        "incorrectFeedback",
+        formData.metadata?.incorrectFeedback || ""
+      );
+
+      // Add image file if present, or keep existing imageUrl if no new file
+      if (formData.image && formData.image instanceof File) {
+        formDataToSend.append("image", formData.image);
+      } else if (formData.imageUrl) {
+        formDataToSend.append("imageUrl", formData.imageUrl);
+      }
+
+      // Add type-specific fields
       if (
         formData.type === "multiple_choice" ||
         formData.type === "true_false"
       ) {
-        if (formData.answers) {
-          updateData.answers = formData.answers;
-        }
+        formDataToSend.append(
+          "answers",
+          JSON.stringify(
+            (formData.answers || []).map((answer: any, index: number) => ({
+              content: answer.content || "",
+              isCorrect: answer.isCorrect || false,
+              explanation: answer.explanation || "",
+              orderIndex:
+                answer.orderIndex !== undefined ? answer.orderIndex : index,
+            }))
+          )
+        );
       } else if (formData.type === "free_text") {
-        if (formData.acceptedAnswers) {
-          updateData.acceptedAnswers = formData.acceptedAnswers;
-        }
-      } else if (formData.type === "matching") {
-        if (formData.matching_pairs) {
-          updateData.metadata = {
-            ...updateData.metadata,
-            matching_pairs: formData.matching_pairs,
-          };
-        }
+        formDataToSend.append(
+          "acceptedAnswers",
+          JSON.stringify(
+            (formData.acceptedAnswers || []).map((answer: any) => ({
+              content: answer.content || "",
+              gradingCriteria: answer.gradingCriteria || "",
+            }))
+          )
+        );
+      } else if (formData.type === "matching_pairs") {
+        formDataToSend.append(
+          "matchingPairs",
+          JSON.stringify(
+            (formData.matchingPairs || []).map((pair: any) => ({
+              left: pair.left || "",
+              right: pair.right || "",
+            }))
+          )
+        );
       }
 
-      const result = await updateQuestion(updateData);
+      const result = await updateQuestionMutation.mutateAsync(formDataToSend);
 
-      if (result.success) {
+      if (result.status === 200) {
         toast({
           title: "Success",
           description: "Question updated successfully",
@@ -150,38 +218,22 @@ export function QuestionEditDialog({
         onOpenChange(false);
         if (onSuccess) {
           onSuccess();
-        } else {
-          router.refresh();
         }
-      } else {
-        toastError((result as any).error);
       }
-    } catch (_error) {
+    } catch (error) {
       toastError("Failed to update question");
-    } finally {
-      setSaving(false);
     }
   };
 
   const renderQuestionEditor = () => {
-    if (!question) return null;
+    if (!result?.data) return null;
 
     const questionData = {
       ...formData,
       // Convert answers for type-specific editors
-      answers: answers.map((a) => ({
-        content: a.content,
-        is_correct: a.is_correct || false,
-        explanation: a.explanation,
-        order_index: a.order_index,
-      })),
-      acceptedAnswers: answers
-        .filter((a) => a.is_correct)
-        .map((a) => ({
-          content: a.content,
-          grading_criteria: a.grading_criteria,
-        })),
-      matching_pairs: formData.metadata?.matching_pairs || [],
+      answers: formData.answers || [],
+      acceptedAnswers: formData.acceptedAnswers || [],
+      matching_pairs: formData.matchingPairs || [],
     };
 
     switch (formData.type) {
@@ -197,7 +249,7 @@ export function QuestionEditDialog({
                     <input
                       type="radio"
                       name="correct-answer"
-                      checked={answer.is_correct}
+                      checked={answer.isCorrect}
                       onChange={() => {
                         const newAnswers = (
                           formData.answers ||
@@ -205,7 +257,7 @@ export function QuestionEditDialog({
                           []
                         ).map((a, i) => ({
                           ...a,
-                          is_correct: i === index,
+                          isCorrect: i === index,
                         }));
                         setFormData((prev) => ({
                           ...prev,
@@ -249,8 +301,8 @@ export function QuestionEditDialog({
                       ...currentAnswers,
                       {
                         content: "",
-                        is_correct: false,
-                        order_index: currentAnswers.length,
+                        isCorrect: false,
+                        orderIndex: currentAnswers.length,
                       },
                     ],
                   }));
@@ -304,6 +356,19 @@ export function QuestionEditDialog({
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <LoadingSpinner size="lg" />
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <p className="text-red-600">Failed to load question</p>
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  className="mt-2"
+                >
+                  Close
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="space-y-6 py-4">
@@ -455,12 +520,15 @@ export function QuestionEditDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={saving}
+            disabled={updateQuestionMutation.isPending}
           >
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={loading || saving}>
-            {saving ? (
+          <Button
+            onClick={handleSave}
+            disabled={loading || updateQuestionMutation.isPending}
+          >
+            {updateQuestionMutation.isPending ? (
               <>
                 <LoadingSpinner size="sm" className="mr-2" />
                 Saving...

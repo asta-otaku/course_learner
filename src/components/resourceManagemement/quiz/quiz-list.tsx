@@ -31,10 +31,10 @@ interface Quiz {
   description?: string | null;
   status: string;
   settings?: any;
-  available_from?: string | null;
-  available_to?: string | null;
-  created_at: string;
-  updated_at: string;
+  availableFrom?: string | null;
+  availableUntil?: string | null;
+  createdAt: string;
+  updatedAt: string;
   category?: {
     id: string;
     name: string;
@@ -249,19 +249,19 @@ export function QuizList({ quizzes, canEdit = false }: QuizListProps) {
                     </div>
 
                     {/* Schedule Info */}
-                    {(quiz.available_from || quiz.available_to) && (
+                    {(quiz.availableFrom || quiz.availableUntil) && (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
-                        {quiz.available_from && (
+                        {quiz.availableFrom && (
                           <span>
                             From{" "}
-                            {new Date(quiz.available_from).toLocaleDateString()}
+                            {new Date(quiz.availableFrom).toLocaleDateString()}
                           </span>
                         )}
-                        {quiz.available_to && (
+                        {quiz.availableUntil && (
                           <span>
                             To{" "}
-                            {new Date(quiz.available_to).toLocaleDateString()}
+                            {new Date(quiz.availableUntil).toLocaleDateString()}
                           </span>
                         )}
                       </div>
@@ -270,7 +270,7 @@ export function QuizList({ quizzes, canEdit = false }: QuizListProps) {
                     {/* Footer */}
                     <div className="flex items-center justify-between pt-3 border-t">
                       <span className="text-xs text-muted-foreground">
-                        Created {formatDistanceToNow(new Date(quiz.created_at))}{" "}
+                        Created {formatDistanceToNow(new Date(quiz.createdAt))}{" "}
                         ago
                       </span>
                       <div className="flex gap-2">

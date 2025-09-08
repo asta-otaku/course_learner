@@ -159,7 +159,7 @@ export function TopNavigation() {
   if (isLoading || !user) {
     return (
       <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center px-4">
+        <div className="container flex h-16 items-center px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 max-w-screen-2xl mx-auto">
           <div className="font-poppins font-bold text-xl text-primaryBlue">
             MathEd Platform
           </div>
@@ -178,7 +178,7 @@ export function TopNavigation() {
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center px-4">
+      <div className="container flex h-16 items-center px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 max-w-screen-2xl mx-auto">
         {/* Logo */}
         <Link
           href={safeNavItems[0]?.href || "/questions"}

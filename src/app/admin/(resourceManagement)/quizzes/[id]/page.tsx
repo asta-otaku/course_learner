@@ -19,18 +19,14 @@ import {
   Calendar,
   Eye,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useGetQuiz } from "@/lib/api/queries";
 import { formatDistanceToNow } from "date-fns";
 
-// Force dynamic rendering since this page uses authentication
+// Force dynamic rendering
 export const dynamic = "force-dynamic";
 
 export default function QuizPage() {
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
   const params = useParams();
   const id = params.id as string;
 
@@ -41,60 +37,18 @@ export default function QuizPage() {
     error: quizError,
   } = useGetQuiz(id);
 
-  useEffect(() => {
-    const checkAuth = () => {
-      if (typeof window !== "undefined") {
-        try {
-          const userData = JSON.parse(localStorage.getItem("admin") || "{}");
-          if (!userData || !userData.data) {
-            router.push("/admin/sign-in");
-            return;
-          }
-
-          const userRole = userData.data.userRole;
-          if (userRole !== "teacher" && userRole !== "admin") {
-            router.push("/admin/sign-in");
-            return;
-          }
-
-          setIsAuthorized(true);
-        } catch (error) {
-          console.error("Error:", error);
-          router.push("/admin/sign-in");
-          return;
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    checkAuth();
-  }, [router]);
-
-  if (isLoading) {
+  // Show loading state
+  if (quizLoading) {
     return <LoadingSkeleton />;
   }
 
-  if (!isAuthorized) {
-    return null; // Will redirect in useEffect
-  }
-
+  // Handle errors
   if (quizError || !quizResponse?.data) {
     notFound();
   }
 
   const quiz = quizResponse.data;
-  const userRole = "teacher"; // For now, assume teacher role
-  const isStudent = false; // Teachers are not students
-
-  // Teachers and admins can edit, students cannot
-  const canEdit = true; // Teachers can always edit
-
-  // Parse settings if it's a JSON type
-  const settings =
-    typeof quiz.settings === "object" && quiz.settings !== null
-      ? (quiz.settings as any)
-      : {};
+  const canEdit = true;
 
   return (
     <div className="container mx-auto py-6">
@@ -115,12 +69,10 @@ export default function QuizPage() {
           )}
           <div className="flex items-center gap-2 mt-3">
             <Badge variant="outline">
-              {quiz.quiz_questions?.length || 0} questions
+              {quiz.questions?.length || 0} questions
             </Badge>
-            {quiz.time_limit && (
-              <Badge variant="outline">
-                {Math.floor(quiz.time_limit / 60)} mins
-              </Badge>
+            {quiz.timeLimit && (
+              <Badge variant="outline">{quiz.timeLimit} mins</Badge>
             )}
           </div>
         </div>
@@ -128,8 +80,10 @@ export default function QuizPage() {
         <div className="flex flex-col gap-2 items-end">
           {canEdit && (
             <PublishQuizButton
-              quizId={quiz.id}
-              currentStatus={quiz.status}
+              quizId={quiz.id || ""}
+              currentStatus={
+                (quiz.status as "draft" | "published" | "archived") || "draft"
+              }
               canEdit={canEdit}
             />
           )}
@@ -137,13 +91,13 @@ export default function QuizPage() {
             {canEdit && (
               <>
                 <Button asChild>
-                  <Link href={`/quizzes/${quiz.id}/edit`}>
+                  <Link href={`/admin/quizzes/${quiz.id}/edit`}>
                     <Edit className="h-4 w-4 mr-2" />
                     Edit Quiz
                   </Link>
                 </Button>
                 <Button variant="outline" asChild>
-                  <Link href={`/quizzes/${quiz.id}/preview`}>
+                  <Link href={`/admin/quizzes/${quiz.id}/preview`}>
                     <Eye className="h-4 w-4 mr-2" />
                     Preview
                   </Link>
@@ -151,12 +105,14 @@ export default function QuizPage() {
               </>
             )}
             <Button variant="secondary" asChild>
-              <Link href={`/take-quiz/${quiz.id}`}>
+              <Link href={`/admin/take-quiz/${quiz.id}`}>
                 <Play className="h-4 w-4 mr-2" />
                 Take Quiz
               </Link>
             </Button>
-            {canEdit && <QuizActions quizId={quiz.id} canEdit={canEdit} />}
+            {canEdit && (
+              <QuizActions quizId={quiz.id || ""} canEdit={canEdit} />
+            )}
           </div>
         </div>
       </div>
@@ -165,7 +121,7 @@ export default function QuizPage() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="questions">Questions</TabsTrigger>
-          <TabsTrigger value="attempts">Attempts</TabsTrigger>
+          {/* <TabsTrigger value="attempts">Attempts</TabsTrigger> */}
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -181,7 +137,7 @@ export default function QuizPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {quiz.quiz_questions?.length || 0}
+                  {quiz.questions?.length || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Questions</p>
               </CardContent>
@@ -196,10 +152,10 @@ export default function QuizPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {settings.timeLimit || "No"} {settings.timeLimit && "min"}
+                  {quiz.timeLimit || "No"} {quiz.timeLimit && "min"}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {settings.timeLimit ? "Timed quiz" : "Untimed quiz"}
+                  {quiz.timeLimit ? "Timed quiz" : "Untimed quiz"}
                 </p>
               </CardContent>
             </Card>
@@ -213,7 +169,7 @@ export default function QuizPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {settings.maxAttempts || "Unlimited"}
+                  {quiz.maxAttempts || "Unlimited"}
                 </div>
                 <p className="text-xs text-muted-foreground">Per student</p>
               </CardContent>
@@ -228,7 +184,10 @@ export default function QuizPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {settings.passingScore || 70}%
+                  {typeof quiz.passingScore === "string"
+                    ? parseFloat(quiz.passingScore)
+                    : quiz.passingScore || 70}
+                  %
                 </div>
                 <p className="text-xs text-muted-foreground">Minimum to pass</p>
               </CardContent>
@@ -247,7 +206,10 @@ export default function QuizPage() {
                     Created
                   </p>
                   <p className="text-sm">
-                    {formatDistanceToNow(new Date(quiz.created_at))} ago
+                    {quiz.createdAt
+                      ? formatDistanceToNow(new Date(quiz.createdAt))
+                      : "Unknown"}{" "}
+                    ago
                   </p>
                 </div>
                 <div>
@@ -255,12 +217,15 @@ export default function QuizPage() {
                     Last Updated
                   </p>
                   <p className="text-sm">
-                    {formatDistanceToNow(new Date(quiz.updated_at))} ago
+                    {quiz.updatedAt
+                      ? formatDistanceToNow(new Date(quiz.updatedAt))
+                      : "Unknown"}{" "}
+                    ago
                   </p>
                 </div>
               </div>
 
-              {(quiz.available_from || quiz.available_to) && (
+              {(quiz.availableFrom || quiz.availableUntil) && (
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-2">
                     Availability
@@ -268,13 +233,16 @@ export default function QuizPage() {
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">
-                      {quiz.available_from && (
+                      {quiz.availableFrom && (
                         <>
-                          From {new Date(quiz.available_from).toLocaleString()}
+                          From {new Date(quiz.availableFrom).toLocaleString()}
                         </>
                       )}
-                      {quiz.available_to && (
-                        <> To {new Date(quiz.available_to).toLocaleString()}</>
+                      {quiz.availableUntil && (
+                        <>
+                          {" "}
+                          To {new Date(quiz.availableUntil).toLocaleString()}
+                        </>
                       )}
                     </span>
                   </div>
@@ -287,16 +255,16 @@ export default function QuizPage() {
                 </p>
                 <div className="space-y-1">
                   <p className="text-sm">
-                    • Questions{" "}
-                    {settings.randomizeQuestions ? "are" : "are not"} randomized
+                    • Questions {quiz.randomizeQuestions ? "are" : "are not"}{" "}
+                    randomized
                   </p>
                   <p className="text-sm">
                     • Correct answers{" "}
-                    {settings.showCorrectAnswers ? "shown" : "hidden"} after
+                    {quiz.showCorrectAnswers ? "shown" : "hidden"} after
                     submission
                   </p>
                   <p className="text-sm">
-                    • Students {settings.allowReview ? "can" : "cannot"} review
+                    • Students {quiz.allowReview ? "can" : "cannot"} review
                     their attempts
                   </p>
                 </div>
@@ -309,11 +277,9 @@ export default function QuizPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>
-                  Questions ({quiz.quiz_questions?.length || 0})
-                </CardTitle>
+                <CardTitle>Questions ({quiz.questions?.length || 0})</CardTitle>
                 <Button size="sm" asChild>
-                  <Link href={`/quizzes/${quiz.id}/edit`}>
+                  <Link href={`/admin/quizzes/${quiz.id}/edit`}>
                     <Edit className="h-4 w-4 mr-2" />
                     Edit Questions
                   </Link>
@@ -321,9 +287,9 @@ export default function QuizPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {quiz.quiz_questions && quiz.quiz_questions.length > 0 ? (
+              {quiz.questions && quiz.questions.length > 0 ? (
                 <div className="space-y-4">
-                  {quiz.quiz_questions.map((qq: any, index: number) => (
+                  {quiz.questions.map((qq: any, index: number) => (
                     <div
                       key={qq.id}
                       className="p-4 border rounded-lg space-y-2"
@@ -360,7 +326,7 @@ export default function QuizPage() {
                   <p>No questions added yet</p>
                   {canEdit && (
                     <Button className="mt-4" asChild>
-                      <Link href={`/quizzes/${quiz.id}/edit`}>
+                      <Link href={`/admin/quizzes/${quiz.id}/edit`}>
                         Add Questions
                       </Link>
                     </Button>
@@ -384,16 +350,16 @@ export default function QuizPage() {
         <TabsContent value="settings">
           {canEdit ? (
             <QuizSettingsEditor
-              quizId={quiz.id}
-              settings={
-                settings || {
-                  timeLimit: quiz.time_limit,
-                  randomizeQuestions: quiz.randomize_questions || false,
-                  showCorrectAnswers: quiz.show_correct_answers !== false,
-                  maxAttempts: quiz.max_attempts || 3,
-                  passingScore: quiz.passing_score || 70,
-                }
-              }
+              quizId={quiz.id || ""}
+              settings={{
+                timeLimit: quiz.timeLimit || 30,
+                randomizeQuestions: quiz.randomizeQuestions || false,
+                showCorrectAnswers: quiz.showCorrectAnswers !== false,
+                passingScore:
+                  typeof quiz.passingScore === "string"
+                    ? parseFloat(quiz.passingScore)
+                    : quiz.passingScore || 70,
+              }}
             />
           ) : (
             <Card>
@@ -412,10 +378,76 @@ export default function QuizPage() {
 
 function LoadingSkeleton() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primaryBlue mx-auto mb-4"></div>
-        <p>Checking authorization...</p>
+    <div className="container mx-auto py-6">
+      {/* Header Skeleton */}
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex-1">
+          <div className="h-8 w-64 bg-gray-200 rounded animate-pulse mb-2"></div>
+          <div className="h-4 w-96 bg-gray-200 rounded animate-pulse mb-3"></div>
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-20 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-6 w-16 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 items-end">
+          <div className="h-9 w-24 bg-gray-200 rounded animate-pulse"></div>
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-20 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-9 w-20 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-9 w-20 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-9 w-8 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs Skeleton */}
+      <div className="flex space-x-1 mb-4">
+        <div className="h-9 w-20 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-9 w-20 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-9 w-20 bg-gray-200 rounded animate-pulse"></div>
+      </div>
+
+      {/* Stats Cards Skeleton */}
+      <div className="grid gap-4 md:grid-cols-4 mb-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="border rounded-lg p-6">
+            <div className="flex items-center justify-between mb-2">
+              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 w-4 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+            <div className="h-8 w-12 bg-gray-200 rounded animate-pulse mb-1"></div>
+            <div className="h-3 w-16 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+        ))}
+      </div>
+
+      {/* Quiz Details Card Skeleton */}
+      <div className="border rounded-lg p-6">
+        <div className="h-6 w-32 bg-gray-200 rounded animate-pulse mb-4"></div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="h-4 w-16 bg-gray-200 rounded animate-pulse mb-1"></div>
+              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+            <div>
+              <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mb-1"></div>
+              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+          </div>
+          <div>
+            <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mb-2"></div>
+            <div className="h-4 w-48 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+          <div>
+            <div className="h-4 w-16 bg-gray-200 rounded animate-pulse mb-2"></div>
+            <div className="space-y-1">
+              <div className="h-4 w-64 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 w-72 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 w-56 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

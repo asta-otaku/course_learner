@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -8,7 +10,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Filter, X, Search } from "lucide-react";
 
 interface QuizControlsProps {
   filters: {
@@ -29,16 +38,9 @@ interface QuizControlsProps {
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
   onClearFilters: () => void;
+  categories?: Array<{ id: string; name: string }>;
+  grades?: Array<{ id: string; name: string }>;
 }
-
-const STATUS_OPTIONS = [
-  { value: "all", label: "All Statuses" },
-  { value: "draft", label: "Draft" },
-  { value: "published", label: "Published" },
-  { value: "archived", label: "Archived" },
-];
-
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 export default function QuizControls({
   filters,
@@ -47,156 +49,164 @@ export default function QuizControls({
   onPageChange,
   onLimitChange,
   onClearFilters,
+  categories = [],
+  grades = [],
 }: QuizControlsProps) {
-  const hasActiveFilters =
-    filters.search ||
-    filters.status !== "all" ||
-    filters.categoryId ||
-    filters.gradeId;
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState(filters.search);
+  const [status, setStatus] = useState(filters.status);
+  const [categoryId, setCategoryId] = useState(filters.categoryId);
+  const [gradeId, setGradeId] = useState(filters.gradeId);
+
+  const activeFiltersCount = [
+    search,
+    status !== "all",
+    categoryId !== "all" && categoryId,
+    gradeId !== "all" && gradeId,
+  ].filter(Boolean).length;
+
+  const applyFilters = () => {
+    onFilterChange("search", search);
+    onFilterChange("status", status);
+    onFilterChange("categoryId", categoryId);
+    onFilterChange("gradeId", gradeId);
+    setIsOpen(false);
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatus("all");
+    setCategoryId("all");
+    setGradeId("all");
+    onClearFilters();
+    setIsOpen(false);
+  };
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border mb-6">
-      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Filter className="w-5 h-5 text-gray-600" />
-          <h3 className="text-lg font-medium text-gray-900">Quiz Filters</h3>
+    <div className="flex items-center gap-2">
+      {/* Search Input */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          applyFilters();
+        }}
+        className="flex items-center gap-2"
+      >
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search quizzes..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applyFilters();
+              }
+            }}
+            className="pl-10 w-[300px]"
+          />
         </div>
+        <Button type="submit" size="sm" variant="secondary">
+          Search
+        </Button>
+      </form>
 
-        {hasActiveFilters && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onClearFilters}
-            className="flex items-center gap-2"
-          >
-            <X className="w-4 h-4" />
-            Clear Filters
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="gap-2">
+            <Filter className="h-4 w-4" />
+            Filters
+            {activeFiltersCount > 0 && (
+              <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
+                {activeFiltersCount}
+              </Badge>
+            )}
           </Button>
-        )}
-      </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-80" align="end">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium">Filters</h4>
+              {activeFiltersCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="h-8 px-2 text-xs"
+                >
+                  Clear all
+                </Button>
+              )}
+            </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {/* Search Input */}
-        <div className="md:col-span-2 lg:col-span-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Search Quizzes
-          </label>
-          <Input
-            type="text"
-            placeholder="Search by quiz title, description, or tags..."
-            value={filters.search}
-            onChange={(e) => onFilterChange("search", e.target.value)}
-            className="h-10"
-          />
-        </div>
+            {/* Status Filter */}
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        {/* Status Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Status
-          </label>
-          <Select
-            value={filters.status}
-            onValueChange={(value) => onFilterChange("status", value)}
-          >
-            <SelectTrigger className="h-10">
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            {/* Category Filter */}
+            {categories.length > 0 && (
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={categoryId} onValueChange={setCategoryId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-        {/* Category Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Category
-          </label>
-          <Input
-            type="text"
-            placeholder="Category ID (optional)"
-            value={filters.categoryId}
-            onChange={(e) => onFilterChange("categoryId", e.target.value)}
-            className="h-10"
-          />
-        </div>
+            {/* Grade Filter */}
+            {grades.length > 0 && (
+              <div className="space-y-2">
+                <Label>Grade</Label>
+                <Select value={gradeId} onValueChange={setGradeId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Grades</SelectItem>
+                    {grades.map((grade) => (
+                      <SelectItem key={grade.id} value={grade.id}>
+                        {grade.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-        {/* Grade Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Grade
-          </label>
-          <Input
-            type="text"
-            placeholder="Grade ID (optional)"
-            value={filters.gradeId}
-            onChange={(e) => onFilterChange("gradeId", e.target.value)}
-            className="h-10"
-          />
-        </div>
-      </div>
-
-      {/* Pagination Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between pt-4 border-t">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-700">Show</span>
-            <Select
-              value={pagination.limit.toString()}
-              onValueChange={(value) => onLimitChange(parseInt(value))}
-            >
-              <SelectTrigger className="w-20 h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAGE_SIZE_OPTIONS.map((size) => (
-                  <SelectItem key={size} value={size.toString()}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <span className="text-sm text-gray-700">entries</span>
+            <div className="flex gap-2 pt-2">
+              <Button onClick={applyFilters} className="flex-1">
+                Apply Filters
+              </Button>
+              <Button variant="outline" onClick={() => setIsOpen(false)}>
+                Cancel
+              </Button>
+            </div>
           </div>
-
-          <span className="text-sm text-gray-600">
-            Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
-            {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
-            {pagination.total} results
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(pagination.page - 1)}
-            disabled={!pagination.hasPreviousPage}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-
-          <span className="text-sm text-gray-700 px-2">
-            Page {pagination.page} of {pagination.totalPages}
-          </span>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(pagination.page + 1)}
-            disabled={!pagination.hasNextPage}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

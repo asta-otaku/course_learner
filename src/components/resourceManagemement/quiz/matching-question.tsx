@@ -290,7 +290,7 @@ export function MatchingQuestion({
 
   // Find the active item being dragged
   let activeContent = "";
-  let activeType: "left" | "right" = "right";
+  const activeType: "left" | "right" = "right";
 
   if (activeId) {
     // Check if it's a matched right item

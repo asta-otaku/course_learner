@@ -1,51 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { QuizList } from "@/components/resourceManagemement/quiz/quiz-list";
+import { QuizDataTable } from "@/components/resourceManagemement/quiz/quiz-data-table";
 
 interface QuizPageClientProps {
   quizzes: any[];
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  canEdit?: boolean;
+  onRefresh?: () => void;
 }
 
-export function QuizPageClient({ quizzes }: QuizPageClientProps) {
-  const [user, setUser] = useState<{
-    firstName: string;
-    lastName: string;
-    userRole: string;
-  } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
-
-  // Move localStorage logic to useEffect to prevent infinite re-renders
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const userData = JSON.parse(localStorage.getItem("admin") || "{}");
-        if (!userData || !userData.data) {
-          window.location.href = "/admin/sign-in";
-        } else {
-          setUser(userData.data);
-        }
-      } catch (error) {
-        console.error("Error parsing user data:", error);
-        window.location.href = "/admin/sign-in";
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  }, []);
-
-  const userRole = user?.userRole;
-  const canEdit = userRole !== "student";
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!user) {
-    return null; // Will redirect in useEffect
-  }
-
-  return <QuizList quizzes={quizzes} canEdit={canEdit} />;
+export function QuizPageClient({
+  quizzes,
+  onPageChange,
+  onPageSizeChange,
+  canEdit = true,
+  onRefresh,
+}: QuizPageClientProps) {
+  return (
+    <QuizDataTable
+      quizzes={quizzes}
+      onPageChange={onPageChange}
+      onPageSizeChange={onPageSizeChange}
+      hidePagination={true}
+      canEdit={canEdit}
+      onRefresh={onRefresh}
+    />
+  );
 }

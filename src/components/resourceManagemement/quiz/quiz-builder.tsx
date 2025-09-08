@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   DndContext,
   closestCenter,
@@ -18,15 +18,19 @@ import {
 } from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "react-toastify";
 import { QuestionBankWithFolders } from "./question-bank-with-folders";
 import { QuestionEditDialog } from "../questions/question-edit-dialog";
 import { SortableItem } from "./sortable-item";
 import { ExplanationEditor } from "./explanation-editor";
-import { saveQuiz } from "@/app/actions/quizzes";
-import { getQuestionById } from "@/app/actions/questions";
 import { Loader2, Save, Check } from "lucide-react";
+import { usePutQuiz } from "@/lib/api/mutations";
+import { useGetQuizQuestions } from "@/lib/api/queries";
+import { useQueryClient } from "@tanstack/react-query";
+import type { Database } from "@/lib/database.types";
+import type { QuizUpdateData } from "@/lib/types";
+
+type DBQuestion = Database["public"]["Tables"]["questions"]["Row"];
 
 interface QuizQuestion {
   id: string;
@@ -38,7 +42,7 @@ interface QuizQuestion {
     title: string;
     content: string;
     type: string;
-    difficulty: string;
+    difficultyLevel: number;
     tags: string[];
   };
 }
@@ -70,14 +74,23 @@ export function QuizBuilder({ quiz: initialQuiz }: QuizBuilderProps) {
     null
   );
   const [isUpdatingQuestion, setIsUpdatingQuestion] = useState(false);
+  const [removedQuestionIds, setRemovedQuestionIds] = useState<string[]>([]);
   const [questionBankRefreshTrigger, setQuestionBankRefreshTrigger] =
     useState(0);
+
+  // Use the mutation hook and query client
+  const putQuizMutation = usePutQuiz(initialQuiz.id);
+  const queryClient = useQueryClient();
+
+  // Get real-time quiz questions data
+  const { data: quizQuestionsResponse, refetch: refetchQuizQuestions } =
+    useGetQuizQuestions(initialQuiz.id);
   const [explanations, setExplanations] = useState<Record<number, string>>(
     () => {
       // Initialize explanations from quiz transitions if available
       const transitions = (initialQuiz as any).quiz_transitions || [];
       const initialExplanations: Record<number, string> = {};
-      transitions.forEach((t: any) => {
+      transitions.forEach((t: { position: number; content: string }) => {
         initialExplanations[t.position] = t.content;
       });
       return initialExplanations;
@@ -91,34 +104,71 @@ export function QuizBuilder({ quiz: initialQuiz }: QuizBuilderProps) {
     })
   );
 
+  // Update local quiz state when fresh data arrives
+  useEffect(() => {
+    if (quizQuestionsResponse?.data) {
+      const freshQuestions = quizQuestionsResponse.data
+        .map((qq: any, index: number) => ({
+          id: qq.id,
+          questionId: qq.question?.id,
+          order: qq.orderIndex || index,
+          points: qq.pointsOverride || qq.question?.points || 1,
+          required: qq.required,
+          explanation: qq.question?.hint || "",
+          question: qq.question
+            ? {
+                id: qq.question.id,
+                title: qq.question.title || "Untitled Question",
+                content: qq.question.content,
+                type: qq.question.type,
+                difficultyLevel: qq.question.difficultyLevel || 5,
+                tags: qq.question.tags || [],
+              }
+            : null,
+        }))
+        .filter((q: any) => q.question !== null)
+        .sort((a: any, b: any) => a.order - b.order);
+
+      setQuiz((prev) => ({
+        ...prev,
+        questions: freshQuestions,
+      }));
+    }
+  }, [quizQuestionsResponse]);
+
   // Save function - only called when Save button is clicked
   const handleSaveQuiz = async () => {
     setSaveStatus("saving");
 
-    const saveData: any = {
-      id: quiz.id,
-      title: quiz.title,
-      description: quiz.description,
-      questions: quiz.questions.map((q) => ({
-        questionId: q.questionId,
-        order: q.order,
-      })),
-      settings: quiz.settings,
-      explanations: explanations,
-    };
+    try {
+      const quizUpdateData = {
+        title: quiz.title,
+        questions: quiz.questions.map((q, index) => ({
+          questionId: q.questionId,
+          orderIndex: index + 1,
+        })),
+      };
 
-    const result = await saveQuiz(saveData);
+      const result = await putQuizMutation.mutateAsync(quizUpdateData);
 
-    if (result.success) {
-      setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 2000);
-    } else {
-      setSaveStatus("idle");
-      toast({
-        title: "Failed to save quiz",
-        description: result.error || "Please try again",
-        variant: "destructive",
+      // Refetch fresh data directly
+      await refetchQuizQuestions();
+
+      // Invalidate questions cache for question bank
+      await queryClient.invalidateQueries({
+        queryKey: ["questions"],
       });
+
+      setSaveStatus("saved");
+      toast.success(result.data.message);
+
+      // Trigger question bank refresh
+      setQuestionBankRefreshTrigger((prev) => prev + 1);
+
+      // Reset to idle after 3 seconds
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    } catch (error) {
+      setSaveStatus("idle");
     }
   };
 
@@ -187,19 +237,21 @@ export function QuizBuilder({ quiz: initialQuiz }: QuizBuilderProps) {
     }
   };
 
-  const addQuestions = (questions: any[]) => {
+  const addQuestions = (questions: DBQuestion[]) => {
     // Filter out questions that already exist in the quiz
     const existingQuestionIds = quiz.questions.map((q) => q.questionId);
     const newQuestions = questions.filter(
       (q) => !existingQuestionIds.includes(q.id)
     );
 
+    // Remove questions from removedQuestionIds if they're being re-added
+    const questionIdsBeingAdded = newQuestions.map((q) => q.id);
+    setRemovedQuestionIds((prev) =>
+      prev.filter((id) => !questionIdsBeingAdded.includes(id))
+    );
+
     if (newQuestions.length === 0) {
-      toast({
-        title: "No new questions to add",
-        description: "All selected questions are already part of the quiz",
-        variant: "destructive",
-      });
+      toast.error("No new questions to add");
       return;
     }
 
@@ -211,7 +263,21 @@ export function QuizBuilder({ quiz: initialQuiz }: QuizBuilderProps) {
         id: `q-${Date.now()}-${index}`,
         questionId: question.id,
         order: quiz.questions.length + index,
-        question,
+        explanation: question.hint || "",
+        question: {
+          id: question.id,
+          title: (question as any).title || "Untitled Question",
+          content: question.content,
+          type: question.type,
+          difficultyLevel: (question as any).difficulty_level
+            ? (question as any).difficulty_level <= 3
+              ? 1
+              : (question as any).difficulty_level >= 7
+                ? 11
+                : 2
+            : 2,
+          tags: (question as any).tags || [],
+        },
       })
     );
 
@@ -220,15 +286,20 @@ export function QuizBuilder({ quiz: initialQuiz }: QuizBuilderProps) {
       questions: [...prev.questions, ...quizQuestions],
     }));
 
-    toast({
-      title: "Questions added",
-      description: `Added ${addedCount} question${addedCount !== 1 ? "s" : ""} to the quiz${
+    toast.success(
+      `Added ${addedCount} question${addedCount !== 1 ? "s" : ""} to the quiz${
         skippedCount > 0 ? ` (${skippedCount} already existed)` : ""
-      }`,
-    });
+      }`
+    );
   };
 
   const removeQuestion = (id: string) => {
+    // Find the question being removed to track its questionId
+    const removedQuestion = quiz.questions.find((q) => q.id === id);
+    if (removedQuestion) {
+      setRemovedQuestionIds((prev) => [...prev, removedQuestion.questionId]);
+    }
+
     // Find the index of the question being removed
     const removedIndex = quiz.questions.findIndex((q) => q.id === id);
 
@@ -267,10 +338,7 @@ export function QuizBuilder({ quiz: initialQuiz }: QuizBuilderProps) {
 
   const handleSave = async () => {
     if (quiz.questions.length === 0) {
-      toast({
-        title: "Quiz must have at least one question",
-        variant: "destructive",
-      });
+      toast.error("Quiz must have at least one question");
       return;
     }
 
@@ -286,42 +354,31 @@ export function QuizBuilder({ quiz: initialQuiz }: QuizBuilderProps) {
     if (!editingQuestionId) return;
 
     setIsUpdatingQuestion(true);
-    // Refresh the specific question data
-    const result = await getQuestionById(editingQuestionId);
-    if (result.success && result.data) {
-      const { question: updatedQuestion } = result.data;
 
-      // Update the question in the quiz state
-      setQuiz((prev) => ({
-        ...prev,
-        questions: prev.questions.map((q) =>
-          q.questionId === editingQuestionId
-            ? {
-                ...q,
-                question: {
-                  id: updatedQuestion.id,
-                  title: updatedQuestion.title,
-                  content: updatedQuestion.content,
-                  type: updatedQuestion.type,
-                  difficulty:
-                    updatedQuestion.difficulty_level <= 3
-                      ? "easy"
-                      : updatedQuestion.difficulty_level >= 7
-                        ? "hard"
-                        : "medium",
-                  tags: updatedQuestion.tags || [],
-                },
-              }
-            : q
-        ),
-      }));
+    try {
+      // Refetch fresh data directly
+      await refetchQuizQuestions();
+
+      // Invalidate questions cache for question bank
+      await queryClient.invalidateQueries({
+        queryKey: ["questions"],
+      });
+
+      // Trigger question bank refresh
+      setQuestionBankRefreshTrigger((prev) => prev + 1);
+
+      toast.success("Question updated");
+      toast.success("Question has been updated successfully.");
+    } catch (error) {
+      console.error("Failed to update question:", error);
+      toast.error("Failed to refresh question data.");
+      toast.error("Failed to refresh question data.");
     }
+
     setEditingQuestionId(null);
-    // Trigger refresh of question bank
-    setQuestionBankRefreshTrigger((prev) => prev + 1);
     // Allow updates after a brief delay
     setTimeout(() => setIsUpdatingQuestion(false), 100);
-  }, [editingQuestionId]);
+  }, [editingQuestionId, queryClient, initialQuiz.id]);
 
   return (
     <div className="flex h-full">
@@ -329,16 +386,17 @@ export function QuizBuilder({ quiz: initialQuiz }: QuizBuilderProps) {
       <div className="w-1/2 border-r overflow-hidden">
         <QuestionBankWithFolders
           onAddQuestions={addQuestions}
-          onEditQuestion={(questionId) => setEditingQuestionId(questionId)}
-          addedQuestionIds={quiz.questions.map((q) => q.questionId)}
+          addedQuestionIds={quiz.questions
+            .map((q) => q.questionId)
+            .filter((id) => !removedQuestionIds.includes(id))}
+          refreshTrigger={questionBankRefreshTrigger}
           onQuestionsImported={() => {
             // Refresh question bank is handled inside the component
             // Just show a toast to guide the user
-            toast({
-              title: "Questions imported successfully",
-              description:
-                "Your imported questions are now available in the question bank. You can select them to add to your quiz.",
-            });
+            toast.success("Questions imported successfully");
+            toast.success(
+              "Your imported questions are now available in the question bank. You can select them to add to your quiz."
+            );
           }}
         />
       </div>

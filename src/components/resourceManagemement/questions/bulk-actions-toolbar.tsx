@@ -14,9 +14,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Trash, FolderOpen, X } from "lucide-react";
 import { toast } from "sonner";
-import { bulkMoveQuestions } from "@/app/actions/questions";
 import { MoveToFolderDialog } from "./move-to-folder-dialog";
-import { useDeleteQuestions } from "@/lib/api/mutations";
+import {
+  useDeleteQuestions,
+  usePutAddQuestionsToFolder,
+} from "@/lib/api/mutations";
 
 interface BulkActionsToolbarProps {
   selectedIds: string[];
@@ -34,7 +36,9 @@ export function BulkActionsToolbar({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
   const { mutateAsync: deleteQuestions } = useDeleteQuestions();
+  const { mutateAsync: addQuestionsToFolder } = usePutAddQuestionsToFolder();
   if (selectedIds.length === 0) {
     return null;
   }
@@ -60,15 +64,15 @@ export function BulkActionsToolbar({
 
   const handleMove = async (targetFolderId: string | null) => {
     try {
-      const result = await bulkMoveQuestions(selectedIds, targetFolderId);
-      if (!result.success) {
-        toast.error((result as any).error);
-        return;
+      const result = await addQuestionsToFolder({
+        questionIds: selectedIds,
+        targetFolderId: targetFolderId || "",
+      });
+      if (result.status === 200) {
+        onClearSelection();
+        onComplete();
+        setShowMoveDialog(false);
       }
-      toast.success(`Moved ${result.data.movedCount} questions`);
-      onClearSelection();
-      onComplete();
-      setShowMoveDialog(false);
     } catch (error) {
       toast.error("Failed to move questions");
     }

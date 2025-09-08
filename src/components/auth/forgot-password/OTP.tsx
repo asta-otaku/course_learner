@@ -28,7 +28,7 @@ export default function OTP({ email, onNext, setOtp }: OTPProps) {
   const handleOtpInput = (index: number, value: string) => {
     const digits = value.replace(/\D/g, "");
     if (!digits) return;
-    let otpArr = [...watch("otp")];
+    const otpArr = [...watch("otp")];
     let nextIndex = index;
     for (let i = 0; i < digits.length && nextIndex < 6; i++, nextIndex++) {
       otpArr[nextIndex] = digits[i];

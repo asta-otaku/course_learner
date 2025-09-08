@@ -13,19 +13,76 @@ export interface Course {
   completed_section: number;
 }
 
+export interface QuizSettings {
+  timeLimit: number;
+  randomizeQuestions: boolean;
+  showCorrectAnswers: boolean;
+  maxAttempts: number;
+  passingScore: number;
+  showFeedback: boolean;
+  allowRetakes: boolean;
+  allowReview: boolean;
+  availableFrom: string;
+  availableUntil: string;
+}
+
+export interface QuizQuestion {
+  questionId: string;
+  order: number;
+  pointsOverride: number;
+  required: boolean;
+}
+
 export interface Quiz {
-  id: string;
+  id?: string;
   title: string;
-  description?: string;
-  status: "draft" | "published" | "archived";
+  description: string;
+  instructions: string;
   categoryId?: string;
   gradeId?: string;
   lessonId?: string;
+  tags?: string[] | null;
+  timeLimit?: number;
+  randomizeQuestions?: boolean;
+  showCorrectAnswers?: boolean;
+  maxAttempts?: number;
+  passingScore?: string | number;
+  showFeedback?: boolean;
+  allowRetakes?: boolean;
+  allowReview?: boolean;
+  availableFrom?: string;
+  availableUntil?: string;
+  scheduledFor?: string | null;
+  metadata?: any;
+  questions?: QuizQuestion[];
+  status?: "draft" | "published" | "archived";
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface QuizQuestionOrder {
+  questionId: string;
+  orderIndex: number;
+}
+
+export interface QuizQuestionOperation {
+  questionId: string;
+  orderIndex: number;
+  pointsOverride?: number;
+  required?: boolean;
+}
+
+
+export interface QuizUpdateData {
+  title?: string;
+  description?: string;
+  instructions?: string;
+  gradeId?: string;
   tags?: string[];
-  settings?: any;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
+  settings?: QuizSettings;
+  status?: "draft" | "published" | "archived";
+  questions?: QuizQuestionOperation[];
 }
 
 export interface VideoTopic {

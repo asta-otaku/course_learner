@@ -1,31 +1,30 @@
-'use client'
+"use client";
 
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { GripVertical, X, Hash, Edit } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { GripVertical, X, Edit } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface SortableItemProps {
-  id: string
+  id: string;
   question: {
-    id: string
-    questionId: string
-    order: number
+    id: string;
+    questionId: string;
+    order: number;
     question?: {
-      id: string
-      title: string
-      content: string
-      type: string
-      difficulty: string
-      tags: string[]
-    }
-  }
-  onRemove: (id: string) => void
-  onEdit?: (questionId: string) => void
+      id: string;
+      title: string;
+      content: string;
+      type: string;
+      difficultyLevel: number;
+      tags: string[];
+    };
+  };
+  onRemove: (id: string) => void;
+  onEdit?: (questionId: string) => void;
 }
 
 export function SortableItem({
@@ -41,22 +40,18 @@ export function SortableItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id })
+  } = useSortable({ id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-  }
-
+  };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={cn(
-        'relative',
-        isDragging && 'opacity-50'
-      )}
+      className={cn("relative", isDragging && "opacity-50")}
       data-testid={`sortable-question-${id}`}
     >
       <Card>
@@ -76,7 +71,7 @@ export function SortableItem({
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <h4 className="font-medium mb-1">
-                    {question.order + 1}. {question.question?.title}
+                    {question.order}. {question.question?.title}
                   </h4>
                   <p className="text-sm text-muted-foreground line-clamp-2">
                     {question.question?.content}
@@ -88,13 +83,20 @@ export function SortableItem({
                     <Badge
                       variant="outline"
                       className={cn(
-                        'text-xs',
-                        question.question?.difficulty === 'easy' && 'text-green-600',
-                        question.question?.difficulty === 'medium' && 'text-yellow-600',
-                        question.question?.difficulty === 'hard' && 'text-red-600'
+                        "text-xs",
+                        question.question?.difficultyLevel === 1 &&
+                          "text-green-600",
+                        question.question?.difficultyLevel === 2 &&
+                          "text-yellow-600",
+                        question.question?.difficultyLevel === 3 &&
+                          "text-yellow-600",
+                        question.question?.difficultyLevel === 4 &&
+                          "text-yellow-600",
+                        question.question?.difficultyLevel === 5 &&
+                          "text-yellow-600"
                       )}
                     >
-                      {question.question?.difficulty}
+                      {question.question?.difficultyLevel}
                     </Badge>
                   </div>
                 </div>
@@ -129,5 +131,5 @@ export function SortableItem({
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

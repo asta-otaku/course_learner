@@ -65,7 +65,7 @@ export const createColumns = (canEdit: boolean = false): ColumnDef<any>[] => {
         return (
           <div className="space-y-1">
             <Link
-              href={`/quizzes/${quiz.id}`}
+              href={`/admin/quizzes/${quiz.id}`}
               className="font-medium hover:underline"
             >
               {quiz.title}
@@ -178,7 +178,7 @@ export const createColumns = (canEdit: boolean = false): ColumnDef<any>[] => {
       header: "Schedule",
       cell: ({ row }) => {
         const quiz = row.original;
-        if (!quiz.available_from && !quiz.available_to) {
+        if (!quiz.availableFrom && !quiz.availableUntil) {
           return (
             <span className="text-sm text-muted-foreground">
               Always available
@@ -190,14 +190,14 @@ export const createColumns = (canEdit: boolean = false): ColumnDef<any>[] => {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Calendar className="h-3 w-3" />
             <div className="space-y-1">
-              {quiz.available_from && (
+              {quiz.availableFrom && (
                 <div>
-                  From: {new Date(quiz.available_from).toLocaleDateString()}
+                  From: {new Date(quiz.availableFrom).toLocaleDateString()}
                 </div>
               )}
-              {quiz.available_to && (
+              {quiz.availableUntil && (
                 <div>
-                  To: {new Date(quiz.available_to).toLocaleDateString()}
+                  To: {new Date(quiz.availableUntil).toLocaleDateString()}
                 </div>
               )}
             </div>
@@ -206,7 +206,7 @@ export const createColumns = (canEdit: boolean = false): ColumnDef<any>[] => {
       },
     },
     {
-      accessorKey: "created_at",
+      accessorKey: "createdAt",
       header: ({ column }) => {
         return (
           <Button
@@ -219,7 +219,7 @@ export const createColumns = (canEdit: boolean = false): ColumnDef<any>[] => {
         );
       },
       cell: ({ row }) => {
-        const date = row.getValue("created_at") as string;
+        const date = row.getValue("createdAt") as string;
         return (
           <span className="text-sm text-muted-foreground">
             {formatDistanceToNow(new Date(date), { addSuffix: true })}
@@ -236,14 +236,14 @@ export const createColumns = (canEdit: boolean = false): ColumnDef<any>[] => {
         return (
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" asChild>
-              <Link href={`/quizzes/${quiz.id}`}>
+              <Link href={`/admin/quizzes/${quiz.id}`}>
                 <Eye className="h-4 w-4" />
               </Link>
             </Button>
             {canEdit && (
               <>
                 <Button size="sm" variant="outline" asChild>
-                  <Link href={`/quizzes/${quiz.id}/edit`}>
+                  <Link href={`/admin/quizzes/${quiz.id}/edit`}>
                     <Edit className="h-4 w-4" />
                   </Link>
                 </Button>

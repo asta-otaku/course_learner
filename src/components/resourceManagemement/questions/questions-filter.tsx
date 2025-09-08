@@ -34,7 +34,7 @@ const QUESTION_TYPES = [
   { value: "all", label: "All Types" },
   { value: "multiple_choice", label: "Multiple Choice" },
   { value: "true_false", label: "True/False" },
-  { value: "fill_in_the_gap", label: "Fill in the Gap" },
+  { value: "fill_in_the_blank", label: "Fill in the Blank" },
   { value: "matching_pairs", label: "Matching Pairs" },
   { value: "free_text", label: "Free Text" },
 ];

@@ -91,7 +91,7 @@ export default function EditQuestionPage({
 
   const loadQuestionData = (question: any) => {
     const answers = question.answers || [];
-    let questionData: any = { ...question };
+    const questionData: any = { ...question };
 
     // Map the image field from API response to imageUrl for consistency
     if (question.image) {

@@ -69,7 +69,7 @@ export function MoveToFolderDialog({
       const result = await createFolderMutation.mutateAsync({
         name: newFolderName.trim(),
         description: "", // Add description if needed
-        parentFolderId: newFolderParent,
+        parentFolderId: newFolderParent || undefined,
       });
 
       if (result.status === 200 || result.status === 201) {
@@ -79,7 +79,7 @@ export function MoveToFolderDialog({
         setNewFolderParent(null);
         await refetch();
         // Auto-select the newly created folder
-        setSelectedFolderId(result.data.id);
+        setSelectedFolderId(result.data.data.id);
       } else {
         toast.error("Failed to create folder");
       }
@@ -247,10 +247,10 @@ export function MoveToFolderDialog({
                     size="sm"
                     onClick={handleCreateFolder}
                     disabled={
-                      createFolderMutation.isLoading || !newFolderName.trim()
+                      createFolderMutation.isPending || !newFolderName.trim()
                     }
                   >
-                    {createFolderMutation.isLoading ? "Creating..." : "Create"}
+                    {createFolderMutation.isPending ? "Creating..." : "Create"}
                   </Button>
                 </div>
               </div>

@@ -1,9 +1,8 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Command,
   CommandEmpty,
@@ -11,76 +10,58 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command'
+} from "@/components/ui/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
-import { Check, ChevronsUpDown, Search } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { searchQuizzes } from '@/app/actions/quizzes'
+} from "@/components/ui/popover";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useGetQuizzes } from "@/lib/api/queries";
+import type { Quiz } from "@/lib/types";
 
 interface QuizSearchInputProps {
-  value: string
-  onChange: (value: string) => void
-  disabled?: boolean
-  placeholder?: string
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
 }
 
 export function QuizSearchInput({
   value,
   onChange,
   disabled,
-  placeholder = 'Search quizzes...',
+  placeholder = "Search quizzes...",
 }: QuizSearchInputProps) {
-  const [open, setOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [quizzes, setQuizzes] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [selectedQuiz, setSelectedQuiz] = useState<any>(null)
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
 
-  useEffect(() => {
-    const searchForQuizzes = async () => {
-      if (searchTerm.length < 2) {
-        setQuizzes([])
-        return
-      }
+  // Fetch all quizzes using React Query
+  const { data: quizzesResponse, isLoading } = useGetQuizzes({
+    search: searchTerm.length >= 2 ? searchTerm : undefined,
+    limit: 50, // Reasonable limit for search results
+  });
 
-      setLoading(true)
-      try {
-        const result = await searchQuizzes(searchTerm)
-        if (result.success) {
-          setQuizzes(result.data)
-        }
-      } catch (error) {
-        console.error('Error searching quizzes:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    const debounce = setTimeout(searchForQuizzes, 300)
-    return () => clearTimeout(debounce)
-  }, [searchTerm])
+  const quizzes = quizzesResponse?.quizzes || [];
 
   useEffect(() => {
     // Load selected quiz details if value is provided
-    if (value && !selectedQuiz) {
-      searchQuizzes('', value).then((result) => {
-        if (result.success && result.data.length > 0) {
-          setSelectedQuiz(result.data[0])
-        }
-      })
+    if (value && !selectedQuiz && quizzes.length > 0) {
+      const foundQuiz = quizzes.find((quiz) => quiz.id === value);
+      if (foundQuiz) {
+        setSelectedQuiz(foundQuiz);
+      }
     }
-  }, [value, selectedQuiz])
+  }, [value, selectedQuiz, quizzes]);
 
-  const handleSelect = (quiz: any) => {
-    setSelectedQuiz(quiz)
-    onChange(quiz.id)
-    setOpen(false)
-    setSearchTerm('')
-  }
+  const handleSelect = (quiz: Quiz) => {
+    setSelectedQuiz(quiz);
+    onChange(quiz.id || "");
+    setOpen(false);
+    setSearchTerm("");
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -96,7 +77,10 @@ export function QuizSearchInput({
             <div className="flex items-center gap-2 truncate">
               <span className="truncate">{selectedQuiz.title}</span>
               <Badge variant="secondary" className="ml-auto">
-                {selectedQuiz.quiz_questions?.length || 0} questions
+                {selectedQuiz.quiz_questions?.length ||
+                  selectedQuiz.questionsCount ||
+                  0}{" "}
+                questions
               </Badge>
             </div>
           ) : (
@@ -113,26 +97,26 @@ export function QuizSearchInput({
             onValueChange={setSearchTerm}
           />
           <CommandList>
-            {loading ? (
+            {isLoading ? (
               <CommandEmpty>Searching...</CommandEmpty>
             ) : quizzes.length === 0 ? (
               <CommandEmpty>
                 {searchTerm.length < 2
-                  ? 'Type at least 2 characters to search'
-                  : 'No quizzes found'}
+                  ? "Type at least 2 characters to search"
+                  : "No quizzes found"}
               </CommandEmpty>
             ) : (
               <CommandGroup>
                 {quizzes.map((quiz) => (
-                  <CommandItem
+                  <div
                     key={quiz.id}
-                    value={quiz.id}
-                    onSelect={() => handleSelect(quiz)}
+                    className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => handleSelect(quiz)}
                   >
                     <Check
                       className={cn(
-                        'mr-2 h-4 w-4',
-                        value === quiz.id ? 'opacity-100' : 'opacity-0'
+                        "mr-2 h-4 w-4",
+                        value === quiz.id ? "opacity-100" : "opacity-0"
                       )}
                     />
                     <div className="flex-1">
@@ -140,7 +124,9 @@ export function QuizSearchInput({
                         <span className="font-medium">{quiz.title}</span>
                         <Badge
                           variant={
-                            quiz.status === 'published' ? 'default' : 'secondary'
+                            quiz.status === "published"
+                              ? "default"
+                              : "secondary"
                           }
                           className="text-xs"
                         >
@@ -154,7 +140,10 @@ export function QuizSearchInput({
                       )}
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-muted-foreground">
-                          {quiz.quiz_questions?.length || 0} questions
+                          {quiz.quiz_questions?.length ||
+                            quiz.questionsCount ||
+                            0}{" "}
+                          questions
                         </span>
                         {quiz.created_by_name && (
                           <span className="text-xs text-muted-foreground">
@@ -163,7 +152,7 @@ export function QuizSearchInput({
                         )}
                       </div>
                     </div>
-                  </CommandItem>
+                  </div>
                 ))}
               </CommandGroup>
             )}
@@ -171,5 +160,5 @@ export function QuizSearchInput({
         </Command>
       </PopoverContent>
     </Popover>
-  )
+  );
 }

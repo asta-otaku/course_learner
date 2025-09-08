@@ -417,22 +417,83 @@ export const useGetQuestionById = (id: string) => {
   });
 };
 
+// Folder Queries
+export const useGetFolders = () => {
+  return useQuery({
+    queryKey: ["folders"],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const response = await axiosInstance.get("/folder");
+      return response.data;
+    },
+    select: (data: APIGetResponse<any>) => {
+      const flattenFolders = (
+        folders: any[],
+        parentId: string | null = null
+      ): any[] => {
+        const result: any[] = [];
+
+        folders.forEach((folder) => {
+          // Create a copy of the folder with the correct parentFolderId
+          const flattenedFolder = {
+            ...folder,
+            parentFolderId: parentId,
+          };
+
+          result.push(flattenedFolder);
+
+          // Recursively process subfolders
+          if (folder.subFolders && Array.isArray(folder.subFolders)) {
+            const subFolders = flattenFolders(folder.subFolders, folder.id);
+            result.push(...subFolders);
+          }
+        });
+
+        return result;
+      };
+
+      return {
+        ...data,
+        data: flattenFolders(data.data || []),
+        nestedData: data.data || [],
+      };
+    },
+  });
+};
+
+export const useGetFolderById = (id: string) => {
+  return useQuery({
+    queryKey: ["folder", id],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const response = await axiosInstance.get(`/folder/${id}`);
+      return response.data;
+    },
+    select: (data: APIGetResponse<any>) => {
+      // The API returns { status, message, data: {...} }
+      // We want to return the data object directly for easier consumption
+      return {
+        ...data,
+        data: data.data || null,
+      };
+    },
+  });
+};
+
 // Quiz Queries
 export const useGetQuiz = (id: string) => {
   return useQuery({
     queryKey: ["quiz", id],
     queryFn: async (): Promise<APIGetResponse<Quiz>> => {
-      const response = await axiosInstance.get(`/quiz/${id}`);
+      const response = await axiosInstance.get(`/quizzes/${id}`);
       return response.data;
     },
   });
 };
 
-export const useGetQuizAttempts = (quizId: string) => {
+export const useGetQuizQuestions = (quizId: string) => {
   return useQuery({
-    queryKey: ["quiz-attempts", quizId],
+    queryKey: ["quiz-questions", quizId],
     queryFn: async (): Promise<APIGetResponse<any>> => {
-      const response = await axiosInstance.get(`/quiz/${quizId}/attempts`);
+      const response = await axiosInstance.get(`/quizzes/${quizId}/questions`);
       return response.data;
     },
     enabled: !!quizId,
@@ -442,19 +503,29 @@ export const useGetQuizAttempts = (quizId: string) => {
 export const useGetQuizzes = (options?: {
   search?: string;
   status?: "draft" | "published" | "archived";
-  categoryId?: string;
+  lessonId?: string;
   gradeId?: string;
   page?: number;
   limit?: number;
 }) => {
   return useQuery({
     queryKey: ["quizzes", options],
-    queryFn: async (): Promise<APIGetResponse<Quiz[]>> => {
+    queryFn: async (): Promise<{
+      quizzes: Quiz[];
+      pagination: {
+        page: number;
+        limit: number;
+        totalCount: number;
+        totalPages: number;
+        hasNextPage: boolean;
+        hasPreviousPage: boolean;
+      };
+    }> => {
       const params = new URLSearchParams();
 
-      if (options?.search) params.append("search", options.search);
+      if (options?.search) params.append("searchTitle", options.search);
       if (options?.status) params.append("status", options.status);
-      if (options?.categoryId) params.append("categoryId", options.categoryId);
+      if (options?.lessonId) params.append("lessonId", options.lessonId);
       if (options?.gradeId) params.append("gradeId", options.gradeId);
       if (options?.page) params.append("page", options.page.toString());
       if (options?.limit) params.append("limit", options.limit.toString());
@@ -463,7 +534,20 @@ export const useGetQuizzes = (options?: {
       const url = queryString ? `/quizzes?${queryString}` : "/quizzes";
 
       const response = await axiosInstance.get(url);
-      return response.data;
+      const result = response.data;
+
+      // Transform the API response to match our expected structure
+      return {
+        quizzes: result.data || [],
+        pagination: {
+          page: result.pagination?.page || 1,
+          limit: result.pagination?.limit || 20,
+          totalCount: result.pagination?.totalCount || 0,
+          totalPages: result.pagination?.totalPages || 1,
+          hasNextPage: result.pagination?.hasNextPage || false,
+          hasPreviousPage: result.pagination?.hasPreviousPage || false,
+        },
+      };
     },
   });
 };
@@ -544,66 +628,5 @@ export const useGetQuizzesForLesson = (lessonId: string) => {
       return response.data;
     },
     enabled: !!lessonId,
-  });
-};
-
-// Folder Queries
-export const useGetFolders = () => {
-  return useQuery({
-    queryKey: ["folders"],
-    queryFn: async (): Promise<APIGetResponse<any>> => {
-      const response = await axiosInstance.get("/folder");
-      return response.data;
-    },
-    select: (data: APIGetResponse<any>) => {
-      const flattenFolders = (
-        folders: any[],
-        parentId: string | null = null
-      ): any[] => {
-        const result: any[] = [];
-
-        folders.forEach((folder) => {
-          // Create a copy of the folder with the correct parentFolderId
-          const flattenedFolder = {
-            ...folder,
-            parentFolderId: parentId,
-          };
-
-          result.push(flattenedFolder);
-
-          // Recursively process subfolders
-          if (folder.subFolders && Array.isArray(folder.subFolders)) {
-            const subFolders = flattenFolders(folder.subFolders, folder.id);
-            result.push(...subFolders);
-          }
-        });
-
-        return result;
-      };
-
-      return {
-        ...data,
-        data: flattenFolders(data.data || []),
-        nestedData: data.data || [],
-      };
-    },
-  });
-};
-
-export const useGetFolderById = (id: string) => {
-  return useQuery({
-    queryKey: ["folder", id],
-    queryFn: async (): Promise<APIGetResponse<any>> => {
-      const response = await axiosInstance.get(`/folder/${id}`);
-      return response.data;
-    },
-    select: (data: APIGetResponse<any>) => {
-      // The API returns { status, message, data: {...} }
-      // We want to return the data object directly for easier consumption
-      return {
-        ...data,
-        data: data.data || null,
-      };
-    },
   });
 };

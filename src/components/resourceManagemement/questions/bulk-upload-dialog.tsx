@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { parseCSV } from "@/lib/csv";
 import { toast } from "@/components/ui/use-toast";
 import { useGetTemplate } from "@/lib/api/queries";
-import { usePostValidate, usePostBulkImport } from "@/lib/api/mutations";
+import { usePostBulkImport } from "@/lib/api/mutations";
 import {
   Upload,
   Download,
@@ -36,10 +36,7 @@ import { cn } from "@/lib/utils";
 import { QuestionPreviewModal } from "./question-preview-modal";
 import { QuizSearchInput } from "../quiz/quiz-search-input";
 import { FolderSelect } from "./folder-select";
-import {
-  getPromptForClipboard,
-  getBulkUploadPrompt,
-} from "@/lib/bulk-upload-prompt";
+import { getBulkUploadPrompt } from "@/lib/bulk-upload-prompt";
 import {
   Select,
   SelectContent,

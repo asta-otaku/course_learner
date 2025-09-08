@@ -83,7 +83,7 @@ export function DataTable<TData, TValue>({
   };
 
   const table = useReactTable({
-    data,
+    data: data || [],
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,

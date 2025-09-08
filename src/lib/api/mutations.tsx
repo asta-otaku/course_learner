@@ -24,6 +24,7 @@ import {
   TutorDetails,
   Question,
   Quiz,
+  QuizUpdateData,
   UpdateQuestionPayload,
 } from "../types";
 
@@ -660,6 +661,7 @@ export const usePostQuestion = () => {
 };
 
 export const usePutQuestion = (id: string) => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["put-question", id],
     mutationFn: (data: FormData): Promise<ApiResponse<Question>> =>
@@ -669,6 +671,21 @@ export const usePutQuestion = (id: string) => {
         },
       }),
     onSuccess: (data: ApiResponse<Question>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["questions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["question", id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["quiz-questions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["quiz", id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["quiz-questions", id],
+      });
       return data;
     },
     onError: (error: AxiosError) => {
@@ -710,77 +727,6 @@ export const useDeleteQuestions = () => {
       queryClient.invalidateQueries({
         queryKey: ["questions"],
       });
-      return data;
-    },
-    onError: (error: AxiosError) => {
-      handleErrorMessage(error);
-    },
-  });
-};
-
-// Quiz Mutations
-export const usePostQuiz = () => {
-  return useMutation({
-    mutationKey: ["post-quiz"],
-    mutationFn: (data: Quiz): Promise<ApiResponse<Quiz>> =>
-      axiosInstance.post("/quiz", data),
-    onSuccess: (data: ApiResponse<Quiz>) => {
-      return data;
-    },
-    onError: (error: AxiosError) => {
-      handleErrorMessage(error);
-    },
-  });
-};
-
-export const usePutQuiz = (id: string) => {
-  return useMutation({
-    mutationKey: ["put-quiz", id],
-    mutationFn: (data: Quiz): Promise<ApiResponse<Quiz>> =>
-      axiosInstance.put(`/quiz/${id}`, data),
-    onSuccess: (data: ApiResponse<Quiz>) => {
-      return data;
-    },
-    onError: (error: AxiosError) => {
-      handleErrorMessage(error);
-    },
-  });
-};
-
-export const usePostAddQuestionToQuiz = (id: string) => {
-  return useMutation({
-    mutationKey: ["post-add-question-to-quiz", id],
-    mutationFn: (data: { questionId: string }): Promise<ApiResponse<Quiz>> =>
-      axiosInstance.post(`/quiz/${id}/questions`, data),
-    onSuccess: (data: ApiResponse<Quiz>) => {
-      return data;
-    },
-    onError: (error: AxiosError) => {
-      handleErrorMessage(error);
-    },
-  });
-};
-
-export const usePostAttemptQuiz = (id: string) => {
-  return useMutation({
-    mutationKey: ["post-attempt-quiz", id],
-    mutationFn: (data: { questionId: string }): Promise<ApiResponse<Quiz>> =>
-      axiosInstance.post(`/quiz/${id}/attempt`, data),
-    onSuccess: (data: ApiResponse<Quiz>) => {
-      return data;
-    },
-    onError: (error: AxiosError) => {
-      handleErrorMessage(error);
-    },
-  });
-};
-
-export const usePostSubmitQuiz = (id: string, attemptId: string) => {
-  return useMutation({
-    mutationKey: ["post-submit-quiz", id, attemptId],
-    mutationFn: (data: { questionId: string }): Promise<ApiResponse<Quiz>> =>
-      axiosInstance.post(`/quiz/${id}/attempt/${attemptId}/submit`, data),
-    onSuccess: (data: ApiResponse<Quiz>) => {
       return data;
     },
     onError: (error: AxiosError) => {
@@ -879,6 +825,151 @@ export const usePatchFolder = (id: string) => {
       queryClient.invalidateQueries({
         queryKey: ["folders"],
       });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePutAddQuestionsToFolder = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["put-add-questions-to-folder"],
+    mutationFn: (data: {
+      questionIds: string[];
+      targetFolderId: string;
+    }): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.put(`/folder/${data.targetFolderId}/questions`, {
+        questionIds: data.questionIds,
+      }),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["folders"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Quiz Mutations
+export const usePostQuiz = () => {
+  return useMutation({
+    mutationKey: ["post-quiz"],
+    mutationFn: (data: Quiz): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.post("/quizzes", data),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePutQuiz = (id: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["put-quiz", id],
+    mutationFn: (data: QuizUpdateData): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.put(`/quizzes/${id}`, data),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["quizzes"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["quiz", id],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const useDeleteQuiz = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-quiz"],
+    mutationFn: (data: {
+      quizIds: string[];
+    }): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.delete(`/quizzes`, { data }),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["quizzes"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchUpdateQuizStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-update-quiz-status"],
+    mutationFn: (data: {
+      quizIds: string[];
+      status: string;
+    }): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.patch(`/quizzes/status`, data),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["quizzes"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["quiz"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostAddQuestionToQuiz = (id: string) => {
+  return useMutation({
+    mutationKey: ["post-add-question-to-quiz", id],
+    mutationFn: (data: { questionId: string }): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.post(`/quizzes/${id}/questions`, data),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostAttemptQuiz = (id: string) => {
+  return useMutation({
+    mutationKey: ["post-attempt-quiz", id],
+    mutationFn: (data: { questionId: string }): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.post(`/quizzes/${id}/attempt`, data),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostSubmitQuiz = (id: string, attemptId: string) => {
+  return useMutation({
+    mutationKey: ["post-submit-quiz", id, attemptId],
+    mutationFn: (data: { questionId: string }): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.post(`/quizzes/${id}/attempt/${attemptId}/submit`, data),
+    onSuccess: (data: ApiResponse<Quiz>) => {
       return data;
     },
     onError: (error: AxiosError) => {

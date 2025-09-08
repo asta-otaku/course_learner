@@ -87,7 +87,7 @@ export default function QuestionDetailPage({
   const answers = question.answers || [];
 
   // Transform answers based on question type - preserve all original fields including image_url
-  let questionData: any = { ...question };
+  const questionData: any = { ...question };
 
   if (question.type === "multiple_choice" || question.type === "true_false") {
     questionData.answers = answers.map((a: any) => ({

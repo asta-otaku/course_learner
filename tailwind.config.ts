@@ -72,6 +72,7 @@ export default {
         gorditas: ["var(--gorditas)"],
         geist: ["var(--font-geist-sans)"],
         inter: ["var(--font-inter)"],
+        poppins: ["var(--font-poppins)"],
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -358,7 +358,7 @@ export default function QuestionsPage() {
   );
 }
 
-function LoadingSkeleton() {
+export function LoadingSkeleton() {
   return (
     <div className="flex h-full">
       <div className="w-64 border-r bg-muted/30 p-4">
@@ -375,7 +375,7 @@ function LoadingSkeleton() {
   );
 }
 
-function TableSkeleton() {
+export function TableSkeleton() {
   return (
     <div className="w-full">
       <div className="flex items-center py-4">

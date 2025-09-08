@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -20,8 +19,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Edit,
-  Copy,
   FileText,
   ChevronLeft,
   ChevronRight,
@@ -35,50 +32,36 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { getTypeLabel, getDifficultyColor } from "@/lib/quiz-utils";
-import { getQuestions, getAllQuestionIds } from "@/app/actions/questions";
+import { getTypeLabel } from "@/lib/quiz-utils";
 import { toast } from "@/components/ui/use-toast";
-import {
-  getFolderTree,
-  getFolderContents,
-  getFolderQuestionCounts,
-} from "@/app/actions/question-folders";
 import { FolderTree } from "../questions";
 import type { Database } from "@/lib/database.types";
 import { BulkUploadDialog } from "../questions/bulk-upload-dialog";
+import {
+  useGetQuestions,
+  useGetFolderById,
+  useGetFolders,
+} from "@/lib/api/queries";
 
-type QuestionFolder = Database["public"]["Tables"]["question_folders"]["Row"];
 type DBQuestion = Database["public"]["Tables"]["questions"]["Row"];
 
 interface QuestionBankWithFoldersProps {
   onAddQuestions: (questions: DBQuestion[]) => void;
-  onEditQuestion?: (questionId: string) => void;
-  onDuplicateQuestion?: (questionId: string) => void;
   addedQuestionIds: string[];
   className?: string;
   onQuestionsImported?: () => void;
+  refreshTrigger?: number;
 }
 
 export function QuestionBankWithFolders({
   onAddQuestions,
-  onEditQuestion,
-  onDuplicateQuestion,
   addedQuestionIds = [],
   className,
   onQuestionsImported,
+  refreshTrigger,
 }: QuestionBankWithFoldersProps) {
   // State
-  const [folders, setFolders] = useState<QuestionFolder[]>([]);
-  const [questions, setQuestions] = useState<DBQuestion[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
@@ -87,31 +70,136 @@ export function QuestionBankWithFolders({
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [expandedQuestions, setExpandedQuestions] = useState<string[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [questionCounts, setQuestionCounts] = useState<Record<string, number>>(
-    {}
-  );
-  const [totalQuestions, setTotalQuestions] = useState<number>(0);
-  const [duplicating, setDuplicating] = useState<string | null>(null);
-
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [isLoadingAll, setIsLoadingAll] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
-  const pageSize = 20;
 
-  // Load folders and question counts on mount
-  useEffect(() => {
-    loadFolders();
-    loadQuestionCounts();
-  }, []);
+  // Pagination state
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
 
-  // Load questions when folder or filters change (reset to first page)
+  // Filter state
+  const [filters, setFilters] = useState({
+    search: "",
+    type: "all",
+    difficultyMin: "",
+    difficultyMax: "",
+    folderId: "",
+    sortBy: "",
+    sortOrder: "",
+  });
+
+  // Transform filters for API call - only include non-default values
+  const queryOptions = useMemo(() => {
+    const options: Record<string, string | number> = {
+      page: pagination.page,
+      limit: pagination.limit,
+    };
+
+    // Only include non-empty/non-default values
+    if (filters.search.trim()) options.search = filters.search;
+    if (filters.type && filters.type !== "all") options.type = filters.type;
+    if (filters.difficultyMin && filters.difficultyMin !== "")
+      options.difficultyMin = Number(filters.difficultyMin);
+    if (filters.difficultyMax && filters.difficultyMax !== "")
+      options.difficultyMax = Number(filters.difficultyMax);
+    // Only include folderId in query options if we're not using folder-specific data
+    if (selectedFolderId) options.folderId = selectedFolderId;
+    if (filters.sortBy && filters.sortBy !== "")
+      options.sortBy = filters.sortBy;
+    if (filters.sortOrder && filters.sortOrder !== "")
+      options.sortOrder = filters.sortOrder;
+
+    return options;
+  }, [filters, pagination.page, pagination.limit, selectedFolderId]);
+
+  // Use React Query hooks with computed query options
+  // Disable questions query when viewing a specific folder
+  const {
+    data: questionsResponse,
+    isLoading: questionsLoading,
+    refetch: refetchQuestions,
+  } = useGetQuestions(selectedFolderId ? undefined : queryOptions);
+
+  const {
+    data: foldersResponse,
+    isLoading: folderLoading,
+    refetch: refetchFolder,
+  } = useGetFolderById(selectedFolderId || "");
+
+  const { data: allFoldersResponse, isLoading: allFoldersLoading } =
+    useGetFolders();
+
+  // Refetch data when refresh trigger changes
   useEffect(() => {
-    setCurrentPage(1);
-    setQuestions([]); // Clear existing questions when filters change
-    loadQuestions(true);
+    if (refreshTrigger && refreshTrigger > 0) {
+      // Force refetch of current data
+      const refetchData = async () => {
+        if (selectedFolderId) {
+          await refetchFolder();
+        } else {
+          await refetchQuestions();
+        }
+      };
+      refetchData();
+    }
+  }, [refreshTrigger, selectedFolderId, refetchFolder, refetchQuestions]);
+
+  // Update pagination when data changes
+  useEffect(() => {
+    if (selectedFolderId && foldersResponse?.data?.questions) {
+      // When viewing a specific folder, use folder questions
+      const folderQuestions = foldersResponse.data.questions;
+      setPagination((prev) => ({
+        ...prev,
+        total: folderQuestions.length,
+        totalPages: Math.ceil(folderQuestions.length / prev.limit),
+        hasNextPage: prev.page < Math.ceil(folderQuestions.length / prev.limit),
+        hasPreviousPage: prev.page > 1,
+      }));
+    } else if (questionsResponse?.pagination) {
+      // When viewing all questions, use regular pagination
+      setPagination((prev) => ({
+        ...prev,
+        total: questionsResponse.pagination.totalCount || 0,
+        totalPages: questionsResponse.pagination.totalPages || 1,
+        hasNextPage: questionsResponse.pagination.hasNextPage || false,
+        hasPreviousPage: questionsResponse.pagination.hasPreviousPage || false,
+      }));
+    }
+  }, [questionsResponse, foldersResponse, selectedFolderId]);
+
+  // Update filters when local state changes
+  useEffect(() => {
+    const newFilters = {
+      search: searchQuery,
+      type: selectedType,
+      difficultyMin:
+        selectedDifficulty === "easy"
+          ? "1"
+          : selectedDifficulty === "medium"
+            ? "4"
+            : selectedDifficulty === "hard"
+              ? "8"
+              : "",
+      difficultyMax:
+        selectedDifficulty === "easy"
+          ? "3"
+          : selectedDifficulty === "medium"
+            ? "7"
+            : selectedDifficulty === "hard"
+              ? "10"
+              : "",
+      folderId: selectedFolderId || "",
+      sortBy: "",
+      sortOrder: "",
+    };
+    setFilters(newFilters);
+    setPagination((prev) => ({ ...prev, page: 1 }));
   }, [
     selectedFolderId,
     searchQuery,
@@ -120,141 +208,58 @@ export function QuestionBankWithFolders({
     selectedTags,
   ]);
 
-  // Load more questions when page changes
-  useEffect(() => {
-    if (currentPage > 1) {
-      loadQuestions(false); // Append to existing questions
-    }
-  }, [currentPage]);
+  // Determine which data to use - similar to page.tsx logic
+  const questionsData = useMemo(() => {
+    if (selectedFolderId && foldersResponse?.data?.questions) {
+      // Use folder questions when a folder is selected
+      const folderQuestions = foldersResponse.data.questions;
+      const startIndex = (pagination.page - 1) * pagination.limit;
+      const endIndex = startIndex + pagination.limit;
+      const paginatedQuestions = folderQuestions.slice(startIndex, endIndex);
 
-  const loadFolders = async () => {
-    try {
-      const result = await getFolderTree();
-      if (result && result.success) {
-        setFolders(result.data);
-      }
-    } catch (error) {
-      console.error("Error loading folders:", error);
-    }
-  };
-
-  const loadQuestionCounts = async () => {
-    try {
-      const result = await getFolderQuestionCounts();
-      if (result && result.success) {
-        setQuestionCounts(result.data.folderCounts);
-        setTotalQuestions(result.data.totalQuestions);
-      }
-    } catch (error) {
-      console.error("Error loading question counts:", error);
-    }
-  };
-
-  const getQuestionFilters = () => {
-    const filters: any = {
-      folder_id: selectedFolderId,
-      search: searchQuery || undefined,
-      sortBy: "created_at",
-      sortOrder: "desc",
-    };
-
-    // Add difficulty filter
-    if (selectedDifficulty !== "all") {
-      const difficultyMap: Record<string, { min: number; max: number }> = {
-        easy: { min: 1, max: 3 },
-        medium: { min: 4, max: 7 },
-        hard: { min: 8, max: 10 },
+      return {
+        questions: paginatedQuestions,
+        total: folderQuestions.length,
+        page: pagination.page,
+        limit: pagination.limit,
+        totalPages: Math.ceil(folderQuestions.length / pagination.limit),
       };
-      if (difficultyMap[selectedDifficulty]) {
-        filters.difficulty_level = difficultyMap[selectedDifficulty];
-      }
-    }
-
-    // Add type filter
-    if (selectedType !== "all") {
-      filters.type = [selectedType];
-    }
-
-    // Add tags filter
-    if (selectedTags.length > 0) {
-      filters.tags = selectedTags;
-    }
-
-    return filters;
-  };
-
-  const loadQuestions = async (replace: boolean = true) => {
-    setLoading(true);
-    try {
-      const filters = getQuestionFilters();
-      const result = await getQuestions({
-        ...filters,
-        page: currentPage,
-        limit: pageSize,
-      });
-
-      if (result.success) {
-        if (replace) {
-          setQuestions(result.data.questions);
-        } else {
-          // Append to existing questions
-          setQuestions((prev) => [...prev, ...result.data.questions]);
-        }
-        setTotalCount(result.data.total);
-        setTotalPages(result.data.totalPages);
-      } else {
-        console.error("Failed to load questions:", result.error);
-        if (replace) {
-          setQuestions([]);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading questions:", error);
-      if (replace) {
-        setQuestions([]);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadAllQuestions = async () => {
-    if (totalCount > 500) {
-      toast({
-        title: "Too many questions",
-        description: `Loading ${totalCount} questions may be slow. Consider using filters to narrow your search.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoadingAll(true);
-    try {
-      const filters = getQuestionFilters();
-      // Load all questions without pagination
-      const result = await getQuestions({
-        ...filters,
+    } else if (questionsResponse?.questions) {
+      // Use regular questions when no folder is selected
+      return {
+        questions: questionsResponse.questions || [],
+        total: questionsResponse.pagination.totalCount || 0,
+        page: pagination.page,
+        limit: pagination.limit,
+        totalPages: questionsResponse.pagination.totalPages || 1,
+      };
+    } else {
+      // No data available
+      return {
+        questions: [],
+        total: 0,
         page: 1,
-        limit: Math.min(totalCount, 2000), // Cap at 2000 for performance
-      });
-
-      if (result.success) {
-        setQuestions(result.data.questions);
-        // Reset pagination to show all loaded questions
-        setCurrentPage(1);
-        setTotalPages(1);
-      }
-    } catch (error) {
-      console.error("Error loading all questions:", error);
-    } finally {
-      setIsLoadingAll(false);
+        limit: pagination.limit,
+        totalPages: 1,
+      };
     }
-  };
+  }, [questionsResponse, foldersResponse, selectedFolderId, pagination]);
+
+  // Loading state
+  const isLoading =
+    (selectedFolderId && folderLoading) ||
+    (!selectedFolderId && questionsLoading) ||
+    allFoldersLoading;
 
   const handleFolderSelect = (folderId: string | null) => {
     setSelectedFolderId(folderId);
-    setCurrentPage(1);
+    setPagination((prev) => ({ ...prev, page: 1 }));
     setSelectedQuestions([]);
+  };
+
+  // Page change handler
+  const handlePageChange = (page: number) => {
+    setPagination((prev) => ({ ...prev, page }));
   };
 
   const toggleQuestionSelection = (questionId: string) => {
@@ -273,213 +278,62 @@ export function QuestionBankWithFolders({
     );
   };
 
-  const selectAllVisible = async () => {
-    try {
-      // Get current filters
-      const filters = getQuestionFilters();
+  const selectAllVisible = () => {
+    // Get all visible question IDs
+    const visibleQuestionIds = questionsData.questions.map(
+      (q: DBQuestion) => q.id
+    );
 
-      // Get all question IDs matching current filters
-      const result = await getAllQuestionIds(filters);
-      if (result.success) {
-        // Filter out already added questions
-        const availableIds = result.data.filter(
-          (id) => !addedQuestionIds.includes(id)
-        );
+    // Filter out already added questions
+    const availableIds = visibleQuestionIds.filter(
+      (id: string) => !addedQuestionIds.includes(id)
+    );
 
-        // Warn if selecting a large number
-        if (availableIds.length > 500) {
-          const proceed = confirm(
-            `You are about to select ${availableIds.length} questions. This may be slow. Continue?`
-          );
-          if (!proceed) return;
-        }
+    setSelectedQuestions(availableIds);
 
-        setSelectedQuestions(availableIds);
-
-        // Only load all questions if user specifically wants to see them and count is reasonable
-        if (
-          availableIds.length > questions.length &&
-          availableIds.length <= 500
-        ) {
-          // Load all questions to display them
-          await loadAllQuestions();
-        }
-
-        toast({
-          title: "Questions selected",
-          description: `Selected ${availableIds.length} question${availableIds.length !== 1 ? "s" : ""}. ${
-            availableIds.length > questions.length
-              ? "Click 'Load All Questions' to view all selected questions."
-              : ""
-          }`,
-        });
-      }
-    } catch (error) {
-      console.error("Error selecting all questions:", error);
-      toast({
-        title: "Error",
-        description: "Failed to select all questions",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const increasePageSize = async () => {
-    setIsLoadingAll(true);
-    try {
-      const newPageSize = Math.min(pageSize * 5, 100); // Increase to 100 questions per page
-      const filters = getQuestionFilters();
-      const result = await getQuestions({
-        ...filters,
-        page: 1,
-        limit: newPageSize,
-      });
-
-      if (result.success) {
-        setQuestions(result.data.questions);
-        setCurrentPage(1);
-        setTotalPages(Math.ceil(result.data.total / newPageSize));
-
-        toast({
-          title: "Page size increased",
-          description: `Now showing up to ${newPageSize} questions per page`,
-        });
-      }
-    } catch (error) {
-      console.error("Error increasing page size:", error);
-      toast({
-        title: "Error",
-        description: "Failed to increase page size",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingAll(false);
-    }
+    toast({
+      title: "Questions selected",
+      description: `Selected ${availableIds.length} question${availableIds.length !== 1 ? "s" : ""} from current page.`,
+    });
   };
 
   const deselectAll = () => {
     setSelectedQuestions([]);
   };
 
-  const handleAddSelectedQuestions = async () => {
+  const handleAddSelectedQuestions = () => {
     if (selectedQuestions.length === 0) return;
 
-    // If we have more selected than loaded, fetch them in chunks
-    if (selectedQuestions.length > questions.length) {
-      setIsLoadingAll(true);
-      try {
-        // For large selections, fetch in smaller chunks
-        const chunkSize = 100;
-        const allQuestions: DBQuestion[] = [];
+    // Filter selected questions from current loaded data
+    const questionsToAdd = questionsData.questions.filter((q: DBQuestion) =>
+      selectedQuestions.includes(q.id)
+    );
 
-        for (let i = 0; i < selectedQuestions.length; i += chunkSize) {
-          const chunk = selectedQuestions.slice(i, i + chunkSize);
-          const filters = {
-            ...getQuestionFilters(),
-            question_ids: chunk, // Pass specific IDs if supported by backend
-          };
+    onAddQuestions(questionsToAdd);
+    setSelectedQuestions([]);
 
-          const result = await getQuestions({
-            ...filters,
-            page: 1,
-            limit: chunkSize,
-          });
-
-          if (result.success) {
-            const chunkQuestions = result.data.questions.filter((q) =>
-              chunk.includes(q.id)
-            );
-            allQuestions.push(...chunkQuestions);
-          }
-        }
-
-        onAddQuestions(allQuestions);
-        setSelectedQuestions([]);
-
-        toast({
-          title: "Questions added",
-          description: `Successfully added ${allQuestions.length} question${allQuestions.length !== 1 ? "s" : ""}`,
-        });
-
-        // Reload current page view
-        await loadQuestions();
-      } catch (error) {
-        console.error("Error adding selected questions:", error);
-        toast({
-          title: "Error",
-          description: "Failed to add selected questions",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoadingAll(false);
-      }
-    } else {
-      // All selected questions are already loaded
-      const questionsToAdd = questions.filter((q) =>
-        selectedQuestions.includes(q.id)
-      );
-      onAddQuestions(questionsToAdd);
-      setSelectedQuestions([]);
-
-      toast({
-        title: "Questions added",
-        description: `Successfully added ${questionsToAdd.length} question${questionsToAdd.length !== 1 ? "s" : ""}`,
-      });
-    }
-  };
-
-  const handleDuplicateQuestion = async (questionId: string) => {
-    if (!onDuplicateQuestion) return;
-    setDuplicating(questionId);
-    try {
-      await onDuplicateQuestion(questionId);
-      // Reload questions after duplication
-      await loadQuestions();
-    } finally {
-      setDuplicating(null);
-    }
+    toast({
+      title: "Questions added",
+      description: `Successfully added ${questionsToAdd.length} question${questionsToAdd.length !== 1 ? "s" : ""}`,
+    });
   };
 
   const availableSelectedCount = selectedQuestions.filter(
     (id) => !addedQuestionIds.includes(id)
   ).length;
 
-  // Map difficulty level to difficulty string
-  const getDifficultyString = (level: number): any => {
-    if (level <= 3) return "easy";
-    if (level <= 7) return "medium";
-    return "hard";
-  };
-
   // State for all available tags
   const [allTags, setAllTags] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState<string>("");
 
-  // Load all unique tags when component mounts or folder changes
+  // Extract tags from current questions data
   useEffect(() => {
-    loadAllTags();
-  }, [selectedFolderId]);
-
-  const loadAllTags = async () => {
-    try {
-      // Get all questions to extract tags (without pagination)
-      const result = await getQuestions({
-        page: 1,
-        limit: 1000, // Get a large number to get all tags
-        folder_id: selectedFolderId,
-      });
-
-      if (result.success) {
-        const tagSet = new Set<string>();
-        result.data.questions.forEach((q: any) => {
-          q.tags?.forEach((tag: any) => tagSet.add(tag));
-        });
-        setAllTags(Array.from(tagSet).sort());
-      }
-    } catch (error) {
-      console.error("Error loading tags:", error);
-    }
-  };
+    const tagSet = new Set<string>();
+    questionsData.questions.forEach((q: DBQuestion) => {
+      (q as any).tags?.forEach((tag: string) => tagSet.add(tag));
+    });
+    setAllTags(Array.from(tagSet).sort());
+  }, [questionsData.questions]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -487,7 +341,7 @@ export function QuestionBankWithFolders({
     );
   };
 
-  const renderQuestionCard = (question: any) => {
+  const renderQuestionCard = (question: DBQuestion) => {
     const isExpanded = expandedQuestions.includes(question.id);
     const isSelected = selectedQuestions.includes(question.id);
     const isAdded = addedQuestionIds.includes(question.id);
@@ -512,7 +366,7 @@ export function QuestionBankWithFolders({
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <h4 className="font-medium text-sm leading-tight">
-                  {question.title}
+                  {(question as any).title || "Untitled Question"}
                 </h4>
                 <p
                   className={cn(
@@ -525,7 +379,7 @@ export function QuestionBankWithFolders({
 
                 <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                   <Badge variant="secondary" className="text-xs py-0 px-1.5">
-                    {getTypeLabel(question.type as any)}
+                    {getTypeLabel(question.type)}
                   </Badge>
                   {/* Difficulty, points and tags removed from schema */}
                 </div>
@@ -604,14 +458,14 @@ export function QuestionBankWithFolders({
   return (
     <div className={cn("flex h-full", className)}>
       {/* Left Panel - Folder Tree */}
-      <div className="w-64 border-r bg-muted/30 p-4">
+      <div className="w-80 border-r bg-muted/30 p-4">
         <h3 className="text-sm font-semibold mb-3">Folders</h3>
         <FolderTree
-          folders={folders}
+          folders={allFoldersResponse?.data || []}
           selectedFolderId={selectedFolderId}
           onFolderSelect={handleFolderSelect}
-          questionCounts={questionCounts}
-          totalQuestions={totalQuestions}
+          questionCounts={{}}
+          totalQuestions={questionsData.total}
           className="h-[calc(100%-2rem)]"
         />
       </div>
@@ -632,7 +486,7 @@ export function QuestionBankWithFolders({
               Bulk Upload
             </Button>
             <span className="text-sm text-muted-foreground">
-              {totalCount} questions
+              {questionsData.total} questions
             </span>
           </div>
         </div>
@@ -647,7 +501,6 @@ export function QuestionBankWithFolders({
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  setCurrentPage(1);
                 }}
                 className="pl-10"
               />
@@ -657,19 +510,19 @@ export function QuestionBankWithFolders({
               size="sm"
               onClick={selectAllVisible}
               disabled={
-                isLoadingAll ||
-                totalCount === 0 ||
-                totalCount === addedQuestionIds.length
+                isLoading ||
+                questionsData.total === 0 ||
+                questionsData.questions.length === 0
               }
-              title={`Select all ${totalCount} questions matching current filters`}
+              title={`Select all ${questionsData.questions.length} visible questions`}
             >
-              {isLoadingAll ? (
+              {isLoading ? (
                 <>
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                   Loading...
                 </>
               ) : (
-                <>Select All ({totalCount})</>
+                <>Select All ({questionsData.questions.length})</>
               )}
             </Button>
             <Button
@@ -680,39 +533,6 @@ export function QuestionBankWithFolders({
             >
               Deselect All
             </Button>
-            {questions.length < totalCount && totalCount > 0 && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={increasePageSize}
-                  disabled={isLoadingAll || pageSize >= 100}
-                  title="Show more questions per page"
-                >
-                  Show More
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadAllQuestions}
-                  disabled={isLoadingAll || totalCount > 2000}
-                  title={
-                    totalCount > 2000
-                      ? "Too many questions to load at once. Use filters to narrow your search."
-                      : "Load all questions to view complete list"
-                  }
-                >
-                  {isLoadingAll ? (
-                    <>
-                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                      Loading All...
-                    </>
-                  ) : (
-                    <>Load All ({totalCount})</>
-                  )}
-                </Button>
-              </>
-            )}
           </div>
 
           <div className="flex gap-2 flex-wrap">
@@ -720,7 +540,6 @@ export function QuestionBankWithFolders({
               value={selectedType}
               onValueChange={(value) => {
                 setSelectedType(value);
-                setCurrentPage(1);
               }}
             >
               <SelectTrigger className="w-[140px]">
@@ -730,11 +549,11 @@ export function QuestionBankWithFolders({
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
                 <SelectItem value="true_false">True/False</SelectItem>
-                <SelectItem value="short_answer">Short Answer</SelectItem>
-                <SelectItem value="long_answer">Long Answer</SelectItem>
-                <SelectItem value="coding">Coding</SelectItem>
+                <SelectItem value="fill_in_the_blank">
+                  Fill in the Blank
+                </SelectItem>
+                <SelectItem value="matching_pairs">Matching Pairs</SelectItem>
                 <SelectItem value="free_text">Free Text</SelectItem>
-                <SelectItem value="matching">Matching</SelectItem>
               </SelectContent>
             </Select>
 
@@ -742,7 +561,6 @@ export function QuestionBankWithFolders({
               value={selectedDifficulty}
               onValueChange={(value) => {
                 setSelectedDifficulty(value);
-                setCurrentPage(1);
               }}
             >
               <SelectTrigger className="w-[140px]">
@@ -867,65 +685,51 @@ export function QuestionBankWithFolders({
             <Button
               size="sm"
               onClick={handleAddSelectedQuestions}
-              disabled={availableSelectedCount === 0 || isLoadingAll}
+              disabled={availableSelectedCount === 0}
             >
-              {isLoadingAll ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Selected to Quiz
-                </>
-              )}
+              <Plus className="h-4 w-4 mr-1" />
+              Add Selected to Quiz
             </Button>
           </div>
         )}
 
         {/* Questions List */}
         <ScrollArea className="h-[calc(100vh-20rem)]">
-          {loading && questions.length === 0 ? (
+          {isLoading && questionsData.questions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Loading questions...
             </div>
-          ) : questions.length > 0 ? (
+          ) : questionsData.questions.length > 0 ? (
             <>
               <div className="space-y-2 pr-4">
-                {questions.map(renderQuestionCard)}
+                {questionsData.questions.map(renderQuestionCard)}
               </div>
-              {/* Show loading indicator when loading more */}
-              {loading && questions.length > 0 && (
-                <div className="text-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Loading more questions...
-                  </p>
-                </div>
-              )}
-              {/* Show Load More button when there are more questions */}
-              {!loading && questions.length < totalCount && (
-                <div className="text-center py-4">
+              {/* Pagination controls */}
+              {questionsData.totalPages > 1 && (
+                <div className="flex justify-center gap-2 mt-4">
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      // Increment current page to trigger loading more questions
-                      setCurrentPage((prev) => prev + 1);
-                    }}
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={!pagination.hasPreviousPage}
                   >
-                    Load More ({questions.length} of {totalCount})
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <span className="flex items-center text-sm text-muted-foreground px-3">
+                    Page {pagination.page} of {questionsData.totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={!pagination.hasNextPage}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
               )}
-              {/* Show message when all questions are loaded */}
-              {!loading &&
-                questions.length === totalCount &&
-                totalCount > 0 && (
-                  <div className="text-center py-4 text-sm text-muted-foreground">
-                    All questions loaded ({totalCount} total)
-                  </div>
-                )}
             </>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
@@ -947,8 +751,12 @@ export function QuestionBankWithFolders({
         onOpenChange={setShowBulkUpload}
         onComplete={() => {
           setShowBulkUpload(false);
-          loadQuestions(true);
-          loadQuestionCounts();
+          // Refetch questions after import
+          if (selectedFolderId) {
+            refetchFolder();
+          } else {
+            refetchQuestions();
+          }
           if (onQuestionsImported) {
             onQuestionsImported();
           }

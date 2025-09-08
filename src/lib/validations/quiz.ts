@@ -1,35 +1,42 @@
 import { z } from 'zod'
 
 export const quizSettingsSchema = z.object({
-  timeLimit: z.number().min(0).max(180).optional(), // in minutes
-  randomizeQuestions: z.boolean().default(false),
-  showCorrectAnswers: z.boolean().default(true),
-  passingScore: z.number().min(0).max(100).default(70),
-  showFeedback: z.boolean().default(true),
-  allowReview: z.boolean().default(true),
-  preventSkipping: z.boolean().default(false), // When true: students must answer each question before moving to the next
-  availableFrom: z.string().datetime().optional(),
-  availableTo: z.string().datetime().optional(),
-  examMode: z.boolean().default(false), // When true: enforces time limits, no going back, no review until after submission
+  timeLimit: z.number().min(0).max(180), // in minutes
+  randomizeQuestions: z.boolean(),
+  showCorrectAnswers: z.boolean(),
+  maxAttempts: z.number().min(1),
+  passingScore: z.number().min(0).max(100),
+  showFeedback: z.boolean(),
+  allowRetakes: z.boolean(),
+  allowReview: z.boolean(),
+  availableFrom: z.string().optional(),
+  availableUntil: z.string().optional(),
+  preventSkipping: z.boolean().default(false),
 })
 
 export const quizQuestionSchema = z.object({
-  id: z.string().optional(),
   questionId: z.string(),
-  order: z.number().min(0),
+  order: z.number().min(1),
+  pointsOverride: z.number().min(0),
+  required: z.boolean(),
 })
 
 export const createQuizSchema = z.object({
   title: z.string().min(1).max(200),
-  description: z.string().optional(),
-  lessonId: z.string().optional(),
+  description: z.string().min(1),
+  instructions: z.string().min(1),
   tags: z.array(z.string()).optional(),
-  settings: quizSettingsSchema.optional(),
+  settings: quizSettingsSchema,
+  questions: z.array(quizQuestionSchema),
 })
 
 export const updateQuizSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().optional(),
+  instructions: z.string().optional(),
+  categoryId: z.string().uuid().optional(),
+  gradeId: z.string().uuid().optional(),
+  lessonId: z.string().uuid().optional(),
   tags: z.array(z.string()).optional(),
   settings: quizSettingsSchema.optional(),
   questions: z.array(quizQuestionSchema).optional(),
@@ -38,9 +45,14 @@ export const updateQuizSchema = z.object({
 export const saveQuizSchema = z.object({
   id: z.string(),
   title: z.string().min(1).max(200),
-  description: z.string().optional(),
+  description: z.string(),
+  instructions: z.string(),
+  categoryId: z.string().uuid(),
+  gradeId: z.string().uuid(),
+  lessonId: z.string().uuid(),
+  tags: z.array(z.string()),
   questions: z.array(quizQuestionSchema),
-  settings: quizSettingsSchema.optional(),
+  settings: quizSettingsSchema,
 })
 
 export const submitQuizAttemptSchema = z.object({
