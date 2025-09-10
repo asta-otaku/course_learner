@@ -209,7 +209,7 @@ export default function QuestionsPage() {
   // Handle errors
   if (questionsError && !selectedFolderId) {
     return (
-      <div className="container mx-auto py-10">
+      <div className="mx-auto py-10">
         <div className="rounded-lg border border-red-200 bg-red-50 p-4">
           <p className="text-red-800">
             Error loading questions:{" "}
@@ -222,7 +222,7 @@ export default function QuestionsPage() {
 
   if (folderError && selectedFolderId) {
     return (
-      <div className="container mx-auto py-10">
+      <div className="mx-auto py-10">
         <div className="rounded-lg border border-red-200 bg-red-50 p-4">
           <p className="text-red-800">
             Error loading folder: {folderError.message || "An error occurred"}
@@ -261,7 +261,7 @@ export default function QuestionsPage() {
   } else {
     // No data available
     return (
-      <div className="container mx-auto py-10">
+      <div className="mx-auto py-10">
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
           <p className="text-yellow-800">No questions data available</p>
         </div>
@@ -270,7 +270,7 @@ export default function QuestionsPage() {
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="mx-auto py-6">
       {/* Filter Button */}
       <div className="mb-6 flex justify-between items-center">
         <h1 className="text-2xl font-bold">Questions</h1>

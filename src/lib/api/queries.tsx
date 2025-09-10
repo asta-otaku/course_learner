@@ -16,6 +16,7 @@ import {
   Question,
   QuestionQueryOptions,
   Quiz,
+  Curriculum,
 } from "../types";
 
 // User Queries
@@ -581,12 +582,72 @@ export const useGetCollection = (id?: string) => {
 };
 
 // Curriculum Queries
-export const useGetCurricula = () => {
+export const useGetCurricula = (
+  params: {
+    searchTitle?: string;
+    gradeLevel?: string;
+    minGradeLevel?: number;
+    maxGradeLevel?: number;
+    isPublic?: boolean;
+    page?: number;
+    limit?: number;
+  } = {}
+) => {
   return useQuery({
-    queryKey: ["curricula"],
-    queryFn: async (): Promise<APIGetResponse<any>> => {
-      const response = await axiosInstance.get("/curricula");
-      return response.data;
+    queryKey: ["curricula", params],
+    queryFn: async (): Promise<{
+      curricula: Curriculum[];
+      pagination: {
+        page: number;
+        limit: number;
+        totalCount: number;
+        totalPages: number;
+        hasNextPage: boolean;
+        hasPreviousPage: boolean;
+      };
+    }> => {
+      const searchParams = new URLSearchParams();
+
+      if (params.searchTitle) {
+        searchParams.append("searchTitle", params.searchTitle);
+      }
+      if (params.gradeLevel) {
+        searchParams.append("gradeLevel", params.gradeLevel);
+      }
+      if (params.minGradeLevel !== undefined) {
+        searchParams.append("minGradeLevel", params.minGradeLevel.toString());
+      }
+      if (params.maxGradeLevel !== undefined) {
+        searchParams.append("maxGradeLevel", params.maxGradeLevel.toString());
+      }
+      if (params.isPublic !== undefined) {
+        searchParams.append("isPublic", params.isPublic.toString());
+      }
+      if (params.page !== undefined) {
+        searchParams.append("page", params.page.toString());
+      }
+      if (params.limit !== undefined) {
+        searchParams.append("limit", params.limit.toString());
+      }
+
+      const queryString = searchParams.toString();
+      const url = queryString ? `/curriculum?${queryString}` : "/curriculum";
+
+      const response = await axiosInstance.get(url);
+      const result = response.data;
+
+      // Transform the API response to match our expected structure
+      return {
+        curricula: result.data || [],
+        pagination: {
+          page: result.pagination?.page || 1,
+          limit: result.pagination?.limit || 20,
+          totalCount: result.pagination?.totalCount || 0,
+          totalPages: result.pagination?.totalPages || 1,
+          hasNextPage: result.pagination?.hasNextPage || false,
+          hasPreviousPage: result.pagination?.hasPreviousPage || false,
+        },
+      };
     },
   });
 };
@@ -594,13 +655,7 @@ export const useGetCurricula = () => {
 export const useGetCurriculum = (curriculumId?: string) => {
   return useQuery({
     queryKey: ["curriculum", curriculumId],
-    queryFn: async (): Promise<APIGetResponse<any>> => {
-      if (!curriculumId)
-        return {
-          status: "success",
-          message: "No ID provided",
-          data: { curriculum: null },
-        };
+    queryFn: async (): Promise<APIGetResponse<Curriculum>> => {
       const response = await axiosInstance.get(`/curricula/${curriculumId}`);
       return response.data;
     },

@@ -1,70 +1,84 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { Button } from '@/components/ui/button'
-import { Slider } from '@/components/ui/slider'
-import { toast } from '@/components/ui/use-toast'
-import { updateQuiz } from '@/app/actions/quizzes'
-import { Save } from 'lucide-react'
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { toast } from "react-toastify";
+import { usePutQuiz } from "@/lib/api/mutations";
+import { Save } from "lucide-react";
 
 interface QuizSettings {
-  timeLimit?: number
-  randomizeQuestions: boolean
-  showCorrectAnswers: boolean
-  passingScore: number
-  examMode?: boolean
-  preventSkipping?: boolean
+  timeLimit?: number;
+  randomizeQuestions: boolean;
+  showCorrectAnswers: boolean;
+  maxAttempts: number;
+  passingScore: number;
+  showFeedback: boolean;
+  allowRetakes: boolean;
+  allowReview: boolean;
+  availableFrom?: string;
+  availableUntil?: string;
 }
 
 interface QuizSettingsEditorProps {
-  quizId: string
-  settings: QuizSettings
+  quizId: string;
+  settings: QuizSettings;
 }
 
-export function QuizSettingsEditor({ quizId, settings: initialSettings }: QuizSettingsEditorProps) {
-  const [settings, setSettings] = useState<QuizSettings>(initialSettings)
-  const [saving, setSaving] = useState(false)
+export function QuizSettingsEditor({
+  quizId,
+  settings: initialSettings,
+}: QuizSettingsEditorProps) {
+  const [settings, setSettings] = useState<QuizSettings>(initialSettings);
+  const [saving, setSaving] = useState(false);
+  const putQuizMutation = usePutQuiz(quizId);
 
   const handleSave = async () => {
-    setSaving(true)
+    setSaving(true);
     try {
-      const result = await updateQuiz(quizId, { settings })
-      
-      if (result.success) {
-        toast({
-          title: 'Settings saved',
-          description: 'Quiz settings have been updated successfully',
-        })
+      const result = await putQuizMutation.mutateAsync({
+        settings: {
+          timeLimit: settings.timeLimit || undefined,
+          randomizeQuestions: settings.randomizeQuestions,
+          showCorrectAnswers: settings.showCorrectAnswers,
+          maxAttempts: settings.maxAttempts,
+          passingScore: settings.passingScore,
+          showFeedback: settings.showFeedback,
+          allowRetakes: settings.allowRetakes,
+          allowReview: settings.allowReview,
+          availableFrom: settings.availableFrom || undefined,
+          availableUntil: settings.availableUntil || undefined,
+        } as any,
+      });
+
+      if (result.data) {
+        toast.success("Quiz settings have been updated successfully");
       } else {
-        toast({
-          title: 'Failed to save settings',
-          description: result.error || 'Please try again',
-          variant: 'destructive',
-        })
+        toast.error("Failed to save settings. Please try again.");
       }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      })
+      toast.error("An unexpected error occurred");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Quiz Settings</CardTitle>
-          <CardDescription>
-            Configure how your quiz behaves
-          </CardDescription>
+          <CardDescription>Configure how your quiz behaves</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Time Limit */}
@@ -73,11 +87,15 @@ export function QuizSettingsEditor({ quizId, settings: initialSettings }: QuizSe
             <Input
               id="timeLimit"
               type="number"
-              value={settings.timeLimit || ''}
-              onChange={(e) => setSettings({
-                ...settings,
-                timeLimit: e.target.value ? parseInt(e.target.value) : undefined
-              })}
+              value={settings.timeLimit || ""}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  timeLimit: e.target.value
+                    ? parseInt(e.target.value)
+                    : undefined,
+                })
+              }
               placeholder="No time limit"
               min="1"
               max="180"
@@ -87,6 +105,27 @@ export function QuizSettingsEditor({ quizId, settings: initialSettings }: QuizSe
             </p>
           </div>
 
+          {/* Max Attempts */}
+          <div className="space-y-2">
+            <Label htmlFor="maxAttempts">Max Attempts</Label>
+            <Input
+              id="maxAttempts"
+              type="number"
+              value={settings.maxAttempts}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  maxAttempts: parseInt(e.target.value) || 1,
+                })
+              }
+              placeholder="1"
+              min="1"
+              max="10"
+            />
+            <p className="text-sm text-muted-foreground">
+              Maximum number of attempts allowed per student
+            </p>
+          </div>
 
           {/* Passing Score */}
           <div className="space-y-2">
@@ -96,10 +135,12 @@ export function QuizSettingsEditor({ quizId, settings: initialSettings }: QuizSe
             <Slider
               id="passingScore"
               value={[settings.passingScore]}
-              onValueChange={([value]) => setSettings({
-                ...settings,
-                passingScore: value
-              })}
+              onValueChange={([value]) =>
+                setSettings({
+                  ...settings,
+                  passingScore: value,
+                })
+              }
               min={0}
               max={100}
               step={5}
@@ -121,10 +162,12 @@ export function QuizSettingsEditor({ quizId, settings: initialSettings }: QuizSe
             <Switch
               id="randomize"
               checked={settings.randomizeQuestions}
-              onCheckedChange={(checked) => setSettings({
-                ...settings,
-                randomizeQuestions: checked
-              })}
+              onCheckedChange={(checked) =>
+                setSettings({
+                  ...settings,
+                  randomizeQuestions: checked,
+                })
+              }
             />
           </div>
 
@@ -133,63 +176,139 @@ export function QuizSettingsEditor({ quizId, settings: initialSettings }: QuizSe
             <div className="space-y-0.5">
               <Label htmlFor="showAnswers">Show Correct Answers</Label>
               <p className="text-sm text-muted-foreground">
-                Display correct answers after quiz submission. If unchecked, students will see feedback after each question. If checked, answers are shown only after completing the entire quiz.
+                Display correct answers after quiz submission
               </p>
             </div>
             <Switch
               id="showAnswers"
               checked={settings.showCorrectAnswers}
-              onCheckedChange={(checked) => setSettings({
-                ...settings,
-                showCorrectAnswers: checked
-              })}
+              onCheckedChange={(checked) =>
+                setSettings({
+                  ...settings,
+                  showCorrectAnswers: checked,
+                })
+              }
             />
           </div>
 
-          {/* Prevent Skipping */}
+          {/* Show Feedback */}
           <div className="flex items-center justify-between space-x-2">
             <div className="space-y-0.5">
-              <Label htmlFor="preventSkipping">Prevent Skipping Questions</Label>
+              <Label htmlFor="showFeedback">Show Feedback</Label>
               <p className="text-sm text-muted-foreground">
-                When enabled, students must answer each question before moving to the next
+                Display feedback after each question
               </p>
             </div>
             <Switch
-              id="preventSkipping"
-              checked={settings.preventSkipping || false}
-              onCheckedChange={(checked) => setSettings({
-                ...settings,
-                preventSkipping: checked
-              })}
+              id="showFeedback"
+              checked={settings.showFeedback}
+              onCheckedChange={(checked) =>
+                setSettings({
+                  ...settings,
+                  showFeedback: checked,
+                })
+              }
             />
           </div>
 
-          {/* Exam Mode */}
+          {/* Allow Retakes */}
           <div className="flex items-center justify-between space-x-2">
             <div className="space-y-0.5">
-              <Label htmlFor="examMode">Exam Mode</Label>
+              <Label htmlFor="allowRetakes">Allow Retakes</Label>
               <p className="text-sm text-muted-foreground">
-                Enforce time limits, prevent going back to previous questions, and disable review until after submission
+                Allow students to retake the quiz after completion
               </p>
             </div>
             <Switch
-              id="examMode"
-              checked={settings.examMode || false}
-              onCheckedChange={(checked) => setSettings({
-                ...settings,
-                examMode: checked
-              })}
+              id="allowRetakes"
+              checked={settings.allowRetakes}
+              onCheckedChange={(checked) =>
+                setSettings({
+                  ...settings,
+                  allowRetakes: checked,
+                })
+              }
             />
+          </div>
+
+          {/* Allow Review */}
+          <div className="flex items-center justify-between space-x-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="allowReview">Allow Review</Label>
+              <p className="text-sm text-muted-foreground">
+                Allow students to review their answers after submission
+              </p>
+            </div>
+            <Switch
+              id="allowReview"
+              checked={settings.allowReview}
+              onCheckedChange={(checked) =>
+                setSettings({
+                  ...settings,
+                  allowReview: checked,
+                })
+              }
+            />
+          </div>
+
+          {/* Available From */}
+          <div className="space-y-2">
+            <Label htmlFor="availableFrom">Available From</Label>
+            <Input
+              id="availableFrom"
+              type="date"
+              value={
+                settings.availableFrom
+                  ? settings.availableFrom.split("T")[0]
+                  : ""
+              }
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  availableFrom: e.target.value
+                    ? `${e.target.value}T00:00:00.000Z`
+                    : undefined,
+                })
+              }
+            />
+            <p className="text-sm text-muted-foreground">
+              When the quiz becomes available to students
+            </p>
+          </div>
+
+          {/* Available Until */}
+          <div className="space-y-2">
+            <Label htmlFor="availableUntil">Available Until</Label>
+            <Input
+              id="availableUntil"
+              type="date"
+              value={
+                settings.availableUntil
+                  ? settings.availableUntil.split("T")[0]
+                  : ""
+              }
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  availableUntil: e.target.value
+                    ? `${e.target.value}T23:59:59.999Z`
+                    : undefined,
+                })
+              }
+            />
+            <p className="text-sm text-muted-foreground">
+              When the quiz becomes unavailable to students
+            </p>
           </div>
 
           <div className="pt-4">
             <Button onClick={handleSave} disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
-              {saving ? 'Saving...' : 'Save Settings'}
+              {saving ? "Saving..." : "Save Settings"}
             </Button>
           </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

@@ -53,7 +53,7 @@ export default function QuestionDetailPage({
   // Show loading state
   if (isLoading) {
     return (
-      <div className="container mx-auto py-10 max-w-4xl">
+      <div className="mx-auto py-10 max-w-4xl">
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-gray-200 rounded w-1/3"></div>
           <div className="h-64 bg-gray-200 rounded"></div>
@@ -66,7 +66,7 @@ export default function QuestionDetailPage({
   // Show error state
   if (error || !result?.data) {
     return (
-      <div className="container mx-auto py-10 max-w-4xl">
+      <div className="mx-auto py-10 max-w-4xl">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600">
             Question Not Found
@@ -129,7 +129,7 @@ export default function QuestionDetailPage({
   }
 
   return (
-    <div className="container mx-auto py-10 max-w-4xl">
+    <div className="mx-auto py-10 max-w-4xl">
       <div className="mb-8 flex items-center justify-between">
         <Link
           href="/admin/questions"

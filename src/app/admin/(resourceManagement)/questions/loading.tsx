@@ -1,8 +1,8 @@
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function QuestionsLoading() {
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="mx-auto py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
@@ -34,7 +34,7 @@ export default function QuestionsLoading() {
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-4 w-16" />
           </div>
-          
+
           {/* Table rows */}
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="flex items-center gap-4 py-4 border-b">
@@ -49,5 +49,5 @@ export default function QuestionsLoading() {
         </div>
       </div>
     </div>
-  )
+  );
 }

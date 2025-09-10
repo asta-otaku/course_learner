@@ -11,7 +11,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen w-full bg-background">
       <TopNavigation />
-      <main className="min-w-full">{children}</main>
+      <main className="w-full">{children}</main>
     </div>
   );
 }

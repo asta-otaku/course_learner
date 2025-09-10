@@ -20,7 +20,7 @@ import {
   Eye,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useGetQuiz } from "@/lib/api/queries";
+import { useGetQuiz, useGetQuizQuestions } from "@/lib/api/queries";
 import { formatDistanceToNow } from "date-fns";
 
 // Force dynamic rendering
@@ -30,28 +30,40 @@ export default function QuizPage() {
   const params = useParams();
   const id = params.id as string;
 
-  // Use React Query hook instead of server action
+  // Use React Query hooks to get quiz and questions
   const {
     data: quizResponse,
     isLoading: quizLoading,
     error: quizError,
   } = useGetQuiz(id);
 
+  const {
+    data: questionsResponse,
+    isLoading: questionsLoading,
+    error: questionsError,
+  } = useGetQuizQuestions(id);
+
   // Show loading state
-  if (quizLoading) {
+  if (quizLoading || questionsLoading) {
     return <LoadingSkeleton />;
   }
 
   // Handle errors
-  if (quizError || !quizResponse?.data) {
+  if (
+    quizError ||
+    !quizResponse?.data ||
+    questionsError ||
+    !questionsResponse?.data
+  ) {
     notFound();
   }
 
   const quiz = quizResponse.data;
+  const questions = questionsResponse.data;
   const canEdit = true;
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="mx-auto py-6">
       {/* Unpublished Banner */}
       {quiz.status !== "published" && (
         <UnpublishedBanner
@@ -68,9 +80,7 @@ export default function QuizPage() {
             <p className="text-muted-foreground mt-2">{quiz.description}</p>
           )}
           <div className="flex items-center gap-2 mt-3">
-            <Badge variant="outline">
-              {quiz.questions?.length || 0} questions
-            </Badge>
+            <Badge variant="outline">{questions?.length || 0} questions</Badge>
             {quiz.timeLimit && (
               <Badge variant="outline">{quiz.timeLimit} mins</Badge>
             )}
@@ -137,7 +147,7 @@ export default function QuizPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {quiz.questions?.length || 0}
+                  {questions?.length || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Questions</p>
               </CardContent>
@@ -277,7 +287,7 @@ export default function QuizPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Questions ({quiz.questions?.length || 0})</CardTitle>
+                <CardTitle>Questions ({questions?.length || 0})</CardTitle>
                 <Button size="sm" asChild>
                   <Link href={`/admin/quizzes/${quiz.id}/edit`}>
                     <Edit className="h-4 w-4 mr-2" />
@@ -287,9 +297,9 @@ export default function QuizPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {quiz.questions && quiz.questions.length > 0 ? (
+              {questions && questions.length > 0 ? (
                 <div className="space-y-4">
-                  {quiz.questions.map((qq: any, index: number) => (
+                  {questions.map((qq: any, index: number) => (
                     <div
                       key={qq.id}
                       className="p-4 border rounded-lg space-y-2"
@@ -305,9 +315,9 @@ export default function QuizPage() {
                         </div>
                         <Badge variant="secondary">{qq.question.type}</Badge>
                       </div>
-                      {qq.explanation && (
+                      {qq.question.explanation && (
                         <div className="text-sm text-muted-foreground pl-6">
-                          <p className="italic">{qq.explanation}</p>
+                          <p className="italic">{qq.question.explanation}</p>
                         </div>
                       )}
                       <div className="flex items-center gap-2 pl-6">
@@ -315,7 +325,10 @@ export default function QuizPage() {
                           {qq.question.type}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
-                          {qq.question.difficulty}
+                          {qq.question.difficultyLevel || "Unknown"}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {qq.pointsOverride || qq.question.points || 1} pts
                         </Badge>
                       </div>
                     </div>
@@ -352,13 +365,19 @@ export default function QuizPage() {
             <QuizSettingsEditor
               quizId={quiz.id || ""}
               settings={{
-                timeLimit: quiz.timeLimit || 30,
+                timeLimit: quiz.timeLimit,
                 randomizeQuestions: quiz.randomizeQuestions || false,
                 showCorrectAnswers: quiz.showCorrectAnswers !== false,
+                maxAttempts: quiz.maxAttempts || 3,
                 passingScore:
                   typeof quiz.passingScore === "string"
                     ? parseFloat(quiz.passingScore)
                     : quiz.passingScore || 70,
+                showFeedback: quiz.showFeedback !== false,
+                allowRetakes: quiz.allowRetakes !== false,
+                allowReview: quiz.allowReview !== false,
+                availableFrom: quiz.availableFrom,
+                availableUntil: quiz.availableUntil,
               }}
             />
           ) : (
@@ -378,7 +397,7 @@ export default function QuizPage() {
 
 function LoadingSkeleton() {
   return (
-    <div className="container mx-auto py-6">
+    <div className="mx-auto py-6">
       {/* Header Skeleton */}
       <div className="flex items-start justify-between mb-6">
         <div className="flex-1">

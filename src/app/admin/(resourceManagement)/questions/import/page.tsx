@@ -283,7 +283,7 @@ export default function ImportQuestionsPage() {
   };
 
   return (
-    <div className="container mx-auto py-10 max-w-4xl">
+    <div className="mx-auto py-10 max-w-4xl">
       <div className="mb-8">
         <Link
           href="/questions"

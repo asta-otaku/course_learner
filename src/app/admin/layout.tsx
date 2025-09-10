@@ -8,7 +8,11 @@ function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   // Routes that should not have padding/container constraints
-  const noPaddingRoutes = ["/admin/questions", "/admin/quizzes"];
+  const noPaddingRoutes = [
+    "/admin/questions",
+    "/admin/quizzes",
+    "/admin/curricula",
+  ];
   const shouldExcludePadding = noPaddingRoutes.some((route) =>
     pathname.startsWith(route)
   );

@@ -50,7 +50,7 @@ export default async function CurriculumPage({ params }: CurriculumPageProps) {
   const canEdit = user?.id === curriculum.created_by || false;
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="mx-auto py-6">
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <div className="space-y-1">

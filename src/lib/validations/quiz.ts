@@ -55,11 +55,6 @@ export const saveQuizSchema = z.object({
   settings: quizSettingsSchema,
 })
 
-export const submitQuizAttemptSchema = z.object({
-  quizId: z.string(),
-  answers: z.record(z.string(), z.union([z.string(), z.record(z.string(), z.string())])),
-  timeSpent: z.number().min(0), // in seconds
-})
 
 export const quizProgressSchema = z.object({
   quizId: z.string(),
@@ -79,6 +74,5 @@ export type QuizQuestion = z.infer<typeof quizQuestionSchema>
 export type CreateQuizInput = z.infer<typeof createQuizSchema>
 export type UpdateQuizInput = z.infer<typeof updateQuizSchema>
 export type SaveQuizInput = z.infer<typeof saveQuizSchema>
-export type SubmitQuizAttemptInput = z.infer<typeof submitQuizAttemptSchema>
 export type QuizProgress = z.infer<typeof quizProgressSchema>
 export type ScheduleQuizInput = z.infer<typeof scheduleQuizSchema>

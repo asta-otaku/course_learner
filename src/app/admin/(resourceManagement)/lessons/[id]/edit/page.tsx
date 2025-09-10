@@ -40,7 +40,7 @@ export default async function EditLessonPage({ params }: EditLessonPageProps) {
   // }
 
   return (
-    <div className="container mx-auto py-6 max-w-4xl">
+    <div className="mx-auto py-6 max-w-4xl">
       <div className="mb-6">
         <Link
           href={`/lessons/${id}`}

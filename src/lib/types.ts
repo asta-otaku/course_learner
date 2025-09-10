@@ -672,3 +672,14 @@ export interface QuestionQueryOptions {
   sortBy?: string;
   sortOrder?: "ASC" | "DESC";
 }
+
+export interface Curriculum {
+  title: string;
+  description: string;
+  gradeLevel: string;
+  durationWeeks: number;
+  objectives: string[];
+  prerequisites: string[];
+  isPublic: boolean;
+  categoryId: string;
+}

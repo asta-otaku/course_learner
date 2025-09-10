@@ -19,8 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { submitQuizAttempt, saveQuizProgress } from "@/app/actions/quizzes";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "react-toastify";
+import { usePostSubmitQuiz } from "@/lib/api/mutations";
 import {
   ChevronLeft,
   ChevronRight,
@@ -39,11 +39,14 @@ interface QuizQuestion {
   id: string;
   order: number;
   explanation?: string;
+  correct_feedback?: string;
+  incorrect_feedback?: string;
   question: {
     id: string;
     title: string;
     content: string;
     type: string;
+    image_url?: string;
     options?: Array<{ id: string; text: string }>;
     pairs?: Array<{ id: string; left: string; right: string }>;
     correctAnswer?: string | Record<string, string>;
@@ -76,6 +79,7 @@ interface QuizPlayerProps {
   quiz: Quiz;
   attemptNumber: number;
   isTestMode?: boolean;
+  attemptId?: string | null;
 }
 
 type NavigationPosition = {
@@ -87,6 +91,7 @@ export function QuizPlayer({
   quiz,
   attemptNumber,
   isTestMode = false,
+  attemptId,
 }: QuizPlayerProps) {
   const router = useRouter();
   const [currentPosition, setCurrentPosition] = useState<NavigationPosition>({
@@ -98,10 +103,15 @@ export function QuizPlayer({
   >({});
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(
     new Set()
+  );
+
+  // Submit quiz mutation
+  const { mutate: submitQuiz, isPending: isSubmittingQuiz } = usePostSubmitQuiz(
+    quiz.id,
+    attemptId || ""
   );
 
   // Get transition for a specific position (0-based, so position 1 means before question 1, etc.)
@@ -211,7 +221,7 @@ export function QuizPlayer({
   // Prevent navigation with unsaved answers
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (Object.keys(answers).length > 0 && !submitting) {
+      if (Object.keys(answers).length > 0 && !isSubmittingQuiz) {
         e.preventDefault();
         e.returnValue = "";
       }
@@ -219,7 +229,7 @@ export function QuizPlayer({
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [answers, submitting]);
+  }, [answers, isSubmittingQuiz]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -257,11 +267,7 @@ export function QuizPlayer({
   }, [currentPosition, answers, questions, isTestMode, quiz.settings.examMode]);
 
   const handleTimeUp = async () => {
-    toast({
-      title: "Time's up!",
-      description: "Your quiz has been automatically submitted.",
-      variant: "destructive",
-    });
+    toast.error("Time's up! Your quiz has been automatically submitted.");
     setShowSubmitDialog(false);
     await handleSubmit();
   };
@@ -560,54 +566,52 @@ export function QuizPlayer({
       return;
     }
 
-    console.log("Starting submission with answers:", answers);
-    setSubmitting(true);
-    try {
-      const timeSpent = quiz.settings.timeLimit
-        ? quiz.settings.timeLimit * 60 - (timeRemaining || 0)
-        : Date.now() -
-            JSON.parse(localStorage.getItem(`quiz-progress-${quiz.id}`) || "{}")
-              .lastSaved || 0;
-
-      console.log("Submitting quiz attempt:", {
-        quizId: quiz.id,
-        answers,
-        timeSpent: Math.floor(timeSpent / 1000),
-      });
-
-      const result = await submitQuizAttempt({
-        quizId: quiz.id,
-        answers,
-        timeSpent: Math.floor(timeSpent / 1000), // Convert to seconds
-      });
-
-      console.log("Submit result:", result);
-
-      if (result.success) {
-        // Clear saved progress
-        localStorage.removeItem(`quiz-progress-${quiz.id}`);
-
-        // Redirect to results page
-        console.log("Redirecting to:", `/quiz-results/${result.attemptId}`);
-        router.push(`/quiz-results/${result.attemptId}`);
-      } else {
-        console.error("Submit failed:", result.error);
-        toast({
-          title: "Failed to submit quiz",
-          description: result.error || "Please try again.",
-          variant: "destructive",
-        });
-        setSubmitting(false);
-      }
-    } catch (error) {
-      console.error("Error submitting quiz:", error);
-      toast({
-        title: "Failed to submit quiz",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-      setSubmitting(false);
+    if (!attemptId) {
+      toast.error("No attempt ID found. Please restart the quiz.");
+      return;
     }
+
+    console.log("Starting submission with answers:", answers);
+
+    const timeSpent = quiz.settings.timeLimit
+      ? quiz.settings.timeLimit * 60 - (timeRemaining || 0)
+      : Date.now() -
+          JSON.parse(localStorage.getItem(`quiz-progress-${quiz.id}`) || "{}")
+            .lastSaved || 0;
+
+    console.log("Submitting quiz attempt:", {
+      quizId: quiz.id,
+      attemptId,
+      answers,
+      timeSpent: Math.floor(timeSpent / 1000),
+    });
+
+    submitQuiz(
+      { questionId: "" }, // Empty questionId for submission
+      {
+        onSuccess: (response) => {
+          console.log("Submit result:", response);
+
+          // Clear saved progress
+          localStorage.removeItem(`quiz-progress-${quiz.id}`);
+
+          // Redirect to results page
+          const resultData = response.data?.data as any;
+          const resultAttemptId =
+            resultData?.id ||
+            resultData?.attemptId ||
+            resultData ||
+            attemptId ||
+            "";
+          console.log("Redirecting to:", `/quiz-results/${resultAttemptId}`);
+          router.push(`/quiz-results/${resultAttemptId}`);
+        },
+        onError: (error) => {
+          console.error("Error submitting quiz:", error);
+          toast.error("Failed to submit quiz. Please try again.");
+        },
+      }
+    );
   };
 
   const formatTime = (seconds: number) => {
@@ -645,7 +649,7 @@ export function QuizPlayer({
   const currentQ = questions[currentQuestionIndex] || questions[0]; // Fallback for edge cases
 
   return (
-    <div className="container max-w-6xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto p-6">
       <div className="flex gap-6">
         {/* Main Quiz Area */}
         <div className="flex-1">
@@ -841,7 +845,7 @@ export function QuizPlayer({
                   )}
 
                   {/* Matching Questions */}
-                  {currentQ.question.type === "matching" &&
+                  {currentQ.question.type === "matching_pairs" &&
                     currentQ.question.pairs && (
                       <MatchingQuestion
                         questionId={currentQ.question.id}
@@ -855,10 +859,7 @@ export function QuizPlayer({
                         onChange={(matches) =>
                           handleAnswerChange(currentQ.question.id, matches)
                         }
-                        disabled={
-                          isTestMode &&
-                          answeredQuestions.has(currentQuestionIndex)
-                        }
+                        disabled={false}
                       />
                     )}
 
@@ -946,7 +947,7 @@ export function QuizPlayer({
                               setShowSubmitDialog(true);
                             }
                           }}
-                          disabled={submitting}
+                          disabled={isSubmittingQuiz}
                         >
                           {currentQ.explanation &&
                           answers[currentQ.question.id] &&
@@ -1011,8 +1012,7 @@ export function QuizPlayer({
               )}
 
               {questions.map((q, index) => {
-                const hasExplanation =
-                  !!q.correct_feedback || !!q.incorrect_feedback;
+                const hasExplanation = !!q.explanation;
                 const hasTransitionBefore =
                   index > 0 && !!getTransitionForPosition(index);
                 const isAnswered = !!answers[q.question.id];
@@ -1219,7 +1219,7 @@ export function QuizPlayer({
                 console.log("AlertDialogAction clicked");
                 handleSubmit();
               }}
-              disabled={submitting}
+              disabled={isSubmittingQuiz}
             >
               Yes, submit
             </AlertDialogAction>

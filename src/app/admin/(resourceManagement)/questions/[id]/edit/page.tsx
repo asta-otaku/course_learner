@@ -258,7 +258,7 @@ export default function EditQuestionPage({
 
   if (isLoading || isFetching) {
     return (
-      <div className="container mx-auto py-10 max-w-4xl">
+      <div className="mx-auto py-10 max-w-4xl">
         <div className="flex items-center justify-center h-96">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -268,7 +268,7 @@ export default function EditQuestionPage({
 
   if (error || !result?.data) {
     return (
-      <div className="container mx-auto py-10 max-w-4xl">
+      <div className="mx-auto py-10 max-w-4xl">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600">
             Question Not Found
@@ -286,7 +286,7 @@ export default function EditQuestionPage({
   }
 
   return (
-    <div className="container mx-auto py-10 max-w-4xl">
+    <div className="mx-auto py-10 max-w-4xl">
       <div className="mb-8">
         <Link
           href={`/admin/questions/${questionId}`}

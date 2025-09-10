@@ -126,7 +126,7 @@ export default function LessonPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 max-w-6xl">
+    <div className="mx-auto py-6 max-w-6xl">
       {/* Unpublished Banner */}
       {!lesson.is_published && (
         <UnpublishedBanner status="unpublished" type="lesson" />

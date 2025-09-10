@@ -12,6 +12,7 @@ import {
   closestCenter,
   DragOverEvent,
   rectIntersection,
+  useDroppable,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -118,7 +119,7 @@ function DroppableZone({
   isOver = false,
   canDrop = true,
 }: DroppableZoneProps) {
-  const { setNodeRef, isOver: isDragOver } = useSortable({
+  const { setNodeRef, isOver: isDragOver } = useDroppable({
     id: `drop-${id}`,
     disabled: disabled,
   });
@@ -167,6 +168,71 @@ function DroppableZone({
           <p className="text-gray-400 text-sm">Drop answer here</p>
         )}
       </div>
+    </div>
+  );
+}
+
+interface UnmatchedAreaProps {
+  overId: string | null;
+  activeId: string | null;
+  unmatchedRightItems: MatchingPair[];
+  shuffledRightItems: MatchingPair[];
+  matchedRightIds: Set<string>;
+  disabled?: boolean;
+}
+
+function UnmatchedArea({
+  overId,
+  activeId,
+  unmatchedRightItems,
+  shuffledRightItems,
+  matchedRightIds,
+  disabled,
+}: UnmatchedAreaProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: "unmatched-area",
+    disabled: disabled,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "mt-8 p-4 border-2 border-dashed rounded-lg transition-all",
+        unmatchedRightItems.length === 0
+          ? "border-gray-200"
+          : "border-gray-300",
+        isOver && activeId && "border-primaryBlue bg-primaryBlue/5"
+      )}
+    >
+      <h4 className="text-sm font-semibold text-gray-700 mb-3">
+        Available answers:
+      </h4>
+      {unmatchedRightItems.length > 0 ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <SortableContext
+            items={unmatchedRightItems.map((item) => item.id)}
+            strategy={horizontalListSortingStrategy}
+          >
+            {shuffledRightItems
+              .filter((item) => !matchedRightIds.has(item.id))
+              .map((item) => (
+                <DraggableItem
+                  key={item.id}
+                  id={item.id}
+                  content={item.right}
+                  isMatched={false}
+                  disabled={disabled}
+                  type="right"
+                />
+              ))}
+          </SortableContext>
+        </div>
+      ) : (
+        <p className="text-gray-400 text-sm text-center py-4">
+          All items have been matched! Drag items back here to unmatch them.
+        </p>
+      )}
     </div>
   );
 }
@@ -308,17 +374,16 @@ export function MatchingQuestion({
     }
   }
 
-  // All droppable IDs
-  const droppableIds = [
-    ...pairs.map((p) => `drop-${p.id}`),
-    ...pairs.map((p) => p.id),
-    "unmatched-area",
+  // All sortable IDs (only the draggable items, not drop zones)
+  const sortableIds = [
+    ...pairs.map((p) => p.id), // Right items that can be dragged
+    ...Object.values(value), // Currently matched items
   ];
 
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={rectIntersection}
+      collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragOver={handleDragOver}
@@ -338,10 +403,7 @@ export function MatchingQuestion({
           <h4 className="text-sm font-semibold text-gray-700 mb-2">
             Match the items:
           </h4>
-          <SortableContext
-            items={droppableIds}
-            strategy={verticalListSortingStrategy}
-          >
+          <div className="space-y-3">
             {pairs.map((pair) => {
               const matchedRightId = value[pair.id];
               const matchedPair = matchedRightId
@@ -362,51 +424,18 @@ export function MatchingQuestion({
                 />
               );
             })}
-          </SortableContext>
+          </div>
         </div>
 
         {/* Unmatched right items */}
-        <div
-          id="unmatched-area"
-          className={cn(
-            "mt-8 p-4 border-2 border-dashed rounded-lg transition-all",
-            unmatchedRightItems.length === 0
-              ? "border-gray-200"
-              : "border-gray-300",
-            overId === "unmatched-area" &&
-              activeId &&
-              "border-primaryBlue bg-primaryBlue/5"
-          )}
-        >
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">
-            Available answers:
-          </h4>
-          {unmatchedRightItems.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <SortableContext
-                items={unmatchedRightItems.map((item) => item.id)}
-                strategy={horizontalListSortingStrategy}
-              >
-                {shuffledRightItems
-                  .filter((item) => !matchedRightIds.has(item.id))
-                  .map((item) => (
-                    <DraggableItem
-                      key={item.id}
-                      id={item.id}
-                      content={item.right}
-                      isMatched={false}
-                      disabled={disabled}
-                      type="right"
-                    />
-                  ))}
-              </SortableContext>
-            </div>
-          ) : (
-            <p className="text-gray-400 text-sm text-center py-4">
-              All items have been matched! Drag items back here to unmatch them.
-            </p>
-          )}
-        </div>
+        <UnmatchedArea
+          overId={overId}
+          activeId={activeId}
+          unmatchedRightItems={unmatchedRightItems}
+          shuffledRightItems={shuffledRightItems}
+          matchedRightIds={matchedRightIds}
+          disabled={disabled}
+        />
 
         {/* Progress indicator */}
         <div className="mt-4 p-3 bg-gray-50 rounded-lg">

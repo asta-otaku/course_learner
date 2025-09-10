@@ -173,7 +173,7 @@ export default function EditCurriculumClient({
   if (initialLoading) {
     return (
       <div className="min-h-screen flex flex-col">
-        <div className="container py-6 max-w-4xl mx-auto w-full flex-1 flex justify-center items-center">
+        <div className="py-6 max-w-4xl mx-auto w-full flex-1 flex justify-center items-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primaryBlue"></div>
         </div>
       </div>
@@ -182,7 +182,7 @@ export default function EditCurriculumClient({
 
   return (
     <div className="min-h-screen flex flex-col">
-      <div className="container py-6 max-w-4xl mx-auto w-full flex-1 flex flex-col">
+      <div className="py-6 max-w-4xl mx-auto w-full flex-1 flex flex-col">
         <div className="mb-6">
           <Button asChild variant="ghost" size="sm" className="mb-4">
             <Link href={`/curricula/${curriculumId}`}>

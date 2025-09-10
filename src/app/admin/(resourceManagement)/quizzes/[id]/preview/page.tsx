@@ -43,7 +43,7 @@ export default function PreviewQuizPage() {
     }, 0) || 0;
 
   return (
-    <div className="container max-w-4xl mx-auto py-6">
+    <div className="max-w-4xl mx-auto py-6">
       {/* Unpublished Banner */}
       {quiz.status !== "published" && (
         <UnpublishedBanner
@@ -338,7 +338,7 @@ export default function PreviewQuizPage() {
 
 function LoadingSkeleton() {
   return (
-    <div className="container max-w-4xl mx-auto py-6">
+    <div className="max-w-4xl mx-auto py-6">
       {/* Header Skeleton */}
       <div className="flex items-center gap-4 mb-6">
         <div className="h-9 w-9 bg-gray-200 rounded animate-pulse"></div>

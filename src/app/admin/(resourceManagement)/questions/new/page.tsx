@@ -220,7 +220,7 @@ export default function NewQuestionPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <div className="container mx-auto py-10 max-w-4xl flex-1 flex flex-col">
+      <div className="mx-auto py-10 max-w-4xl flex-1 flex flex-col">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <Link

@@ -143,7 +143,7 @@ function SortableCurriculumCard({
         </CardContent>
         <CardFooter>
           <Button asChild variant="outline" className="w-full">
-            <Link href={`/curricula/${curriculum.id}`}>
+            <Link href={`/admin/curricula/${curriculum.id}`}>
               View Curriculum
               <ChevronRight className="ml-2 h-4 w-4" />
             </Link>
@@ -254,8 +254,8 @@ export function CurriculumList({ curricula, canCreate }: CurriculumListProps) {
 
   if (curricula.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
+      <Card className="w-full">
+        <CardContent className="flex flex-col items-center justify-center py-12 w-full">
           <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No curricula yet</h3>
           <p className="text-muted-foreground text-center mb-4">
@@ -264,8 +264,8 @@ export function CurriculumList({ curricula, canCreate }: CurriculumListProps) {
               : "No curricula are available at the moment."}
           </p>
           {canCreate && (
-            <Button asChild>
-              <Link href="/curricula/new">
+            <Button asChild className="w-fit">
+              <Link href="/admin/curricula/new">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Curriculum
               </Link>
@@ -277,9 +277,9 @@ export function CurriculumList({ curricula, canCreate }: CurriculumListProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full">
       {/* View Toggle */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center w-full">
         <p className="text-sm text-muted-foreground">
           {curricula.length} curricul{curricula.length !== 1 ? "a" : "um"} found
         </p>
@@ -315,7 +315,7 @@ export function CurriculumList({ curricula, canCreate }: CurriculumListProps) {
             items={localCurricula.map((c) => c.id)}
             strategy={verticalListSortingStrategy}
           >
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 w-full">
               {localCurricula.map((curriculum) => (
                 <SortableCurriculumCard
                   key={curriculum.id}

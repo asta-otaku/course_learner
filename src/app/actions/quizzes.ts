@@ -209,26 +209,6 @@ export async function saveQuiz(input: any): Promise<ActionResponse<{ id: string 
   }
 }
 
-export async function submitQuizAttempt(input: any): Promise<ActionResponse<{ attemptId: string; score: number }>> {
-  try {
-    const response = await axiosInstance.post(`/quiz/${input.quizId}/submit`, {
-      answers: input.answers,
-      timeSpent: input.timeSpent,
-    });
-    
-    const result: ApiResponse<{ attemptId: string; score: number }> = response.data;
-    
-    if (result.data) {
-      revalidatePath('/quiz-results');
-      return { success: true, data: result.data.data };
-    }
-    
-    return { success: false, error: 'Failed to submit quiz' };
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.message || error.message || 'Failed to submit quiz';
-    return { success: false, error: errorMessage };
-  }
-}
 
 export async function getQuizzesForLesson(lessonId: string): Promise<ActionResponse<any[]>> {
   try {

@@ -7,82 +7,90 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { useGetQuiz, useGetQuizAttempts } from "@/lib/api/queries";
-
-// Force dynamic rendering since this page uses authentication
-export const dynamic = "force-dynamic";
+import { useParams, useSearchParams } from "next/navigation";
+import { useGetQuiz, useGetQuizQuestions } from "@/lib/api/queries";
+import { usePostAttemptQuiz } from "@/lib/api/mutations";
+import { useState } from "react";
+import { toast } from "react-toastify";
 
 export default function TakeQuizPage() {
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
 
   const id = params.id as string;
   const isTestMode = searchParams.get("mode") === "test";
 
-  // Use React Query hooks instead of server actions
+  // Use React Query hooks to get quiz and questions
   const {
     data: quizResponse,
     isLoading: quizLoading,
     error: quizError,
   } = useGetQuiz(id);
 
-  const { data: attemptsResponse, isLoading: attemptsLoading } =
-    useGetQuizAttempts(id);
+  const {
+    data: questionsResponse,
+    isLoading: questionsLoading,
+    error: questionsError,
+  } = useGetQuizQuestions(id);
 
-  useEffect(() => {
-    const checkAuth = () => {
-      if (typeof window !== "undefined") {
-        try {
-          const userData = JSON.parse(localStorage.getItem("admin") || "{}");
-          if (!userData || !userData.data) {
-            router.push("/admin/sign-in");
-            return;
+  // Quiz attempt mutation
+  const {
+    mutate: startQuizAttempt,
+    isPending: isStartingQuiz,
+    data: attemptResponse,
+  } = usePostAttemptQuiz(id);
+
+  // State to track if quiz has been started
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+
+  // Set attempt count to 5 as requested
+  const attemptCount = 5;
+
+  // Handler for starting quiz
+  const handleStartQuiz = () => {
+    startQuizAttempt(
+      { questionId: "" }, // Empty questionId for starting attempt
+      {
+        onSuccess: (response) => {
+          if (response.data?.data) {
+            // The response might have different structure, let's handle both cases
+            const attemptData = response.data.data as any;
+            const attemptIdFromResponse =
+              attemptData.id || attemptData.attemptId || attemptData;
+            setAttemptId(attemptIdFromResponse);
+            setQuizStarted(true);
+            toast.success("Quiz started successfully!");
           }
-
-          const userRole = userData.data.userRole;
-          if (userRole !== "teacher" && userRole !== "admin") {
-            router.push("/admin/sign-in");
-            return;
-          }
-
-          setIsAuthorized(true);
-        } catch (error) {
-          console.error("Error:", error);
-          router.push("/admin/sign-in");
-          return;
-        } finally {
-          setIsLoading(false);
-        }
+        },
+        onError: (error) => {
+          console.error("Error starting quiz:", error);
+          toast.error("Failed to start quiz. Please try again.");
+        },
       }
-    };
+    );
+  };
 
-    checkAuth();
-  }, [router]);
-
-  if (isLoading) {
+  if (quizLoading || questionsLoading) {
     return <LoadingSkeleton />;
   }
 
-  if (!isAuthorized) {
-    return null; // Will redirect in useEffect
-  }
-
-  if (quizError || !quizResponse?.data) {
+  if (
+    quizError ||
+    !quizResponse?.data ||
+    questionsError ||
+    !questionsResponse?.data
+  ) {
     notFound();
   }
 
   const quiz = quizResponse.data;
-  const user = { id: "user-id", role: "teacher" }; // Placeholder for now
+  const questions = questionsResponse.data;
 
   // Check if quiz has questions
-  if (!quiz.questions || quiz.questions.length === 0) {
+  if (!questions || questions.length === 0) {
     return (
-      <div className="container max-w-2xl mx-auto py-12">
+      <div className="max-w-2xl mx-auto py-12">
         <Card>
           <CardHeader>
             <CardTitle>Quiz Not Ready</CardTitle>
@@ -106,147 +114,153 @@ export default function TakeQuizPage() {
     );
   }
 
-  // Check availability - simplified for now
-  const now = new Date();
-  const isAvailable = true; // Assume always available for now
-
-  // Get user's attempts
-  const attempts = attemptsResponse?.data || [];
-  const attemptCount = attempts.length;
-
-  // Check max attempts
-  const quizSettings = quiz.settings as { maxAttempts?: number } | null;
-  if (quizSettings?.maxAttempts && attemptCount >= quizSettings.maxAttempts) {
+  // Show start quiz screen if not started yet
+  if (!quizStarted) {
     return (
-      <div className="container max-w-2xl mx-auto py-12">
+      <div className="max-w-2xl mx-auto py-12">
         <Card>
           <CardHeader>
-            <CardTitle>Maximum Attempts Reached</CardTitle>
+            <CardTitle>{quiz.title}</CardTitle>
+            {quiz.description && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {quiz.description}
+              </p>
+            )}
           </CardHeader>
-          <CardContent>
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                You have used all {quizSettings.maxAttempts} attempts for this
-                quiz.
-              </AlertDescription>
-            </Alert>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <h3 className="font-medium">Quiz Information:</h3>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• {questions.length} questions</li>
+                {quiz.timeLimit && (
+                  <li>• Time limit: {quiz.timeLimit} minutes</li>
+                )}
+                <li>
+                  • Attempt {attemptCount + 1} of {quiz.maxAttempts || 3}
+                </li>
+                <li>• Passing score: {quiz.passingScore || 70}%</li>
+              </ul>
+            </div>
 
-            {attempts.length > 0 && (
-              <div className="mt-6">
-                <h3 className="font-medium mb-3">Your Attempts:</h3>
-                <div className="space-y-2">
-                  {attempts.map((attempt: any, index: number) => (
-                    <div
-                      key={attempt.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">Attempt {index + 1}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(attempt.submitted_at).toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">{attempt.score}%</p>
-                        <p className="text-sm text-muted-foreground">
-                          {attempt.passed ? "Passed" : "Failed"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {isTestMode && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Test Mode:</strong> You cannot change your answers
+                  after submission. Correct answers will only be shown after
+                  completing the entire quiz.
+                </AlertDescription>
+              </Alert>
             )}
 
-            <Button className="mt-4" variant="outline" asChild>
-              <Link href="/admin/quizzes">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Quizzes
-              </Link>
-            </Button>
+            <div className="flex gap-3 pt-4">
+              <Button variant="outline" asChild>
+                <Link href="/admin/quizzes">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Quizzes
+                </Link>
+              </Button>
+              <Button
+                onClick={handleStartQuiz}
+                disabled={isStartingQuiz}
+                className="flex-1"
+              >
+                {isStartingQuiz ? "Starting Quiz..." : "Start Quiz"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Parse settings if it's a JSON type
-  const settings =
-    typeof quiz.settings === "object" && quiz.settings !== null
-      ? (quiz.settings as any)
-      : {};
-
   // Transform the quiz data for the player
   const playerQuiz = {
-    id: quiz.id,
+    id: quiz.id!,
     title: quiz.title,
     description: quiz.description ?? "",
     settings: {
-      timeLimit: settings.timeLimit || quiz.time_limit || undefined,
-      randomizeQuestions:
-        settings.randomizeQuestions ?? quiz.randomize_questions ?? false,
-      showCorrectAnswers:
-        settings.showCorrectAnswers ?? quiz.show_correct_answers ?? true,
-      maxAttempts: settings.maxAttempts ?? quiz.max_attempts ?? 3,
-      passingScore: settings.passingScore ?? quiz.passing_score ?? 70,
-      examMode: settings.examMode ?? false,
+      timeLimit: quiz.timeLimit || undefined,
+      randomizeQuestions: quiz.randomizeQuestions ?? false,
+      showCorrectAnswers: quiz.showCorrectAnswers ?? true,
+      maxAttempts: quiz.maxAttempts ?? 3,
+      passingScore:
+        typeof quiz.passingScore === "string"
+          ? parseInt(quiz.passingScore)
+          : (quiz.passingScore ?? 70),
+      examMode: false,
     },
-    transitions: quiz.quiz_transitions || [],
-    questions: quiz.questions.map((qq: any) => ({
-      id: qq.id,
-      order: qq.order_index,
-      points: qq.points_override || qq.question.points || 1,
-      explanation: qq.explanation,
-      question: {
-        id: qq.question.id,
-        title: qq.question.title,
-        content: qq.question.content,
-        type: qq.question.type,
-        // Transform question_answers to options for multiple choice
-        options:
-          qq.question.type === "multiple_choice" && qq.question.question_answers
-            ? qq.question.question_answers
-                .sort((a: any, b: any) => a.order_index - b.order_index)
-                .map((answer: any) => ({
-                  id: answer.id,
-                  text: answer.content,
-                  isCorrect: answer.is_correct,
-                }))
-            : [],
-        // For true/false questions
-        ...(qq.question.type === "true_false" && {
-          options: [
-            {
-              id: "true",
-              text: "True",
-              isCorrect: qq.question.metadata?.correct_answer === true,
-            },
-            {
-              id: "false",
-              text: "False",
-              isCorrect: qq.question.metadata?.correct_answer === false,
-            },
-          ],
-        }),
-        // For matching questions
-        ...(qq.question.type === "matching" && {
-          pairs: qq.question.metadata?.matching_pairs || [],
-          correctAnswer: qq.question.metadata?.correct_matches || {},
-        }),
-        // For ordering questions
-        ...(qq.question.type === "ordering" && {
-          items: qq.question.metadata?.items || [],
-          correctOrder: qq.question.metadata?.correct_order || [],
-        }),
-        // Pass metadata for other question types that might need it
-        metadata: qq.question.metadata,
-        // Pass correct answer for other types if available
-        correctAnswer:
-          qq.question.metadata?.correct_answer ||
-          qq.question.question_answers?.find((a: any) => a.is_correct)?.id,
-      },
-    })),
+    transitions: [],
+    questions: questions
+      .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+      .map((qq: any) => ({
+        id: qq.id,
+        order: qq.orderIndex,
+        points: qq.pointsOverride || qq.question.points || 1,
+        explanation: qq.question.explanation,
+        question: {
+          id: qq.question.id,
+          title: qq.question.title,
+          content: qq.question.content,
+          type: qq.question.type,
+          // Transform answers to options for multiple choice
+          options:
+            qq.question.type === "multiple_choice" && qq.question.answers
+              ? qq.question.answers
+                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                  .map((answer: any) => ({
+                    id: answer.id,
+                    text: answer.content,
+                    isCorrect: answer.isCorrect,
+                  }))
+              : [],
+          // For true/false questions
+          ...(qq.question.type === "true_false" && {
+            options: qq.question.answers
+              ? qq.question.answers
+                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                  .map((answer: any) => ({
+                    id: answer.id,
+                    text: answer.content,
+                    isCorrect: answer.isCorrect,
+                  }))
+              : [
+                  {
+                    id: "true",
+                    text: "True",
+                    isCorrect: qq.question.metadata?.correct_answer === true,
+                  },
+                  {
+                    id: "false",
+                    text: "False",
+                    isCorrect: qq.question.metadata?.correct_answer === false,
+                  },
+                ],
+          }),
+          // For matching questions
+          ...(qq.question.type === "matching_pairs" && {
+            pairs: (qq.question.answers?.[0]?.matchingPairs || []).map(
+              (pair: any, index: number) => ({
+                id: `pair-${index}`,
+                left: pair.left,
+                right: pair.right,
+              })
+            ),
+            correctAnswer: qq.question.answers?.[0]?.matchingPairs || [],
+          }),
+          // For free text questions
+          ...(qq.question.type === "free_text" && {
+            correctAnswers:
+              qq.question.answers?.map((answer: any) => answer.content) || [],
+          }),
+          // Pass metadata for other question types that might need it
+          metadata: qq.question.metadata,
+          // Pass correct answer for other types if available
+          correctAnswer:
+            qq.question.metadata?.correct_answer ||
+            qq.question.answers?.find((a: any) => a.isCorrect)?.id,
+        },
+      })),
   };
 
   return (
@@ -254,6 +268,7 @@ export default function TakeQuizPage() {
       quiz={playerQuiz}
       attemptNumber={attemptCount + 1}
       isTestMode={isTestMode}
+      attemptId={attemptId}
     />
   );
 }
@@ -263,7 +278,7 @@ function LoadingSkeleton() {
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primaryBlue mx-auto mb-4"></div>
-        <p>Checking authorization...</p>
+        <p>Loading quiz...</p>
       </div>
     </div>
   );

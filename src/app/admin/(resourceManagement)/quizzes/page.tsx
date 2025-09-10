@@ -118,7 +118,7 @@ export default function QuizzesPage() {
   // Handle errors
   if (quizzesError) {
     return (
-      <div className="container mx-auto py-10">
+      <div className="mx-auto py-10">
         <div className="rounded-lg border border-red-200 bg-red-50 p-4">
           <p className="text-red-800">
             Error loading quizzes: {quizzesError.message || "An error occurred"}
@@ -162,7 +162,7 @@ export default function QuizzesPage() {
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="mx-auto py-6">
       {/* Header Section */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">

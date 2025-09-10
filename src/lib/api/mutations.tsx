@@ -26,6 +26,7 @@ import {
   Quiz,
   QuizUpdateData,
   UpdateQuestionPayload,
+  Curriculum,
 } from "../types";
 
 // Helper function to handle error messages
@@ -975,5 +976,35 @@ export const usePostSubmitQuiz = (id: string, attemptId: string) => {
     onError: (error: AxiosError) => {
       handleErrorMessage(error);
     },
+  });
+};
+
+// Curriculum Mutations
+export const usePostCurriculum = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-curriculum"],
+    mutationFn: (data: Curriculum): Promise<ApiResponse<Curriculum>> =>
+      axiosInstance.post("/curriculum", data),
+    onSuccess: (data: ApiResponse<Curriculum>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["curricula"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["curriculum"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePutCurriculum = (id: string) => {
+  return useMutation({
+    mutationKey: ["put-curriculum", id],
+    mutationFn: (data: Curriculum): Promise<ApiResponse<Curriculum>> =>
+      axiosInstance.put(`/curriculum/${id}`, data),
   });
 };
