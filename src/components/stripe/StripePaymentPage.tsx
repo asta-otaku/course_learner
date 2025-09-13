@@ -17,6 +17,7 @@ import {
   useValidateTrialSubscription,
 } from "@/lib/api/mutations";
 import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 
 // Initialize Stripe
 const stripePromise = loadStripe(
@@ -122,7 +123,10 @@ const PaymentForm: React.FC<{ offerType: string; onBack: () => void }> = ({
             paymentMethodId: setupIntent.payment_method as string,
           });
           if (res.status === 201) {
-            router.push("/dashboard");
+            toast.success(res.data.message);
+            setTimeout(() => {
+              router.push("/dashboard");
+            }, 2000);
           }
         }
       } else {

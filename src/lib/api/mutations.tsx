@@ -651,8 +651,12 @@ export const usePostBulkImport = (type: "csv" | "json") => {
     }): Promise<ApiResponse<{ message: string }>> => {
       const formData = new FormData();
       formData.append("file", data.file);
-      formData.append("addToQuizId", data.addToQuizId || "");
-      formData.append("folderId", data.folderId || "");
+      if (data.addToQuizId) {
+        formData.append("addToQuizId", data.addToQuizId);
+      }
+      if (data.folderId) {
+        formData.append("folderId", data.folderId);
+      }
       return axiosInstance.post(`/bulk-import/import/${type}`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
