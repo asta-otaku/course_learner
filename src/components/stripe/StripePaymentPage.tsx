@@ -118,13 +118,12 @@ const PaymentForm: React.FC<{ offerType: string; onBack: () => void }> = ({
           console.error("Stripe error:", error);
           setError(error.message || "Payment setup failed");
         } else if (setupIntent.status === "succeeded") {
-          console.log(setupIntent, "setupIntent");
           const res = await validateTrialSubscription({
             paymentMethodId: setupIntent.payment_method as string,
           });
-          // if (res.status === 200) {
-          //   router.push("/dashboard");
-          // }
+          if (res.status === 201) {
+            router.push("/dashboard");
+          }
         }
       } else {
         // Use confirmCardPayment for regular payments
