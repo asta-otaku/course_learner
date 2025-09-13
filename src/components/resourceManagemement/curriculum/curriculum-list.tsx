@@ -50,15 +50,11 @@ interface Curriculum {
   id: string;
   title: string;
   description?: string | null;
-  is_public: boolean | null;
-  category_id?: string | null;
-  created_at: string;
-  updated_at: string;
-  order_index?: number | null;
-  created_by_profile?: {
-    full_name?: string | null;
-    username?: string | null;
-  } | null;
+  isPublic: boolean | null;
+  gradeLevel: string;
+  durationWeeks: number;
+  createdAt: string;
+  updatedAt: string;
   lessons?: any[];
 }
 
@@ -117,9 +113,7 @@ function SortableCurriculumCard({
               </div>
               <CardDescription>{curriculum.description}</CardDescription>
             </div>
-            {!curriculum.is_public && (
-              <Badge variant="secondary">Private</Badge>
-            )}
+            {!curriculum.isPublic && <Badge variant="secondary">Private</Badge>}
           </div>
         </CardHeader>
         <CardContent>
@@ -130,13 +124,10 @@ function SortableCurriculumCard({
                 {lessonCount} lesson{lessonCount !== 1 ? "s" : ""}
               </span>
             </div>
-            {curriculum.created_by_profile && (
+            {curriculum.gradeLevel && (
               <div className="flex items-center gap-1">
                 <User className="h-4 w-4" />
-                <span>
-                  {curriculum.created_by_profile.full_name ||
-                    curriculum.created_by_profile.username}
-                </span>
+                <span>{curriculum.gradeLevel}</span>
               </div>
             )}
           </div>

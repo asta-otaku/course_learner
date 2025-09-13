@@ -46,7 +46,6 @@ export default function NewCurriculumPage() {
     description: "",
     gradeLevel: "",
     durationWeeks: 1,
-    categoryId: "",
     objectives: [],
     prerequisites: [],
     isPublic: false,
@@ -76,11 +75,6 @@ export default function NewCurriculumPage() {
 
     if (!formData.gradeLevel) {
       toast.error("Please select a grade level");
-      return;
-    }
-
-    if (!formData.categoryId) {
-      toast.error("Please select a category");
       return;
     }
 
@@ -206,22 +200,11 @@ export default function NewCurriculumPage() {
                       <SelectValue placeholder="Select grade level" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Pre-K">Pre-K</SelectItem>
-                      <SelectItem value="Kindergarten">Kindergarten</SelectItem>
-                      <SelectItem value="1st Grade">1st Grade</SelectItem>
-                      <SelectItem value="2nd Grade">2nd Grade</SelectItem>
-                      <SelectItem value="3rd Grade">3rd Grade</SelectItem>
-                      <SelectItem value="4th Grade">4th Grade</SelectItem>
-                      <SelectItem value="5th Grade">5th Grade</SelectItem>
-                      <SelectItem value="6th Grade">6th Grade</SelectItem>
-                      <SelectItem value="7th Grade">7th Grade</SelectItem>
-                      <SelectItem value="8th Grade">8th Grade</SelectItem>
-                      <SelectItem value="9th Grade">9th Grade</SelectItem>
-                      <SelectItem value="10th Grade">10th Grade</SelectItem>
-                      <SelectItem value="11th Grade">11th Grade</SelectItem>
-                      <SelectItem value="12th Grade">12th Grade</SelectItem>
-                      <SelectItem value="College">College</SelectItem>
-                      <SelectItem value="Adult">Adult</SelectItem>
+                      <SelectItem value="1">Year One</SelectItem>
+                      <SelectItem value="2">Year Two</SelectItem>
+                      <SelectItem value="3">Year Three</SelectItem>
+                      <SelectItem value="4">Year Four</SelectItem>
+                      <SelectItem value="5">Year Five</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -242,27 +225,6 @@ export default function NewCurriculumPage() {
                     min="1"
                     max="52"
                   />
-                </div>
-
-                <div>
-                  <Label htmlFor="category">Category *</Label>
-                  <Select
-                    value={formData.categoryId || ""}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, categoryId: value })
-                    }
-                  >
-                    <SelectTrigger id="category">
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 <div className="flex items-center space-x-2">

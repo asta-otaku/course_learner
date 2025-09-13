@@ -366,7 +366,7 @@ export function QuestionsWithFolders({
   };
 
   return (
-    <div className="flex">
+    <div className="flex 2xl:min-h-[75vh]">
       {/* Enhanced Folder sidebar */}
       <div className="w-80 border-r bg-slate-50/50 border-slate-200">
         <div className="p-6 border-b border-slate-200 bg-white/80">

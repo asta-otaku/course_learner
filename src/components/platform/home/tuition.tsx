@@ -15,6 +15,7 @@ import HomeworkCard from "./homeworkCard";
 function TuitionHome() {
   const { activeProfile, changeProfile, isLoaded, profiles } =
     useSelectedProfile();
+  console.log(activeProfile);
 
   const homeworks = generateHomeworkWithDates();
 
@@ -130,7 +131,9 @@ function TuitionHome() {
             </div>
             <div className="flex flex-col items-center">
               <div className="w-32 h-32 rounded-full bg-gray-200 mb-3" />
-              <p className="font-medium text-sm">Olojo Daniel</p>
+              <p className="font-medium text-sm">
+                {activeProfile?.tutorFirstName} {activeProfile?.tutorLastName}
+              </p>
               <p className="text-xs text-muted-foreground mb-8 font-medium">
                 Your Tutor
               </p>

@@ -68,32 +68,14 @@ export const columns: ColumnDef<any>[] = [
     },
   },
   {
-    accessorKey: "is_public",
+    accessorKey: "isPublic",
     header: "Visibility",
     cell: ({ row }) => {
-      const isPublic = row.getValue("is_public") as boolean;
+      const isPublic = row.getValue("isPublic") as boolean;
       return (
         <Badge variant={isPublic ? "default" : "secondary"}>
           {isPublic ? "Public" : "Private"}
         </Badge>
-      );
-    },
-  },
-  {
-    id: "category",
-    header: "Category",
-    cell: ({ row }) => {
-      const curriculum = row.original;
-      if (!curriculum.category_id) {
-        return (
-          <span className="text-sm text-muted-foreground">Uncategorized</span>
-        );
-      }
-      return (
-        <div className="flex items-center gap-2 text-sm">
-          <BookOpen className="h-4 w-4 text-muted-foreground" />
-          <span>Category</span>
-        </div>
       );
     },
   },
@@ -111,41 +93,35 @@ export const columns: ColumnDef<any>[] = [
     },
   },
   {
-    id: "created_by",
-    header: "Created By",
+    id: "gradeLevel",
+    header: "Grade Level",
     cell: ({ row }) => {
       const curriculum = row.original;
       return (
         <div className="flex items-center gap-2 text-sm">
           <User className="h-4 w-4 text-muted-foreground" />
-          <span>
-            {curriculum.created_by_profile?.full_name ||
-              curriculum.created_by_profile?.username ||
-              "Unknown"}
-          </span>
+          <span>{curriculum.gradeLevel}</span>
         </div>
       );
     },
   },
   {
-    accessorKey: "created_at",
+    accessorKey: "durationWeeks",
     header: ({ column }) => {
       return (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Created
+          Duration (Weeks)
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
     },
     cell: ({ row }) => {
-      const date = row.getValue("created_at") as string;
+      const durationWeeks = row.getValue("durationWeeks") as string;
       return (
-        <span className="text-sm text-muted-foreground">
-          {formatDistanceToNow(new Date(date), { addSuffix: true })}
-        </span>
+        <span className="text-sm text-muted-foreground">{durationWeeks}</span>
       );
     },
   },

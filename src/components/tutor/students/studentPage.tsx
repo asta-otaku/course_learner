@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { dummyProfiles, courses } from "@/lib/utils";
+import { useGetChildProfileById } from "@/lib/api/queries";
 import { Badge } from "@/components/ui/badge";
 import BackArrow from "@/assets/svgs/arrowback";
 import MailIcon from "@/assets/svgs/mail";
@@ -10,12 +10,24 @@ import { ProgressCard } from "@/components/platform/home/learningCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import Homework from "./homeworkTab";
 import WorkSchedule from "./homeworkScheduleTab";
+import { courses } from "@/lib/utils";
 
 export default function StudentPage({ id }: { id: string }) {
   const router = useRouter();
-  const profile = dummyProfiles.find((p) => p.id === id);
+  const { data: profileData, isLoading, error } = useGetChildProfileById(id);
+  const profile = profileData?.data;
 
-  if (!profile) {
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <div className="flex items-center justify-center py-8">
+          <div className="text-gray-500">Loading student details...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !profile) {
     return <div className="p-8">Student not found.</div>;
   }
 
@@ -35,11 +47,7 @@ export default function StudentPage({ id }: { id: string }) {
               <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={
-                    typeof profile.image === "string"
-                      ? profile.image
-                      : profile.image.src || profile.image.default || ""
-                  }
+                  src={profile.avatar || ""}
                   alt={profile.name}
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -73,18 +81,18 @@ export default function StudentPage({ id }: { id: string }) {
                 </span>
                 <div className="flex gap-2">
                   <span className="font-medium text-sm">
-                    {profile.subscriptionName === "The platform"
-                      ? "Platform"
-                      : profile.subscriptionName}
+                    {profile.offerType === "Offer One"
+                      ? "The Platform"
+                      : "Tuition"}
                   </span>
                   <Badge
                     className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      profile.status === "active"
+                      profile.isActive
                         ? "bg-[#34C759] text-white"
-                        : "bg-[#F2F2F2] text-[#808080]"
+                        : "bg-red-500 text-white"
                     }`}
                   >
-                    {profile.status === "active" ? "Active" : "Inactive"}
+                    {profile.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </div>
               </div>
@@ -93,14 +101,11 @@ export default function StudentPage({ id }: { id: string }) {
                   Joined
                 </span>
                 <span className="font-medium">
-                  {new Date(profile.subscriptionDate).toLocaleDateString(
-                    "en-GB",
-                    {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                    }
-                  )}
+                  {new Date(profile.createdAt).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  })}
                 </span>
               </div>
             </div>

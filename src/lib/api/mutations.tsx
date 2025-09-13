@@ -334,6 +334,36 @@ export const usePostSubscription = () => {
   });
 };
 
+export const usePostTrialSubscription = () => {
+  return useMutation({
+    mutationKey: ["post-trial-subscription"],
+    mutationFn: (): Promise<ApiResponse<{ clientSecret: string }>> =>
+      axiosInstance.post("/subscriptions/trial-setup"),
+    onSuccess: (data: ApiResponse<{ clientSecret: string }>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const useValidateTrialSubscription = () => {
+  return useMutation({
+    mutationKey: ["validate-trial-subscription"],
+    mutationFn: (data: {
+      paymentMethodId: string;
+    }): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.post("/subscriptions/validate-trial-card", data),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
 // Timeslot Mutations
 export const usePostTimeslot = () => {
   const queryClient = useQueryClient();

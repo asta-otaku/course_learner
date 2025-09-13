@@ -336,15 +336,15 @@ export interface ChildProfile {
   year: string;
   avatar: string;
   createdAt: string;
+  isActive: boolean;
+  offerType: string;
   updatedAt: string;
   deletedAt?: string | null;
-  tutor?: {
-    id: string;
-    avatar: string;
-    createdAt: string;
-    updatedAt: string;
-    deletedAt: string | null;
-  } | null;
+  tutorId?: string;
+  parentFirstName: string;
+  parentLastName: string;
+  tutorFirstName: string;
+  tutorLastName: string;
 }
 
 export interface ParentProfile {
@@ -681,5 +681,4 @@ export interface Curriculum {
   objectives: string[];
   prerequisites: string[];
   isPublic: boolean;
-  categoryId: string;
 }

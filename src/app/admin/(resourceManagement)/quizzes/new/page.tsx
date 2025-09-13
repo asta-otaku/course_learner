@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 
 export default function CreateQuizPage() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="max-w-2xl mx-auto py-6 flex-1 flex flex-col">
+    <div className="min-h-screen flex flex-col w-full">
+      <div className="max-w-2xl mx-auto py-6 flex-1 flex flex-col w-full">
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Create New Quiz</h1>
           <p className="text-muted-foreground mt-1">

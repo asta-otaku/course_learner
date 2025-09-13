@@ -66,7 +66,7 @@ export default function QuestionDetailPage({
   // Show error state
   if (error || !result?.data) {
     return (
-      <div className="mx-auto py-10 max-w-4xl">
+      <div className="mx-auto py-10 max-w-4xl w-full">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600">
             Question Not Found
@@ -129,7 +129,7 @@ export default function QuestionDetailPage({
   }
 
   return (
-    <div className="mx-auto py-10 max-w-4xl">
+    <div className="mx-auto py-10 max-w-4xl w-full">
       <div className="mb-8 flex items-center justify-between">
         <Link
           href="/admin/questions"

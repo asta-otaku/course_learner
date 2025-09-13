@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation";
+"use client";
+
 import Link from "next/link";
-import { getCurriculum } from "@/app/actions/curricula";
 import { getLessonsWithQuizCounts } from "@/app/actions/lessons";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,9 +22,27 @@ import {
   Target,
   AlertCircle,
 } from "lucide-react";
+import { useGetCurriculum } from "@/lib/api/queries";
+import { useEffect, useState } from "react";
 
-// Force dynamic rendering since this page uses authentication
-export const dynamic = "force-dynamic";
+interface CurriculumWithRelations {
+  id: string;
+  title: string;
+  description?: string | null;
+  isPublic: boolean | null;
+  objectives: string[] | null;
+  prerequisites: string[] | null;
+  created_by: string;
+  category?: {
+    id: string;
+    name: string;
+  };
+  created_by_profile?: {
+    id: string;
+    full_name?: string;
+    username?: string;
+  };
+}
 
 interface CurriculumPageProps {
   params: Promise<{
@@ -32,20 +50,57 @@ interface CurriculumPageProps {
   }>;
 }
 
-export default async function CurriculumPage({ params }: CurriculumPageProps) {
-  const { id } = await params;
-  const curriculum = await getCurriculum(id);
+export default function CurriculumPage({ params }: CurriculumPageProps) {
+  const [id, setId] = useState<string>("");
+  const [lessons, setLessons] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (!curriculum) {
-    notFound();
-  }
+  const {
+    data: curriculumData,
+    isLoading: curriculumLoading,
+    error,
+  } = useGetCurriculum(id);
+  const curriculum = curriculumData?.data as
+    | CurriculumWithRelations
+    | undefined;
+
+  useEffect(() => {
+    const getParams = async () => {
+      const resolvedParams = await params;
+      setId(resolvedParams.id);
+    };
+    getParams();
+  }, [params]);
+
+  useEffect(() => {
+    const fetchLessons = async () => {
+      if (!id) return;
+
+      try {
+        const lessonsResult = await getLessonsWithQuizCounts(id);
+        const lessonsData = lessonsResult.success ? lessonsResult.data : [];
+        setLessons(lessonsData);
+      } catch (error) {
+        console.error("Error fetching lessons:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLessons();
+  }, [id]);
 
   // TODO: Replace with user context or API call to get user
   const user = null; // Placeholder for now
 
-  // Get lessons for this curriculum
-  const lessonsResult = await getLessonsWithQuizCounts(id);
-  const lessons = lessonsResult.success ? lessonsResult.data : [];
+  if (curriculumLoading || loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error || !curriculum) {
+    return <div>Curriculum not found</div>;
+  }
+
   // @ts-ignore
   const canEdit = user?.id === curriculum.created_by || false;
 
@@ -67,7 +122,7 @@ export default async function CurriculumPage({ params }: CurriculumPageProps) {
                 {curriculum.category.name}
               </Badge>
             )}
-            {!curriculum.is_public && <Badge variant="outline">Private</Badge>}
+            {!curriculum.isPublic && <Badge variant="outline">Private</Badge>}
           </div>
         </div>
 
@@ -83,7 +138,7 @@ export default async function CurriculumPage({ params }: CurriculumPageProps) {
               <CurriculumActions
                 curriculumId={curriculum.id}
                 canEdit={canEdit}
-                isPublic={curriculum.is_public ?? false}
+                isPublic={curriculum.isPublic ?? false}
               />
             </>
           )}
@@ -101,7 +156,7 @@ export default async function CurriculumPage({ params }: CurriculumPageProps) {
             <CardContent>
               <div className="flex items-baseline gap-1">
                 <div className="text-lg font-semibold">
-                  {curriculum.is_public ? "Public" : "Private"}
+                  {curriculum.isPublic ? "Public" : "Private"}
                 </div>
               </div>
             </CardContent>

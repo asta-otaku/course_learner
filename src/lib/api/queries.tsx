@@ -4,7 +4,6 @@ import {
   ApiResponse,
   ManageSubscriptionResponse,
   ChildProfile,
-  DetailedChildProfile,
   TutorDetails,
   Timeslot,
   SessionResponse,
@@ -95,7 +94,7 @@ export const useGetChildProfile = () => {
 export const useGetChildProfileById = (id: string) => {
   return useQuery({
     queryKey: ["child-profile", id],
-    queryFn: async (): Promise<APIGetResponse<DetailedChildProfile>> => {
+    queryFn: async (): Promise<APIGetResponse<ChildProfile>> => {
       const response = await axiosInstance.get(`/child-profiles/${id}`);
       return response.data;
     },
@@ -138,10 +137,11 @@ export const useGetTutorStudent = (id: string) => {
     queryKey: ["tutor-student", id],
     queryFn: async (): Promise<ChildProfile[]> => {
       const response = await axiosInstance.get(
-        `/tutors/${id}/assigned-students`
+        `/tutors/assigned-students?tutorId=${id}`
       );
-      return response.data;
+      return response.data.data;
     },
+    enabled: !!id,
   });
 };
 
@@ -655,8 +655,8 @@ export const useGetCurricula = (
 export const useGetCurriculum = (curriculumId?: string) => {
   return useQuery({
     queryKey: ["curriculum", curriculumId],
-    queryFn: async (): Promise<APIGetResponse<Curriculum>> => {
-      const response = await axiosInstance.get(`/curricula/${curriculumId}`);
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const response = await axiosInstance.get(`/curriculum/${curriculumId}`);
       return response.data;
     },
     enabled: !!curriculumId,

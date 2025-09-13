@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { dummyProfiles } from "@/lib/utils";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,15 +10,10 @@ import {
 import { ChevronDown, SearchIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
+import { useGetCurrentUser, useGetTutorStudent } from "@/lib/api/queries";
+import { ChildProfile } from "@/lib/types";
 
-const years = [
-  "All",
-  ...Array.from(new Set(dummyProfiles.map((p) => `Year ${p.year}`))),
-];
-const subscriptions = [
-  "All",
-  ...Array.from(new Set(dummyProfiles.map((p) => p.subscriptionName))),
-];
+// These will be dynamically generated from API data
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -30,18 +24,75 @@ export default function TutorStudentPage() {
   const [year, setYear] = useState("All");
   const [subscription, setSubscription] = useState("All");
   const { push } = useRouter();
+  const { data: tutorData } = useGetCurrentUser();
+  const [tutorId, setTutorId] = useState("");
+
+  useEffect(() => {
+    // @ts-ignore
+    setTutorId(tutorData?.data?.tutorProfile?.id);
+  }, [tutorData]);
+
+  const { data: studentsData, isLoading, error } = useGetTutorStudent(tutorId);
+
+  // Extract students from API response - the API returns ChildProfile[] directly
+  const students: ChildProfile[] = studentsData || [];
+
+  // Generate filter options from actual data
+  const years = [
+    "All",
+    ...Array.from(new Set(students.map((s: ChildProfile) => `Year ${s.year}`))),
+  ];
+
+  const subscriptions = [
+    "All",
+    ...Array.from(
+      new Set(
+        students.map((s: ChildProfile) =>
+          s.offerType === "Offer One" ? "The Platform" : "Tuition"
+        )
+      )
+    ),
+  ];
 
   const filteredProfiles = useMemo(() => {
-    return dummyProfiles.filter((profile) => {
+    if (!students.length) return [];
+
+    return students.filter((profile: ChildProfile) => {
       const matchesSearch = profile.name
         .toLowerCase()
         .includes(search.toLowerCase());
       const matchesYear = year === "All" || `Year ${profile.year}` === year;
+      const profileSubscription =
+        profile.offerType === "Offer One" ? "The Platform" : "Tuition";
       const matchesSubscription =
-        subscription === "All" || profile.subscriptionName === subscription;
+        subscription === "All" || profileSubscription === subscription;
       return matchesSearch && matchesYear && matchesSubscription;
     });
-  }, [search, year, subscription]);
+  }, [students, search, year, subscription]);
+
+  if (isLoading) {
+    return (
+      <div className="mt-4">
+        <h2 className="md:text-lg font-medium">Students</h2>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-gray-500">Loading students...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mt-4">
+        <h2 className="md:text-lg font-medium">Students</h2>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-red-500">
+            Error loading students. Please try again.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-4">
@@ -63,7 +114,7 @@ export default function TutorStudentPage() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {years.map((y) => (
+            {years.map((y: string) => (
               <DropdownMenuItem key={y} onSelect={() => setYear(y)}>
                 {y}
               </DropdownMenuItem>
@@ -79,9 +130,9 @@ export default function TutorStudentPage() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {subscriptions.map((s) => (
+            {subscriptions.map((s: string) => (
               <DropdownMenuItem key={s} onSelect={() => setSubscription(s)}>
-                {s === "The platform" ? "Platform" : s}
+                {s}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -89,7 +140,7 @@ export default function TutorStudentPage() {
       </div>
       {/* Student Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-        {filteredProfiles.map((profile) => (
+        {filteredProfiles.map((profile: ChildProfile) => (
           <div
             key={profile.id}
             onClick={() => push(`/tutor/students/${profile.id}`)}
@@ -99,11 +150,7 @@ export default function TutorStudentPage() {
             <div className="w-28 h-28 rounded-full bg-gray-200 flex items-center justify-center mb-2 overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={
-                  typeof profile.image === "string"
-                    ? profile.image
-                    : profile.image.src || profile.image.default || ""
-                }
+                src={profile.avatar || ""}
                 alt={profile.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -115,14 +162,13 @@ export default function TutorStudentPage() {
 
             {/* Status Badge */}
             <span
-              className={classNames(
-                "absolute right-2 top-2 text-xs font-semibold px-2 py-0.5 rounded-full",
-                profile.status === "active"
+              className={`absolute right-2 top-2 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                profile.isActive
                   ? "bg-green-100 text-green-600"
-                  : "bg-gray-200 text-gray-500"
-              )}
+                  : "bg-red-100 text-red-600"
+              }`}
             >
-              {profile.status === "active" ? "Active" : "Inactive"}
+              {profile.isActive ? "Active" : "Inactive"}
             </span>
             {/* Name */}
             <div className="mt-2 text-center">
@@ -135,9 +181,7 @@ export default function TutorStudentPage() {
               </div>
               {/* Subscription */}
               <div className="mt-1 text-xs text-gray-500">
-                {profile.subscriptionName === "The platform"
-                  ? "Platform"
-                  : profile.subscriptionName}
+                {profile.offerType === "Offer One" ? "The Platform" : "Tuition"}
               </div>
             </div>
           </div>
