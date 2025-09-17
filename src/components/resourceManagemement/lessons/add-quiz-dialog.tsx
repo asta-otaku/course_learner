@@ -15,9 +15,13 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CreateQuizFormWithUpload } from "../quiz/create-quiz-form-with-upload";
-import { searchQuizzes, addQuizToLesson } from "@/app/actions/quizzes";
-import { toast } from "@/components/ui/use-toast";
+import { useGetQuizzes } from "@/lib/api/queries";
+import { usePatchLessonQuizzes, usePostQuiz } from "@/lib/api/mutations";
+import { toast } from "react-toastify";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import {
   Search,
   Plus,
@@ -31,16 +35,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface Quiz {
-  id: string;
-  title: string;
-  description: string | null;
-  status: "draft" | "published" | "archived";
-  created_by: string;
-  created_by_name: string;
-  created_at: string;
-  quiz_questions: { id: string }[];
-}
+// Use the Quiz type from the API
+import type { Quiz } from "@/lib/types";
 
 interface AddQuizDialogProps {
   lessonId: string;
@@ -60,80 +56,129 @@ export function AddQuizDialog({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("existing");
   const [searchTerm, setSearchTerm] = useState("");
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [loading, setLoading] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
-  const [adding, setAdding] = useState(false);
 
-  useEffect(() => {
-    if (open && activeTab === "existing") {
-      searchForQuizzes();
-    }
-  }, [open, searchTerm, activeTab]);
+  // New quiz form state
+  const [newQuizTitle, setNewQuizTitle] = useState("");
+  const [newQuizDescription, setNewQuizDescription] = useState("");
+  const [newQuizInstructions, setNewQuizInstructions] = useState("");
 
-  const searchForQuizzes = async () => {
-    setLoading(true);
-    try {
-      const result = await searchQuizzes(searchTerm);
-      if (result.success) {
-        // Server action now handles filtering for published + user's draft quizzes
-        setQuizzes(result.data);
+  // Quiz settings state
+  const [timeLimit, setTimeLimit] = useState<number>(30);
+  const [maxAttempts, setMaxAttempts] = useState<number>(3);
+  const [passingScore, setPassingScore] = useState<string>("70");
+  const [randomizeQuestions, setRandomizeQuestions] = useState<boolean>(false);
+  const [showCorrectAnswers, setShowCorrectAnswers] = useState<boolean>(true);
+  const [showFeedback, setShowFeedback] = useState<boolean>(true);
+  const [allowRetakes, setAllowRetakes] = useState<boolean>(true);
+  const [allowReview, setAllowReview] = useState<boolean>(true);
+
+  // Use the useGetQuizzes hook instead of server action
+  const { data: quizzesData, isLoading: loading } = useGetQuizzes({
+    search: searchTerm,
+    status: "published", // Only show published quizzes
+    page: 1,
+    limit: 50,
+  });
+
+  const quizzes = quizzesData?.quizzes || [];
+
+  // Mutation for adding quiz to lesson
+  const { mutate: patchLessonQuizzes, isPending: isPatching } =
+    usePatchLessonQuizzes(lessonId);
+
+  // Mutation for creating new quiz
+  const { mutate: createQuiz, isPending: isCreating } = usePostQuiz();
+
+  const isQuizAlreadyAdded = (quizId: string | undefined) => {
+    return quizId ? existingQuizIds.includes(quizId) : false;
+  };
+
+  const handleAddQuiz = () => {
+    if (
+      !selectedQuiz ||
+      !selectedQuiz.id ||
+      isQuizAlreadyAdded(selectedQuiz.id)
+    )
+      return;
+
+    // Add the selected quiz to the existing quiz IDs
+    const updatedQuizIds = [...existingQuizIds, selectedQuiz.id];
+
+    patchLessonQuizzes(
+      { quizIds: updatedQuizIds },
+      {
+        onSuccess: () => {
+          toast.success(
+            `"${selectedQuiz.title}" has been added to this lesson.`
+          );
+          onOpenChange(false);
+          if (onSuccess) onSuccess();
+          router.refresh();
+        },
+        onError: (error) => {
+          toast.error("Failed to add quiz. Please try again.");
+          console.error("Add quiz error:", error);
+        },
       }
-    } catch (error) {
-      console.error("Error searching quizzes:", error);
-    } finally {
-      setLoading(false);
+    );
+  };
+
+  const handleCreateNewQuiz = () => {
+    if (!newQuizTitle.trim()) {
+      toast.error("Please enter a quiz title");
+      return;
     }
-  };
 
-  const isQuizAlreadyAdded = (quizId: string) => {
-    return existingQuizIds.includes(quizId);
-  };
+    const quizData: Quiz = {
+      title: newQuizTitle.trim(),
+      description: newQuizDescription.trim(),
+      instructions: newQuizInstructions.trim(),
+      status: "draft",
+      lessonId: lessonId,
+      timeLimit: timeLimit,
+      maxAttempts: maxAttempts,
+      passingScore: passingScore,
+      randomizeQuestions: randomizeQuestions,
+      showCorrectAnswers: showCorrectAnswers,
+      showFeedback: showFeedback,
+      allowRetakes: allowRetakes,
+      allowReview: allowReview,
+    };
 
-  const handleAddQuiz = async () => {
-    if (!selectedQuiz || isQuizAlreadyAdded(selectedQuiz.id)) return;
-
-    setAdding(true);
-    try {
-      const result = await addQuizToLesson(lessonId, selectedQuiz.id);
-
-      if (result.success) {
-        toast({
-          title: "Quiz added successfully",
-          description: `"${selectedQuiz.title}" has been added to this lesson.`,
-        });
-        onOpenChange(false);
-        if (onSuccess) onSuccess();
-        router.refresh();
-      } else {
-        toast({
-          title: "Failed to add quiz",
-          description: (result as any).error || "Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error adding quiz",
-        description: "An unexpected error occurred.",
-        variant: "destructive",
-      });
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const handleCreateSuccess = () => {
-    toast({
-      title: "Quiz created successfully",
-      description: "The quiz has been created and added to this lesson.",
+    createQuiz(quizData, {
+      onSuccess: (response) => {
+        const quizId = (response.data as any)?.id;
+        if (quizId) {
+          // Add the newly created quiz to the lesson
+          const updatedQuizIds = [...existingQuizIds, quizId];
+          patchLessonQuizzes(
+            { quizIds: updatedQuizIds },
+            {
+              onSuccess: () => {
+                toast.success("Quiz created and added to lesson successfully");
+                onOpenChange(false);
+                if (onSuccess) onSuccess();
+                router.refresh();
+              },
+              onError: (error) => {
+                toast.error("Quiz created but failed to add to lesson");
+                console.error("Add quiz to lesson error:", error);
+              },
+            }
+          );
+        } else {
+          toast.error("Failed to create quiz");
+        }
+      },
+      onError: (error) => {
+        toast.error("Failed to create quiz. Please try again.");
+        console.error("Create quiz error:", error);
+      },
     });
-    onOpenChange(false);
-    if (onSuccess) onSuccess();
-    router.refresh();
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | undefined) => {
     switch (status) {
       case "published":
         return "bg-green-100 text-green-800";
@@ -207,8 +252,8 @@ export function AddQuizDialog({
                       <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                       <p className="text-muted-foreground">
                         {searchTerm
-                          ? "No quizzes found matching your search"
-                          : "No quizzes available (shows published quizzes and your drafts)"}
+                          ? "No published quizzes found matching your search"
+                          : "No published quizzes available"}
                       </p>
                     </div>
                   ) : (
@@ -217,7 +262,7 @@ export function AddQuizDialog({
                         const isAlreadyAdded = isQuizAlreadyAdded(quiz.id);
                         return (
                           <div
-                            key={quiz.id}
+                            key={quiz.id || "unknown"}
                             className={cn(
                               "p-4 border rounded-lg transition-colors",
                               isAlreadyAdded
@@ -245,19 +290,21 @@ export function AddQuizDialog({
                                   <div className="flex items-center gap-1">
                                     <HelpCircle className="h-3 w-3" />
                                     <span>
-                                      {quiz.quiz_questions.length} questions
+                                      {quiz.questionsCount || 0} questions
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Users className="h-3 w-3" />
-                                    <span>{quiz.created_by_name}</span>
+                                    <span>{quiz.createdBy || "Unknown"}</span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Clock className="h-3 w-3" />
                                     <span>
-                                      {new Date(
-                                        quiz.created_at
-                                      ).toLocaleDateString()}
+                                      {quiz.createdAt
+                                        ? new Date(
+                                            quiz.createdAt
+                                          ).toLocaleDateString()
+                                        : "Unknown date"}
                                     </span>
                                   </div>
                                 </div>
@@ -303,7 +350,7 @@ export function AddQuizDialog({
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                       <strong>Selected:</strong> {selectedQuiz.title} (
-                      {selectedQuiz.quiz_questions.length} questions)
+                      {selectedQuiz.questionsCount || 0} questions)
                     </AlertDescription>
                   </Alert>
                 )}
@@ -313,7 +360,7 @@ export function AddQuizDialog({
                 <Button
                   variant="outline"
                   onClick={() => onOpenChange(false)}
-                  disabled={adding}
+                  disabled={isPatching}
                 >
                   Cancel
                 </Button>
@@ -321,11 +368,13 @@ export function AddQuizDialog({
                   onClick={handleAddQuiz}
                   disabled={
                     !selectedQuiz ||
-                    adding ||
+                    isPatching ||
                     (selectedQuiz && isQuizAlreadyAdded(selectedQuiz.id))
                   }
                 >
-                  {adding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isPatching && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
                   {selectedQuiz && isQuizAlreadyAdded(selectedQuiz.id)
                     ? "Already Added"
                     : "Add Selected Quiz"}
@@ -334,11 +383,176 @@ export function AddQuizDialog({
             </TabsContent>
 
             <TabsContent value="create" className="flex-1 overflow-y-auto mt-4">
-              <CreateQuizFormWithUpload
-                lessonId={lessonId}
-                onSuccess={handleCreateSuccess}
-                onCancel={() => onOpenChange(false)}
-              />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="quiz-title">Quiz Title *</Label>
+                  <Input
+                    id="quiz-title"
+                    placeholder="Enter quiz title"
+                    value={newQuizTitle}
+                    onChange={(e) => setNewQuizTitle(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="quiz-description">Description</Label>
+                  <Textarea
+                    id="quiz-description"
+                    placeholder="Enter quiz description"
+                    value={newQuizDescription}
+                    onChange={(e) => setNewQuizDescription(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="quiz-instructions">Instructions</Label>
+                  <Textarea
+                    id="quiz-instructions"
+                    placeholder="Enter quiz instructions"
+                    value={newQuizInstructions}
+                    onChange={(e) => setNewQuizInstructions(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+
+                <Separator className="my-6" />
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium">Quiz Settings</h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="time-limit">Time Limit (minutes)</Label>
+                      <Input
+                        id="time-limit"
+                        type="number"
+                        min="1"
+                        value={timeLimit}
+                        onChange={(e) => setTimeLimit(Number(e.target.value))}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="max-attempts">Max Attempts</Label>
+                      <Input
+                        id="max-attempts"
+                        type="number"
+                        min="1"
+                        value={maxAttempts}
+                        onChange={(e) => setMaxAttempts(Number(e.target.value))}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="passing-score">Passing Score (%)</Label>
+                      <Input
+                        id="passing-score"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={passingScore}
+                        onChange={(e) => setPassingScore(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="randomize-questions">
+                          Randomize Questions
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Questions will be presented in random order
+                        </p>
+                      </div>
+                      <Switch
+                        id="randomize-questions"
+                        checked={randomizeQuestions}
+                        onCheckedChange={setRandomizeQuestions}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="show-correct-answers">
+                          Show Correct Answers
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Display correct answers after quiz completion
+                        </p>
+                      </div>
+                      <Switch
+                        id="show-correct-answers"
+                        checked={showCorrectAnswers}
+                        onCheckedChange={setShowCorrectAnswers}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="show-feedback">Show Feedback</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Provide feedback on answers
+                        </p>
+                      </div>
+                      <Switch
+                        id="show-feedback"
+                        checked={showFeedback}
+                        onCheckedChange={setShowFeedback}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="allow-retakes">Allow Retakes</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Students can retake the quiz
+                        </p>
+                      </div>
+                      <Switch
+                        id="allow-retakes"
+                        checked={allowRetakes}
+                        onCheckedChange={setAllowRetakes}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="allow-review">Allow Review</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Students can review their answers
+                        </p>
+                      </div>
+                      <Switch
+                        id="allow-review"
+                        checked={allowReview}
+                        onCheckedChange={setAllowReview}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isCreating}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateNewQuiz}
+                  disabled={isCreating || !newQuizTitle.trim()}
+                >
+                  {isCreating && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Create Quiz
+                </Button>
+              </div>
             </TabsContent>
           </Tabs>
         </DialogContent>

@@ -25,7 +25,7 @@ import {
   Question,
   Quiz,
   QuizUpdateData,
-  UpdateQuestionPayload,
+  Lesson,
   Curriculum,
 } from "../types";
 
@@ -1036,9 +1036,143 @@ export const usePostCurriculum = () => {
 };
 
 export const usePutCurriculum = (id: string) => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["put-curriculum", id],
     mutationFn: (data: Curriculum): Promise<ApiResponse<Curriculum>> =>
       axiosInstance.put(`/curriculum/${id}`, data),
+    onSuccess: (data: ApiResponse<Curriculum>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["curricula"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["curriculum", id],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const useDeleteCurriculum = (id: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-curriculum", id],
+    mutationFn: (): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.delete(`/curriculum/${id}`),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["curricula"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["curriculum", id],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Lesson Mutations
+export const usePostLesson = (curriculumId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-lesson", curriculumId],
+    mutationFn: (data: Lesson): Promise<ApiResponse<Lesson>> =>
+      axiosInstance.post(`/curriculum/${curriculumId}/lessons`, data),
+    onSuccess: (data: ApiResponse<Lesson>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["curriculum", curriculumId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["lesson"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePutLesson = (lessonId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["put-lesson", lessonId],
+    mutationFn: (data: Lesson): Promise<ApiResponse<Lesson>> =>
+      axiosInstance.put(`/lesson/${lessonId}`, data),
+    onSuccess: (data: ApiResponse<Lesson>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["lesson", lessonId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["curriculum", lessonId],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchLessonQuizzes = (lessonId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-lesson-quizzes", lessonId],
+    mutationFn: (data: { quizIds: string[] }): Promise<ApiResponse<Lesson>> =>
+      axiosInstance.patch(`/lesson/${lessonId}/quizzes`, data),
+    onSuccess: (data: ApiResponse<Lesson>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["lesson", lessonId],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const useDeleteLesson = (lessonId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-lesson", lessonId],
+    mutationFn: (): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.delete(`/lesson/${lessonId}`),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["lesson", lessonId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["curriculum"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Uploader
+export const usePostUploader = () => {
+  return useMutation({
+    mutationKey: ["post-uploader"],
+    mutationFn: (data: {
+      key: string;
+      contentType: string;
+    }): Promise<ApiResponse<{ fileKeyName: string; url: string }>> =>
+      axiosInstance.post("/s3/pre-signed-url", data),
+    onSuccess: (data: ApiResponse<{ fileKeyName: string; url: string }>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
   });
 };

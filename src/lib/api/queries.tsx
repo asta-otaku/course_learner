@@ -16,6 +16,7 @@ import {
   QuestionQueryOptions,
   Quiz,
   Curriculum,
+  Lesson,
 } from "../types";
 
 // User Queries
@@ -63,6 +64,25 @@ export const useGetSubscriptionPlans = (isUser?: boolean, id?: string) => {
         url,
         id ? { params: { parentId: id } } : undefined
       );
+      return response.data;
+    },
+  });
+};
+
+export const useGetSubscriptionPlansWithIds = () => {
+  return useQuery({
+    queryKey: ["subscription-plans-with-ids"],
+    queryFn: async (): Promise<
+      APIGetResponse<
+        {
+          id: string;
+          offerType: string;
+          stripePriceId: string;
+          isActive: boolean;
+        }[]
+      >
+    > => {
+      const response = await axiosInstance.get("/subscriptions/plans");
       return response.data;
     },
   });
@@ -667,8 +687,8 @@ export const useGetCurriculum = (curriculumId?: string) => {
 export const useGetLessonById = (id: string) => {
   return useQuery({
     queryKey: ["lesson", id],
-    queryFn: async (): Promise<APIGetResponse<any>> => {
-      const response = await axiosInstance.get(`/lessons/${id}`);
+    queryFn: async (): Promise<APIGetResponse<Lesson>> => {
+      const response = await axiosInstance.get(`/lesson/${id}`);
       return response.data;
     },
     enabled: !!id,
@@ -678,8 +698,8 @@ export const useGetLessonById = (id: string) => {
 export const useGetQuizzesForLesson = (lessonId: string) => {
   return useQuery({
     queryKey: ["quizzes-for-lesson", lessonId],
-    queryFn: async (): Promise<APIGetResponse<any>> => {
-      const response = await axiosInstance.get(`/lessons/${lessonId}/quizzes`);
+    queryFn: async (): Promise<APIGetResponse<Quiz[]>> => {
+      const response = await axiosInstance.get(`/lesson/${lessonId}/quizzes`);
       return response.data;
     },
     enabled: !!lessonId,

@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardContent,
@@ -16,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "react-toastify";
 import {
   Select,
   SelectContent,
@@ -25,114 +24,88 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  getCurriculum,
-  updateCurriculum,
-  getCategories,
-  type CreateCurriculumInput,
-} from "@/app/actions/curricula";
+  useGetCurriculum,
+  useGetSubscriptionPlansWithIds,
+} from "@/lib/api/queries";
+import { usePutCurriculum } from "@/lib/api/mutations";
+import type { Curriculum } from "@/lib/types";
 
 export default function EditCurriculumClient({
   curriculumId,
 }: {
   curriculumId: string;
 }) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>(
-    []
-  );
-  const [formData, setFormData] = useState<CreateCurriculumInput>({
+  const [formData, setFormData] = useState<Partial<Curriculum>>({
     title: "",
     description: "",
-    categoryId: undefined,
-    objectives: [],
+    subscriptionPlanId: "",
+    durationWeeks: 1,
+    learningObjectives: [],
     prerequisites: [],
-    isPublic: false,
+    tags: [],
+    visibility: "PRIVATE",
   });
   const [objectiveInput, setObjectiveInput] = useState("");
   const [prerequisiteInput, setPrerequisiteInput] = useState("");
+  const [tagInput, setTagInput] = useState("");
 
+  // Get curriculum data
+  const { data: curriculumData, isLoading: curriculumLoading } =
+    useGetCurriculum(curriculumId);
+  const curriculum = curriculumData?.data;
+
+  // Get subscription plans
+  const { data: subscriptionPlansData } = useGetSubscriptionPlansWithIds();
+  const subscriptionPlans = subscriptionPlansData?.data || [];
+
+  // Update mutation
+  const { mutate: updateCurriculum, isPending: isUpdating } =
+    usePutCurriculum(curriculumId);
+
+  // Populate form data when curriculum is loaded
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [curriculum, categoriesData] = await Promise.all([
-          getCurriculum(curriculumId),
-          getCategories(),
-        ]);
-
-        if (!curriculum) {
-          toast({
-            title: "Error",
-            description: "Failed to load curriculum",
-            variant: "destructive",
-          });
-          router.push("/curricula");
-          return;
-        }
-        setFormData({
-          title: curriculum.title,
-          description: curriculum.description || "",
-          categoryId: curriculum.category_id || undefined,
-          objectives: curriculum.objectives || [],
-          prerequisites: curriculum.prerequisites || [],
-          isPublic: curriculum.is_public || false,
-        });
-
-        setCategories(categoriesData || []);
-      } catch (_error) {
-        toast({
-          title: "Error",
-          description: "Failed to load data",
-          variant: "destructive",
-        });
-      } finally {
-        setInitialLoading(false);
-      }
-    };
-
-    loadData();
-  }, [curriculumId, router]);
+    if (curriculum) {
+      setFormData({
+        title: curriculum.title,
+        description: curriculum.description || "",
+        subscriptionPlanId: curriculum.subscriptionPlanId || "",
+        durationWeeks: curriculum.durationWeeks || 1,
+        learningObjectives: curriculum.learningObjectives || [],
+        prerequisites: curriculum.prerequisites || [],
+        tags: curriculum.tags || [],
+        visibility: curriculum.visibility || "PRIVATE",
+      });
+    }
+  }, [curriculum]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
 
-    try {
-      const result = await updateCurriculum(curriculumId, formData);
-
-      if (result.error) {
-        toast({
-          title: "Error",
-          description: (result as any).error,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Curriculum updated successfully",
-        });
-        router.push(`/curricula/${curriculumId}`);
-      }
-    } catch (_error) {
-      toast({
-        title: "Error",
-        description: "Failed to update curriculum",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    if (!formData.title) {
+      toast.error("Please fill in the title");
+      return;
     }
+
+    updateCurriculum(formData as Curriculum, {
+      onSuccess: (response) => {
+        if (response.status === 200) {
+          toast.success(response.data.message);
+        }
+      },
+    });
   };
 
   const addObjective = () => {
     if (
       objectiveInput.trim() &&
-      !(formData.objectives || []).includes(objectiveInput.trim())
+      !(formData.learningObjectives || []).includes(objectiveInput.trim())
     ) {
       setFormData({
         ...formData,
-        objectives: [...(formData.objectives || []), objectiveInput.trim()],
+        learningObjectives: [
+          ...(formData.learningObjectives || []),
+          objectiveInput.trim(),
+        ],
       });
       setObjectiveInput("");
     }
@@ -141,7 +114,9 @@ export default function EditCurriculumClient({
   const removeObjective = (objective: string) => {
     setFormData({
       ...formData,
-      objectives: (formData.objectives || []).filter((o) => o !== objective),
+      learningObjectives: (formData.learningObjectives || []).filter(
+        (o) => o !== objective
+      ),
     });
   };
 
@@ -170,7 +145,24 @@ export default function EditCurriculumClient({
     });
   };
 
-  if (initialLoading) {
+  const addTag = () => {
+    if (tagInput.trim() && !(formData.tags || []).includes(tagInput.trim())) {
+      setFormData({
+        ...formData,
+        tags: [...(formData.tags || []), tagInput.trim()],
+      });
+      setTagInput("");
+    }
+  };
+
+  const removeTag = (tag: string) => {
+    setFormData({
+      ...formData,
+      tags: (formData.tags || []).filter((t) => t !== tag),
+    });
+  };
+
+  if (curriculumLoading) {
     return (
       <div className="min-h-screen flex flex-col">
         <div className="py-6 max-w-4xl mx-auto w-full flex-1 flex justify-center items-center">
@@ -185,7 +177,7 @@ export default function EditCurriculumClient({
       <div className="py-6 max-w-4xl mx-auto w-full flex-1 flex flex-col">
         <div className="mb-6">
           <Button asChild variant="ghost" size="sm" className="mb-4">
-            <Link href={`/curricula/${curriculumId}`}>
+            <Link href={`/admin/curricula/${curriculumId}`}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Curriculum
             </Link>
@@ -232,35 +224,63 @@ export default function EditCurriculumClient({
                 </div>
 
                 <div>
-                  <Label htmlFor="categoryId">Category</Label>
+                  <Label htmlFor="subscriptionPlanId">
+                    Subscription Plan *
+                  </Label>
                   <Select
-                    value={formData.categoryId || ""}
+                    value={formData.subscriptionPlanId || ""}
                     onValueChange={(value) =>
-                      setFormData({ ...formData, categoryId: value })
+                      setFormData({ ...formData, subscriptionPlanId: value })
                     }
                   >
-                    <SelectTrigger id="categoryId" className="mt-1">
-                      <SelectValue placeholder="Select a category" />
+                    <SelectTrigger id="subscriptionPlanId" className="mt-1">
+                      <SelectValue placeholder="Select subscription plan" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
+                      {subscriptionPlans.map((plan) => (
+                        <SelectItem key={plan.id} value={plan.id}>
+                          {plan.offerType}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="isPublic"
-                    checked={formData.isPublic || false}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, isPublic: checked })
+                <div>
+                  <Label htmlFor="durationWeeks">Duration (Weeks) *</Label>
+                  <Input
+                    id="durationWeeks"
+                    type="number"
+                    value={formData.durationWeeks || 1}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        durationWeeks: parseInt(e.target.value) || 1,
+                      })
                     }
+                    placeholder="1"
+                    min="1"
+                    max="52"
+                    className="mt-1"
                   />
-                  <Label htmlFor="isPublic">Public</Label>
+                </div>
+
+                <div>
+                  <Label htmlFor="visibility">Visibility</Label>
+                  <Select
+                    value={formData.visibility || "PRIVATE"}
+                    onValueChange={(value: "PRIVATE" | "PUBLIC") =>
+                      setFormData({ ...formData, visibility: value })
+                    }
+                  >
+                    <SelectTrigger id="visibility" className="mt-1">
+                      <SelectValue placeholder="Select visibility" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PRIVATE">Private</SelectItem>
+                      <SelectItem value="PUBLIC">Public</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
@@ -287,18 +307,20 @@ export default function EditCurriculumClient({
                   </Button>
                 </div>
                 <ul className="space-y-2">
-                  {(formData.objectives || []).map((objective, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <span className="text-sm flex-1">• {objective}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeObjective(objective)}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </li>
-                  ))}
+                  {(formData.learningObjectives || []).map(
+                    (objective, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="text-sm flex-1">• {objective}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeObjective(objective)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </li>
+                    )
+                  )}
                 </ul>
               </CardContent>
             </Card>
@@ -342,12 +364,50 @@ export default function EditCurriculumClient({
               </CardContent>
             </Card>
 
+            <Card>
+              <CardHeader>
+                <CardTitle>Tags</CardTitle>
+                <CardDescription>
+                  Add tags to help categorize and search for this curriculum
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add a tag"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyPress={(e) =>
+                      e.key === "Enter" && (e.preventDefault(), addTag())
+                    }
+                  />
+                  <Button type="button" onClick={addTag} size="sm">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <ul className="space-y-2">
+                  {(formData.tags || []).map((tag, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-sm flex-1">• {tag}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeTag(tag)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
             <div className="flex gap-3">
-              <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : "Save Changes"}
+              <Button type="submit" disabled={isUpdating}>
+                {isUpdating ? "Saving..." : "Save Changes"}
               </Button>
               <Button type="button" variant="outline" asChild>
-                <Link href={`/curricula/${curriculumId}`}>Cancel</Link>
+                <Link href={`/admin/curricula/${curriculumId}`}>Cancel</Link>
               </Button>
             </div>
           </form>

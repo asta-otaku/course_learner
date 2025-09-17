@@ -1,15 +1,15 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Button } from '@/components/ui/button'
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,86 +19,69 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { toast } from '@/components/ui/use-toast'
-import { deleteCurriculum, toggleCurriculumVisibility } from '@/app/actions/curricula'
-import {
-  Trash,
-  MoreVertical,
-  Eye,
-  EyeOff,
-} from 'lucide-react'
+} from "@/components/ui/alert-dialog";
+import { toast } from "react-toastify";
+import { useDeleteCurriculum, usePutCurriculum } from "@/lib/api/mutations";
+import { Trash, MoreVertical, Eye, EyeOff } from "lucide-react";
+import { Curriculum } from "@/lib/types";
 
 interface CurriculumActionsProps {
-  curriculumId: string
-  canEdit: boolean
-  isPublic?: boolean
+  curriculumId: string;
+  canEdit: boolean;
+  isPublic?: boolean;
+  curriculum: Curriculum;
 }
 
-export function CurriculumActions({ curriculumId, canEdit, isPublic = false }: CurriculumActionsProps) {
-  const router = useRouter()
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [isTogglingVisibility, setIsTogglingVisibility] = useState(false)
+export function CurriculumActions({
+  curriculumId,
+  canEdit,
+  isPublic = false,
+  curriculum,
+}: CurriculumActionsProps) {
+  const router = useRouter();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const { mutateAsync: deleteCurriculum, isPending: isDeleting } =
+    useDeleteCurriculum(curriculumId);
+  const {
+    mutateAsync: toggleCurriculumVisibility,
+    isPending: isTogglingVisibility,
+  } = usePutCurriculum(curriculumId);
 
   const handleDelete = async () => {
-    setIsDeleting(true)
     try {
-      const result = await deleteCurriculum(curriculumId)
-      if (result.success) {
-        toast({
-          title: 'Curriculum deleted',
-          description: 'The curriculum has been deleted successfully',
-        })
-        router.push('/curricula')
-      } else {
-        toast({
-          title: 'Failed to delete curriculum',
-          description: result.error || 'Please try again',
-          variant: 'destructive',
-        })
+      const result = await deleteCurriculum();
+      if (result.status === 200) {
+        toast.success(result.data.message);
+        router.push("/curricula");
       }
     } catch (error) {
-      toast({
-        title: 'Failed to delete curriculum',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      })
+      console.error(error);
     } finally {
-      setIsDeleting(false)
-      setShowDeleteDialog(false)
+      setShowDeleteDialog(false);
     }
-  }
+  };
 
   const handleToggleVisibility = async () => {
-    setIsTogglingVisibility(true)
     try {
-      const result = await toggleCurriculumVisibility(curriculumId)
-      if (result.success && result.data) {
-        toast({
-          title: 'Visibility updated',
-          description: `Curriculum is now ${result.data.is_public ? 'public' : 'private'}`,
-        })
-        router.refresh()
-      } else {
-        toast({
-          title: 'Failed to update visibility',
-          description: result.error || 'Please try again',
-          variant: 'destructive',
-        })
+      const result = await toggleCurriculumVisibility({
+        title: curriculum.title,
+        description: curriculum.description,
+        subscriptionPlanId: curriculum.subscriptionPlanId,
+        durationWeeks: curriculum.durationWeeks,
+        learningObjectives: curriculum.learningObjectives,
+        prerequisites: curriculum.prerequisites,
+        tags: curriculum.tags,
+        visibility: isPublic ? "PRIVATE" : "PUBLIC",
+      });
+      if (result.status === 200) {
+        toast.success(result.data.message);
       }
     } catch (error) {
-      toast({
-        title: 'Failed to update visibility',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsTogglingVisibility(false)
+      console.error(error);
     }
-  }
+  };
 
-  if (!canEdit) return null
+  if (!canEdit) return null;
 
   return (
     <>
@@ -141,8 +124,8 @@ export function CurriculumActions({ curriculumId, canEdit, isPublic = false }: C
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the curriculum
-              and all associated sections and lessons.
+              This action cannot be undone. This will permanently delete the
+              curriculum and all associated sections and lessons.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -152,11 +135,11 @@ export function CurriculumActions({ curriculumId, canEdit, isPublic = false }: C
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
+  );
 }

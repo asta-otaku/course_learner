@@ -1,10 +1,21 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, Search, SortAsc, SortDesc, BookOpen, Filter, Grid3X3, List, LayoutGrid, GripVertical } from 'lucide-react'
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Plus,
+  Search,
+  SortAsc,
+  SortDesc,
+  BookOpen,
+  Filter,
+  Grid3X3,
+  List,
+  LayoutGrid,
+  GripVertical,
+} from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -15,53 +26,69 @@ import {
   DragEndEvent,
   DragStartEvent,
   DragOverlay,
-} from '@dnd-kit/core'
+} from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import {
-  useSortable,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+} from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { LessonCard } from './lesson-card'
-import { LessonListView } from './lesson-list-view'
-import { getLessonsWithQuizCounts, deleteLesson, reorderLessons } from '@/app/actions/lessons'
-import { toast } from '@/components/ui/use-toast'
-import { cn } from '@/lib/utils'
-import type { Database } from '@/lib/database.types'
+} from "@/components/ui/dropdown-menu";
+import { LessonCard } from "./lesson-card";
+import { LessonListView } from "./lesson-list-view";
+import {
+  getLessonsWithQuizCounts,
+  deleteLesson,
+  reorderLessons,
+} from "@/app/actions/lessons";
+import { toast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
+import type { Database } from "@/lib/database.types";
 
-type LessonRow = Database['public']['Tables']['lessons']['Row']
+type LessonRow = Database["public"]["Tables"]["lessons"]["Row"];
 
+// Use the exact same interface structure as the API response
 interface LessonWithQuizCount {
-  lesson: LessonRow
-  quiz_count: number
+  lesson: LessonRow;
+  quiz_count: number;
+}
+
+// Lesson type from API response
+interface LessonFromAPI {
+  id: string;
+  title: string;
+  description: string;
+  content: string;
+  orderIndex: number;
+  videoUrl: string;
+  quizzesCount: number;
 }
 
 interface LessonListProps {
-  curriculumId: string
-  onCreateLesson?: () => void
-  onEditLesson?: (lesson: LessonRow) => void
-  onViewLesson?: (lesson: LessonRow) => void
-  onAddQuiz?: (lesson: LessonRow) => void
-  canEdit?: boolean
-  className?: string
+  curriculumId: string;
+  lessons?: LessonFromAPI[]; // Make lessons optional for backward compatibility
+  onCreateLesson?: () => void;
+  onEditLesson?: (lesson: LessonFromAPI) => void;
+  onViewLesson?: (lesson: LessonFromAPI) => void;
+  onAddQuiz?: (lesson: LessonFromAPI) => void;
+  onDeleteLesson?: (lesson: LessonFromAPI) => void;
+  canEdit?: boolean;
+  className?: string;
 }
 
 // Sortable lesson card wrapper
@@ -72,19 +99,17 @@ function SortableLessonCard({
   onDelete,
   onView,
   onAddQuiz,
-  onPublishStatusChange,
   canEdit,
   showDragHandle,
 }: {
-  lesson: LessonRow
-  quizCount: number
-  onEdit?: (lesson: LessonRow) => void
-  onDelete: (lesson: LessonRow) => void
-  onView?: (lesson: LessonRow) => void
-  onAddQuiz?: (lesson: LessonRow) => void
-  onPublishStatusChange: (lesson: LessonRow) => void
-  canEdit: boolean
-  showDragHandle: boolean
+  lesson: any; // Use any for now to handle mixed types
+  quizCount: number;
+  onEdit?: (lesson: any) => void;
+  onDelete?: (lesson: any) => void;
+  onView?: (lesson: any) => void;
+  onAddQuiz?: (lesson: any) => void;
+  canEdit: boolean;
+  showDragHandle: boolean;
 }) {
   const {
     attributes,
@@ -93,13 +118,13 @@ function SortableLessonCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: lesson.id })
+  } = useSortable({ id: lesson.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-  }
+  };
 
   return (
     <div ref={setNodeRef} style={style}>
@@ -120,33 +145,62 @@ function SortableLessonCard({
           onDelete={onDelete}
           onView={onView}
           onAddQuiz={onAddQuiz}
-          onPublishStatusChange={onPublishStatusChange}
           canEdit={canEdit}
         />
       </div>
     </div>
-  )
+  );
 }
 
 export function LessonList({
   curriculumId,
+  lessons: providedLessons,
   onCreateLesson,
   onEditLesson,
   onViewLesson,
   onAddQuiz,
+  onDeleteLesson,
   canEdit = false,
   className,
 }: LessonListProps) {
-  const [lessons, setLessons] = useState<LessonWithQuizCount[]>([])
-  const [filteredLessons, setFilteredLessons] = useState<LessonWithQuizCount[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [difficultyFilter, setDifficultyFilter] = useState<string>('all')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<'order' | 'title' | 'difficulty'>('order')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards')
-  const [activeId, setActiveId] = useState<string | null>(null)
+  // Function to convert API lesson to LessonFromAPI format for callbacks
+  const convertToApiFormat = (lesson: any): LessonFromAPI => ({
+    id: lesson.id,
+    title: lesson.title,
+    description: lesson.description || "",
+    content: lesson.content || "",
+    orderIndex: lesson.orderIndex || lesson.order_index || 0,
+    videoUrl: lesson.videoUrl || "",
+    quizzesCount: lesson.quizzesCount || 0,
+  });
+
+  // Convert API lessons to internal format
+  const lessonsWithQuizCount =
+    providedLessons?.map((lesson) => ({
+      lesson: {
+        ...lesson,
+        // Convert API fields to database fields for compatibility
+        order_index: lesson.orderIndex,
+        is_published: true, // Default value
+        difficulty_level: 1, // Default value
+      } as any,
+      quiz_count: lesson.quizzesCount || 0,
+    })) || [];
+
+  const [lessons, setLessons] =
+    useState<LessonWithQuizCount[]>(lessonsWithQuizCount);
+  const [filteredLessons, setFilteredLessons] =
+    useState<LessonWithQuizCount[]>(lessonsWithQuizCount);
+  const [isLoading, setIsLoading] = useState(!providedLessons);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [difficultyFilter, setDifficultyFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"order" | "title" | "difficulty">(
+    "order"
+  );
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -157,194 +211,179 @@ export function LessonList({
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
-  )
+  );
 
   useEffect(() => {
-    loadLessons()
-  }, [curriculumId])
+    if (providedLessons) {
+      // Use provided lessons
+      setLessons(lessonsWithQuizCount);
+      setFilteredLessons(lessonsWithQuizCount);
+      setIsLoading(false);
+    } else {
+      // Fallback to loading lessons if not provided
+    loadLessons();
+    }
+  }, [curriculumId, providedLessons]);
 
   useEffect(() => {
-    filterAndSortLessons()
-  }, [lessons, searchTerm, difficultyFilter, statusFilter, sortBy, sortOrder])
+    filterAndSortLessons();
+  }, [lessons, searchTerm, difficultyFilter, statusFilter, sortBy, sortOrder]);
 
   const loadLessons = async () => {
     try {
-      setIsLoading(true)
-      const result = await getLessonsWithQuizCounts(curriculumId)
-      
+      setIsLoading(true);
+      const result = await getLessonsWithQuizCounts(curriculumId);
+
       if (!result.success) {
         toast({
-          title: 'Error loading lessons',
+          title: "Error loading lessons",
           description: (result as any).error,
-          variant: 'destructive',
-        })
-        return
+          variant: "destructive",
+        });
+        return;
       }
-      setLessons(result.data)
+      setLessons(result.data);
     } catch (error) {
       toast({
-        title: 'Error loading lessons',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      })
+        title: "Error loading lessons",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const filterAndSortLessons = () => {
-    let filtered = [...lessons]
+    let filtered = [...lessons];
 
     // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(({ lesson }) =>
-        lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lesson.description?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      filtered = filtered.filter(
+        ({ lesson }) =>
+          lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          lesson.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
 
     // Apply difficulty filter
-    if (difficultyFilter !== 'all') {
-      const difficulty = parseInt(difficultyFilter)
-      filtered = filtered.filter(({ lesson }) => lesson.difficulty_level === difficulty)
+    if (difficultyFilter !== "all") {
+      const difficulty = parseInt(difficultyFilter);
+      filtered = filtered.filter(
+        ({ lesson }) => lesson.difficulty_level === difficulty
+      );
     }
 
     // Apply status filter
-    if (statusFilter !== 'all') {
-      const isPublished = statusFilter === 'published'
-      filtered = filtered.filter(({ lesson }) => lesson.is_published === isPublished)
+    if (statusFilter !== "all") {
+      const isPublished = statusFilter === "published";
+      filtered = filtered.filter(
+        ({ lesson }) => lesson.is_published === isPublished
+      );
     }
 
     // Apply sorting
     filtered.sort((a, b) => {
-      let comparison = 0
-      
+      let comparison = 0;
+
       switch (sortBy) {
-        case 'order':
-          comparison = a.lesson.order_index - b.lesson.order_index
-          break
-        case 'title':
-          comparison = a.lesson.title.localeCompare(b.lesson.title)
-          break
-        case 'difficulty':
-          comparison = (a.lesson.difficulty_level || 0) - (b.lesson.difficulty_level || 0)
-          break
+        case "order":
+          comparison =
+            (a.lesson.order_index || 0) - (b.lesson.order_index || 0);
+          break;
+        case "title":
+          comparison = a.lesson.title.localeCompare(b.lesson.title);
+          break;
+        case "difficulty":
+          comparison =
+            (a.lesson.difficulty_level || 0) - (b.lesson.difficulty_level || 0);
+          break;
       }
-      
-      return sortOrder === 'asc' ? comparison : -comparison
-    })
 
-    setFilteredLessons(filtered)
-  }
+      return sortOrder === "asc" ? comparison : -comparison;
+    });
 
-  const handleDeleteLesson = async (lesson: LessonRow) => {
-    if (!confirm(`Are you sure you want to delete "${lesson.title}"?`)) {
-      return
-    }
+    setFilteredLessons(filtered);
+  };
 
-    try {
-      const result = await deleteLesson(lesson.id)
-      
-      if (!result.success) {
-        toast({
-          title: 'Error deleting lesson',
-          description: (result as any).error,
-          variant: 'destructive',
-        })
-        return
-      }
-      
-      toast({
-        title: 'Lesson deleted',
-        description: `"${lesson.title}" has been deleted successfully.`,
-      })
-      await loadLessons()
-    } catch (error) {
-      toast({
-        title: 'Error deleting lesson',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      })
-    }
-  }
 
   const toggleSortOrder = () => {
-    setSortOrder(current => current === 'asc' ? 'desc' : 'asc')
-  }
+    setSortOrder((current) => (current === "asc" ? "desc" : "asc"));
+  };
 
-  const handlePublishStatusChange = async (updatedLesson: LessonRow) => {
-    // Update the lesson in our local state
-    setLessons(current => 
-      current.map(item => 
-        item.lesson.id === updatedLesson.id 
-          ? { ...item, lesson: updatedLesson }
-          : item
-      )
-    )
-  }
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string)
-  }
+    setActiveId(event.active.id as string);
+  };
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
+    const { active, over } = event;
 
-    if (active.id !== over?.id && canEdit && sortBy === 'order') {
-      const oldIndex = filteredLessons.findIndex(item => item.lesson.id === active.id)
-      const newIndex = filteredLessons.findIndex(item => item.lesson.id === over?.id)
+    if (active.id !== over?.id && canEdit && sortBy === "order") {
+      const oldIndex = filteredLessons.findIndex(
+        (item) => item.lesson.id === active.id
+      );
+      const newIndex = filteredLessons.findIndex(
+        (item) => item.lesson.id === over?.id
+      );
 
       if (oldIndex !== -1 && newIndex !== -1) {
         // Update local state immediately for responsive UI
-        const newFilteredLessons = arrayMove(filteredLessons, oldIndex, newIndex)
-        setFilteredLessons(newFilteredLessons)
+        const newFilteredLessons = arrayMove(
+          filteredLessons,
+          oldIndex,
+          newIndex
+        );
+        setFilteredLessons(newFilteredLessons);
 
         // Update order indexes
         const lessonOrders = newFilteredLessons.map((item, index) => ({
           id: item.lesson.id,
-          order_index: index
-        }))
+          order_index: index,
+        }));
 
         // Call the reorder API
         try {
           const result = await reorderLessons({
             curriculum_id: curriculumId,
-            lesson_orders: lessonOrders
-          })
+            lesson_orders: lessonOrders,
+          });
 
           if (!result.success) {
             toast({
-              title: 'Error reordering lessons',
+              title: "Error reordering lessons",
               description: result.error,
-              variant: 'destructive',
-            })
+              variant: "destructive",
+            });
             // Reload lessons to restore original order
-            await loadLessons()
+            await loadLessons();
           } else {
             toast({
-              title: 'Lessons reordered',
-              description: 'The lesson order has been updated successfully.',
-            })
+              title: "Lessons reordered",
+              description: "The lesson order has been updated successfully.",
+            });
           }
         } catch (error) {
           toast({
-            title: 'Error reordering lessons',
-            description: 'An unexpected error occurred',
-            variant: 'destructive',
-          })
-          await loadLessons()
+            title: "Error reordering lessons",
+            description: "An unexpected error occurred",
+            variant: "destructive",
+          });
+          await loadLessons();
         }
       }
     }
 
-    setActiveId(null)
-  }
+    setActiveId(null);
+  };
 
-  const activeLesson = activeId ? filteredLessons.find(item => item.lesson.id === activeId) : null
+  const activeLesson = activeId
+    ? filteredLessons.find((item) => item.lesson.id === activeId)
+    : null;
 
   if (isLoading) {
     return (
-      <div className={cn('space-y-6', className)}>
+      <div className={cn("space-y-6", className)}>
         <div className="flex items-center justify-between">
           <Skeleton className="h-8 w-32" />
           <Skeleton className="h-10 w-24" />
@@ -355,17 +394,15 @@ export function LessonList({
           ))}
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className={cn('space-y-6', className)}>
+    <div className={cn("space-y-6", className)}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">
-          Lessons ({lessons.length})
-        </h2>
-        
+        <h2 className="text-lg font-semibold">Lessons ({lessons.length})</h2>
+
         {onCreateLesson && (
           <Button onClick={onCreateLesson}>
             <Plus className="h-4 w-4 mr-2" />
@@ -387,22 +424,22 @@ export function LessonList({
             />
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {/* View Toggle */}
           <div className="flex items-center border rounded-md">
             <Button
-              variant={viewMode === 'cards' ? 'default' : 'ghost'}
+              variant={viewMode === "cards" ? "default" : "ghost"}
               size="sm"
-              onClick={() => setViewMode('cards')}
+              onClick={() => setViewMode("cards")}
               className="rounded-r-none"
             >
               <LayoutGrid className="h-4 w-4" />
             </Button>
             <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
-              onClick={() => setViewMode('list')}
+              onClick={() => setViewMode("list")}
               className="rounded-l-none"
             >
               <List className="h-4 w-4" />
@@ -440,22 +477,26 @@ export function LessonList({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
-                {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                {sortOrder === "asc" ? (
+                  <SortAsc className="h-4 w-4" />
+                ) : (
+                  <SortDesc className="h-4 w-4" />
+                )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setSortBy('order')}>
+              <DropdownMenuItem onClick={() => setSortBy("order")}>
                 Sort by Order
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy('title')}>
+              <DropdownMenuItem onClick={() => setSortBy("title")}>
                 Sort by Title
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy('difficulty')}>
+              <DropdownMenuItem onClick={() => setSortBy("difficulty")}>
                 Sort by Difficulty
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={toggleSortOrder}>
-                {sortOrder === 'asc' ? 'Sort Descending' : 'Sort Ascending'}
+                {sortOrder === "asc" ? "Sort Descending" : "Sort Ascending"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -467,13 +508,14 @@ export function LessonList({
         <div className="text-center py-12">
           <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">
-            {lessons.length === 0 ? 'No lessons yet' : 'No lessons match your filters'}
+            {lessons.length === 0
+              ? "No lessons yet"
+              : "No lessons match your filters"}
           </h3>
           <p className="text-muted-foreground mb-4">
-            {lessons.length === 0 
-              ? 'Create your first lesson to get started with this curriculum.'
-              : 'Try adjusting your search or filter criteria.'
-            }
+            {lessons.length === 0
+              ? "Create your first lesson to get started with this curriculum."
+              : "Try adjusting your search or filter criteria."}
           </p>
           {lessons.length === 0 && onCreateLesson && (
             <Button onClick={onCreateLesson}>
@@ -482,7 +524,7 @@ export function LessonList({
             </Button>
           )}
         </div>
-      ) : viewMode === 'cards' ? (
+      ) : viewMode === "cards" ? (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -491,7 +533,7 @@ export function LessonList({
         >
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <SortableContext
-              items={filteredLessons.map(item => item.lesson.id)}
+              items={filteredLessons.map((item) => item.lesson.id)}
               strategy={verticalListSortingStrategy}
             >
               {filteredLessons.map(({ lesson, quiz_count }) => (
@@ -499,13 +541,24 @@ export function LessonList({
                   key={lesson.id}
                   lesson={lesson}
                   quizCount={quiz_count}
-                  onEdit={onEditLesson}
-                  onDelete={handleDeleteLesson}
-                  onView={onViewLesson}
-                  onAddQuiz={onAddQuiz}
-                  onPublishStatusChange={handlePublishStatusChange}
+                  onEdit={
+                    onEditLesson
+                      ? (lesson) => onEditLesson(convertToApiFormat(lesson))
+                      : undefined
+                  }
+                  onDelete={onDeleteLesson ? (lesson) => onDeleteLesson(convertToApiFormat(lesson)) : undefined}
+                  onView={
+                    onViewLesson
+                      ? (lesson) => onViewLesson(convertToApiFormat(lesson))
+                      : undefined
+                  }
+                  onAddQuiz={
+                    onAddQuiz
+                      ? (lesson) => onAddQuiz(convertToApiFormat(lesson))
+                      : undefined
+                  }
                   canEdit={canEdit}
-                  showDragHandle={sortBy === 'order'}
+                  showDragHandle={sortBy === "order"}
                 />
               ))}
             </SortableContext>
@@ -516,11 +569,22 @@ export function LessonList({
                 <LessonCard
                   lesson={activeLesson.lesson}
                   quizCount={activeLesson.quiz_count}
-                  onEdit={onEditLesson}
-                  onDelete={handleDeleteLesson}
-                  onView={onViewLesson}
-                  onAddQuiz={onAddQuiz}
-                  onPublishStatusChange={handlePublishStatusChange}
+                  onEdit={
+                    onEditLesson
+                      ? (lesson) => onEditLesson(convertToApiFormat(lesson))
+                      : undefined
+                  }
+                  onDelete={onDeleteLesson ? (lesson) => onDeleteLesson(convertToApiFormat(lesson)) : undefined}
+                  onView={
+                    onViewLesson
+                      ? (lesson) => onViewLesson(convertToApiFormat(lesson))
+                      : undefined
+                  }
+                  onAddQuiz={
+                    onAddQuiz
+                      ? (lesson) => onAddQuiz(convertToApiFormat(lesson))
+                      : undefined
+                  }
                   canEdit={canEdit}
                 />
               </div>
@@ -530,14 +594,25 @@ export function LessonList({
       ) : (
         <LessonListView
           lessons={filteredLessons}
-          onEdit={onEditLesson}
-          onDelete={handleDeleteLesson}
-          onView={onViewLesson}
-          onAddQuiz={onAddQuiz}
-          onPublishStatusChange={handlePublishStatusChange}
+          onEdit={
+            onEditLesson
+              ? (lesson) => onEditLesson(convertToApiFormat(lesson))
+              : undefined
+          }
+          onDelete={onDeleteLesson ? (lesson) => onDeleteLesson(convertToApiFormat(lesson)) : undefined}
+          onView={
+            onViewLesson
+              ? (lesson) => onViewLesson(convertToApiFormat(lesson))
+              : undefined
+          }
+          onAddQuiz={
+            onAddQuiz
+              ? (lesson) => onAddQuiz(convertToApiFormat(lesson))
+              : undefined
+          }
           canEdit={canEdit}
         />
       )}
     </div>
-  )
+  );
 }

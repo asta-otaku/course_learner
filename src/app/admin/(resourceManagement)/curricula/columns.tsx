@@ -68,13 +68,13 @@ export const columns: ColumnDef<any>[] = [
     },
   },
   {
-    accessorKey: "isPublic",
+    accessorKey: "visibility",
     header: "Visibility",
     cell: ({ row }) => {
-      const isPublic = row.getValue("isPublic") as boolean;
+      const visibility = row.getValue("visibility") as string;
       return (
-        <Badge variant={isPublic ? "default" : "secondary"}>
-          {isPublic ? "Public" : "Private"}
+        <Badge variant={visibility === "PUBLIC" ? "default" : "secondary"}>
+          {visibility === "PUBLIC" ? "Public" : "Private"}
         </Badge>
       );
     },
@@ -84,7 +84,7 @@ export const columns: ColumnDef<any>[] = [
     header: "Lessons",
     cell: ({ row }) => {
       const curriculum = row.original;
-      const lessonCount = curriculum.lessons?.length || 0;
+      const lessonCount = curriculum.lessonsCount || 0;
       return (
         <div className="text-sm text-muted-foreground">
           {lessonCount} lesson{lessonCount !== 1 ? "s" : ""}
@@ -93,14 +93,14 @@ export const columns: ColumnDef<any>[] = [
     },
   },
   {
-    id: "gradeLevel",
-    header: "Grade Level",
+    id: "offerType",
+    header: "Offer Type",
     cell: ({ row }) => {
       const curriculum = row.original;
       return (
         <div className="flex items-center gap-2 text-sm">
           <User className="h-4 w-4 text-muted-foreground" />
-          <span>{curriculum.gradeLevel}</span>
+          <span>{curriculum.offerType}</span>
         </div>
       );
     },

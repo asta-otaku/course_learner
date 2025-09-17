@@ -50,12 +50,14 @@ interface Curriculum {
   id: string;
   title: string;
   description?: string | null;
-  isPublic: boolean | null;
-  gradeLevel: string;
   durationWeeks: number;
+  learningObjectives: string[];
+  tags: string[];
+  prerequisites: string[];
+  lessonsCount: number;
+  visibility: "PUBLIC" | "PRIVATE";
+  offerType: string;
   createdAt: string;
-  updatedAt: string;
-  lessons?: any[];
 }
 
 interface CurriculumListProps {
@@ -85,7 +87,7 @@ function SortableCurriculumCard({
     transition,
   };
 
-  const lessonCount = curriculum.lessons?.length || 0;
+  const lessonCount = curriculum.lessonsCount || 0;
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
@@ -113,7 +115,9 @@ function SortableCurriculumCard({
               </div>
               <CardDescription>{curriculum.description}</CardDescription>
             </div>
-            {!curriculum.isPublic && <Badge variant="secondary">Private</Badge>}
+            {curriculum.visibility === "PRIVATE" && (
+              <Badge variant="secondary">Private</Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -124,12 +128,10 @@ function SortableCurriculumCard({
                 {lessonCount} lesson{lessonCount !== 1 ? "s" : ""}
               </span>
             </div>
-            {curriculum.gradeLevel && (
-              <div className="flex items-center gap-1">
-                <User className="h-4 w-4" />
-                <span>{curriculum.gradeLevel}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-1">
+              <User className="h-4 w-4" />
+              <span>{curriculum.offerType}</span>
+            </div>
           </div>
         </CardContent>
         <CardFooter>
@@ -153,6 +155,19 @@ export function CurriculumList({ curricula, canCreate }: CurriculumListProps) {
   const [localCurricula, setLocalCurricula] = useState(curricula);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isReordering, setIsReordering] = useState(false);
+
+  // Group curricula by offer type
+  const groupedCurricula = localCurricula.reduce(
+    (acc, curriculum) => {
+      const offerType = curriculum.offerType;
+      if (!acc[offerType]) {
+        acc[offerType] = [];
+      }
+      acc[offerType].push(curriculum);
+      return acc;
+    },
+    {} as Record<string, Curriculum[]>
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -296,49 +311,80 @@ export function CurriculumList({ curricula, canCreate }: CurriculumListProps) {
 
       {/* Content based on view mode */}
       {viewMode === "cards" ? (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={localCurricula.map((c) => c.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 w-full">
-              {localCurricula.map((curriculum) => (
-                <SortableCurriculumCard
-                  key={curriculum.id}
-                  curriculum={curriculum}
-                  canEdit={canCreate}
-                />
-              ))}
-            </div>
-          </SortableContext>
-          <DragOverlay>
-            {activeId ? (
-              <div className="opacity-50">
-                <SortableCurriculumCard
-                  curriculum={localCurricula.find((c) => c.id === activeId)!}
-                  canEdit={false}
+        <div className="space-y-8">
+          {Object.entries(groupedCurricula)
+            .slice()
+            .reverse()
+            .map(([offerType, curricula]) => (
+              <div key={offerType} className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold">{offerType}</h3>
+                  <Badge variant="outline">
+                    {curricula.length} curriculum
+                    {curricula.length !== 1 ? "a" : ""}
+                  </Badge>
+                </div>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={curricula.map((c) => c.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 w-full">
+                      {curricula.map((curriculum) => (
+                        <SortableCurriculumCard
+                          key={curriculum.id}
+                          curriculum={curriculum}
+                          canEdit={canCreate}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                  <DragOverlay>
+                    {activeId ? (
+                      <div className="opacity-50">
+                        <SortableCurriculumCard
+                          curriculum={
+                            localCurricula.find((c) => c.id === activeId)!
+                          }
+                          canEdit={false}
+                        />
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
+              </div>
+            ))}
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {Object.entries(groupedCurricula)
+            .slice()
+            .reverse()
+            .map(([offerType, curricula]) => (
+              <div key={offerType} className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold">{offerType}</h3>
+                  <Badge variant="outline">
+                    {curricula.length} curriculum
+                    {curricula.length !== 1 ? "a" : ""}
+                  </Badge>
+                </div>
+                <DataTable
+                  columns={columns}
+                  data={curricula}
+                  enableRowSelection={true}
+                  rowSelection={selectedCurriculumIds}
+                  onRowSelectionChange={setSelectedCurriculumIds}
+                  hidePagination={true}
                 />
               </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={localCurricula}
-          pageCount={1}
-          page={1}
-          pageSize={localCurricula.length}
-          totalItems={localCurricula.length}
-          enableRowSelection={true}
-          rowSelection={selectedCurriculumIds}
-          onRowSelectionChange={setSelectedCurriculumIds}
-        />
+            ))}
+        </div>
       )}
     </div>
   );

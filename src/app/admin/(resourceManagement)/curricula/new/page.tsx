@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardContent,
@@ -29,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { getCategories } from "@/app/actions/curricula";
 import { usePostCurriculum } from "@/lib/api/mutations";
+import { useGetSubscriptionPlansWithIds } from "@/lib/api/queries";
 import type { Curriculum } from "@/lib/types";
 
 export default function NewCurriculumPage() {
@@ -41,17 +41,23 @@ export default function NewCurriculumPage() {
       icon: string | null;
     }>
   >([]);
+
+  // Get subscription plans
+  const { data: subscriptionPlansData } = useGetSubscriptionPlansWithIds();
+  const subscriptionPlans = subscriptionPlansData?.data || [];
   const [formData, setFormData] = useState<Partial<Curriculum>>({
     title: "",
     description: "",
-    gradeLevel: "",
+    subscriptionPlanId: "",
     durationWeeks: 1,
-    objectives: [],
+    learningObjectives: [],
     prerequisites: [],
-    isPublic: false,
+    tags: [],
+    visibility: "PRIVATE",
   });
   const [objectiveInput, setObjectiveInput] = useState("");
   const [prerequisiteInput, setPrerequisiteInput] = useState("");
+  const [tagInput, setTagInput] = useState("");
 
   // Use the mutation hook
   const { mutate: createCurriculum, isPending: isCreating } =
@@ -73,16 +79,16 @@ export default function NewCurriculumPage() {
       return;
     }
 
-    if (!formData.gradeLevel) {
-      toast.error("Please select a grade level");
+    if (!formData.subscriptionPlanId) {
+      toast.error("Please select a subscription plan");
       return;
     }
 
     createCurriculum(formData as Curriculum, {
-      onSuccess: (response) => {
+      onSuccess: async (response) => {
         if (response.data?.data) {
           toast.success("Curriculum created successfully!");
-          const curriculumId = (response.data.data as any).id;
+          const curriculumId = await (response.data.data as any).id;
           router.push(`/admin/curricula/${curriculumId}`);
         } else {
           toast.error("Failed to create curriculum. Please try again.");
@@ -99,7 +105,10 @@ export default function NewCurriculumPage() {
     if (objectiveInput.trim()) {
       setFormData({
         ...formData,
-        objectives: [...(formData.objectives || []), objectiveInput.trim()],
+        learningObjectives: [
+          ...(formData.learningObjectives || []),
+          objectiveInput.trim(),
+        ],
       });
       setObjectiveInput("");
     }
@@ -108,7 +117,9 @@ export default function NewCurriculumPage() {
   const removeObjective = (index: number) => {
     setFormData({
       ...formData,
-      objectives: (formData.objectives || []).filter((_, i) => i !== index),
+      learningObjectives: (formData.learningObjectives || []).filter(
+        (_, i) => i !== index
+      ),
     });
   };
 
@@ -125,12 +136,29 @@ export default function NewCurriculumPage() {
     }
   };
 
+  const addTag = () => {
+    if (tagInput.trim() && !(formData.tags || []).includes(tagInput.trim())) {
+      setFormData({
+        ...formData,
+        tags: [...(formData.tags || []), tagInput.trim()],
+      });
+      setTagInput("");
+    }
+  };
+
   const removePrerequisite = (index: number) => {
     setFormData({
       ...formData,
       prerequisites: (formData.prerequisites || []).filter(
         (_, i) => i !== index
       ),
+    });
+  };
+
+  const removeTag = (index: number) => {
+    setFormData({
+      ...formData,
+      tags: (formData.tags || []).filter((_, i) => i !== index),
     });
   };
 
@@ -189,22 +217,22 @@ export default function NewCurriculumPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="gradeLevel">Grade Level *</Label>
+                  <Label htmlFor="subscriptionPlan">Subscription Plan *</Label>
                   <Select
-                    value={formData.gradeLevel || ""}
+                    value={formData.subscriptionPlanId || ""}
                     onValueChange={(value) =>
-                      setFormData({ ...formData, gradeLevel: value })
+                      setFormData({ ...formData, subscriptionPlanId: value })
                     }
                   >
-                    <SelectTrigger id="gradeLevel">
-                      <SelectValue placeholder="Select grade level" />
+                    <SelectTrigger id="subscriptionPlan">
+                      <SelectValue placeholder="Select subscription plan" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Year One</SelectItem>
-                      <SelectItem value="2">Year Two</SelectItem>
-                      <SelectItem value="3">Year Three</SelectItem>
-                      <SelectItem value="4">Year Four</SelectItem>
-                      <SelectItem value="5">Year Five</SelectItem>
+                      {subscriptionPlans.map((plan) => (
+                        <SelectItem key={plan.id} value={plan.id}>
+                          {plan.offerType}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -227,15 +255,22 @@ export default function NewCurriculumPage() {
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="public"
-                    checked={formData.isPublic || false}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, isPublic: checked })
+                <div>
+                  <Label htmlFor="visibility">Visibility</Label>
+                  <Select
+                    value={formData.visibility || "PRIVATE"}
+                    onValueChange={(value: "PRIVATE" | "PUBLIC") =>
+                      setFormData({ ...formData, visibility: value })
                     }
-                  />
-                  <Label htmlFor="public">Make this curriculum public</Label>
+                  >
+                    <SelectTrigger id="visibility">
+                      <SelectValue placeholder="Select visibility" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PRIVATE">Private</SelectItem>
+                      <SelectItem value="PUBLIC">Public</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
@@ -253,32 +288,39 @@ export default function NewCurriculumPage() {
                     value={objectiveInput}
                     onChange={(e) => setObjectiveInput(e.target.value)}
                     placeholder="Add a learning objective..."
-                    onKeyPress={(e) => e.key === "Enter" && addObjective()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addObjective();
+                      }
+                    }}
                   />
                   <Button type="button" onClick={addObjective} size="icon">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
 
-                {(formData.objectives || []).length > 0 && (
+                {(formData.learningObjectives || []).length > 0 && (
                   <div className="space-y-2">
-                    {(formData.objectives || []).map((objective, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Badge
-                          variant="secondary"
-                          className="flex-1 justify-between"
-                        >
-                          {objective}
-                          <button
-                            type="button"
-                            onClick={() => removeObjective(index)}
-                            className="ml-2"
+                    {(formData.learningObjectives || []).map(
+                      (objective, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Badge
+                            variant="secondary"
+                            className="flex-1 justify-between"
                           >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      </div>
-                    ))}
+                            {objective}
+                            <button
+                              type="button"
+                              onClick={() => removeObjective(index)}
+                              className="ml-2"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        </div>
+                      )
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -297,7 +339,12 @@ export default function NewCurriculumPage() {
                     value={prerequisiteInput}
                     onChange={(e) => setPrerequisiteInput(e.target.value)}
                     placeholder="Add a prerequisite..."
-                    onKeyPress={(e) => e.key === "Enter" && addPrerequisite()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addPrerequisite();
+                      }
+                    }}
                   />
                   <Button type="button" onClick={addPrerequisite} size="icon">
                     <Plus className="h-4 w-4" />
@@ -325,6 +372,55 @@ export default function NewCurriculumPage() {
                         </div>
                       )
                     )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Tags</CardTitle>
+                <CardDescription>
+                  Add tags to help categorize and search for this curriculum
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    placeholder="Add a tag..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addTag();
+                      }
+                    }}
+                  />
+                  <Button type="button" onClick={addTag} size="icon">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {(formData.tags || []).length > 0 && (
+                  <div className="space-y-2">
+                    {(formData.tags || []).map((tag, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className="flex-1 justify-between"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => removeTag(index)}
+                            className="ml-2"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>

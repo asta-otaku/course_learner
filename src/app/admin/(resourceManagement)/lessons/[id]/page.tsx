@@ -25,89 +25,37 @@ import {
   BookOpen,
   GraduationCap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-import {
-  useGetLessonById,
-  useGetQuizzesForLesson,
-  useGetCurriculum,
-} from "@/lib/api/queries";
-
-// Force dynamic rendering since this page uses authentication
-export const dynamic = "force-dynamic";
+import { useParams } from "next/navigation";
+import { useGetLessonById, useGetQuizzesForLesson } from "@/lib/api/queries";
+import { LoadingSkeleton } from "../../questions/page";
 
 export default function LessonPage() {
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
   const params = useParams();
   const id = params.id as string;
 
-  // Use React Query hooks instead of server actions
+  // Use React Query hooks to fetch lesson and quizzes data
   const {
     data: lessonResponse,
     isLoading: lessonLoading,
     error: lessonError,
   } = useGetLessonById(id);
 
-  const {
-    data: quizzesResponse,
-    isLoading: quizzesLoading,
-    error: quizzesError,
-  } = useGetQuizzesForLesson(id);
+  const { data: quizzesResponse, isLoading: quizzesLoading } =
+    useGetQuizzesForLesson(id);
 
-  const { data: curriculumResponse, isLoading: curriculumLoading } =
-    useGetCurriculum(lessonResponse?.data?.lesson?.curriculum_id);
-
-  useEffect(() => {
-    const checkAuth = () => {
-      if (typeof window !== "undefined") {
-        try {
-          const userData = JSON.parse(localStorage.getItem("admin") || "{}");
-          if (!userData || !userData.data) {
-            router.push("/admin/sign-in");
-            return;
-          }
-
-          const userRole = userData.data.userRole;
-          if (userRole !== "teacher" && userRole !== "admin") {
-            router.push("/admin/sign-in");
-            return;
-          }
-
-          setIsAuthorized(true);
-        } catch (error) {
-          console.error("Error:", error);
-          router.push("/admin/sign-in");
-          return;
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    checkAuth();
-  }, [router]);
-
-  if (isLoading) {
+  if (lessonLoading || quizzesLoading) {
     return <LoadingSkeleton />;
-  }
-
-  if (!isAuthorized) {
-    return null; // Will redirect in useEffect
   }
 
   if (lessonError || !lessonResponse?.data) {
     notFound();
   }
 
-  const { lesson, quiz_count } = lessonResponse.data;
-  const curriculum = curriculumResponse?.data?.curriculum;
-  const quizzes = quizzesResponse?.data?.quizzes || [];
+  const lesson = lessonResponse.data;
+  const quizzes = (quizzesResponse?.data || []) as any[];
 
-  // TODO: Replace with proper authentication check
-  const user = null; // Placeholder for now
-  const canEdit = false; // Placeholder for now
+  // For now, allow editing for all users
+  const canEdit = true;
 
   const getDifficultyLabel = (level: number | null) => {
     if (!level) return "Not Set";
@@ -128,18 +76,18 @@ export default function LessonPage() {
   return (
     <div className="mx-auto py-6 max-w-6xl">
       {/* Unpublished Banner */}
-      {!lesson.is_published && (
+      {!lesson.isActive && (
         <UnpublishedBanner status="unpublished" type="lesson" />
       )}
 
       {/* Breadcrumb */}
       <div className="mb-6">
         <Link
-          href={curriculum ? `/curricula/${curriculum.id}` : "/curricula"}
+          href="/admin/curricula"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-primary"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          {curriculum ? curriculum.title : "Back to Curricula"}
+          Back to Curricula
         </Link>
       </div>
 
@@ -151,17 +99,15 @@ export default function LessonPage() {
             <p className="text-muted-foreground">{lesson.description}</p>
           )}
           <div className="flex items-center gap-3 mt-3">
-            {lesson.duration_minutes && (
+            {lesson.durationMinutes && (
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                <span>{lesson.duration_minutes} minutes</span>
+                <span>{lesson.durationMinutes} minutes</span>
               </div>
             )}
-            <Badge className={getDifficultyColor(lesson.difficulty_level)}>
-              {getDifficultyLabel(lesson.difficulty_level)}
-            </Badge>
-            <Badge variant={lesson.is_published ? "default" : "secondary"}>
-              {lesson.is_published ? "Published" : "Draft"}
+            <Badge className="bg-gray-100 text-gray-800">Not Set</Badge>
+            <Badge variant={lesson.isActive ? "default" : "secondary"}>
+              {lesson.isActive ? "Published" : "Draft"}
             </Badge>
           </div>
         </div>
@@ -188,55 +134,33 @@ export default function LessonPage() {
         <TabsContent value="details" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             {/* Learning Objectives */}
-            {lesson.learning_objectives &&
-              lesson.learning_objectives.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Target className="h-5 w-5" />
-                      Learning Objectives
-                    </CardTitle>
-                    <CardDescription>
-                      What students will learn from this lesson
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2">
-                      {lesson.learning_objectives.map((objective, index) => (
-                        <li key={index} className="flex items-start gap-2">
-                          <span className="text-primaryBlue mt-1">•</span>
-                          <span>{objective}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              )}
-
-            {/* Prerequisites */}
-            {lesson.prerequisites && lesson.prerequisites.length > 0 && (
+            {lesson.objectives && lesson.objectives.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5" />
-                    Prerequisites
+                    <Target className="h-5 w-5" />
+                    Learning Objectives
                   </CardTitle>
                   <CardDescription>
-                    What students should know before starting
+                    What students will learn from this lesson
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {lesson.prerequisites.map((prerequisite, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="text-muted-foreground mt-1">•</span>
-                        <span>{prerequisite}</span>
-                      </li>
-                    ))}
+                    {lesson.objectives.map(
+                      (objective: string, index: number) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-primaryBlue mt-1">•</span>
+                          <span>{objective}</span>
+                        </li>
+                      )
+                    )}
                   </ul>
                 </CardContent>
               </Card>
             )}
+
+            {/* Prerequisites - Not available in current Lesson interface */}
 
             {/* Lesson Info */}
             <Card>
@@ -252,8 +176,8 @@ export default function LessonPage() {
                     Duration:
                   </span>
                   <p className="font-medium">
-                    {lesson.duration_minutes
-                      ? `${lesson.duration_minutes} minutes`
+                    {lesson.durationMinutes
+                      ? `${lesson.durationMinutes} minutes`
                       : "Not specified"}
                   </p>
                 </div>
@@ -261,21 +185,19 @@ export default function LessonPage() {
                   <span className="text-sm text-muted-foreground">
                     Difficulty:
                   </span>
-                  <p className="font-medium">
-                    {getDifficultyLabel(lesson.difficulty_level)}
-                  </p>
+                  <p className="font-medium">Not Set</p>
                 </div>
                 <div>
                   <span className="text-sm text-muted-foreground">Status:</span>
                   <p className="font-medium">
-                    {lesson.is_published ? "Published" : "Draft"}
+                    {lesson.isActive ? "Published" : "Draft"}
                   </p>
                 </div>
                 <div>
                   <span className="text-sm text-muted-foreground">
                     Order in curriculum:
                   </span>
-                  <p className="font-medium">Lesson {lesson.order_index + 1}</p>
+                  <p className="font-medium">Lesson {lesson.orderIndex + 1}</p>
                 </div>
               </CardContent>
             </Card>
@@ -301,20 +223,23 @@ export default function LessonPage() {
                       Quiz Types:
                     </span>
                     <div className="flex flex-wrap gap-2 mt-1">
-                      {quizzes.filter((q) => q.status === "published").length >
-                        0 && (
+                      {quizzes.filter((q: any) => q.status === "published")
+                        .length > 0 && (
                         <Badge variant="default">
                           {
-                            quizzes.filter((q) => q.status === "published")
+                            quizzes.filter((q: any) => q.status === "published")
                               .length
                           }{" "}
                           Published
                         </Badge>
                       )}
-                      {quizzes.filter((q) => q.status === "draft").length >
+                      {quizzes.filter((q: any) => q.status === "draft").length >
                         0 && (
                         <Badge variant="secondary">
-                          {quizzes.filter((q) => q.status === "draft").length}{" "}
+                          {
+                            quizzes.filter((q: any) => q.status === "draft")
+                              .length
+                          }{" "}
                           Draft
                         </Badge>
                       )}

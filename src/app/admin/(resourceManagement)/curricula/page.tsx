@@ -43,7 +43,7 @@ export default function CurriculaPage() {
   }
 
   const curricula = curriculaResponse.curricula || [];
-  const canCreate = true; // For now, allow all users to create curricula
+  const canCreate = true;
 
   return (
     <div className="w-full p-4 md:p-6">

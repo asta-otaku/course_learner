@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { getLessonsWithQuizCounts } from "@/app/actions/lessons";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,25 +23,7 @@ import {
 } from "lucide-react";
 import { useGetCurriculum } from "@/lib/api/queries";
 import { useEffect, useState } from "react";
-
-interface CurriculumWithRelations {
-  id: string;
-  title: string;
-  description?: string | null;
-  isPublic: boolean | null;
-  objectives: string[] | null;
-  prerequisites: string[] | null;
-  created_by: string;
-  category?: {
-    id: string;
-    name: string;
-  };
-  created_by_profile?: {
-    id: string;
-    full_name?: string;
-    username?: string;
-  };
-}
+import { LoadingSkeleton } from "../../questions/page";
 
 interface CurriculumPageProps {
   params: Promise<{
@@ -52,17 +33,14 @@ interface CurriculumPageProps {
 
 export default function CurriculumPage({ params }: CurriculumPageProps) {
   const [id, setId] = useState<string>("");
-  const [lessons, setLessons] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const {
     data: curriculumData,
     isLoading: curriculumLoading,
     error,
   } = useGetCurriculum(id);
-  const curriculum = curriculumData?.data as
-    | CurriculumWithRelations
-    | undefined;
+  const curriculum = curriculumData?.data;
+  const lessons = curriculum?.lessons || [];
 
   useEffect(() => {
     const getParams = async () => {
@@ -72,29 +50,8 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
     getParams();
   }, [params]);
 
-  useEffect(() => {
-    const fetchLessons = async () => {
-      if (!id) return;
-
-      try {
-        const lessonsResult = await getLessonsWithQuizCounts(id);
-        const lessonsData = lessonsResult.success ? lessonsResult.data : [];
-        setLessons(lessonsData);
-      } catch (error) {
-        console.error("Error fetching lessons:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchLessons();
-  }, [id]);
-
-  // TODO: Replace with user context or API call to get user
-  const user = null; // Placeholder for now
-
-  if (curriculumLoading || loading) {
-    return <div>Loading...</div>;
+  if (curriculumLoading) {
+    return <LoadingSkeleton />;
   }
 
   if (error || !curriculum) {
@@ -102,7 +59,7 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
   }
 
   // @ts-ignore
-  const canEdit = user?.id === curriculum.created_by || false;
+  const canEdit = true;
 
   return (
     <div className="mx-auto py-6">
@@ -116,13 +73,13 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
             <p className="text-muted-foreground">{curriculum.description}</p>
           )}
           <div className="flex items-center gap-2 mt-3">
-            {curriculum.category && (
-              <Badge variant="secondary">
-                <BookOpen className="h-3 w-3 mr-1" />
-                {curriculum.category.name}
-              </Badge>
+            <Badge variant="secondary">
+              <BookOpen className="h-3 w-3 mr-1" />
+              {curriculum.offerType}
+            </Badge>
+            {curriculum.visibility === "PRIVATE" && (
+              <Badge variant="outline">Private</Badge>
             )}
-            {!curriculum.isPublic && <Badge variant="outline">Private</Badge>}
           </div>
         </div>
 
@@ -130,7 +87,7 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
           {canEdit && (
             <>
               <Button asChild>
-                <Link href={`/curricula/${curriculum.id}/edit`}>
+                <Link href={`/admin/curricula/${curriculum.id}/edit`}>
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Curriculum
                 </Link>
@@ -138,7 +95,8 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
               <CurriculumActions
                 curriculumId={curriculum.id}
                 canEdit={canEdit}
-                isPublic={curriculum.isPublic ?? false}
+                isPublic={curriculum.visibility === "PUBLIC"}
+                curriculum={curriculum}
               />
             </>
           )}
@@ -148,7 +106,7 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
       {/* Main Content */}
       <div className="space-y-6">
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-5">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Status</CardDescription>
@@ -156,7 +114,7 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
             <CardContent>
               <div className="flex items-baseline gap-1">
                 <div className="text-lg font-semibold">
-                  {curriculum.isPublic ? "Public" : "Private"}
+                  {curriculum.visibility === "PUBLIC" ? "Public" : "Private"}
                 </div>
               </div>
             </CardContent>
@@ -167,7 +125,9 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
               <CardDescription>Lessons</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{lessons.length}</div>
+              <div className="text-2xl font-bold">
+                {curriculum.lessonsCount}
+              </div>
             </CardContent>
           </Card>
 
@@ -177,54 +137,67 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {lessons.reduce((acc, { quiz_count }) => acc + quiz_count, 0)}
+                {lessons.reduce(
+                  (acc: number, lesson: any) =>
+                    acc + (lesson.quizzesCount || 0),
+                  0
+                )}
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Created By</CardDescription>
+              <CardDescription>Offer Type</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">
-                  {curriculum.created_by_profile?.full_name ||
-                    curriculum.created_by_profile?.username ||
-                    "Unknown"}
-                </span>
+                <span className="text-sm">{curriculum.offerType}</span>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Duration</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {curriculum.durationWeeks}
+              </div>
+              <p className="text-xs text-muted-foreground">weeks</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Objectives */}
-        {curriculum.objectives && curriculum.objectives.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                Learning Objectives
-              </CardTitle>
-              <CardDescription>
-                What students will learn from this curriculum
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {curriculum.objectives.map(
-                  (objective: string, index: number) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <ChevronRight className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                      <span>{objective}</span>
-                    </li>
-                  )
-                )}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
+        {curriculum.learningObjectives &&
+          curriculum.learningObjectives.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Learning Objectives
+                </CardTitle>
+                <CardDescription>
+                  What students will learn from this curriculum
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {curriculum.learningObjectives.map(
+                    (objective: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <ChevronRight className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                        <span>{objective}</span>
+                      </li>
+                    )
+                  )}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
 
         {/* Prerequisites */}
         {curriculum.prerequisites && curriculum.prerequisites.length > 0 && (
@@ -253,8 +226,36 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
           </Card>
         )}
 
+        {/* Tags */}
+        {curriculum.tags && curriculum.tags.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Tags
+              </CardTitle>
+              <CardDescription>
+                Keywords associated with this curriculum
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {curriculum.tags.map((tag: string, index: number) => (
+                  <Badge key={index} variant="secondary">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Lessons and Quizzes */}
-        <LessonManager curriculumId={curriculum.id} canEdit={canEdit} />
+        <LessonManager
+          curriculumId={curriculum.id}
+          canEdit={canEdit}
+          lessons={lessons}
+        />
       </div>
     </div>
   );

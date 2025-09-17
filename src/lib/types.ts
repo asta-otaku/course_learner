@@ -55,6 +55,7 @@ export interface Quiz {
   scheduledFor?: string | null;
   metadata?: any;
   questions?: QuizQuestion[];
+  questionsCount?: number; // Number of questions in the quiz
   status?: "draft" | "published" | "archived";
   createdBy?: string;
   createdAt?: string;
@@ -676,9 +677,25 @@ export interface QuestionQueryOptions {
 export interface Curriculum {
   title: string;
   description: string;
-  gradeLevel: string;
+  subscriptionPlanId: string;
   durationWeeks: number;
-  objectives: string[];
+  learningObjectives: string[];
   prerequisites: string[];
-  isPublic: boolean;
+  tags: string[];
+  visibility: "PRIVATE" | "PUBLIC";
+}
+
+export interface Lesson {
+  id: string;
+  title: string;
+  description: string;
+  content: string;
+  orderIndex: number;
+  durationMinutes: number;
+  objectives: string[];
+  tags: string[];
+  quizIds: string[];
+  isActive: boolean;
+  videoUrl: string;
+  quizzesCount?: number;
 }
