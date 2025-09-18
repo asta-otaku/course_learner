@@ -18,10 +18,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AddQuizDialog } from "./add-quiz-dialog";
-import { deleteQuiz } from "@/app/actions/quizzes";
-import { toast } from "@/components/ui/use-toast";
+import { useDeleteQuiz } from "@/lib/api/mutations";
+import { toast } from "react-toastify";
 import {
   Plus,
   GraduationCap,
@@ -67,49 +77,42 @@ export function LessonQuizzes({
 }: LessonQuizzesProps) {
   const router = useRouter();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
-  const handleDeleteQuiz = async (quiz: Quiz) => {
-    if (
-      !confirm(
-        `Are you sure you want to delete "${quiz.title}"? This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
+  // Delete quiz mutation
+  const { mutate: deleteQuiz, isPending: isDeleting } = useDeleteQuiz();
 
-    setIsDeleting(quiz.id);
-    try {
-      const result = await deleteQuiz(quiz.id);
+  const handleDeleteQuiz = (quiz: Quiz) => {
+    setSelectedQuiz(quiz);
+    setShowDeleteDialog(true);
+  };
 
-      if (result.success) {
-        toast({
-          title: "Quiz deleted",
-          description: `"${quiz.title}" has been deleted successfully.`,
-        });
-        router.refresh();
-      } else {
-        toast({
-          title: "Error deleting quiz",
-          description: (result as any).error,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error deleting quiz",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(null);
+  const confirmDeleteQuiz = () => {
+    if (selectedQuiz) {
+      deleteQuiz(
+        { quizIds: [selectedQuiz.id] },
+        {
+          onSuccess: () => {
+            toast.success(
+              `"${selectedQuiz.title}" has been deleted successfully.`
+            );
+            setSelectedQuiz(null);
+            setShowDeleteDialog(false);
+            router.refresh();
+          },
+          onError: (error) => {
+            toast.error("Failed to delete quiz");
+            console.error("Delete quiz error:", error);
+          },
+        }
+      );
     }
   };
 
   const handleStartQuiz = (quizId: string) => {
     // Navigate to test mode
-    router.push(`/take-quiz/${quizId}?mode=test`);
+    router.push(`/admin/take-quiz/${quizId}?mode=test`);
   };
 
   const getStatusColor = (status: string) => {
@@ -281,7 +284,7 @@ export function LessonQuizzes({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  disabled={isDeleting === quiz.id}
+                                  disabled={isDeleting}
                                 >
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
@@ -289,7 +292,7 @@ export function LessonQuizzes({
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem
                                   onClick={() =>
-                                    router.push(`/quizzes/${quiz.id}`)
+                                    router.push(`/admin/quizzes/${quiz.id}`)
                                   }
                                 >
                                   <Eye className="h-4 w-4 mr-2" />
@@ -297,7 +300,9 @@ export function LessonQuizzes({
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() =>
-                                    router.push(`/quizzes/${quiz.id}/edit`)
+                                    router.push(
+                                      `/admin/quizzes/${quiz.id}/edit`
+                                    )
                                   }
                                 >
                                   <Edit className="h-4 w-4 mr-2" />
@@ -305,7 +310,9 @@ export function LessonQuizzes({
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() =>
-                                    router.push(`/quizzes/${quiz.id}/builder`)
+                                    router.push(
+                                      `/admin/quizzes/${quiz.id}/edit`
+                                    )
                                   }
                                 >
                                   <HelpCircle className="h-4 w-4 mr-2" />
@@ -362,6 +369,32 @@ export function LessonQuizzes({
           router.refresh();
         }}
       />
+
+      {/* Delete Quiz Alert Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the quiz "{selectedQuiz?.title}".
+              This action cannot be undone and will remove all associated
+              questions and student attempts.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteQuiz}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete Quiz"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

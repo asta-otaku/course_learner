@@ -115,7 +115,7 @@ export default function LessonPage() {
         {canEdit && (
           <div className="flex items-center gap-2">
             <Button variant="outline" asChild>
-              <Link href={`/lessons/${id}/edit`}>
+              <Link href={`/admin/lessons/${id}/edit`}>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Lesson
               </Link>
@@ -127,8 +127,8 @@ export default function LessonPage() {
       <Tabs defaultValue="details" className="space-y-4">
         <TabsList>
           <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="quizzes">Quizzes ({quizzes.length})</TabsTrigger>
           <TabsTrigger value="content">Lesson Content</TabsTrigger>
+          <TabsTrigger value="quizzes">Quizzes ({quizzes.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="space-y-4">
@@ -251,12 +251,39 @@ export default function LessonPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="quizzes" className="space-y-4">
-          <LessonQuizzes lessonId={id} quizzes={quizzes} canEdit={canEdit} />
+        <TabsContent value="content" className="space-y-4">
+          <div className="space-y-6">
+            {/* Video Section */}
+            {lesson.videoUrl && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    Lesson Video
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="aspect-video w-full">
+                    <video
+                      src={lesson.videoUrl}
+                      controls
+                      className="w-full h-full rounded-lg"
+                      preload="metadata"
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Content Section */}
+            <LessonContent content={lesson.content || ""} />
+          </div>
         </TabsContent>
 
-        <TabsContent value="content" className="space-y-4">
-          <LessonContent content={lesson.content || ""} />
+        <TabsContent value="quizzes" className="space-y-4">
+          <LessonQuizzes lessonId={id} quizzes={quizzes} canEdit={canEdit} />
         </TabsContent>
       </Tabs>
     </div>

@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Form,
   FormControl,
@@ -387,6 +388,29 @@ export function LessonForm({
                   <Input placeholder="Enter lesson description..." {...field} />
                 </FormControl>
                 <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Content Field */}
+          <FormField
+            control={form.control}
+            name="content"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Lesson Content</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Enter the main content for this lesson..."
+                    className="min-h-[200px]"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+                <p className="text-xs text-gray-500">
+                  Provide detailed content, instructions, or notes for this
+                  lesson
+                </p>
               </FormItem>
             )}
           />

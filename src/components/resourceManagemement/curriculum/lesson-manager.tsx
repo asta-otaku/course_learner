@@ -24,10 +24,6 @@ import { AddQuizDialog } from "../lessons/add-quiz-dialog";
 import { useGetLessonById } from "@/lib/api/queries";
 import { useDeleteLesson } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
-import type { Database } from "@/lib/database.types";
-
-type LessonRow = Database["public"]["Tables"]["lessons"]["Row"];
-
 // Define the lesson type from the API response
 interface LessonFromAPI {
   id: string;
