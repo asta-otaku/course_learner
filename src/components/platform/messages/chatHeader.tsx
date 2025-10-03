@@ -1,4 +1,4 @@
-import { Chat } from "@/lib/types";
+import { Chat, Message } from "@/lib/types";
 import {
   ArrowLeft,
   Send,
@@ -6,20 +6,37 @@ import {
   Smile,
   Check,
   CheckCheck,
+  MoreVertical,
+  Trash2,
 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import EmojiPicker from "emoji-picker-react";
+import { MediaMessage, TextMessage, MediaGatekeeper } from "./mediaComponents";
+import { useDeleteMessage } from "@/lib/api/mutations";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const ChatHeader = ({
   activeChat,
   chats,
   setShowChatList,
+  isTutorMode,
 }: {
   activeChat: string | null;
   chats: Chat[];
   setShowChatList: (show: boolean) => void;
+  isTutorMode: boolean;
 }) => {
   const currentChat = chats.find((chat) => chat.id === activeChat);
+  const chatName = currentChat
+    ? isTutorMode
+      ? currentChat.childName
+      : currentChat.tutorName
+    : "";
 
   return (
     <div className="bg-white border-b border-gray-200 p-4">
@@ -34,7 +51,7 @@ export const ChatHeader = ({
 
           <div className="relative">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-              {currentChat?.name
+              {chatName
                 .split(" ")
                 .map((n) => n[0])
                 .join("")
@@ -46,7 +63,7 @@ export const ChatHeader = ({
           </div>
 
           <div>
-            <h2 className="font-semibold text-gray-900">{currentChat?.name}</h2>
+            <h2 className="font-semibold text-gray-900">{chatName}</h2>
             <p className="text-sm text-gray-600 flex items-center">
               <span
                 className={`w-2 h-2 rounded-full mr-1.5 ${
@@ -116,23 +133,23 @@ export const MessageBubble = ({
   message,
   chats,
   activeChat,
+  currentUserId,
   isSending = false,
 }: {
-  message: {
-    id: number;
-    sender: string;
-    text: string;
-    timestamp: string;
-    type: string;
-    read?: boolean;
-    status?: string;
-  };
+  message: Message;
   chats: Chat[];
   activeChat: string | null;
+  currentUserId?: string;
   isSending?: boolean;
 }) => {
-  const isUser = message.sender === "user";
+  const isUser = message.senderId === currentUserId;
   const currentChat = chats.find((chat) => chat.id === activeChat);
+  const deleteMessageMutation = useDeleteMessage(message._id);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDeleteMessage = () => {
+    deleteMessageMutation.mutate();
+  };
 
   return (
     <div
@@ -140,9 +157,9 @@ export const MessageBubble = ({
     >
       {!isUser && (
         <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs mr-2">
-          {currentChat?.name
+          {message.senderName
             .split(" ")
-            .map((n) => n[0])
+            .map((n: string) => n[0])
             .join("")
             .slice(0, 2)}
         </div>
@@ -156,21 +173,57 @@ export const MessageBubble = ({
               : "bg-white text-gray-900 rounded-bl-md shadow-sm"
           } ${isSending ? "opacity-70" : ""}`}
         >
-          <div className="px-4 py-3">
-            <p className="text-sm leading-relaxed break-words">
-              {message.text}
-            </p>
+          <div className="px-3 py-2">
+            {/* Display media if present */}
+            {message.media && (
+              <div className="mb-1.5">
+                <MediaMessage
+                  mediaUrl={message.media}
+                  content={message.content}
+                  isMe={isUser}
+                />
+              </div>
+            )}
+
+            {/* Display text content */}
+            {message.content && (
+              <TextMessage content={message.content} isMe={isUser} />
+            )}
+
             <div
-              className={`flex items-center justify-between mt-1.5 ${
+              className={`flex items-center justify-between mt-1 ${
                 isUser ? "text-blue-100" : "text-gray-500"
               }`}
             >
-              <span className="text-xs">{message.timestamp}</span>
-              {isUser && (
-                <div className="flex items-center ml-2">
+              <span className="text-xs">
+                {new Date(message.createdAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+              <div className="flex items-center ml-2">
+                {isUser && (
                   <MessageStatus status={message.status} isUser={isUser} />
-                </div>
-              )}
+                )}
+                {isUser && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded-full ml-1">
+                        <MoreVertical className="w-3 h-3" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={handleDeleteMessage}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Message
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -197,7 +250,7 @@ export const MessageInput = React.memo(
   }: {
     newMessage: string;
     setNewMessage: (value: string) => void;
-    handleSendMessage: () => void;
+    handleSendMessage: (file?: File) => void;
     inputRef: React.RefObject<HTMLTextAreaElement | null>;
     isTyping?: boolean;
     isTutorMode?: boolean;
@@ -205,13 +258,20 @@ export const MessageInput = React.memo(
   }) => {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showQuickResponses, setShowQuickResponses] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [filePreview, setFilePreview] = useState<string | null>(null);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
     const quickResponsesRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        handleSendMessage();
+        handleSendMessage(selectedFile || undefined);
+        // Clear file after sending (same as Send button)
+        if (selectedFile) {
+          handleRemoveFile();
+        }
       }
     };
 
@@ -250,6 +310,42 @@ export const MessageInput = React.memo(
       if (inputRef.current) {
         inputRef.current.focus();
       }
+    };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        setSelectedFile(file);
+
+        // Create preview for images
+        if (file.type.startsWith("image/")) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            setFilePreview(e.target?.result as string);
+          };
+          reader.readAsDataURL(file);
+        } else {
+          setFilePreview(null);
+        }
+      }
+    };
+
+    const handleFileClick = () => {
+      fileInputRef.current?.click();
+    };
+
+    const handleRemoveFile = () => {
+      setSelectedFile(null);
+      setFilePreview(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    };
+
+    const handleSendWithFile = () => {
+      handleSendMessage(selectedFile || undefined);
+      // Clear file after sending
+      handleRemoveFile();
     };
 
     // Close emoji picker and quick responses when clicking outside
@@ -310,10 +406,67 @@ export const MessageInput = React.memo(
           </div>
         )}
 
+        {/* File Preview */}
+        {selectedFile && (
+          <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                {filePreview ? (
+                  <img
+                    src={filePreview}
+                    alt="Preview"
+                    className="w-12 h-12 object-cover rounded-lg"
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <Paperclip className="w-6 h-6 text-gray-500" />
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium text-gray-900 truncate max-w-48">
+                    {selectedFile.name}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleRemoveFile}
+                className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <svg
+                  className="w-4 h-4 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-end space-x-2">
-          <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+          <button
+            onClick={handleFileClick}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
             <Paperclip className="w-5 h-5 text-gray-600" />
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleFileSelect}
+            className="hidden"
+            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+          />
 
           <div className="flex-1 relative bg-gray-100 rounded-2xl">
             <textarea
@@ -325,8 +478,8 @@ export const MessageInput = React.memo(
                 isTyping
                   ? "They are typing..."
                   : isTutorMode
-                  ? "Type your response..."
-                  : "Type your message..."
+                    ? "Type your response..."
+                    : "Type your message..."
               }
               className="w-full px-4 py-3 bg-transparent border-0 resize-none focus:outline-none focus:ring-0 max-h-32 text-sm"
               rows={1}
@@ -341,10 +494,10 @@ export const MessageInput = React.memo(
           </div>
 
           <button
-            onClick={handleSendMessage}
-            disabled={!newMessage.trim() || isTyping}
+            onClick={handleSendWithFile}
+            disabled={(!newMessage.trim() && !selectedFile) || isTyping}
             className={`p-3 rounded-full transition-all ${
-              newMessage.trim() && !isTyping
+              (newMessage.trim() || selectedFile) && !isTyping
                 ? "bg-blue-500 hover:bg-blue-600 transform hover:scale-105"
                 : "bg-gray-300 cursor-not-allowed"
             }`}

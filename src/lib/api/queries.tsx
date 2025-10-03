@@ -17,6 +17,8 @@ import {
   Quiz,
   Curriculum,
   Lesson,
+  Chat,
+  Message,
 } from "../types";
 
 // User Queries
@@ -703,5 +705,57 @@ export const useGetQuizzesForLesson = (lessonId: string) => {
       return response.data;
     },
     enabled: !!lessonId,
+  });
+};
+
+// Chats
+export const useGetTutorChatList = () => {
+  return useQuery({
+    queryKey: ["tutor-chat-list"],
+    queryFn: async (): Promise<APIGetResponse<Chat[]>> => {
+      const response = await axiosInstance.get("/chat/tutor");
+      return response.data;
+    },
+  });
+};
+
+export const useGetStudentChatList = ({ childId }: { childId: string }) => {
+  return useQuery({
+    queryKey: ["student-chat-list"],
+    queryFn: async (): Promise<APIGetResponse<Chat[]>> => {
+      const response = await axiosInstance.get(
+        `/chat/child?childId=${childId}`
+      );
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+};
+
+export const useGetChatMessages = (
+  chatId: string,
+  page: number = 1,
+  limit: number = 20
+) => {
+  return useQuery({
+    queryKey: ["chat-messages", chatId, page],
+    queryFn: async (): Promise<APIGetResponse<Message[]>> => {
+      const response = await axiosInstance.get(
+        `/chat/${chatId}/messages?page=${page}&limit=${limit}`
+      );
+      return response.data;
+    },
+    enabled: !!chatId,
+  });
+};
+
+export const useGetChatById = (chatId: string) => {
+  return useQuery({
+    queryKey: ["chat", chatId],
+    queryFn: async (): Promise<APIGetResponse<Chat>> => {
+      const response = await axiosInstance.get(`/chat/${chatId}`);
+      return response.data;
+    },
+    enabled: !!chatId,
   });
 };

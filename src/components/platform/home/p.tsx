@@ -16,11 +16,11 @@ function Home() {
     <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
       <div className="flex items-center gap-2">
         <Image
-          src={profileIcon}
+          src={activeProfile?.avatar || profileIcon}
           alt="Profile Icon"
           width={0}
           height={0}
-          className="w-fit"
+          className="rounded-full"
         />
         <div className="flex flex-col gap-1 items-start">
           <p className="uppercase font-medium text-sm text-textSubtitle ml-1">

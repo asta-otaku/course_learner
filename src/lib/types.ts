@@ -153,17 +153,6 @@ export interface APISession {
   createdAt: string;
   updatedAt: string;
 }
-
-export interface Chat {
-  id: string;
-  name: string;
-  lastMessage: string;
-  lastTime: string;
-  unread: number;
-  online: boolean;
-  role: string;
-}
-
 export interface TutorProfile {
   id: string;
   name: string;
@@ -698,4 +687,37 @@ export interface Lesson {
   isActive: boolean;
   videoUrl: string;
   quizzesCount?: number;
+}
+
+export interface Chat {
+  _id: string;
+  tutorId: string;
+  childId: string;
+  tutorName: string;
+  childName: string;
+  lastMessagePreview: string | null;
+  lastMessageAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  id: string;
+  unreadCount: number;
+  online?: boolean;
+  name?: string; // For backward compatibility
+}
+
+export interface Message {
+  _id: string;
+  chatId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: string;
+  content: string;
+  media: string | null;
+  type: string;
+  status: string;
+  isReadByRecipient: boolean;
+  readAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
 }

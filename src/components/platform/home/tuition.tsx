@@ -11,11 +11,13 @@ import DoubleQuote from "@/assets/svgs/doubleQuote";
 import { generateHomeworkWithDates } from "@/lib/utils";
 import { isBefore } from "date-fns";
 import HomeworkCard from "./homeworkCard";
+import { useRouter } from "next/navigation";
+import { usePostCreateChat } from "@/lib/api/mutations";
+import { toast } from "react-toastify";
 
 function TuitionHome() {
   const { activeProfile, changeProfile, isLoaded, profiles } =
     useSelectedProfile();
-  console.log(activeProfile);
 
   const homeworks = generateHomeworkWithDates();
 
@@ -25,13 +27,43 @@ function TuitionHome() {
   const overdue = homeworks.filter((hw) =>
     isBefore(new Date(hw.due), new Date())
   );
+  const { push } = useRouter();
+  const { mutateAsync: createChat } = usePostCreateChat();
+
+  const handleMessage = async () => {
+    if (
+      !activeProfile?.tutorId ||
+      !activeProfile?.id ||
+      !activeProfile?.tutorFirstName ||
+      !activeProfile?.tutorLastName ||
+      !activeProfile?.name
+    )
+      return;
+    const chat = await createChat({
+      tutorId: activeProfile?.tutorId,
+      childId: activeProfile?.id,
+      tutorName:
+        activeProfile?.tutorFirstName + " " + activeProfile?.tutorLastName,
+      childName: activeProfile?.name,
+    });
+    if (chat.status === 201) {
+      toast.success(chat.data.message);
+      push(`/messages`);
+    }
+  };
 
   return (
     <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
       {/* Header */}
       <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
         <div className="flex items-center gap-2">
-          <Image src={profileIcon} alt="Profile Icon" width={32} height={32} />
+          <Image
+            src={activeProfile?.avatar || profileIcon}
+            alt="Profile Icon"
+            width={32}
+            height={32}
+            className="rounded-full"
+          />
           <div className="flex flex-col gap-1 items-start">
             <p className="uppercase font-medium text-sm text-textSubtitle ml-1">
               Welcome,
@@ -122,37 +154,51 @@ function TuitionHome() {
           </div>
 
           {/* Tutor Info */}
-          <div className="border border-[#00000033] rounded-2xl bg-white p-6 text-center">
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-base font-semibold">Tutor</h3>
-              <Button variant="link" className="text-xs text-primaryBlue px-0">
-                Provide Feedback <BackArrow color="#286CFF" flipped />
-              </Button>
-            </div>
-            <div className="flex flex-col items-center">
-              <div className="w-32 h-32 rounded-full bg-gray-200 mb-3" />
-              <p className="font-medium text-sm">
-                {activeProfile?.tutorFirstName} {activeProfile?.tutorLastName}
-              </p>
-              <p className="text-xs text-muted-foreground mb-8 font-medium">
-                Your Tutor
-              </p>
-              <div className="flex gap-2 justify-center">
+          {activeProfile?.tutorId && (
+            <div className="border border-[#00000033] rounded-2xl bg-white p-6 text-center">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-base font-semibold">Tutor</h3>
                 <Button
-                  variant="outline"
-                  className="rounded-full text-xs px-4 bg-gradient-to-tr from-[#545454] to-black text-white"
+                  variant="link"
+                  className="text-xs text-primaryBlue px-0"
                 >
-                  Request Change
-                </Button>
-                <Button
-                  variant="default"
-                  className="rounded-full text-xs px-9 bg-[#34C759] hover:bg-green-700"
-                >
-                  Message
+                  Provide Feedback <BackArrow color="#286CFF" flipped />
                 </Button>
               </div>
+              <div className="flex flex-col items-center">
+                <div className="w-32 h-32 rounded-full bg-gray-200 mb-3">
+                  <Image
+                    src={profileIcon}
+                    alt="Profile Icon"
+                    width={32}
+                    height={32}
+                    className="rounded-full w-full h-full object-cover"
+                  />
+                </div>
+                <p className="font-medium text-sm">
+                  {activeProfile?.tutorFirstName} {activeProfile?.tutorLastName}
+                </p>
+                <p className="text-xs text-muted-foreground mb-8 font-medium">
+                  Your Tutor
+                </p>
+                <div className="flex gap-2 justify-center">
+                  <Button
+                    variant="outline"
+                    className="rounded-full text-xs px-4 bg-gradient-to-tr from-[#545454] to-black text-white"
+                  >
+                    Request Change
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={handleMessage}
+                    className="rounded-full text-xs px-9 bg-[#34C759] hover:bg-green-700"
+                  >
+                    Message
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
