@@ -9,10 +9,10 @@ import { useRouter } from "next/navigation";
 
 function WhyWeAreBest() {
   const nglWays = [
-    "Our short, animated videos cover every topic in the KS2 and 11+ Maths syllabus. We have made them so simple, any child can understand it.",
-    "Each video builds upon the content in previous videos to optimise learning.",
-    "Many studies show that the best way to retain information is to recall what you have learnt as quickly as possible – this is our active recall strategy.",
-    "We are the first platform to teach and immediately testeverything your child needs to know, ensuring they recall the content they have just learnt.",
+    "Lorem ipsum dolor, sit amet consectetur adipisicing elit.",
+    "Quasi atque architecto ducimus voluptas laborum, non necessitatibus",
+    "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam, quos.",
+    "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam, quos.",
   ];
   const { push } = useRouter();
 
@@ -29,7 +29,7 @@ function WhyWeAreBest() {
         Why We Are Best
       </h2>
       <h1 className="font-semibold text-xl md:text-2xl lg:text-3xl xl:text-[32px] text-center">
-        Teaching the 'NGL way'
+        Ex horatio caecillus ex in horto
       </h1>
       <div className="w-full space-y-2 my-8">
         {nglWays.map((way, index) => (

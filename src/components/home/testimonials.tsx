@@ -5,29 +5,29 @@ import { BadgeCheck } from "lucide-react";
 
 const testimonials = [
   {
-    name: "John Doe",
+    name: "Iohannes Doe",
     image: testimonial,
-    text: "I'm so glad I found this platform. It's been a game-changer for me.",
+    text: "Ego sum tam laetus ego inveni hanc platform. Est lusus-mutator pro me.",
   },
   {
-    name: "Jane Doe",
+    name: "Iana Doe",
     image: testimonial,
-    text: "I'm so glad I found this platform. It's been a game-changer for me.",
+    text: "Ego sum tam laetus ego inveni hanc platform. Est lusus-mutator pro me.",
   },
   {
-    name: "John Doe",
+    name: "Iohannes Doe",
     image: testimonial,
-    text: "I'm so glad I found this platform. It's been a game-changer for me.",
+    text: "Ego sum tam laetus ego inveni hanc platform. Est lusus-mutator pro me.",
   },
   {
-    name: "John Doe",
+    name: "Iohannes Doe",
     image: testimonial,
-    text: "I'm so glad I found this platform. It's been a game-changer for me.",
+    text: "Ego sum tam laetus ego inveni hanc platform. Est lusus-mutator pro me.",
   },
   {
-    name: "John Doe",
+    name: "Iohannes Doe",
     image: testimonial,
-    text: "I'm so glad I found this platform. It's been a game-changer for me.",
+    text: "Ego sum tam laetus ego inveni hanc platform. Est lusus-mutator pro me.",
   },
 ];
 
@@ -43,7 +43,7 @@ function Arrow({
   return (
     <button
       className={`w-9 h-9 flex items-center justify-center rounded-full bg-blue-500 hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed`}
-      aria-label={direction === "left" ? "Previous" : "Next"}
+      aria-label={direction === "left" ? "Praeteritus" : "Proximus"}
       onClick={onClick}
       disabled={disabled}
     >
@@ -71,7 +71,7 @@ function Testimonials() {
     <div className="py-16 max-w-screen-2xl w-full mx-auto px-4 md:px-8 lg:px-12 xl:px-16">
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-primaryBlue font-semibold uppercase font-geist">
-          Testimonials
+          Testimonia
         </h2>
         <div className="flex gap-3">
           <Arrow direction="left" onClick={handleLeft} disabled={!canGoLeft} />
@@ -131,9 +131,9 @@ function PricingSection() {
 
       {/* Header */}
       <h3 className="text-white font-geist font-semibold text-center mt-14">
-        OUR PRICING
+        NOSTRA PRETIUM
         <br />
-        AND SUBSCRIPTION
+        ET SUBSCRIPTIO
       </h3>
       {/* Toggle */}
       <div className="flex justify-center mt-6 mb-10">
@@ -144,7 +144,7 @@ function PricingSection() {
             }`}
             onClick={() => setPlan("monthly")}
           >
-            Monthly
+            Mensualis
           </button>
           <button
             className={`px-6 py-2 rounded-full font-medium transition-colors text-sm ${
@@ -152,7 +152,7 @@ function PricingSection() {
             }`}
             onClick={() => setPlan("annually")}
           >
-            Annually
+            Anniversarius
           </button>
         </div>
       </div>
@@ -188,15 +188,15 @@ function PricingSection() {
                 >
                   <BadgeCheck className="min-w-5 min-h-5 text-white fill-primaryBlue" />
                   <span>
-                    We Have Analysed Thousands Past Paper Questions For Each
-                    Topic, To Ensure The Worksheets Are Up To Exam Standard.
+                    Nos Habemus Analysatus Milia Praeteritus Charta Quaestiones
+                    Pro Quisque Topic, Ad Certus Worksheets Sunt Usque Ad Exam
+                    Standard.
                   </span>
                 </li>
               ))}
           </ul>
           <div className="text-sm text-center text-textSubtitle font-geist font-medium max-w-[280px] mx-auto">
-            Do You Require More Information About The Pricing, You Can Request
-            For A Call
+            Tu Requiris Plus Informatio Circa Pretium, Tu Potes Rogo Pro Vocatio
           </div>
           <div className="px-4">
             <button className="w-full py-2 rounded-full bg-black shadow-demoShadow text-white font-semibold my-5">
@@ -242,14 +242,15 @@ function PricingSection() {
                     className="flex items-center gap-3 text-xs text-textSubtitle font-geist"
                   >
                     <BadgeCheck className="min-w-5 min-h-5 text-white fill-primaryBlue" />
-                    We Have Analysed Thousands Past Paper Questions For Each
-                    Topic, To Ensure The Worksheets Are Up To Exam Standard.
+                    Nos Habemus Analysatus Milia Praeteritus Charta Quaestiones
+                    Pro Quisque Topic, Ad Certus Worksheets Sunt Usque Ad Exam
+                    Standard.
                   </li>
                 ))}
             </ul>
             <div className="text-sm text-center text-textSubtitle font-geist font-medium max-w-[280px] mx-auto">
-              Do You Require More Information About The Pricing, You Can Request
-              For A Call
+              Tu Requiris Plus Informatio Circa Pretium, Tu Potes Rogo Pro
+              Vocatio
             </div>
             <div className="px-4">
               <button className="w-full py-2 rounded-full bg-black shadow-demoShadow text-white font-semibold my-5">

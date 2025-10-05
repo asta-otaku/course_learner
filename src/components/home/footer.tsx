@@ -14,13 +14,13 @@ function Footer() {
             className="w-20 h-auto"
           />
           <p className="text-textSubtitle font-medium">
-            A Maths experience you'll never forget!
+            A Mathematica experientia tu numquam obliviscor!
           </p>
         </div>
         <div className="flex flex-col md:flex-row gap-4 md:gap-8 lg:gap-12 xl:gap-16">
           <div className="flex flex-col gap-2">
             <h1 className="text-primaryBlue font-medium mb-2 uppercase">
-              Feature
+              Facultas
             </h1>
             <span className="text-textSubtitle font-medium text-xs">
               Videos
@@ -29,12 +29,12 @@ function Footer() {
               Worksheets
             </span>
             <span className="text-textSubtitle font-medium text-xs">
-              Exam Papers
+              Exam Charta
             </span>
           </div>
           <div className="flex flex-col gap-2">
             <h1 className="text-primaryBlue font-medium mb-2 uppercase">
-              Support
+              Supportus
             </h1>
             <span className="text-textSubtitle font-medium text-xs">
               Videos
@@ -43,12 +43,12 @@ function Footer() {
               Worksheets
             </span>
             <span className="text-textSubtitle font-medium text-xs">
-              Exam Papers
+              Exam Charta
             </span>
           </div>
           <div className="flex flex-col gap-2">
             <h1 className="text-primaryBlue font-medium mb-2 uppercase">
-              Company
+              Societas
             </h1>
             <span className="text-textSubtitle font-medium text-xs">
               Videos
@@ -57,7 +57,7 @@ function Footer() {
               Worksheets
             </span>
             <span className="text-textSubtitle font-medium text-xs">
-              Exam Papers
+              Exam Charta
             </span>
           </div>
         </div>
