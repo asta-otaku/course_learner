@@ -130,7 +130,8 @@ const MessagingPlatform = () => {
     (file?: File) => {
       // Determine the correct sender ID based on mode
       const senderId = isTutorMode
-        ? currentUserData?.data?.id
+        ? // @ts-ignore
+          currentUserData?.data?.tutorProfile?.id
         : activeProfile?.id;
 
       if ((newMessage.trim() || file) && activeChat && senderId) {

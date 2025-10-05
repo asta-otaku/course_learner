@@ -180,10 +180,6 @@ const ChatItem = ({
                 </span>
               )}
             </div>
-
-            <p className="text-xs text-textSubtitle mt-1 truncate">
-              {isTutorMode ? "Student" : "Tutor"}
-            </p>
           </div>
         </div>
       </div>
