@@ -247,11 +247,13 @@ function ChatList({
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
-          <button className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative">
-            <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1">
-              {getTotalUnreadCount()}
-            </span>
-          </button>
+          {getTotalUnreadCount() > 0 ? (
+            <button className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative">
+              <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1">
+                {getTotalUnreadCount()}
+              </span>
+            </button>
+          ) : null}
         </div>
 
         <div className="relative">

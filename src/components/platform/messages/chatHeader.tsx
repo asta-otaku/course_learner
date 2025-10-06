@@ -8,11 +8,12 @@ import {
   CheckCheck,
   MoreVertical,
   Trash2,
+  X,
+  CheckSquare,
 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import EmojiPicker from "emoji-picker-react";
 import { MediaMessage, TextMessage, MediaGatekeeper } from "./mediaComponents";
-import { useDeleteMessage } from "@/lib/api/mutations";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,11 +26,21 @@ export const ChatHeader = ({
   chats,
   setShowChatList,
   isTutorMode,
+  selectionMode = false,
+  selectedCount = 0,
+  onToggleSelection = () => {},
+  onDeleteSelected = () => {},
+  onCancelSelection = () => {},
 }: {
   activeChat: string | null;
   chats: Chat[];
   setShowChatList: (show: boolean) => void;
   isTutorMode: boolean;
+  selectionMode?: boolean;
+  selectedCount?: number;
+  onToggleSelection?: () => void;
+  onDeleteSelected?: () => void;
+  onCancelSelection?: () => void;
 }) => {
   const currentChat = chats.find((chat) => chat.id === activeChat);
   const chatName = currentChat
@@ -37,6 +48,41 @@ export const ChatHeader = ({
       ? currentChat.childName
       : currentChat.tutorName
     : "";
+
+  if (selectionMode) {
+    return (
+      <div className="bg-blue-50 border-b border-blue-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={onCancelSelection}
+              className="p-2 hover:bg-blue-100 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5 text-blue-600" />
+            </button>
+            <div className="flex items-center space-x-2">
+              <CheckSquare className="w-5 h-5 text-blue-600" />
+              <span className="font-semibold text-blue-900">
+                {selectedCount} message{selectedCount !== 1 ? "s" : ""} selected
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {selectedCount > 0 && (
+              <button
+                onClick={onDeleteSelected}
+                className="flex items-center space-x-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete ({selectedCount})</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white border-b border-gray-200 p-4">
@@ -64,27 +110,28 @@ export const ChatHeader = ({
 
           <div>
             <h2 className="font-semibold text-gray-900">{chatName}</h2>
-            <p className="text-sm text-gray-600 flex items-center">
-              <span
-                className={`w-2 h-2 rounded-full mr-1.5 ${
-                  currentChat?.online ? "bg-green-500" : "bg-gray-400"
-                }`}
-              ></span>
-              {currentChat?.online ? "Online" : "Offline"}
-            </p>
           </div>
         </div>
 
-        <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 text-gray-600"
-            viewBox="0 0 20 20"
-            fill="currentColor"
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={onToggleSelection}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            title="Select messages to delete"
           >
-            <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
-          </svg>
-        </button>
+            <CheckSquare className="w-5 h-5 text-gray-600" />
+          </button>
+          <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-gray-600"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -135,25 +182,47 @@ export const MessageBubble = ({
   activeChat,
   currentUserId,
   isSending = false,
+  isSelected = false,
+  onSelect = () => {},
+  onDeselect = () => {},
+  onToggleSelection = () => {},
+  selectionMode = false,
 }: {
   message: Message;
   chats: Chat[];
   activeChat: string | null;
   currentUserId?: string;
   isSending?: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
+  onDeselect?: () => void;
+  onToggleSelection?: () => void;
+  selectionMode?: boolean;
 }) => {
   const isUser = message.senderId === currentUserId;
-  const currentChat = chats.find((chat) => chat.id === activeChat);
-  const deleteMessageMutation = useDeleteMessage(message._id);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const handleDeleteMessage = () => {
-    deleteMessageMutation.mutate();
+  const handleMessageClick = () => {
+    if (selectionMode && isUser) {
+      if (isSelected) {
+        onDeselect();
+      } else {
+        onSelect();
+      }
+    }
+  };
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation(); // Prevent triggering the message click
+    // Always call onSelect since handleToggleSelection handles both add/remove logic
+    onSelect();
   };
 
   return (
     <div
-      className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 group`}
+      className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 group ${
+        selectionMode && isUser ? "cursor-pointer" : ""
+      }`}
+      onClick={handleMessageClick}
     >
       {!isUser && (
         <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs mr-2">
@@ -171,7 +240,13 @@ export const MessageBubble = ({
             isUser
               ? "bg-blue-500 text-white rounded-br-md"
               : "bg-white text-gray-900 rounded-bl-md shadow-sm"
-          } ${isSending ? "opacity-70" : ""}`}
+          } ${isSending ? "opacity-70" : ""} ${
+            isSelected ? "ring-2 ring-blue-500 ring-opacity-75" : ""
+          } ${
+            selectionMode && isUser
+              ? "hover:ring-2 hover:ring-blue-300 hover:ring-opacity-50 transition-all"
+              : ""
+          }`}
         >
           <div className="px-3 py-2">
             {/* Display media if present */}
@@ -205,7 +280,7 @@ export const MessageBubble = ({
                 {isUser && (
                   <MessageStatus status={message.status} isUser={isUser} />
                 )}
-                {isUser && (
+                {isUser && !selectionMode && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded-full ml-1">
@@ -214,14 +289,24 @@ export const MessageBubble = ({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
-                        onClick={handleDeleteMessage}
-                        className="text-red-600 focus:text-red-600"
+                        onClick={onToggleSelection}
+                        className="text-blue-600 focus:text-blue-600"
                       >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete Message
+                        <CheckSquare className="w-4 h-4 mr-2" />
+                        Select Messages
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                )}
+                {isUser && selectionMode && (
+                  <div className="ml-2 flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={handleCheckboxChange}
+                      className="w-4 h-4 text-blue-600 bg-white border-2 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                  </div>
                 )}
               </div>
             </div>

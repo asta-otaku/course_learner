@@ -1298,20 +1298,4 @@ export const usePostMessage = () => {
   });
 };
 
-export const useDeleteMessage = (id: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationKey: ["delete-message", id],
-    mutationFn: (): Promise<ApiResponse<{ message: string }>> =>
-      axiosInstance.delete(`/message/${id}`),
-    onSuccess: (data: ApiResponse<{ message: string }>) => {
-      queryClient.invalidateQueries({
-        queryKey: ["chat-messages"],
-      });
-      return data;
-    },
-    onError: (error: AxiosError) => {
-      handleErrorMessage(error);
-    },
-  });
-};
+// REST API delete message removed - now using WebSocket deleteMessages

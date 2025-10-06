@@ -23,7 +23,8 @@ import { MessageNotification } from "@/components/MessageNotification";
 interface SocketContextType {
   isConnected: boolean;
   socket: ReturnType<typeof getSocket>;
-  markAsRead: (chatId: string, senderId: string) => void;
+  markAsRead: (chatId: string, subjectId: string) => void;
+  deleteMessages: (chatId: string, messageIds: string[]) => void;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -53,6 +54,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       socketRef.current.emit("markAsRead", { chatId, subjectId });
     } else {
       console.log("❌ Socket not connected, cannot emit markAsRead");
+    }
+  }, []);
+
+  // Function to delete messages
+  const deleteMessages = useCallback((chatId: string, messageIds: string[]) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit("deleteMessage", { chatId, messageIds });
+    } else {
+      console.log("❌ Socket not connected, cannot emit deleteMessages");
     }
   }, []);
 
@@ -252,9 +262,14 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     };
 
-    const handleMessageDeleted = (messageId: string) => {
-      queryClient.setQueriesData(
-        { queryKey: ["chat-messages"] },
+    const handleMessageDeleted = (payload: {
+      chatId: string;
+      messageIds: string[];
+    }) => {
+      const messageIdsSet = new Set(payload.messageIds);
+
+      queryClient.setQueryData(
+        ["chat-messages", payload.chatId],
         (oldData: any) => {
           if (!oldData?.data?.messages) return oldData;
 
@@ -263,12 +278,42 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             data: {
               ...oldData.data,
               messages: oldData.data.messages.filter(
-                (msg: Message) => msg._id !== messageId
+                (msg: Message) => !messageIdsSet.has(msg._id)
               ),
             },
           };
         }
       );
+
+      // Update chat lists to remove deleted messages from last message preview
+      ["tutor-chat-list", "student-chat-list"].forEach((queryKey) => {
+        queryClient.setQueryData([queryKey], (oldData: any) => {
+          if (!oldData?.data) return oldData;
+
+          return {
+            ...oldData,
+            data: oldData.data.map((chat: Chat) => {
+              if (
+                chat._id === payload.chatId ||
+                (chat as any).id === payload.chatId
+              ) {
+                // If the last message was deleted, we might need to update the preview
+                // This is a simplified approach - you might want to fetch the new last message
+                return chat;
+              }
+              return chat;
+            }),
+          };
+        });
+
+        // Invalidate queries to force re-render
+        queryClient.invalidateQueries({ queryKey: [queryKey] });
+      });
+
+      // Also invalidate the messages query to force re-render
+      queryClient.invalidateQueries({
+        queryKey: ["chat-messages", payload.chatId],
+      });
     };
 
     const handleConnectError = (error: any) => {
@@ -372,7 +417,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <SocketContext.Provider
-      value={{ isConnected, socket: socketRef.current, markAsRead }}
+      value={{
+        isConnected,
+        socket: socketRef.current,
+        markAsRead,
+        deleteMessages,
+      }}
     >
       {children}
     </SocketContext.Provider>

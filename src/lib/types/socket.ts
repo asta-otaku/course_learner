@@ -42,7 +42,7 @@ export interface ServerToClientEvents {
   messageReceived: (payload: SendMessageDto) => void;
   messageRead: (payload: MarkMessagesReadDto) => void;
   joinedRoom: (payload: JoinedRoomPayload) => void;
-  messageDeleted: (payload: string) => void;
+  messageDeleted: (payload: { chatId: string; messageIds: string[] }) => void;
   messageNotSent: (payload: { message: string; description: string }) => void;
 }
 
@@ -50,5 +50,6 @@ export interface ClientToServerEvents {
   joinRoom: (payload: { chatId: string }) => void;
   sendMessage: (payload: SendMessageRequestDto) => void;
   markAsRead: (payload: { chatId: string; subjectId: string }) => void;
+  deleteMessage: (payload: { chatId: string; messageIds: string[] }) => void;
 }
 

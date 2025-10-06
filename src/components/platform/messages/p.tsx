@@ -43,10 +43,15 @@ const MessagingPlatform = () => {
   const chatList = chatListData?.data || [];
 
   // Get socket from global context
-  const { isConnected, markAsRead } = useSocketContext();
+  const { isConnected, markAsRead, deleteMessages } = useSocketContext();
 
   const [newMessage, setNewMessage] = useState("");
   const [showChatList, setShowChatList] = useState(true);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMessages, setSelectedMessages] = useState<Set<string>>(
+    new Set()
+  );
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -140,6 +145,35 @@ const MessagingPlatform = () => {
   const handleSelectChat = (id: string) => {
     setActiveChat(id);
     setShowChatList(false);
+    // Reset selection mode when switching chats
+    setSelectionMode(false);
+    setSelectedMessages(new Set());
+  };
+
+  // Selection mode handlers
+  const handleToggleSelection = (messageId: string) => {
+    setSelectedMessages((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedMessages.size > 0 && activeChat) {
+      deleteMessages(activeChat, Array.from(selectedMessages));
+      setSelectedMessages(new Set());
+      setSelectionMode(false);
+    }
+  };
+
+  const handleCancelSelection = () => {
+    setSelectionMode(false);
+    setSelectedMessages(new Set());
   };
 
   return (
@@ -181,6 +215,11 @@ const MessagingPlatform = () => {
               activeChat={activeChat}
               setShowChatList={setShowChatList}
               isTutorMode={isTutorMode}
+              selectionMode={selectionMode}
+              selectedCount={selectedMessages.size}
+              onToggleSelection={() => setSelectionMode(!selectionMode)}
+              onDeleteSelected={handleDeleteSelected}
+              onCancelSelection={handleCancelSelection}
             />
           )}
 
@@ -221,6 +260,13 @@ const MessagingPlatform = () => {
                         chats={chatList}
                         activeChat={activeChat}
                         currentUserId={currentUserId}
+                        isSelected={selectedMessages.has(message._id)}
+                        onSelect={() => handleToggleSelection(message._id)}
+                        onDeselect={() => handleToggleSelection(message._id)}
+                        onToggleSelection={() =>
+                          setSelectionMode(!selectionMode)
+                        }
+                        selectionMode={selectionMode}
                       />
                     );
                   })}
