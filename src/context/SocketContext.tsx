@@ -127,9 +127,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const handleMessageReceived = (payload: SendMessageDto) => {
-      // Update messages cache
+      // Update messages cache for page 1 (most recent messages)
       queryClient.setQueryData(
-        ["chat-messages", payload.chatId],
+        ["chat-messages", payload.chatId, 1],
         (oldData: any) => {
           if (!oldData) {
             queryClient.invalidateQueries({
@@ -210,31 +210,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const handleMessageRead = (payload: MarkMessagesReadDto) => {
-      queryClient.setQueryData(
-        ["chat-messages", payload.chatId],
-        (oldData: any) => {
-          if (!oldData?.data?.messages) return oldData;
-
-          const messageIdsSet = new Set(payload.messageIds);
-
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              messages: oldData.data.messages.map((msg: Message) => {
-                if (messageIdsSet.has(msg._id)) {
-                  return {
-                    ...msg,
-                    isReadByRecipient: true,
-                    readAt: new Date().toISOString(),
-                  };
-                }
-                return msg;
-              }),
-            },
-          };
-        }
-      );
+      // Invalidate all pages for this chat to update read status
+      queryClient.invalidateQueries({
+        queryKey: ["chat-messages", payload.chatId],
+      });
 
       ["tutor-chat-list", "student-chat-list"].forEach((queryKey) => {
         queryClient.setQueryData([queryKey], (oldData: any) => {
@@ -266,53 +245,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       chatId: string;
       messageIds: string[];
     }) => {
-      const messageIdsSet = new Set(payload.messageIds);
-
-      queryClient.setQueryData(
-        ["chat-messages", payload.chatId],
-        (oldData: any) => {
-          if (!oldData?.data?.messages) return oldData;
-
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              messages: oldData.data.messages.filter(
-                (msg: Message) => !messageIdsSet.has(msg._id)
-              ),
-            },
-          };
-        }
-      );
+      // Invalidate all pages for this chat to reflect deleted messages
+      queryClient.invalidateQueries({
+        queryKey: ["chat-messages", payload.chatId],
+      });
 
       // Update chat lists to remove deleted messages from last message preview
       ["tutor-chat-list", "student-chat-list"].forEach((queryKey) => {
-        queryClient.setQueryData([queryKey], (oldData: any) => {
-          if (!oldData?.data) return oldData;
-
-          return {
-            ...oldData,
-            data: oldData.data.map((chat: Chat) => {
-              if (
-                chat._id === payload.chatId ||
-                (chat as any).id === payload.chatId
-              ) {
-                // If the last message was deleted, we might need to update the preview
-                // This is a simplified approach - you might want to fetch the new last message
-                return chat;
-              }
-              return chat;
-            }),
-          };
-        });
-
         // Invalidate queries to force re-render
         queryClient.invalidateQueries({ queryKey: [queryKey] });
-      });
-
-      // Also invalidate the messages query to force re-render
-      queryClient.invalidateQueries({
-        queryKey: ["chat-messages", payload.chatId],
       });
     };
 

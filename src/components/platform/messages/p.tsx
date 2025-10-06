@@ -22,6 +22,8 @@ const MessagingPlatform = () => {
   const pathname = usePathname();
   const isTutorMode = pathname.includes("tutor");
   const { activeProfile } = useSelectedProfile();
+  const [page, setPage] = useState(1);
+  const [limit, _] = useState(100);
 
   const { data: chatListData } = isTutorMode
     ? useGetTutorChatList()
@@ -31,11 +33,15 @@ const MessagingPlatform = () => {
   const { data: currentUserData } = useGetCurrentUser();
 
   const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [allMessages, setAllMessages] = useState<Message[]>([]);
+  const [hasMore, setHasMore] = useState(true);
 
   // Fetch messages for the active chat
-  const { data: messagesData, isLoading: messagesLoading } = useGetChatMessages(
-    activeChat || ""
-  );
+  const {
+    data: messagesData,
+    isLoading: messagesLoading,
+    isFetching,
+  } = useGetChatMessages(activeChat || "", page, limit);
 
   // Message mutation
   const postMessageMutation = usePostMessage();
@@ -56,13 +62,49 @@ const MessagingPlatform = () => {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Reset when chat changes - MUST come before the update effect
+  const activeChatRef = useRef(activeChat);
+
+  useEffect(() => {
+    if (activeChat && activeChat !== activeChatRef.current) {
+      activeChatRef.current = activeChat;
+      setPage(1);
+      setAllMessages([]);
+      setHasMore(true);
+    }
+  }, [activeChat]);
+
+  // Update messages when new data is fetched
+  useEffect(() => {
+    if (messagesData?.data) {
+      const responseData = messagesData.data as any;
+      const newMessages = responseData.messages || [];
+      const pagination = responseData.pagination;
+
+      if (page === 1) {
+        // First page - replace all messages
+
+        setAllMessages(newMessages);
+        setHasMore(pagination?.hasNext ?? newMessages.length === limit);
+      } else {
+        // Subsequent pages - prepend older messages to the beginning
+        setAllMessages((prev) => {
+          // Avoid duplicates
+          const existingIds = new Set(prev.map((m) => m._id));
+          const uniqueNewMessages = newMessages.filter(
+            (m: Message) => !existingIds.has(m._id)
+          );
+          return [...uniqueNewMessages, ...prev];
+        });
+        setHasMore(pagination?.hasNext ?? newMessages.length === limit);
+      }
+    }
+  }, [messagesData]);
+
   // Get current conversation messages
   const getCurrentMessages = useCallback(() => {
-    if (messagesData?.data) {
-      return (messagesData.data as any).messages || [];
-    }
-    return [];
-  }, [messagesData]);
+    return allMessages;
+  }, [allMessages]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -74,22 +116,38 @@ const MessagingPlatform = () => {
       currentUserData?.data?.tutorProfile?.id
     : activeProfile?.id;
 
+  // Only scroll to bottom on initial load or when new messages arrive (not when loading more)
+  const previousMessageCountRef = useRef(0);
+
   useEffect(() => {
     if (activeChat) {
-      scrollToBottom();
+      const currentMessageCount = allMessages.length;
+
+      // Scroll to bottom only if:
+      // 1. First time loading (previousCount is 0)
+      // 2. New messages added at the end (count increased and page is 1)
+      if (
+        previousMessageCountRef.current === 0 ||
+        (page === 1 && currentMessageCount > previousMessageCountRef.current)
+      ) {
+        scrollToBottom();
+      }
+
+      previousMessageCountRef.current = currentMessageCount;
       inputRef.current?.focus();
+
       // Mark messages as read when viewing them
-      // Send current user ID as senderId
-      if (currentUserId) {
+      if (currentUserId && page === 1) {
         markAsRead(activeChat, currentUserId);
       }
     }
   }, [
-    getCurrentMessages,
+    allMessages,
     activeChat,
     scrollToBottom,
     markAsRead,
     currentUserId,
+    page,
   ]);
 
   useEscapeClose(() => {
@@ -106,9 +164,6 @@ const MessagingPlatform = () => {
         : activeProfile?.id;
 
       if ((newMessage.trim() || file) && activeChat && senderId) {
-        // Always use REST API for sending messages
-        // The server will broadcast the message via socket to all connected clients
-        // We'll receive it back via the messageReceived event for real-time updates
         postMessageMutation.mutate(
           {
             chatId: activeChat,
@@ -174,6 +229,12 @@ const MessagingPlatform = () => {
   const handleCancelSelection = () => {
     setSelectionMode(false);
     setSelectedMessages(new Set());
+  };
+
+  const handleLoadMore = () => {
+    if (!isFetching && hasMore) {
+      setPage((prev) => prev + 1);
+    }
   };
 
   return (
@@ -246,6 +307,48 @@ const MessagingPlatform = () => {
                 </div>
               ) : (
                 <>
+                  {hasMore && getCurrentMessages().length > 0 && (
+                    <div className="flex justify-center mb-4">
+                      <button
+                        onClick={handleLoadMore}
+                        disabled={isFetching}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          isFetching
+                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                            : "bg-blue-500 text-white hover:bg-blue-600 hover:shadow-md"
+                        }`}
+                      >
+                        {isFetching ? (
+                          <span className="flex items-center space-x-2">
+                            <svg
+                              className="animate-spin h-4 w-4"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
+                            </svg>
+                            <span>Loading...</span>
+                          </span>
+                        ) : (
+                          "Load More Messages"
+                        )}
+                      </button>
+                    </div>
+                  )}
+
                   {getCurrentMessages().map((message: Message) => {
                     // Determine the correct user ID for comparison based on mode
                     const currentUserId = isTutorMode
