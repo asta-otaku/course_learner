@@ -43,7 +43,7 @@ const MessagingPlatform = () => {
   const chatList = chatListData?.data || [];
 
   // Get socket from global context
-  const { isConnected } = useSocketContext();
+  const { isConnected, markAsRead } = useSocketContext();
 
   const [newMessage, setNewMessage] = useState("");
   const [showChatList, setShowChatList] = useState(true);
@@ -63,12 +63,29 @@ const MessagingPlatform = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
+  // Get current user ID for passing to ChatList
+  const currentUserId = isTutorMode
+    ? // @ts-ignore
+      currentUserData?.data?.tutorProfile?.id
+    : activeProfile?.id;
+
   useEffect(() => {
     if (activeChat) {
       scrollToBottom();
       inputRef.current?.focus();
+      // Mark messages as read when viewing them
+      // Send current user ID as senderId
+      if (currentUserId) {
+        markAsRead(activeChat, currentUserId);
+      }
     }
-  }, [getCurrentMessages, activeChat, scrollToBottom]);
+  }, [
+    getCurrentMessages,
+    activeChat,
+    scrollToBottom,
+    markAsRead,
+    currentUserId,
+  ]);
 
   useEscapeClose(() => {
     setActiveChat(null);
@@ -91,15 +108,19 @@ const MessagingPlatform = () => {
           {
             chatId: activeChat,
             senderId: senderId,
+            senderName: isTutorMode
+              ? // @ts-ignore
+                currentUserData?.data?.firstName +
+                " " +
+                // @ts-ignore
+                currentUserData?.data?.lastName
+              : activeProfile?.name || "",
             content: newMessage,
             media: file,
           },
           {
             onSuccess: () => {
               setNewMessage("");
-            },
-            onError: (error) => {
-              console.error("Failed to send message:", error);
             },
           }
         );
@@ -134,6 +155,7 @@ const MessagingPlatform = () => {
             setActiveChat={handleSelectChat}
             setShowChatList={setShowChatList}
             isTutorMode={isTutorMode}
+            currentUserId={currentUserId || ""}
           />
         </div>
 
@@ -144,6 +166,7 @@ const MessagingPlatform = () => {
             setActiveChat={handleSelectChat}
             setShowChatList={setShowChatList}
             isTutorMode={isTutorMode}
+            currentUserId={currentUserId || ""}
           />
         </div>
 

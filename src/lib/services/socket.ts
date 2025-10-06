@@ -79,7 +79,6 @@ export const getSocket = (): Socket<
 export const updateSocketAuth = () => {
   if (socket) {
     const token = getAccessToken();
-    console.log("🔐 Updating socket auth token:", token ? "✅ Present" : "❌ Missing");
     socket.auth = { token };
     // Reconnect with new auth
     if (socket.connected) {

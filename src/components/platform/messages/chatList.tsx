@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Chat } from "@/lib/types";
 import { useDeleteChatById, usePutChatById } from "@/lib/api/mutations";
+import { useSocketContext } from "@/context/SocketContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,16 +34,19 @@ const ChatItem = ({
   setActiveChat,
   setShowChatList,
   isTutorMode,
+  currentUserId,
 }: {
   chat: Chat;
   activeChat: string | null;
   setActiveChat: (id: string) => void;
   setShowChatList: (show: boolean) => void;
   isTutorMode: boolean;
+  currentUserId: string;
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const deleteChatMutation = useDeleteChatById(chat.id);
   const updateChatMutation = usePutChatById(chat.id);
+  const { markAsRead } = useSocketContext();
 
   const handleDeleteChat = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -53,7 +57,7 @@ const ChatItem = ({
     try {
       await deleteChatMutation.mutateAsync();
     } catch (error) {
-      console.error("Failed to delete chat:", error);
+      // Error is handled by mutation
     } finally {
       setShowDeleteDialog(false);
     }
@@ -101,6 +105,8 @@ const ChatItem = ({
           onClick={() => {
             setActiveChat(chat.id);
             setShowChatList(false);
+            // Send current user ID as senderId
+            markAsRead(chat.id, currentUserId);
           }}
         >
           <div className="relative flex-shrink-0">
@@ -215,12 +221,14 @@ function ChatList({
   setActiveChat,
   setShowChatList,
   isTutorMode,
+  currentUserId,
 }: {
   chats: Chat[];
   activeChat: string | null;
   setActiveChat: (id: string) => void;
   setShowChatList: (show: boolean) => void;
   isTutorMode: boolean;
+  currentUserId: string;
 }) {
   const [searchTerm, setSearchTerm] = React.useState("");
 
@@ -280,6 +288,7 @@ function ChatList({
               setActiveChat={setActiveChat}
               setShowChatList={setShowChatList}
               isTutorMode={isTutorMode}
+              currentUserId={currentUserId}
             />
           ))
         )}

@@ -35,7 +35,7 @@ export interface MarkMessagesReadDto {
 export interface JoinedRoomPayload {
   message: string;
   timestamp: string;
-  payload: string; // The chatId
+  payload: { chatId: string };
 }
 
 export interface ServerToClientEvents {
@@ -47,8 +47,8 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  joinRoom: (chatId: string) => void; // Backend expects just the chatId string
+  joinRoom: (payload: { chatId: string }) => void;
   sendMessage: (payload: SendMessageRequestDto) => void;
-  markAsRead: (payload: MarkMessagesReadDto) => void;
+  markAsRead: (payload: { chatId: string; subjectId: string }) => void;
 }
 

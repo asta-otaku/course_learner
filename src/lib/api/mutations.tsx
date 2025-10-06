@@ -1259,6 +1259,7 @@ export const usePostMessage = () => {
       chatId: string;
       senderId: string;
       content: string;
+      senderName: string;
       media?: File;
     }): Promise<ApiResponse<{ message: string }>> => {
       if (data.media) {
@@ -1267,6 +1268,7 @@ export const usePostMessage = () => {
         formData.append("chatId", data.chatId);
         formData.append("senderId", data.senderId);
         formData.append("content", data.content);
+        formData.append("senderName", data.senderName);
         formData.append("media", data.media);
 
         return axiosInstance.post(`/message/media`, formData, {
@@ -1280,6 +1282,7 @@ export const usePostMessage = () => {
           chatId: data.chatId,
           senderId: data.senderId,
           content: data.content,
+          senderName: data.senderName,
         });
       }
     },
