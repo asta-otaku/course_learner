@@ -721,3 +721,6 @@ export interface Message {
   updatedAt: string;
   __v: number;
 }
+
+// Export socket types
+export * from "./types/socket";

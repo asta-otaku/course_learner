@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 import ChatList from "./chatList";
 import { tutorQuickResponses, studentQuickResponses } from "@/lib/utils";
@@ -17,7 +16,7 @@ import {
 import { usePostMessage } from "@/lib/api/mutations";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
 import { Message } from "@/lib/types";
-import { axiosInstance } from "@/lib/services/axiosInstance";
+import { useSocketContext } from "@/context/SocketContext";
 
 const MessagingPlatform = () => {
   const pathname = usePathname();
@@ -33,37 +32,18 @@ const MessagingPlatform = () => {
 
   const [activeChat, setActiveChat] = useState<string | null>(null);
 
-  // Fetch messages for the active chat with infinite scrolling
-  const {
-    data: messagesData,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading: messagesLoading,
-  } = useInfiniteQuery({
-    queryKey: ["chat-messages", activeChat],
-    queryFn: async ({ pageParam = 1 }) => {
-      const response = await axiosInstance.get(
-        `/chat/${activeChat}/messages?page=${pageParam}&limit=20`
-      );
-      return response.data;
-    },
-    enabled: !!activeChat,
-    initialPageParam: 1,
-    getNextPageParam: (lastPage: any, pages) => {
-      // Use the hasNext field from the API response
-      return lastPage.data?.pagination?.hasNext ? pages.length + 1 : undefined;
-    },
-  });
-
-  // Fallback: Try using regular query if infinite query fails
-  const { data: fallbackMessagesData } = useGetChatMessages(activeChat || "");
+  // Fetch messages for the active chat
+  const { data: messagesData, isLoading: messagesLoading } = useGetChatMessages(
+    activeChat || ""
+  );
 
   // Message mutation
   const postMessageMutation = usePostMessage();
 
-  // Use real chat data directly
   const chatList = chatListData?.data || [];
+
+  // Get socket from global context
+  const { isConnected } = useSocketContext();
 
   const [newMessage, setNewMessage] = useState("");
   const [showChatList, setShowChatList] = useState(true);
@@ -71,39 +51,17 @@ const MessagingPlatform = () => {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Get current conversation messages from infinite query
+  // Get current conversation messages
   const getCurrentMessages = useCallback(() => {
-    // Try infinite query first
-    if (messagesData?.pages) {
-      return messagesData.pages.flatMap(
-        (page: any) => page.data?.messages || []
-      );
+    if (messagesData?.data) {
+      return (messagesData.data as any).messages || [];
     }
-
-    // Fallback to regular query
-    if (fallbackMessagesData?.data) {
-      return (fallbackMessagesData.data as any).messages || [];
-    }
-
     return [];
-  }, [messagesData, fallbackMessagesData]);
+  }, [messagesData]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
-
-  // Handle infinite scroll
-  const handleScroll = useCallback(() => {
-    if (!messagesContainerRef.current) return;
-
-    const { scrollTop, scrollHeight, clientHeight } =
-      messagesContainerRef.current;
-    const isNearTop = scrollTop < 100;
-
-    if (isNearTop && hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   useEffect(() => {
     if (activeChat) {
@@ -111,15 +69,6 @@ const MessagingPlatform = () => {
       inputRef.current?.focus();
     }
   }, [getCurrentMessages, activeChat, scrollToBottom]);
-
-  // Add scroll event listener for infinite scroll
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (container) {
-      container.addEventListener("scroll", handleScroll);
-      return () => container.removeEventListener("scroll", handleScroll);
-    }
-  }, [handleScroll]);
 
   useEscapeClose(() => {
     setActiveChat(null);
@@ -135,7 +84,9 @@ const MessagingPlatform = () => {
         : activeProfile?.id;
 
       if ((newMessage.trim() || file) && activeChat && senderId) {
-        // Send message using the API
+        // Always use REST API for sending messages
+        // The server will broadcast the message via socket to all connected clients
+        // We'll receive it back via the messageReceived event for real-time updates
         postMessageMutation.mutate(
           {
             chatId: activeChat,
@@ -146,12 +97,9 @@ const MessagingPlatform = () => {
           {
             onSuccess: () => {
               setNewMessage("");
-              // Refetch messages to show the new message
-              // The mutation should already invalidate the query, but let's be explicit
             },
             onError: (error) => {
               console.error("Failed to send message:", error);
-              // You might want to show a toast notification here
             },
           }
         );
@@ -236,14 +184,6 @@ const MessagingPlatform = () => {
                 </div>
               ) : (
                 <>
-                  {isFetchingNextPage && (
-                    <div className="flex justify-center py-4">
-                      <div className="text-gray-600">
-                        Loading more messages...
-                      </div>
-                    </div>
-                  )}
-
                   {getCurrentMessages().map((message: Message) => {
                     // Determine the correct user ID for comparison based on mode
                     const currentUserId = isTutorMode

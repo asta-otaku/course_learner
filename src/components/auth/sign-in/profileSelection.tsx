@@ -77,6 +77,8 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
                         "activeProfile",
                         JSON.stringify(profile)
                       );
+                      // Set flag to initialize socket
+                      localStorage.setItem("initializeSocket", "true");
                     }
                     push("/dashboard");
                   }

@@ -36,6 +36,8 @@ function SigninForm() {
     const res = await postLogin(data);
     if (res.status === 200) {
       localStorage.setItem(res.data.data.userRole, JSON.stringify(res.data));
+      // Set flag to initialize socket
+      localStorage.setItem("initializeSocket", "true");
       toast.success(res.data.message);
       push(`/${res.data.data.userRole}`);
     }
