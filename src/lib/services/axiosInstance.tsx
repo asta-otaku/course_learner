@@ -1,5 +1,12 @@
 import axios from "axios";
 
+// Extend AxiosRequestConfig to include custom skipAuthRedirect property
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    skipAuthRedirect?: boolean;
+  }
+}
+
 export const axiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
@@ -214,8 +221,10 @@ axiosInstance.interceptors.response.use(
       const refreshToken = getRefreshToken();
 
       if (!refreshToken) {
-        // No refresh token, redirect to sign-in
-        redirectToSignIn();
+        // No refresh token, redirect to sign-in (unless skipAuthRedirect is set)
+        if (!originalRequest.skipAuthRedirect) {
+          redirectToSignIn();
+        }
         return Promise.reject(error);
       }
 
@@ -270,7 +279,9 @@ axiosInstance.interceptors.response.use(
           // Check if user still exists (might have been cleared during logout)
           if (!user || isLoggingOut || hasRedirected) {
             processQueue(error, null);
-            redirectToSignIn();
+            if (!originalRequest.skipAuthRedirect) {
+              redirectToSignIn();
+            }
             return Promise.reject(error);
           }
 
@@ -291,15 +302,21 @@ axiosInstance.interceptors.response.use(
 
           return axiosInstance(originalRequest);
         } else {
-          // Refresh failed, redirect to sign-in
+          // Refresh failed, redirect to sign-in (unless skipAuthRedirect is set)
           processQueue(error, null);
-          redirectToSignIn();
+          if (!originalRequest.skipAuthRedirect) {
+            redirectToSignIn();
+          }
           return Promise.reject(error);
         }
       } catch (err) {
-        // Refresh request failed, redirect to sign-in
+        // Refresh request failed, redirect to sign-in (unless skipAuthRedirect is set)
         processQueue(err, null);
-        if (!isLoggingOut && !hasRedirected) {
+        if (
+          !isLoggingOut &&
+          !hasRedirected &&
+          !originalRequest.skipAuthRedirect
+        ) {
           redirectToSignIn();
         }
         return Promise.reject(err);
@@ -309,7 +326,12 @@ axiosInstance.interceptors.response.use(
     }
 
     // Handle other error cases
-    if (error.response?.status === 403 && !isLoggingOut && !hasRedirected) {
+    if (
+      error.response?.status === 403 &&
+      !isLoggingOut &&
+      !hasRedirected &&
+      !originalRequest?.skipAuthRedirect
+    ) {
       redirectToSignIn();
     }
 

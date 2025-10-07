@@ -86,7 +86,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           );
 
           if (isTutorMode) {
-            const response = await axiosInstance.get("/chat/tutor");
+            const response = await axiosInstance.get("/chat/tutor", {
+              skipAuthRedirect: true,
+            });
             queryClient.setQueryData(["tutor-chat-list"], response.data);
           } else {
             // For students, need to get active profile
@@ -96,7 +98,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                 : {};
             if (activeProfile?.id) {
               const response = await axiosInstance.get(
-                `/chat/child?childId=${activeProfile.id}`
+                `/chat/child?childId=${activeProfile.id}`,
+                {
+                  skipAuthRedirect: true,
+                }
               );
               queryClient.setQueryData(["student-chat-list"], response.data);
             }
