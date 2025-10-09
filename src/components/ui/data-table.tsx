@@ -43,6 +43,7 @@ interface DataTableProps<TData, TValue> {
   searchPlaceholder?: string;
   enableRowSelection?: boolean;
   onRowSelectionChange?: (selectedRows: Record<string, boolean>) => void;
+  onRowClick?: (row: TData) => void;
   rowSelection?: Record<string, boolean>;
   onPageChange?: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
@@ -60,6 +61,7 @@ export function DataTable<TData, TValue>({
   searchPlaceholder = "Search...",
   enableRowSelection = false,
   onRowSelectionChange,
+  onRowClick,
   rowSelection: externalRowSelection,
   onPageChange,
   onPageSizeChange,
@@ -170,9 +172,17 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className={
-                    row.getIsSelected() ? "bg-blue-50 border-blue-200" : ""
-                  }
+                  className={`${row.getIsSelected() ? "bg-blue-50 border-blue-200" : ""} ${onRowClick ? "cursor-pointer hover:bg-gray-50" : ""}`}
+                  onClick={(e) => {
+                    // Don't trigger row click if clicking on interactive elements
+                    const target = e.target as HTMLElement;
+                    const isInteractive = target.closest(
+                      'button, a, input, select, [role="button"]'
+                    );
+                    if (!isInteractive && onRowClick) {
+                      onRowClick(row.original);
+                    }
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

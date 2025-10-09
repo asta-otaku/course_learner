@@ -10,17 +10,29 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { MatchingQuestion } from "../quiz/matching-question";
 import { MathPreview } from "../editor";
-import type { Question } from "@/lib/validations/question";
+import { QuestionImage } from "@/components/ui/question-image";
+import type { Database } from "@/lib/database.types";
+
+type Question = Database["public"]["Tables"]["questions"]["Row"] & {
+  answers?: any[];
+  matching_pairs?: any[];
+  acceptedAnswers?: any[];
+  gradingCriteria?: any;
+  testCases?: any[];
+  starterCode?: string;
+  language?: string;
+  sampleSolution?: string;
+};
 
 interface QuestionPreviewProps {
-  question: Partial<Question> & { [key: string]: any };
+  question: Partial<Question>;
   showAnswers?: boolean;
   onAnswer?: (answer: any) => void;
 }
 
 export function QuestionPreview({
   question,
-  showAnswers = false,
+  showAnswers = true,
   onAnswer,
 }: QuestionPreviewProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
@@ -95,23 +107,7 @@ export function QuestionPreview({
               </div>
 
               {/* Question Image */}
-              {question.image_url && (
-                <div className="mt-4">
-                  <img
-                    src={question.image_url}
-                    alt="Question illustration"
-                    className="max-w-full h-auto rounded-lg border shadow-sm"
-                    style={{ maxHeight: "400px", objectFit: "contain" }}
-                    onError={(e) => {
-                      console.error(
-                        "Failed to load question image:",
-                        question.image_url
-                      );
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                </div>
-              )}
+              {question.image_url && <QuestionImage src={question.image_url} />}
             </div>
           </CardContent>
         </Card>
@@ -124,7 +120,13 @@ export function QuestionPreview({
                 <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-blue-900">Hint</p>
-                  <p className="text-sm text-blue-800">{question.hint}</p>
+                  <div className="text-sm text-blue-800">
+                    <MathPreview
+                      content={question.hint}
+                      renderMarkdown={true}
+                      className="text-sm"
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -161,8 +163,8 @@ export function QuestionPreview({
                       <div
                         className={`p-3 rounded-lg border transition-colors ${
                           selectedAnswer === index.toString()
-                            ? "border-primaryBlue bg-primaryBlue/5"
-                            : "border-border hover:border-primaryBlue/50"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
                         }`}
                       >
                         <MathPreview
@@ -207,11 +209,16 @@ export function QuestionPreview({
                       <div
                         className={`p-4 rounded-lg border text-center transition-colors ${
                           selectedAnswer === index.toString()
-                            ? "border-primaryBlue bg-primaryBlue/5"
-                            : "border-border hover:border-primaryBlue/50"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
                         }`}
                       >
-                        <span className="font-medium">{answer.content}</span>
+                        <div className="font-medium">
+                          <MathPreview
+                            content={answer.content}
+                            renderMarkdown={true}
+                          />
+                        </div>
                         {showAnswers && answer.is_correct && (
                           <CheckCircle className="h-4 w-4 text-green-600 mx-auto mt-2" />
                         )}
@@ -241,7 +248,11 @@ export function QuestionPreview({
                     {(question as any).acceptedAnswers.map(
                       (answer: any, index: number) => (
                         <li key={index} className="text-sm">
-                          {answer.content}
+                          <MathPreview
+                            content={answer.content}
+                            renderMarkdown={true}
+                            className="inline"
+                          />
                           {answer.grading_criteria && (
                             <span className="text-muted-foreground">
                               {" "}
@@ -272,16 +283,26 @@ export function QuestionPreview({
                 <div className="mt-4 space-y-4">
                   <div className="p-4 bg-muted rounded-lg">
                     <h4 className="font-medium mb-2">Grading Criteria:</h4>
-                    <p className="text-sm whitespace-pre-wrap">
-                      {(question as any).gradingCriteria.grading_criteria}
-                    </p>
+                    <div className="text-sm whitespace-pre-wrap">
+                      <MathPreview
+                        content={
+                          (question as any).gradingCriteria.grading_criteria
+                        }
+                        renderMarkdown={true}
+                      />
+                    </div>
                   </div>
                   {(question as any).gradingCriteria.sample_answer && (
                     <div className="p-4 bg-muted rounded-lg">
                       <h4 className="font-medium mb-2">Sample Answer:</h4>
-                      <p className="text-sm whitespace-pre-wrap">
-                        {(question as any).gradingCriteria.sample_answer}
-                      </p>
+                      <div className="text-sm whitespace-pre-wrap">
+                        <MathPreview
+                          content={
+                            (question as any).gradingCriteria.sample_answer
+                          }
+                          renderMarkdown={true}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -307,7 +328,11 @@ export function QuestionPreview({
                     {(question as any).acceptedAnswers.map(
                       (answer: any, index: number) => (
                         <li key={index} className="text-sm">
-                          {answer.content}
+                          <MathPreview
+                            content={answer.content}
+                            renderMarkdown={true}
+                            className="inline"
+                          />
                           {answer.grading_criteria && (
                             <span className="text-muted-foreground">
                               {" "}
@@ -324,104 +349,49 @@ export function QuestionPreview({
           )}
 
           {/* Matching */}
-          {(question as any).type === "matching" &&
-            (question as any).matching_pairs && (
-              <div className="space-y-4">
-                <MatchingQuestion
-                  questionId={(question as any).id || "preview"}
-                  pairs={(question as any).matching_pairs}
-                  value={matchingAnswers}
-                  onChange={setMatchingAnswers}
-                  disabled={false}
-                />
-                {showAnswers && (
-                  <div className="mt-4 p-4 bg-muted rounded-lg">
-                    <h4 className="font-medium mb-2">Correct Matches:</h4>
-                    <div className="space-y-2">
-                      {(question as any).matching_pairs.map((pair: any) => (
-                        <div
-                          key={pair.id}
-                          className="flex items-center gap-2 text-sm"
-                        >
-                          <span className="font-medium">{pair.left}</span>
-                          <span className="text-muted-foreground">→</span>
-                          <span>{pair.right}</span>
-                          {matchingAnswers[pair.id] === pair.id && (
-                            <CheckCircle className="h-4 w-4 text-green-600 ml-2" />
-                          )}
+          {question.type === "matching" && question.matching_pairs && (
+            <div className="space-y-4">
+              <MatchingQuestion
+                questionId={(question as any).id || "preview"}
+                pairs={question.matching_pairs as any}
+                value={matchingAnswers}
+                onChange={setMatchingAnswers}
+                disabled={false}
+              />
+              {showAnswers && (
+                <div className="mt-4 p-4 bg-muted rounded-lg">
+                  <h4 className="font-medium mb-2">Correct Matches:</h4>
+                  <div className="space-y-2">
+                    {(question as any).matching_pairs.map((pair: any) => (
+                      <div
+                        key={pair.id}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <div className="font-medium">
+                          <MathPreview
+                            content={pair.left}
+                            renderMarkdown={true}
+                            className="inline"
+                          />
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-          {/* Matching Pairs */}
-          {question.type === "matching_pairs" &&
-            ((question as any).metadata?.matchingPairs ||
-              (question as any).answers?.[0]?.matchingPairs) && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-medium mb-3 text-sm">Terms</h4>
-                    <div className="space-y-2">
-                      {(
-                        (question as any).metadata?.matchingPairs ||
-                        (question as any).answers[0].matchingPairs
-                      ).map((pair: any, index: number) => (
-                        <div
-                          key={`left-${index}`}
-                          className="p-3 border rounded-lg bg-blue-50 border-blue-200"
-                        >
-                          <span className="text-sm font-medium">
-                            {pair.left}
-                          </span>
+                        <span className="text-muted-foreground">→</span>
+                        <div>
+                          <MathPreview
+                            content={pair.right}
+                            renderMarkdown={true}
+                            className="inline"
+                          />
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="font-medium mb-3 text-sm">Definitions</h4>
-                    <div className="space-y-2">
-                      {(
-                        (question as any).metadata?.matchingPairs ||
-                        (question as any).answers[0].matchingPairs
-                      ).map((pair: any, index: number) => (
-                        <div
-                          key={`right-${index}`}
-                          className="p-3 border rounded-lg bg-green-50 border-green-200"
-                        >
-                          <span className="text-sm">{pair.right}</span>
-                        </div>
-                      ))}
-                    </div>
+                        {matchingAnswers[pair.id] === pair.id && (
+                          <CheckCircle className="h-4 w-4 text-green-600 ml-2" />
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
-                {showAnswers && (
-                  <div className="mt-4 p-4 bg-muted rounded-lg">
-                    <h4 className="font-medium mb-2">Correct Pairs:</h4>
-                    <div className="space-y-2">
-                      {(
-                        (question as any).metadata?.matchingPairs ||
-                        (question as any).answers[0].matchingPairs
-                      ).map((pair: any, index: number) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-2 text-sm"
-                        >
-                          <span className="font-medium text-blue-700">
-                            {pair.left}
-                          </span>
-                          <span className="text-muted-foreground">→</span>
-                          <span className="text-green-700">{pair.right}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+            </div>
+          )}
 
           {/* Coding */}
           {(question as any).type === "coding" && (
@@ -509,9 +479,13 @@ export function QuestionPreview({
                           <p className="text-sm font-medium text-green-900">
                             Correct Answer Feedback
                           </p>
-                          <p className="text-sm text-green-800">
-                            {question.correct_feedback}
-                          </p>
+                          <div className="text-sm text-green-800">
+                            <MathPreview
+                              content={question.correct_feedback}
+                              renderMarkdown={true}
+                              className="text-sm"
+                            />
+                          </div>
                         </div>
                       </div>
                     )}
@@ -522,9 +496,13 @@ export function QuestionPreview({
                           <p className="text-sm font-medium text-red-900">
                             Incorrect Answer Feedback
                           </p>
-                          <p className="text-sm text-red-800">
-                            {question.incorrect_feedback}
-                          </p>
+                          <div className="text-sm text-red-800">
+                            <MathPreview
+                              content={question.incorrect_feedback}
+                              renderMarkdown={true}
+                              className="text-sm"
+                            />
+                          </div>
                         </div>
                       </div>
                     )}

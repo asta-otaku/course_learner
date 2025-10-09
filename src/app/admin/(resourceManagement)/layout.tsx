@@ -11,7 +11,9 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen w-full bg-background">
       <TopNavigation />
-      <main className="max-w-screen-2xl mx-auto w-full px-4">{children}</main>
+      <main className="max-w-screen-2xl mx-auto w-full px-4 font-poppins">
+        {children}
+      </main>
     </div>
   );
 }

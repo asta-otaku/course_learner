@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, Pencil, Trash } from "lucide-react";
+import { MoreHorizontal, Copy, Pencil, Trash, Eye } from "lucide-react";
 import Link from "next/link";
 import { useDeleteQuestion } from "@/lib/api/mutations";
 import { useRouter } from "next/navigation";
@@ -30,18 +30,26 @@ import {
 import { toast } from "react-toastify";
 import type { Question } from "@/lib/types";
 import { duplicateQuestion } from "@/app/actions/questions";
+import { QuestionPreviewModal } from "@/components/resourceManagemement/questions";
+import { MathPreview } from "@/components/resourceManagemement/editor";
 
 const typeColors = {
-  multiple_choice: "bg-blue-100 text-blue-800",
-  true_false: "bg-purple-100 text-purple-800",
-  free_text: "bg-green-100 text-green-800",
-  matching: "bg-yellow-100 text-yellow-800",
-  matching_pairs: "bg-yellow-100 text-yellow-800",
+  multiple_choice: "bg-blue-100 text-blue-800 whitespace-nowrap",
+  true_false: "bg-purple-100 text-purple-800 whitespace-nowrap",
+  short_answer: "bg-green-100 text-green-800 whitespace-nowrap",
+  long_answer: "bg-yellow-100 text-yellow-800 whitespace-nowrap",
+  coding: "bg-orange-100 text-orange-800 whitespace-nowrap",
+  free_text: "bg-green-100 text-green-800 whitespace-nowrap",
+  matching: "bg-yellow-100 text-yellow-800 whitespace-nowrap",
+  matching_pairs: "bg-yellow-100 text-yellow-800 whitespace-nowrap",
 };
 
 const typeLabels = {
   multiple_choice: "Multiple Choice",
   true_false: "True/False",
+  short_answer: "Short Answer",
+  long_answer: "Long Answer",
+  coding: "Coding",
   free_text: "Free Text",
   matching: "Matching",
   matching_pairs: "Matching",
@@ -78,16 +86,16 @@ export const columns: ColumnDef<Question>[] = [
     header: "Content",
     cell: ({ row }) => {
       const content = row.getValue("content") as string;
-      const id = row.original.id;
       const truncated =
         content.length > 100 ? content.substring(0, 100) + "..." : content;
       return (
-        <Link
-          href={`/admin/questions/${id}`}
-          className="font-medium hover:underline"
-        >
-          {truncated}
-        </Link>
+        <div className="font-medium max-w-sm">
+          <MathPreview
+            content={truncated}
+            renderMarkdown={true}
+            className="text-sm"
+          />
+        </div>
       );
     },
   },
@@ -136,19 +144,6 @@ export const columns: ColumnDef<Question>[] = [
       );
     },
   },
-  // Difficulty column removed - field no longer in schema
-  {
-    accessorKey: "isPublic",
-    header: "Visibility",
-    cell: ({ row }) => {
-      const isPublic = row.getValue("isPublic") as boolean;
-      return (
-        <Badge variant={isPublic ? "default" : "secondary"}>
-          {isPublic ? "Public" : "Private"}
-        </Badge>
-      );
-    },
-  },
   {
     accessorKey: "createdAt",
     header: "Created",
@@ -162,6 +157,16 @@ export const columns: ColumnDef<Question>[] = [
     },
   },
   {
+    id: "preview",
+    header: "",
+    cell: ({ row }) => {
+      const question = row.original;
+      return <PreviewButton question={question} />;
+    },
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
     id: "actions",
     cell: ({ row }) => {
       const question = row.original;
@@ -169,6 +174,33 @@ export const columns: ColumnDef<Question>[] = [
     },
   },
 ];
+
+function PreviewButton({ question }: { question: Question }) {
+  const [showPreview, setShowPreview] = useState(false);
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowPreview(true);
+        }}
+        className="h-8 w-8 p-0"
+      >
+        <Eye className="h-4 w-4" />
+        <span className="sr-only">Preview question</span>
+      </Button>
+
+      <QuestionPreviewModal
+        question={question}
+        open={showPreview}
+        onOpenChange={setShowPreview}
+      />
+    </>
+  );
+}
 
 function QuestionActions({ question }: { question: Question }) {
   const router = useRouter();

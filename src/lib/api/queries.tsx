@@ -430,13 +430,17 @@ export const useGetQuestions = (options?: QuestionQueryOptions) => {
   });
 };
 
-export const useGetQuestionById = (id: string) => {
+export const useGetQuestionById = (
+  id: string,
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
     queryKey: ["question", id],
     queryFn: async (): Promise<APIGetResponse<Question>> => {
       const response = await axiosInstance.get(`/questions/${id}`);
       return response.data;
     },
+    enabled: options?.enabled ?? !!id,
   });
 };
 
