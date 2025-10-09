@@ -1,26 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ChevronRight,
   ChevronDown,
   Folder,
   FolderOpen,
   Plus,
-  MoreVertical,
+  MoreHorizontal,
   FileText,
   Trash2,
-  GripVertical,
+  Edit2,
+  Move,
+  FolderX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,7 +57,6 @@ import {
   DragEndEvent,
   DragStartEvent,
   DragOverlay,
-  DragOverEvent,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -101,6 +95,63 @@ interface FolderNodeProps {
   onFolderDelete?: (folderId: string) => void;
   onFolderMove?: (folderId: string, newParentId: string | null) => void;
   questionCounts?: Record<string, number>;
+}
+
+// Tree line component for visual hierarchy
+function TreeLine({ isLast, level }: { isLast: boolean; level: number }) {
+  if (level === 0) return null;
+
+  return (
+    <div className="absolute left-0 top-0 h-full flex">
+      {Array.from({ length: level }).map((_, i) => (
+        <div key={i} className="relative w-6 h-full">
+          {i === level - 1 ? (
+            // Connection for this item
+            <>
+              <div className="absolute h-1/2 w-px bg-gray-300 dark:bg-gray-600 left-3 top-0" />
+              <div
+                className={cn(
+                  "absolute h-px w-3 bg-gray-300 dark:bg-gray-600 left-3 top-1/2",
+                  !isLast && "h-full"
+                )}
+              />
+              {!isLast && (
+                <div className="absolute h-1/2 w-px bg-gray-300 dark:bg-gray-600 left-3 top-1/2" />
+              )}
+            </>
+          ) : (
+            // Vertical line for parent levels
+            <div className="absolute h-full w-px bg-gray-300 dark:bg-gray-600 left-3" />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Enhanced folder icon
+function EnhancedFolderIcon({
+  isExpanded,
+  hasChildren,
+  questionCount = 0,
+}: {
+  isExpanded: boolean;
+  hasChildren: boolean;
+  questionCount?: number;
+}) {
+  const isEmpty = !hasChildren && questionCount === 0;
+
+  const Icon = isEmpty ? FolderX : isExpanded ? FolderOpen : Folder;
+
+  const color = isEmpty
+    ? "#9CA3AF" // gray-400
+    : isExpanded
+      ? "#3B82F6" // blue
+      : "#6B7280"; // gray-500
+
+  return (
+    <Icon className="h-4 w-4 transition-all duration-200" style={{ color }} />
+  );
 }
 
 function SortableFolderNode(props: FolderNodeProps & { isDragging?: boolean }) {
@@ -165,48 +216,108 @@ function FolderNode({
   const isExpanded = expandedFolders.has(folder.id);
   const isSelected = selectedFolderId === folder.id;
   const questionCount = questionCounts?.[folder.id] || 0;
+
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
-  const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(folder.name);
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
-  const [newFolderName, setNewFolderName] = useState("");
+  const [isHovered, setIsHovered] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Create patch mutations for this folder
   const patchFolderMutation = usePatchFolder(folder.id);
 
-  const handleToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (hasChildren) {
-      onToggleExpand(folder.id);
+  // Calculate indentation
+  const indentWidth = level * 24; // 24px per level
+
+  // Check if this is the last child
+  const parentId = getParentId(folder);
+  const siblings = folders.filter((f) => getParentId(f) === parentId);
+  const isLast = siblings[siblings.length - 1]?.id === folder.id;
+
+  const handleToggle = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (hasChildren) {
+        onToggleExpand(folder.id);
+      }
+    },
+    [hasChildren, folder.id, onToggleExpand]
+  );
+
+  const handleSelect = useCallback(() => {
+    if (!isRenaming) {
+      onFolderSelect(folder.id);
     }
-  };
+  }, [isRenaming, folder.id, onFolderSelect]);
 
-  const handleSelect = () => {
-    onFolderSelect(folder.id);
-  };
+  const handleRenameStart = useCallback(() => {
+    setIsRenaming(true);
+    setRenameValue(folder.name);
+    setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
+  }, [folder.name]);
 
-  const handleContextMenu = async (action: string) => {
-    switch (action) {
-      case "new-folder":
-        onFolderCreate?.(folder.id);
-        break;
-      case "rename":
-        // Open rename dialog instead of using prompt
-        setNewFolderName(folder.name);
-        setShowRenameDialog(true);
-        break;
-      case "delete":
-        setShowDeleteDialog(true);
-        break;
-      case "move":
-        setShowMoveDialog(true);
-        break;
+  const handleRenameCancel = useCallback(() => {
+    setIsRenaming(false);
+    setRenameValue(folder.name);
+  }, [folder.name]);
+
+  const handleRenameSubmit = useCallback(async () => {
+    const trimmedName = renameValue.trim();
+    if (trimmedName && trimmedName !== folder.name) {
+      try {
+        const result = await patchFolderMutation.mutateAsync({
+          name: trimmedName,
+          description: "",
+        });
+
+        if (result.status === 200) {
+          onFolderRename?.(folder.id, trimmedName);
+        }
+      } catch (error) {
+        console.error("Error renaming folder:", error);
+      }
     }
-  };
+    setIsRenaming(false);
+  }, [
+    renameValue,
+    folder.name,
+    folder.id,
+    patchFolderMutation,
+    onFolderRename,
+  ]);
 
-  const handleDelete = () => {
-    onFolderDelete?.(folder.id);
-    setShowDeleteDialog(false);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        handleRenameSubmit();
+      } else if (e.key === "Escape") {
+        handleRenameCancel();
+      }
+    },
+    [handleRenameSubmit, handleRenameCancel]
+  );
+
+  const handleDelete = async () => {
+    try {
+      // Import axiosInstance for direct API call
+      const { axiosInstance } = await import("@/lib/services/axiosInstance");
+
+      const result = await axiosInstance.delete(`/folder/${folder.id}`);
+
+      if (result.status === 200) {
+        // Call the delete handler to refresh the UI
+        onFolderDelete?.(folder.id);
+        setShowDeleteDialog(false);
+      }
+    } catch (error) {
+      console.error("Error deleting folder:", error);
+    }
   };
 
   const handleMove = async () => {
@@ -219,7 +330,6 @@ function FolderNode({
         });
 
         if (result.status === 200) {
-          // Call the move handler to refresh the UI
           onFolderMove(folder.id, targetFolderId);
           setShowMoveDialog(false);
           setTargetFolderId(null);
@@ -230,151 +340,198 @@ function FolderNode({
     }
   };
 
-  const handleRename = async () => {
-    if (newFolderName.trim() && newFolderName !== folder.name) {
-      try {
-        const result = await patchFolderMutation.mutateAsync({
-          name: newFolderName.trim(),
-          description: "", // Keep existing description
-        });
-
-        if (result.status === 200) {
-          // Call the rename handler to refresh the UI
-          onFolderRename?.(folder.id, newFolderName.trim());
-          setShowRenameDialog(false);
-          setNewFolderName("");
-        }
-      } catch (error) {
-        console.error("Error renaming folder:", error);
-      }
-    }
-  };
-
   return (
-    <div className="select-none group">
-      <ContextMenu>
-        <ContextMenuTrigger>
+    <div className="relative group">
+      {/* Tree Lines */}
+      <TreeLine isLast={isLast} level={level} />
+
+      {/* Main Content */}
+      <div
+        className={cn(
+          "relative flex items-center h-9 px-1.5 py-0.5 cursor-pointer select-none transition-all duration-150",
+          "hover:bg-gray-50 dark:hover:bg-gray-800/50",
+          isSelected &&
+            "bg-blue-50 dark:bg-blue-900/20 border-r-2 border-blue-500",
+          isDragging && "opacity-50"
+        )}
+        style={{ paddingLeft: `${indentWidth + 6}px` }}
+        onClick={handleSelect}
+        onMouseEnter={() => {
+          setIsHovered(true);
+        }}
+        onMouseLeave={() => {
+          // Don't hide actions if dropdown is open
+          if (!isDropdownOpen) {
+            setIsHovered(false);
+          }
+        }}
+        {...dragAttributes}
+        {...dragListeners}
+      >
+        {/* Expand/Collapse Button */}
+        <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+          {hasChildren ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-5 h-5 p-0 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+              onClick={handleToggle}
+              title={isExpanded ? "Collapse folder" : "Expand folder"}
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-3 h-3 text-gray-600" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-gray-600" />
+              )}
+            </Button>
+          ) : (
+            <div className="w-5 h-5" />
+          )}
+        </div>
+
+        {/* Folder Icon */}
+        <div className="flex-shrink-0 ml-1 mr-2">
+          <EnhancedFolderIcon
+            isExpanded={isExpanded}
+            hasChildren={hasChildren}
+            questionCount={questionCount}
+          />
+        </div>
+
+        {/* Folder Name */}
+        <div className="flex-1 min-w-0">
+          {isRenaming ? (
+            <Input
+              ref={inputRef}
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onBlur={handleRenameSubmit}
+              onKeyDown={handleKeyDown}
+              className="h-6 px-2 py-0 text-sm border-gray-300 shadow-none focus:ring-1 focus:ring-blue-500"
+              maxLength={255}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span
+              className={cn(
+                "text-sm font-medium truncate block",
+                isSelected
+                  ? "text-blue-700 dark:text-blue-300"
+                  : "text-gray-900 dark:text-gray-100"
+              )}
+              title={folder.name}
+            >
+              {folder.name}
+            </span>
+          )}
+        </div>
+
+        {/* Question Count */}
+        {questionCount > 0 && (
+          <div className="flex-shrink-0 ml-2">
+            <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full font-medium">
+              {questionCount}
+            </span>
+          </div>
+        )}
+
+        {/* Actions - NOT draggable */}
+        {(isHovered || isSelected || isDropdownOpen) && !isRenaming && (
           <div
             className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200",
-              "hover:bg-blue-50 hover:border-blue-200 border border-transparent",
-              isSelected && "bg-blue-100 border-blue-300 shadow-sm",
-              isDragging && "opacity-50"
+              "flex-shrink-0 ml-2 flex items-center space-x-1 transition-opacity",
+              (isHovered || isSelected) && !isDropdownOpen
+                ? "opacity-0 group-hover:opacity-100"
+                : "opacity-100"
             )}
-            style={{ paddingLeft: `${level * 20 + 12}px` }}
-            onClick={handleSelect}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
           >
-            {/* Drag Handle - Show for all folders */}
-            <div
-              {...dragAttributes}
-              {...dragListeners}
-              className="p-1 hover:bg-blue-100 rounded-md transition-colors cursor-move opacity-0 group-hover:opacity-100"
-              onClick={(e) => e.stopPropagation()}
+            {/* Quick Add Subfolder */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-6 h-6 p-0 hover:bg-blue-100 dark:hover:bg-blue-900 rounded"
+              onClick={(e) => {
+                e.stopPropagation();
+                onFolderCreate?.(folder.id);
+              }}
+              title="Add subfolder"
             >
-              <GripVertical className="h-4 w-4 text-slate-400" />
-            </div>
+              <Plus className="w-3.5 h-3.5 text-gray-600" />
+            </Button>
 
-            <button
-              onClick={handleToggle}
-              className="p-1 hover:bg-blue-100 rounded-md transition-colors"
+            {/* Context Menu */}
+            <DropdownMenu
+              onOpenChange={(open) => {
+                setIsDropdownOpen(open);
+              }}
             >
-              {hasChildren ? (
-                isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-slate-600" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-slate-600" />
-                )
-              ) : (
-                <div className="h-4 w-4" />
-              )}
-            </button>
-
-            {isExpanded ? (
-              <FolderOpen className="h-5 w-5 text-blue-600" />
-            ) : (
-              <Folder className="h-5 w-5 text-slate-500" />
-            )}
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-900 truncate">
-                  {folder.name}
-                </span>
-                {questionCount > 0 && (
-                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full ml-2">
-                    {questionCount}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {/* Delete button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 w-7 p-0 hover:bg-red-50 hover:text-red-600"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowDeleteDialog(true);
-                }}
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-6 h-6 p-0 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="w-3.5 h-3.5 text-gray-600" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-48"
+                onCloseAutoFocus={(e) => e.preventDefault()}
               >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-
-              {/* More options menu */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreVertical className="h-4 w-4 text-slate-500" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem
-                    onClick={() => handleContextMenu("new-folder")}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    New Subfolder
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleContextMenu("rename")}>
-                    Rename
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleContextMenu("move")}>
-                    Move to...
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRenameStart();
+                  }}
+                >
+                  <Edit2 className="w-4 h-4 mr-2" />
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMoveDialog(true);
+                  }}
+                >
+                  <Move className="w-4 h-4 mr-2" />
+                  Move to...
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFolderCreate?.(folder.id);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New subfolder
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDeleteDialog(true);
+                  }}
+                  className="text-red-600 focus:text-red-600"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        </ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuItem onClick={() => handleContextMenu("new-folder")}>
-            New Subfolder
-          </ContextMenuItem>
-          <ContextMenuItem onClick={() => handleContextMenu("rename")}>
-            Rename
-          </ContextMenuItem>
-          <ContextMenuItem onClick={() => handleContextMenu("move")}>
-            Move to...
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem
-            onClick={() => handleContextMenu("delete")}
-            className="text-red-600"
-          >
-            Delete
-          </ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
+        )}
+      </div>
 
+      {/* Children */}
       {isExpanded && hasChildren && (
-        <div className="space-y-1">
+        <div className="transition-all duration-200">
           <SortableContext
             items={childFolders.map((f) => f.id)}
             strategy={verticalListSortingStrategy}
@@ -408,14 +565,14 @@ function FolderNode({
             <AlertDialogDescription>
               Are you sure you want to delete "{folder.name}"?
               {questionCount > 0 && (
-                <span className="block mt-2 font-semibold">
+                <span className="block mt-2 font-semibold text-orange-600">
                   This folder contains {questionCount} question
                   {questionCount !== 1 ? "s" : ""}. All questions will be moved
                   to the parent folder.
                 </span>
               )}
               {hasChildren && (
-                <span className="block mt-2 font-semibold">
+                <span className="block mt-2 font-semibold text-red-600">
                   This folder has subfolders. They will also be deleted.
                 </span>
               )}
@@ -443,7 +600,7 @@ function FolderNode({
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="h-[300px] pr-4">
+          <ScrollArea className="h-[300px] pr-1 [&>[data-radix-scroll-area-viewport]]:!overflow-x-hidden [&>[data-radix-scroll-area-scrollbar]]:w-0.5 [&>[data-radix-scroll-area-scrollbar]]:bg-transparent [&>[data-radix-scroll-area-scrollbar-thumb]]:bg-gray-300 [&>[data-radix-scroll-area-scrollbar-thumb]]:rounded-full [&>[data-radix-scroll-area-scrollbar-thumb]]:opacity-30 [&>[data-radix-scroll-area-scrollbar-thumb]]:hover:opacity-70">
             <RadioGroup
               value={targetFolderId || "root"}
               onValueChange={(value) =>
@@ -451,7 +608,7 @@ function FolderNode({
               }
             >
               {/* Root level option */}
-              <div className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
+              <div className="flex items-center space-x-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
                 <RadioGroupItem value="root" id="folder-root" />
                 <Label htmlFor="folder-root" className="flex-1 cursor-pointer">
                   <div className="flex items-center gap-2">
@@ -464,16 +621,14 @@ function FolderNode({
               {/* Render all folders except current folder and its descendants */}
               {folders
                 .filter((f) => {
-                  // Don't show current folder
                   if (f.id === folder.id) return false;
-                  // Don't show descendants of current folder
                   if (f.path && f.path.includes(folder.id)) return false;
                   return true;
                 })
                 .map((f) => (
                   <div
                     key={f.id}
-                    className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded"
+                    className="flex items-center space-x-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded"
                   >
                     <RadioGroupItem value={f.id} id={`folder-${f.id}`} />
                     <Label
@@ -500,43 +655,6 @@ function FolderNode({
               Cancel
             </Button>
             <Button onClick={handleMove}>Move Folder</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rename Folder Dialog */}
-      <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Rename Folder</DialogTitle>
-            <DialogDescription>
-              Enter a new name for "{folder.name}":
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="Folder name"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleRename();
-                }
-              }}
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowRenameDialog(false);
-                setNewFolderName("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleRename}>Rename Folder</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -593,7 +711,7 @@ export function FolderTree({
     });
   };
 
-  // Auto-expand parent folders when a folder is selected
+  // Auto-expand parent folders when a folder is selected (but not the folder itself)
   useEffect(() => {
     if (selectedFolderId) {
       const folder = folders.find((f) => f.id === selectedFolderId);
@@ -604,21 +722,8 @@ export function FolderTree({
     }
   }, [selectedFolderId, folders]);
 
-  // Auto-expand folders that have children when they're first loaded
-  useEffect(() => {
-    const foldersWithChildren = folders.filter((f) => {
-      const childFolders = folders.filter(
-        (child) => getParentId(child) === f.id
-      );
-      return childFolders.length > 0;
-    });
-
-    if (foldersWithChildren.length > 0) {
-      setExpandedFolders(
-        (prev) => new Set([...prev, ...foldersWithChildren.map((f) => f.id)])
-      );
-    }
-  }, [folders]);
+  // Don't auto-expand folders on load - start collapsed
+  // Removed the auto-expand effect for folders with children
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -734,48 +839,59 @@ export function FolderTree({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className={cn("space-y-2", className)}>
+      <div className={cn("folder-tree", className)}>
         {/* Root level (All Questions) */}
         <div
           className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200",
-            "hover:bg-slate-100 border border-transparent",
+            "group flex items-center h-9 px-2 py-0.5 rounded-md cursor-pointer select-none transition-all duration-150 mb-0.5",
+            "hover:bg-gray-50 dark:hover:bg-gray-800/50",
             selectedFolderId === null &&
-              "bg-slate-200 border-slate-300 shadow-sm"
+              "bg-blue-50 dark:bg-blue-900/20 border-r-2 border-blue-500"
           )}
           onClick={() => onFolderSelect(null)}
         >
-          <div className="h-4 w-4" />
-          <FileText className="h-5 w-5 text-slate-600" />
+          <div className="flex-shrink-0 w-6 h-6" />
+          <FileText
+            className={cn(
+              "h-4 w-4 mr-2 flex-shrink-0",
+              selectedFolderId === null ? "text-blue-600" : "text-gray-600"
+            )}
+          />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-900">
-                All Questions
-              </span>
-              {totalQuestions !== undefined && totalQuestions > 0 && (
-                <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full ml-2">
-                  {totalQuestions}
-                </span>
+            <span
+              className={cn(
+                "text-sm font-medium block truncate",
+                selectedFolderId === null
+                  ? "text-blue-700 dark:text-blue-300"
+                  : "text-gray-900 dark:text-gray-100"
               )}
-            </div>
+            >
+              All Questions
+            </span>
           </div>
+          {totalQuestions !== undefined && totalQuestions > 0 && (
+            <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ml-2">
+              {totalQuestions}
+            </span>
+          )}
           {onFolderCreate && (
             <Button
               variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 opacity-70 hover:opacity-100 transition-opacity"
+              size="icon"
+              className="w-6 h-6 p-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 hover:bg-blue-100 dark:hover:bg-blue-900 rounded"
               onClick={(e) => {
                 e.stopPropagation();
                 onFolderCreate(null);
               }}
+              title="Add folder"
             >
-              <Plus className="h-4 w-4 text-slate-500" />
+              <Plus className="w-3.5 h-3.5 text-gray-600" />
             </Button>
           )}
         </div>
 
         {/* Root folders */}
-        <div className="space-y-1">
+        <div className="space-y-0">
           <SortableContext
             items={rootFolders.map((f) => f.id)}
             strategy={verticalListSortingStrategy}
@@ -804,10 +920,10 @@ export function FolderTree({
       {/* Drag Overlay */}
       <DragOverlay>
         {activeFolder ? (
-          <div className="bg-white shadow-lg rounded-lg p-3 border border-blue-300 opacity-90">
+          <div className="bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 border border-blue-300 opacity-90">
             <div className="flex items-center gap-2">
-              <Folder className="h-5 w-5 text-blue-600" />
-              <span className="font-medium">{activeFolder.name}</span>
+              <Folder className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium">{activeFolder.name}</span>
             </div>
           </div>
         ) : null}
