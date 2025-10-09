@@ -212,8 +212,6 @@ export async function getJSONTemplate(): Promise<string> {
 
 // Transform JSON template format to expected question schema
 function transformQuestionFromTemplate(question: any): any {
-  console.log('Original question:', question);
-  
   const transformed: any = {
     content: question.content,
     type: question.type === 'matching_pairs' ? 'matching' : question.type, // Fix type mapping
@@ -296,8 +294,6 @@ function transformQuestionFromTemplate(question: any): any {
   if (transformed.correct_feedback === undefined) transformed.correct_feedback = null;
   if (transformed.incorrect_feedback === undefined) transformed.incorrect_feedback = null;
   if (transformed.image_url === undefined) transformed.image_url = null;
-
-  console.log('Transformed question:', transformed);
   return transformed;
 }
 

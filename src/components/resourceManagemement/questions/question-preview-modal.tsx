@@ -41,8 +41,6 @@ export function QuestionPreviewModal({
     if (questionData?.data) {
       const questionDataFromAPI = questionData.data;
       const answers = questionDataFromAPI.answers || [];
-      console.log("Fetched question data:", questionDataFromAPI);
-      console.log("Fetched answers:", answers);
 
       // Transform the data to match QuestionPreview expectations
       let transformedQuestion: any = {
@@ -124,8 +122,6 @@ export function QuestionPreviewModal({
           transformedQuestion.language = metadata.language;
         }
       }
-
-      console.log("Transformed question data:", transformedQuestion);
       setFullQuestionData(transformedQuestion);
     }
   }, [questionData]);
@@ -139,7 +135,6 @@ export function QuestionPreviewModal({
         question.matching_pairs ||
         question.testCases
       ) {
-        console.log("Using provided question data directly:", question);
         setFullQuestionData(question);
         return;
       }

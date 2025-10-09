@@ -227,7 +227,7 @@ export function BulkUploadDialog({
         });
       }
 
-      console.log("Import result:", result);
+      
       setImportProgress(100);
 
       // For now, just show success and move to results

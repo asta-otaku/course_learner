@@ -241,12 +241,6 @@ export function QuestionsWithFolders({
     // Refresh questions and counts after bulk operations
     await loadQuestionCounts();
     setSelectedQuestionIds({});
-
-    // Refresh questions for current folder
-    if (selectedFolderId || !selectedFolderId) {
-      // Simple page refresh to get updated questions
-      window.location.reload();
-    }
   };
 
   const handleFolderCreate = (parentId: string | null) => {
@@ -357,12 +351,6 @@ export function QuestionsWithFolders({
   const handleBulkUploadComplete = async () => {
     // Refresh questions and counts after bulk upload
     await loadQuestionCounts();
-
-    // Refresh questions for current folder
-    if (selectedFolderId || !selectedFolderId) {
-      // Simple page refresh to get updated questions
-      window.location.reload();
-    }
   };
 
   return (
@@ -550,8 +538,6 @@ export function QuestionsWithFolders({
         initialFolderId={selectedFolderId}
         onSuccess={() => {
           setShowCreateQuestion(false);
-          // Refresh the page to load new questions
-          window.location.reload();
         }}
       />
     </div>

@@ -41,7 +41,7 @@ const questionTypes = [
   { value: "true_false", label: "True/False" },
   { value: "free_text", label: "Free Text" },
   { value: "matching", label: "Matching" },
-  { value: "matching_pairs", label: "Matching Pairs" },
+  { value: "matching_pairs", label: "Matching" },
 ] as const;
 
 export default function EditQuestionPage({

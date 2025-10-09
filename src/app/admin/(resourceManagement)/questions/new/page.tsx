@@ -12,10 +12,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -27,14 +25,15 @@ import {
   MultipleChoiceEditor,
   TrueFalseEditor,
   FreeTextEditor,
-  MatchingEditor,
 } from "@/components/resourceManagemement/questions";
+import { MatchingPairsEditor } from "@/components/resourceManagemement/questions/matching-pairs-editor";
+import { FolderSelect } from "@/components/resourceManagemement/questions/folder-select";
+import { MarkdownEditor } from "@/components/resourceManagemement/editor/markdown-editor";
 
-import { createQuestion } from "@/app/actions/questions";
+import { usePostQuestion } from "@/lib/api/mutations";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Upload } from "lucide-react";
+import { ArrowLeft, Loader2, Upload, X } from "lucide-react";
 import Link from "next/link";
-import type { Question } from "@/lib/validations/question";
 import dynamic from "next/dynamic";
 
 const BulkUploadDialog = dynamic(
@@ -51,28 +50,31 @@ const questionTypes = [
   { value: "multiple_choice", label: "Multiple Choice" },
   { value: "true_false", label: "True/False" },
   { value: "free_text", label: "Free Text" },
-  { value: "matching", label: "Matching" },
+  { value: "matching_pairs", label: "Matching Pairs" },
 ] as const;
 
-export default function NewQuestionPage() {
+function NewQuestionForm({
+  initialFolderId,
+}: {
+  initialFolderId: string | null;
+}) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [folderId, setFolderId] = useState<string | null>(initialFolderId);
+  const { mutateAsync: createQuestion } = usePostQuestion();
 
-  const [formData, setFormData] = useState<Partial<Question>>({
+  const [formData, setFormData] = useState<any>({
     title: "",
     content: "",
     type: "multiple_choice",
-    time_limit: null,
-    tags: [],
     hint: "",
-    explanation: "",
-    is_public: false,
-    points: 1, // Default points for backend
-    difficulty_level: 3, // Default difficulty for backend
+    correct_feedback: "",
+    incorrect_feedback: "",
+    is_public: true,
+    image: null,
+    imageUrl: null,
   });
-
-  const [tagInput, setTagInput] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +122,7 @@ export default function NewQuestionPage() {
       }
     }
 
-    if (formData.type === "matching") {
+    if (formData.type === "matching_pairs") {
       if (!formData.matching_pairs || formData.matching_pairs.length < 2) {
         toast.error("Please add at least 2 matching pairs");
         return;
@@ -138,40 +140,80 @@ export default function NewQuestionPage() {
 
     try {
       // Clean up the data - remove undefined fields
-      const cleanData: any = {
-        title: formData.title,
-        content: formData.content,
-        type: formData.type,
-        time_limit: formData.time_limit,
-        tags: formData.tags || [],
-        hint: formData.hint || "",
-        explanation: formData.explanation || "",
-        is_public: formData.is_public || false,
-        points: formData.points || 1,
-        difficulty_level: formData.difficulty_level || 3,
-      };
+      // Create FormData for multipart/form-data submission
+      const formDataToSend = new FormData();
+
+      formDataToSend.append("title", formData.title);
+      formDataToSend.append("content", formData.content);
+      formDataToSend.append("type", formData.type);
+      formDataToSend.append("hint", formData.hint || "");
+      formDataToSend.append("correctFeedback", formData.correct_feedback || "");
+      formDataToSend.append(
+        "incorrectFeedback",
+        formData.incorrect_feedback || ""
+      );
+      formDataToSend.append("isPublic", String(formData.is_public || false));
+
+      // Add folder ID if selected
+      if (folderId) {
+        formDataToSend.append("folderId", folderId);
+      }
+
+      // Add image file if present
+      if (formData.image && formData.image instanceof File) {
+        formDataToSend.append("image", formData.image);
+      } else if (formData.imageUrl) {
+        formDataToSend.append("imageUrl", formData.imageUrl);
+      }
 
       // Add type-specific fields
       if (
         formData.type === "multiple_choice" ||
         formData.type === "true_false"
       ) {
-        cleanData.answers = formData.answers;
+        formDataToSend.append(
+          "answers",
+          JSON.stringify(
+            (formData.answers || []).map((answer: any, index: number) => ({
+              content: answer.content || "",
+              isCorrect: answer.is_correct || false,
+              explanation: answer.explanation || "",
+              orderIndex:
+                answer.order_index !== undefined ? answer.order_index : index,
+            }))
+          )
+        );
       } else if (formData.type === "free_text") {
-        cleanData.acceptedAnswers = formData.acceptedAnswers;
-      } else if (formData.type === "matching") {
-        cleanData.matching_pairs = formData.matching_pairs;
+        formDataToSend.append(
+          "acceptedAnswers",
+          JSON.stringify(
+            (formData.acceptedAnswers || []).map((answer: any) => ({
+              content: answer.content || "",
+              gradingCriteria: answer.gradingCriteria || "",
+            }))
+          )
+        );
+      } else if (formData.type === "matching_pairs") {
+        formDataToSend.append(
+          "matchingPairs",
+          JSON.stringify(
+            (formData.matching_pairs || []).map((pair: any) => ({
+              left: pair.left || "",
+              right: pair.right || "",
+            }))
+          )
+        );
       }
 
-      const result = await createQuestion(cleanData);
+      const result = await createQuestion(formDataToSend);
 
-      if (!result.success) {
+      if (result.status !== 201) {
         toast.error((result as any).error);
         return;
       }
 
       toast.success("Question created successfully");
-      router.push(`/questions/${result.data.id}`);
+      router.push(`/admin/questions/${result.data.data.id}`);
     } catch (error) {
       console.error("Error creating question:", error);
       toast.error("Failed to create question");
@@ -180,51 +222,29 @@ export default function NewQuestionPage() {
     }
   };
 
-  const handleTypeChange = (type: Question["type"]) => {
+  const handleTypeChange = (type: any) => {
     const baseFormData = {
       title: formData.title,
       content: formData.content,
-      time_limit: formData.time_limit,
-      tags: formData.tags,
       hint: formData.hint,
-      explanation: formData.explanation,
+      correct_feedback: formData.correct_feedback,
+      incorrect_feedback: formData.incorrect_feedback,
       is_public: formData.is_public,
-      points: formData.points,
-      difficulty_level: formData.difficulty_level,
+      image: formData.image,
+      imageUrl: formData.imageUrl,
       type,
     };
 
-    setFormData(baseFormData as any);
-  };
-
-  const handleTagAdd = () => {
-    if (
-      tagInput.trim() &&
-      formData.tags &&
-      !formData.tags.includes(tagInput.trim())
-    ) {
-      setFormData((prev) => ({
-        ...prev,
-        tags: [...(prev.tags || []), tagInput.trim()],
-      }));
-      setTagInput("");
-    }
-  };
-
-  const handleTagRemove = (tag: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      tags: prev.tags?.filter((t) => t !== tag) || [],
-    }));
+    setFormData(baseFormData);
   };
 
   return (
     <div className="min-h-screen flex flex-col">
-      <div className="mx-auto py-10 max-w-4xl flex-1 flex flex-col w-full">
+      <div className="container mx-auto py-10 max-w-4xl flex-1 flex flex-col">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <Link
-              href="/questions"
+              href="/admin/questions"
               className="inline-flex items-center text-sm text-muted-foreground hover:text-primary"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -237,8 +257,8 @@ export default function NewQuestionPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto pb-6">
-          <form onSubmit={handleSubmit}>
+        <div className="flex-1 overflow-y-auto pb-20">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <Card className="mb-8">
               <CardHeader>
                 <CardTitle>Create New Question</CardTitle>
@@ -254,7 +274,7 @@ export default function NewQuestionPage() {
                       id="title"
                       value={formData.title}
                       onChange={(e) =>
-                        setFormData((prev) => ({
+                        setFormData((prev: any) => ({
                           ...prev,
                           title: e.target.value,
                         }))
@@ -270,7 +290,7 @@ export default function NewQuestionPage() {
                       id="content"
                       value={formData.content}
                       onChange={(e) =>
-                        setFormData((prev) => ({
+                        setFormData((prev: any) => ({
                           ...prev,
                           content: e.target.value,
                         }))
@@ -301,68 +321,12 @@ export default function NewQuestionPage() {
                   </div>
 
                   <div>
-                    <Label htmlFor="time-limit">Time Limit (seconds)</Label>
-                    <Input
-                      id="time-limit"
-                      type="number"
-                      min="0"
-                      value={formData.time_limit || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          time_limit: e.target.value
-                            ? parseInt(e.target.value)
-                            : null,
-                        }))
-                      }
-                      placeholder="Optional time limit"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="tags">Tags</Label>
-                    <div className="flex gap-2 mb-2">
-                      <Input
-                        id="tags"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        placeholder="Add a tag"
-                        onKeyPress={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleTagAdd();
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleTagAdd}
-                      >
-                        Add
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {formData.tags?.map((tag) => (
-                        <Badge
-                          key={tag}
-                          variant="secondary"
-                          className="cursor-pointer"
-                          onClick={() => handleTagRemove(tag)}
-                        >
-                          {tag} ×
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
                     <Label htmlFor="hint">Hint (optional)</Label>
                     <Textarea
                       id="hint"
                       value={formData.hint || ""}
                       onChange={(e) =>
-                        setFormData((prev) => ({
+                        setFormData((prev: any) => ({
                           ...prev,
                           hint: e.target.value,
                         }))
@@ -372,19 +336,50 @@ export default function NewQuestionPage() {
                     />
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="correct-feedback">
+                        Correct Answer Feedback (optional)
+                      </Label>
+                      <MarkdownEditor
+                        value={formData.correct_feedback || ""}
+                        onChange={(value) =>
+                          setFormData((prev: any) => ({
+                            ...prev,
+                            correct_feedback: value,
+                          }))
+                        }
+                        placeholder="Message shown when the answer is correct. You can use Markdown and LaTeX."
+                        height={150}
+                        preview="edit"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="incorrect-feedback">
+                        Incorrect Answer Feedback (optional)
+                      </Label>
+                      <MarkdownEditor
+                        value={formData.incorrect_feedback || ""}
+                        onChange={(value) =>
+                          setFormData((prev: any) => ({
+                            ...prev,
+                            incorrect_feedback: value,
+                          }))
+                        }
+                        placeholder="Message shown when the answer is incorrect. You can use Markdown and LaTeX."
+                        height={150}
+                        preview="edit"
+                      />
+                    </div>
+                  </div>
+
                   <div>
-                    <Label htmlFor="explanation">Explanation (optional)</Label>
-                    <Textarea
-                      id="explanation"
-                      value={formData.explanation || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          explanation: e.target.value,
-                        }))
-                      }
-                      placeholder="Explain the correct answer"
-                      rows={3}
+                    <Label>Folder</Label>
+                    <FolderSelect
+                      value={folderId}
+                      onChange={setFolderId}
+                      placeholder="Select folder (optional)"
                     />
                   </div>
 
@@ -393,7 +388,7 @@ export default function NewQuestionPage() {
                       id="public"
                       checked={formData.is_public || false}
                       onCheckedChange={(checked) =>
-                        setFormData((prev) => ({
+                        setFormData((prev: any) => ({
                           ...prev,
                           is_public: checked,
                         }))
@@ -402,6 +397,85 @@ export default function NewQuestionPage() {
                     <Label htmlFor="public">Make this question public</Label>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Question Image (Optional)</CardTitle>
+                <CardDescription>
+                  Add an image to accompany your question
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {formData.image && formData.image instanceof File ? (
+                  <div className="relative">
+                    <img
+                      src={URL.createObjectURL(formData.image)}
+                      alt="Question image preview"
+                      className="w-full max-h-64 object-contain rounded-lg border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={() =>
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          image: null,
+                        }))
+                      }
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : formData.imageUrl ? (
+                  <div className="relative">
+                    <img
+                      src={formData.imageUrl}
+                      alt="Question image"
+                      className="w-full max-h-64 object-contain rounded-lg border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={() =>
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          imageUrl: null,
+                        }))
+                      }
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 10 * 1024 * 1024) {
+                          // 10MB limit
+                          toast.error("Image size must be less than 10MB");
+                          return;
+                        }
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          image: file,
+                        }));
+                      }
+                    }}
+                    className="w-full p-2 border border-dashed border-gray-300 rounded-lg"
+                  />
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload an image to accompany your question (max 10MB)
+                </p>
               </CardContent>
             </Card>
 
@@ -439,7 +513,7 @@ export default function NewQuestionPage() {
                           explanation: opt.explanation,
                         })
                       );
-                      setFormData((prev) => ({
+                      setFormData((prev: any) => ({
                         ...prev,
                         ...data,
                         answers: answers || [],
@@ -451,7 +525,7 @@ export default function NewQuestionPage() {
                   <TrueFalseEditor
                     question={formData}
                     onChange={(data) =>
-                      setFormData((prev) => ({ ...prev, ...data }))
+                      setFormData((prev: any) => ({ ...prev, ...data }))
                     }
                   />
                 )}
@@ -459,26 +533,29 @@ export default function NewQuestionPage() {
                   <FreeTextEditor
                     question={formData}
                     onChange={(data) =>
-                      setFormData((prev) => ({ ...prev, ...data }))
+                      setFormData((prev: any) => ({ ...prev, ...data }))
                     }
                   />
                 )}
-                {formData.type === "matching" && (
-                  <MatchingEditor
-                    question={formData}
-                    onChange={(data) =>
-                      setFormData((prev) => ({ ...prev, ...data }))
+                {formData.type === "matching_pairs" && (
+                  <MatchingPairsEditor
+                    value={formData.matching_pairs || []}
+                    onChange={(pairs) =>
+                      setFormData((prev: any) => ({
+                        ...prev,
+                        matching_pairs: pairs,
+                      }))
                     }
                   />
                 )}
               </CardContent>
             </Card>
 
-            <div className="flex justify-end gap-4">
+            <div className="flex justify-end gap-4 pt-6 border-t bg-background sticky bottom-0">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.push("/questions")}
+                onClick={() => router.push("/admin/questions")}
               >
                 Cancel
               </Button>
@@ -496,11 +573,22 @@ export default function NewQuestionPage() {
             onOpenChange={setShowBulkUpload}
             onSuccess={() => {
               toast.success("Questions uploaded successfully");
-              router.push("/questions");
+              router.push("/admin/questions");
             }}
           />
         </div>
       </div>
     </div>
   );
+}
+
+export default async function NewQuestionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ folder?: string }>;
+}) {
+  const params = await searchParams;
+  const currentFolderId = params.folder || null;
+
+  return <NewQuestionForm initialFolderId={currentFolderId} />;
 }

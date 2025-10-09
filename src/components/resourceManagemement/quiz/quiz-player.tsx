@@ -535,24 +535,10 @@ export function QuizPlayer({
   };
 
   const validateSubmission = () => {
-    console.log("validateSubmission called");
-    console.log("Current answers:", answers);
-    console.log(
-      "Questions:",
-      questions.map((q) => ({ id: q.question.id, type: q.question.type }))
-    );
-    console.log("isTestMode:", isTestMode);
-
     const unansweredQuestions = questions.filter(
       (q) => !answers[q.question.id]
     );
     const unansweredCount = unansweredQuestions.length;
-
-    console.log(
-      "Unanswered questions:",
-      unansweredQuestions.map((q) => q.question.id)
-    );
-    console.log("Unanswered count:", unansweredCount);
 
     // Remove the validation that prevents submission with unanswered questions
     // Users should be able to submit even with unanswered questions
@@ -560,9 +546,7 @@ export function QuizPlayer({
   };
 
   const handleSubmit = async () => {
-    console.log("handleSubmit called");
     if (!validateSubmission()) {
-      console.log("Validation failed");
       return;
     }
 
@@ -570,8 +554,6 @@ export function QuizPlayer({
       toast.error("No attempt ID found. Please restart the quiz.");
       return;
     }
-
-    console.log("Starting submission with answers:", answers);
 
     const timeSpent = quiz.settings.timeLimit
       ? quiz.settings.timeLimit * 60 - (timeRemaining || 0)
@@ -590,8 +572,6 @@ export function QuizPlayer({
       { questionId: "" }, // Empty questionId for submission
       {
         onSuccess: (response) => {
-          console.log("Submit result:", response);
-
           // Clear saved progress
           localStorage.removeItem(`quiz-progress-${quiz.id}`);
 
@@ -603,7 +583,6 @@ export function QuizPlayer({
             resultData ||
             attemptId ||
             "";
-          console.log("Redirecting to:", `/quiz-results/${resultAttemptId}`);
           router.push(`/quiz-results/${resultAttemptId}`);
         },
         onError: (error) => {
@@ -1216,7 +1195,6 @@ export function QuizPlayer({
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                console.log("AlertDialogAction clicked");
                 handleSubmit();
               }}
               disabled={isSubmittingQuiz}

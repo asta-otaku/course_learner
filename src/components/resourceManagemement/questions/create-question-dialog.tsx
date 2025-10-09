@@ -21,7 +21,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -42,7 +41,6 @@ import { toast } from "sonner";
 import { Loader2, Save, X } from "lucide-react";
 import { usePostQuestion } from "@/lib/api/mutations";
 import { FolderSelect } from "./folder-select";
-import { ImageUpload } from "../editor";
 
 const questionTypes = [
   { value: "multiple_choice", label: "Multiple Choice" },
@@ -72,19 +70,17 @@ export function CreateQuestionDialog({
     title: "",
     content: "",
     type: "multiple_choice",
-    difficultyLevel: 3,
-    points: 0,
-    timeLimit: null,
-    tags: [],
     hint: "",
-    explanation: "",
-    isPublic: false,
-    image: null,
     correctFeedback: "",
     incorrectFeedback: "",
-    metadata: "{}",
+    isPublic: true,
+    image: null,
+    imageUrl: null,
   };
   const [formData, setFormData] = useState<any>(initialFormData);
+  const [folderId, setFolderId] = useState<string | null>(
+    initialFolderId ?? null
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,28 +97,27 @@ export function CreateQuestionDialog({
       // Create FormData for multipart/form-data submission
       const formDataToSend = new FormData();
 
-      formDataToSend.append("title", formData.title || formData.content);
+      formDataToSend.append("title", formData.title);
       formDataToSend.append("content", formData.content);
       formDataToSend.append("type", formData.type);
-      formDataToSend.append(
-        "difficultyLevel",
-        String(formData.difficultyLevel || 3)
-      );
-      formDataToSend.append("points", String(formData.points || 0));
-      formDataToSend.append("timeLimit", String(formData.timeLimit || 0));
-      formDataToSend.append("tags", JSON.stringify(formData.tags || []));
       formDataToSend.append("hint", formData.hint || "");
-      formDataToSend.append("explanation", formData.explanation || "");
-      formDataToSend.append("isPublic", String(formData.isPublic || false));
       formDataToSend.append("correctFeedback", formData.correctFeedback || "");
       formDataToSend.append(
         "incorrectFeedback",
         formData.incorrectFeedback || ""
       );
+      formDataToSend.append("isPublic", String(formData.isPublic || false));
 
       // Add image file if present
-      if (formData.image) {
+      if (formData.image && formData.image instanceof File) {
         formDataToSend.append("image", formData.image);
+      } else if (formData.imageUrl) {
+        formDataToSend.append("imageUrl", formData.imageUrl);
+      }
+
+      // Add folder ID if selected
+      if (folderId) {
+        formDataToSend.append("folderId", folderId);
       }
 
       // Add type-specific fields
@@ -381,7 +376,7 @@ export function CreateQuestionDialog({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="type">Question Type</Label>
                     <Select
@@ -404,55 +399,13 @@ export function CreateQuestionDialog({
                   </div>
 
                   <div>
-                    <Label htmlFor="difficulty">
-                      Difficulty Level: {formData.difficultyLevel}
-                    </Label>
-                    <Slider
-                      id="difficulty"
-                      min={1}
-                      max={10}
-                      step={1}
-                      value={[formData.difficultyLevel || 3]}
-                      onValueChange={([value]) =>
-                        setFormData((prev: any) => ({
-                          ...prev,
-                          difficultyLevel: value,
-                        }))
-                      }
-                      className="mt-2"
+                    <Label>Folder</Label>
+                    <FolderSelect
+                      value={folderId}
+                      onChange={setFolderId}
+                      placeholder="Select folder (optional)"
                     />
                   </div>
-
-                  <div>
-                    <Label htmlFor="points">Points</Label>
-                    <Input
-                      id="points"
-                      type="number"
-                      min="0"
-                      value={formData.points || 0}
-                      onChange={(e) =>
-                        setFormData((prev: any) => ({
-                          ...prev,
-                          points: parseInt(e.target.value) || 0,
-                        }))
-                      }
-                      placeholder="Points for this question"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="folder">Folder (Optional)</Label>
-                  <FolderSelect
-                    value={formData.folder_id}
-                    onChange={(folderId) =>
-                      setFormData((prev: any) => ({
-                        ...prev,
-                        folder_id: folderId,
-                      }))
-                    }
-                    placeholder="Select folder"
-                  />
                 </div>
               </CardContent>
             </Card>
@@ -478,24 +431,6 @@ export function CreateQuestionDialog({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="tags">Tags</Label>
-                  <Input
-                    id="tags"
-                    value={formData.tags?.join(", ") || ""}
-                    onChange={(e) =>
-                      setFormData((prev: any) => ({
-                        ...prev,
-                        tags: e.target.value
-                          .split(",")
-                          .map((tag) => tag.trim())
-                          .filter((tag) => tag),
-                      }))
-                    }
-                    placeholder="Enter tags separated by commas"
-                  />
-                </div>
-
-                <div>
                   <Label htmlFor="hint">Hint (Optional)</Label>
                   <Textarea
                     id="hint"
@@ -511,75 +446,42 @@ export function CreateQuestionDialog({
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="explanation">Explanation (Optional)</Label>
-                  <Textarea
-                    id="explanation"
-                    value={formData.explanation}
-                    onChange={(e) =>
-                      setFormData((prev: any) => ({
-                        ...prev,
-                        explanation: e.target.value,
-                      }))
-                    }
-                    placeholder="Explain the correct answer"
-                    rows={3}
-                  />
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="correct-feedback">
+                      Correct Answer Feedback (Optional)
+                    </Label>
+                    <Textarea
+                      id="correct-feedback"
+                      value={formData.correctFeedback}
+                      onChange={(e) =>
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          correctFeedback: e.target.value,
+                        }))
+                      }
+                      placeholder="Message shown when answer is correct"
+                      rows={3}
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="correct-feedback">
-                    Correct Answer Feedback (Optional)
-                  </Label>
-                  <Textarea
-                    id="correct-feedback"
-                    value={formData.correctFeedback}
-                    onChange={(e) =>
-                      setFormData((prev: any) => ({
-                        ...prev,
-                        correctFeedback: e.target.value,
-                      }))
-                    }
-                    placeholder="Message shown when answer is correct"
-                    rows={2}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="incorrect-feedback">
-                    Incorrect Answer Feedback (Optional)
-                  </Label>
-                  <Textarea
-                    id="incorrect-feedback"
-                    value={formData.incorrectFeedback}
-                    onChange={(e) =>
-                      setFormData((prev: any) => ({
-                        ...prev,
-                        incorrectFeedback: e.target.value,
-                      }))
-                    }
-                    placeholder="Message shown when answer is incorrect"
-                    rows={2}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="time-limit">Time Limit (seconds)</Label>
-                  <Input
-                    id="time-limit"
-                    type="number"
-                    min="0"
-                    value={formData.timeLimit || ""}
-                    onChange={(e) =>
-                      setFormData((prev: any) => ({
-                        ...prev,
-                        timeLimit: e.target.value
-                          ? parseInt(e.target.value)
-                          : null,
-                      }))
-                    }
-                    placeholder="No time limit"
-                  />
+                  <div>
+                    <Label htmlFor="incorrect-feedback">
+                      Incorrect Answer Feedback (Optional)
+                    </Label>
+                    <Textarea
+                      id="incorrect-feedback"
+                      value={formData.incorrectFeedback}
+                      onChange={(e) =>
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          incorrectFeedback: e.target.value,
+                        }))
+                      }
+                      placeholder="Message shown when answer is incorrect"
+                      rows={3}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center space-x-2">

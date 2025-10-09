@@ -97,7 +97,6 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
         filteredData.settings.availableUntil = data.settings.availableUntil;
       }
 
-      console.log("Submitting quiz data:", filteredData);
       const result = await createQuizMutation.mutateAsync(filteredData);
 
       if (result.status === 200 || result.status === 201) {
