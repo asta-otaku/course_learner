@@ -19,7 +19,7 @@ import { useGetFolderById, useGetQuestions } from "@/lib/api/queries";
 // Force dynamic rendering since this page uses authentication
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 200];
 
 export default function QuestionsPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -45,7 +45,7 @@ export default function QuestionsPage() {
   // Pagination state management
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 100,
+    limit: 200,
     total: 0,
     totalPages: 1,
     hasNextPage: false,

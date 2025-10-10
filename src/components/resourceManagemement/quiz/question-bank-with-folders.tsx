@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,16 +22,9 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
-  X,
-  Tag,
   Loader2,
   FileUp,
 } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { getTypeLabel } from "@/lib/quiz-utils";
 import { toast } from "@/components/ui/use-toast";
@@ -52,6 +45,7 @@ interface QuestionBankWithFoldersProps {
   className?: string;
   onQuestionsImported?: () => void;
   refreshTrigger?: number;
+  initialQuestions?: DBQuestion[]; // Add initial questions prop for SSR
 }
 
 export function QuestionBankWithFolders({
@@ -60,40 +54,27 @@ export function QuestionBankWithFolders({
   className,
   onQuestionsImported,
   refreshTrigger,
+  initialQuestions = [],
 }: QuestionBankWithFoldersProps) {
   // State
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [tagSearchOpen, setTagSearchOpen] = useState(false);
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [expandedQuestions, setExpandedQuestions] = useState<string[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
 
-  // Pagination state
+  // Pagination state - set limit to 1000 to show all questions
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 20,
+    limit: 1000, // Increased to show all questions without pagination
     total: 0,
     totalPages: 1,
     hasNextPage: false,
     hasPreviousPage: false,
   });
 
-  // Filter state
-  const [filters, setFilters] = useState({
-    search: "",
-    type: "all",
-    difficultyMin: "",
-    difficultyMax: "",
-    folderId: "",
-    sortBy: "",
-    sortOrder: "",
-  });
-
-  // Transform filters for API call - only include non-default values
+  // Transform filters for API call - use backend filtering
   const queryOptions = useMemo(() => {
     const options: Record<string, string | number> = {
       page: pagination.page,
@@ -101,30 +82,32 @@ export function QuestionBankWithFolders({
     };
 
     // Only include non-empty/non-default values
-    if (filters.search.trim()) options.search = filters.search;
-    if (filters.type && filters.type !== "all") options.type = filters.type;
-    if (filters.difficultyMin && filters.difficultyMin !== "")
-      options.difficultyMin = Number(filters.difficultyMin);
-    if (filters.difficultyMax && filters.difficultyMax !== "")
-      options.difficultyMax = Number(filters.difficultyMax);
-    // Only include folderId in query options if we're not using folder-specific data
+    if (searchQuery.trim()) options.search = searchQuery;
+    if (selectedType && selectedType !== "all") options.type = selectedType;
     if (selectedFolderId) options.folderId = selectedFolderId;
-    if (filters.sortBy && filters.sortBy !== "")
-      options.sortBy = filters.sortBy;
-    if (filters.sortOrder && filters.sortOrder !== "")
-      options.sortOrder = filters.sortOrder;
 
     return options;
-  }, [filters, pagination.page, pagination.limit, selectedFolderId]);
+  }, [
+    searchQuery,
+    selectedType,
+    selectedFolderId,
+    pagination.page,
+    pagination.limit,
+  ]);
 
   // Use React Query hooks with computed query options
-  // Disable questions query when viewing a specific folder
+  // Fix 1: Make the query argument explicit to avoid ambiguous ternary
+  const shouldUseBackendQuery =
+    !selectedFolderId && initialQuestions.length === 0;
+  const questionsHookArg = shouldUseBackendQuery ? queryOptions : undefined;
+
   const {
     data: questionsResponse,
     isLoading: questionsLoading,
     refetch: refetchQuestions,
-  } = useGetQuestions(selectedFolderId ? undefined : queryOptions);
+  } = useGetQuestions(questionsHookArg);
 
+  // Fix 2: Pass undefined/null safely into folder hook
   const {
     data: foldersResponse,
     isLoading: folderLoading,
@@ -134,6 +117,18 @@ export function QuestionBankWithFolders({
   const { data: allFoldersResponse, isLoading: allFoldersLoading } =
     useGetFolders();
 
+  // Fix 4: Compute initial pagination synchronously (safe for SSR)
+  const initialTotal = useMemo(() => {
+    if (selectedFolderId && foldersResponse?.data?.questions) {
+      return foldersResponse.data.questions.length;
+    } else if (initialQuestions.length > 0) {
+      return initialQuestions.length;
+    } else if (questionsResponse?.pagination?.totalCount) {
+      return questionsResponse.pagination.totalCount;
+    }
+    return 0;
+  }, [selectedFolderId, foldersResponse, initialQuestions, questionsResponse]);
+
   // Refetch data when refresh trigger changes
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0) {
@@ -141,77 +136,44 @@ export function QuestionBankWithFolders({
       const refetchData = async () => {
         if (selectedFolderId) {
           await refetchFolder();
-        } else {
+        } else if (!initialQuestions.length) {
+          // Only refetch if not using SSR
           await refetchQuestions();
         }
       };
       refetchData();
     }
-  }, [refreshTrigger, selectedFolderId, refetchFolder, refetchQuestions]);
-
-  // Update pagination when data changes
-  useEffect(() => {
-    if (selectedFolderId && foldersResponse?.data?.questions) {
-      // When viewing a specific folder, use folder questions
-      const folderQuestions = foldersResponse.data.questions;
-      setPagination((prev) => ({
-        ...prev,
-        total: folderQuestions.length,
-        totalPages: Math.ceil(folderQuestions.length / prev.limit),
-        hasNextPage: prev.page < Math.ceil(folderQuestions.length / prev.limit),
-        hasPreviousPage: prev.page > 1,
-      }));
-    } else if (questionsResponse?.pagination) {
-      // When viewing all questions, use regular pagination
-      setPagination((prev) => ({
-        ...prev,
-        total: questionsResponse.pagination.totalCount || 0,
-        totalPages: questionsResponse.pagination.totalPages || 1,
-        hasNextPage: questionsResponse.pagination.hasNextPage || false,
-        hasPreviousPage: questionsResponse.pagination.hasPreviousPage || false,
-      }));
-    }
-  }, [questionsResponse, foldersResponse, selectedFolderId]);
-
-  // Update filters when local state changes
-  useEffect(() => {
-    const newFilters = {
-      search: searchQuery,
-      type: selectedType,
-      difficultyMin:
-        selectedDifficulty === "easy"
-          ? "1"
-          : selectedDifficulty === "medium"
-            ? "4"
-            : selectedDifficulty === "hard"
-              ? "8"
-              : "",
-      difficultyMax:
-        selectedDifficulty === "easy"
-          ? "3"
-          : selectedDifficulty === "medium"
-            ? "7"
-            : selectedDifficulty === "hard"
-              ? "10"
-              : "",
-      folderId: selectedFolderId || "",
-      sortBy: "",
-      sortOrder: "",
-    };
-    setFilters(newFilters);
-    setPagination((prev) => ({ ...prev, page: 1 }));
   }, [
+    refreshTrigger,
     selectedFolderId,
-    searchQuery,
-    selectedDifficulty,
-    selectedType,
-    selectedTags,
+    refetchFolder,
+    refetchQuestions,
+    initialQuestions.length,
   ]);
 
-  // Determine which data to use - similar to page.tsx logic
+  // Update pagination when data changes - using computed initialTotal
+  useEffect(() => {
+    setPagination((prev) => {
+      const totalPages = Math.max(1, Math.ceil(initialTotal / prev.limit));
+      return {
+        ...prev,
+        total: initialTotal,
+        totalPages: totalPages,
+        hasNextPage: prev.page < totalPages,
+        hasPreviousPage: prev.page > 1,
+      };
+    });
+  }, [initialTotal]);
+
+  // Reset pagination when search or type changes
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, [searchQuery, selectedType, selectedFolderId]);
+
+  // Determine which data to use - use backend pagination
   const questionsData = useMemo(() => {
     if (selectedFolderId && foldersResponse?.data?.questions) {
-      // Use folder questions when a folder is selected
+      // Use folder questions when a folder is selected - apply client-side pagination for folders
       const folderQuestions = foldersResponse.data.questions;
       const startIndex = (pagination.page - 1) * pagination.limit;
       const endIndex = startIndex + pagination.limit;
@@ -224,14 +186,29 @@ export function QuestionBankWithFolders({
         limit: pagination.limit,
         totalPages: Math.ceil(folderQuestions.length / pagination.limit),
       };
-    } else if (questionsResponse?.questions) {
-      // Use regular questions when no folder is selected
+    } else if (initialQuestions.length > 0) {
+      // Use SSR questions when available - apply client-side pagination
+      const allQuestions = initialQuestions;
+      const startIndex = (pagination.page - 1) * pagination.limit;
+      const endIndex = startIndex + pagination.limit;
+      const paginatedQuestions = allQuestions.slice(startIndex, endIndex);
+
       return {
-        questions: questionsResponse.questions || [],
-        total: questionsResponse.pagination.totalCount || 0,
+        questions: paginatedQuestions,
+        total: allQuestions.length,
         page: pagination.page,
         limit: pagination.limit,
-        totalPages: questionsResponse.pagination.totalPages || 1,
+        totalPages: Math.ceil(allQuestions.length / pagination.limit),
+      };
+    } else if (questionsResponse?.questions) {
+      // Use backend paginated questions when no folder is selected
+
+      return {
+        questions: questionsResponse.questions || [],
+        total: questionsResponse.pagination?.totalCount || 0,
+        page: questionsResponse.pagination?.page || 1,
+        limit: questionsResponse.pagination?.limit || pagination.limit,
+        totalPages: questionsResponse.pagination?.totalPages || 1,
       };
     } else {
       // No data available
@@ -243,42 +220,50 @@ export function QuestionBankWithFolders({
         totalPages: 1,
       };
     }
-  }, [questionsResponse, foldersResponse, selectedFolderId, pagination]);
+  }, [
+    questionsResponse,
+    foldersResponse,
+    selectedFolderId,
+    pagination.page,
+    pagination.limit,
+    initialQuestions,
+  ]);
 
   // Loading state
   const isLoading =
     (selectedFolderId && folderLoading) ||
-    (!selectedFolderId && questionsLoading) ||
+    (!selectedFolderId && !initialQuestions.length && questionsLoading) ||
     allFoldersLoading;
 
-  const handleFolderSelect = (folderId: string | null) => {
+  const handleFolderSelect = useCallback((folderId: string | null) => {
     setSelectedFolderId(folderId);
     setPagination((prev) => ({ ...prev, page: 1 }));
     setSelectedQuestions([]);
-  };
+  }, []);
 
   // Page change handler
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     setPagination((prev) => ({ ...prev, page }));
-  };
+    // The query will automatically refetch with the new page due to queryOptions dependency
+  }, []);
 
-  const toggleQuestionSelection = (questionId: string) => {
+  const toggleQuestionSelection = useCallback((questionId: string) => {
     setSelectedQuestions((prev) =>
       prev.includes(questionId)
         ? prev.filter((id) => id !== questionId)
         : [...prev, questionId]
     );
-  };
+  }, []);
 
-  const toggleQuestionExpansion = (questionId: string) => {
+  const toggleQuestionExpansion = useCallback((questionId: string) => {
     setExpandedQuestions((prev) =>
       prev.includes(questionId)
         ? prev.filter((id) => id !== questionId)
         : [...prev, questionId]
     );
-  };
+  }, []);
 
-  const selectAllVisible = () => {
+  const selectAllVisible = useCallback(() => {
     // Get all visible question IDs
     const visibleQuestionIds = questionsData.questions.map(
       (q: DBQuestion) => q.id
@@ -295,13 +280,13 @@ export function QuestionBankWithFolders({
       title: "Questions selected",
       description: `Selected ${availableIds.length} question${availableIds.length !== 1 ? "s" : ""} from current page.`,
     });
-  };
+  }, [questionsData.questions, addedQuestionIds]);
 
-  const deselectAll = () => {
+  const deselectAll = useCallback(() => {
     setSelectedQuestions([]);
-  };
+  }, []);
 
-  const handleAddSelectedQuestions = () => {
+  const handleAddSelectedQuestions = useCallback(() => {
     if (selectedQuestions.length === 0) return;
 
     // Filter selected questions from current loaded data
@@ -316,30 +301,11 @@ export function QuestionBankWithFolders({
       title: "Questions added",
       description: `Successfully added ${questionsToAdd.length} question${questionsToAdd.length !== 1 ? "s" : ""}`,
     });
-  };
+  }, [selectedQuestions, questionsData.questions, onAddQuestions]);
 
   const availableSelectedCount = selectedQuestions.filter(
     (id) => !addedQuestionIds.includes(id)
   ).length;
-
-  // State for all available tags
-  const [allTags, setAllTags] = useState<string[]>([]);
-  const [tagSearch, setTagSearch] = useState<string>("");
-
-  // Extract tags from current questions data
-  useEffect(() => {
-    const tagSet = new Set<string>();
-    questionsData.questions.forEach((q: DBQuestion) => {
-      (q as any).tags?.forEach((tag: string) => tagSet.add(tag));
-    });
-    setAllTags(Array.from(tagSet).sort());
-  }, [questionsData.questions]);
-
-  const toggleTag = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
 
   const renderQuestionCard = (question: DBQuestion) => {
     const isExpanded = expandedQuestions.includes(question.id);
@@ -485,7 +451,10 @@ export function QuestionBankWithFolders({
               <FileUp className="h-3 w-3" />
               Bulk Upload
             </Button>
-            <span className="text-sm text-muted-foreground">
+            <span
+              className="text-sm text-muted-foreground"
+              suppressHydrationWarning
+            >
               {questionsData.total} questions
             </span>
           </div>
@@ -556,120 +525,6 @@ export function QuestionBankWithFolders({
                 <SelectItem value="free_text">Free Text</SelectItem>
               </SelectContent>
             </Select>
-
-            <Select
-              value={selectedDifficulty}
-              onValueChange={(value) => {
-                setSelectedDifficulty(value);
-              }}
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Difficulties</SelectItem>
-                <SelectItem value="easy">Easy</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="hard">Hard</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Popover
-              open={tagSearchOpen}
-              onOpenChange={(open) => {
-                setTagSearchOpen(open);
-                if (!open) setTagSearch("");
-              }}
-            >
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-10 px-3 justify-start">
-                  <Tag className="h-4 w-4 mr-2" />
-                  {selectedTags.length > 0 ? (
-                    <span className="text-sm">
-                      {selectedTags.length} tag
-                      {selectedTags.length !== 1 ? "s" : ""}
-                    </span>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">
-                      Filter by tags
-                    </span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[300px] p-3" align="start">
-                <div className="space-y-2">
-                  <Input
-                    placeholder="Search tags..."
-                    className="h-8"
-                    value={tagSearch}
-                    onChange={(e) => setTagSearch(e.target.value)}
-                  />
-                  <ScrollArea className="h-[200px]">
-                    <div className="space-y-1">
-                      {(() => {
-                        const filteredTags = allTags.filter((tag) =>
-                          tag.toLowerCase().includes(tagSearch.toLowerCase())
-                        );
-
-                        if (allTags.length === 0) {
-                          return (
-                            <p className="text-sm text-muted-foreground text-center py-4">
-                              No tags available
-                            </p>
-                          );
-                        }
-
-                        if (filteredTags.length === 0) {
-                          return (
-                            <p className="text-sm text-muted-foreground text-center py-4">
-                              No tags match "{tagSearch}"
-                            </p>
-                          );
-                        }
-
-                        return filteredTags.map((tag) => (
-                          <label
-                            key={tag}
-                            className="flex items-center space-x-2 p-1.5 rounded hover:bg-muted cursor-pointer"
-                          >
-                            <Checkbox
-                              checked={selectedTags.includes(tag)}
-                              onCheckedChange={() => toggleTag(tag)}
-                              className="data-[state=checked]:bg-primaryBlue data-[state=checked]:border-primaryBlue"
-                            />
-                            <span className="text-sm flex-1">{tag}</span>
-                          </label>
-                        ));
-                      })()}
-                    </div>
-                  </ScrollArea>
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {selectedTags.length > 0 && (
-              <div className="flex items-center gap-1">
-                {selectedTags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="secondary"
-                    className="text-xs cursor-pointer"
-                    onClick={() => toggleTag(tag)}
-                  >
-                    {tag}
-                    <X className="h-3 w-3 ml-1" />
-                  </Badge>
-                ))}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedTags([])}
-                  className="h-6 px-2 text-xs"
-                >
-                  Clear all
-                </Button>
-              </div>
-            )}
           </div>
         </div>
 
@@ -716,7 +571,10 @@ export function QuestionBankWithFolders({
                     <ChevronLeft className="h-4 w-4" />
                     Previous
                   </Button>
-                  <span className="flex items-center text-sm text-muted-foreground px-3">
+                  <span
+                    className="flex items-center text-sm text-muted-foreground px-3"
+                    suppressHydrationWarning
+                  >
                     Page {pagination.page} of {questionsData.totalPages}
                   </span>
                   <Button
@@ -754,7 +612,8 @@ export function QuestionBankWithFolders({
           // Refetch questions after import
           if (selectedFolderId) {
             refetchFolder();
-          } else {
+          } else if (!initialQuestions.length) {
+            // Only refetch if not using SSR
             refetchQuestions();
           }
           if (onQuestionsImported) {

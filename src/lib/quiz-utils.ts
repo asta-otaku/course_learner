@@ -9,6 +9,7 @@ export function getTypeLabel(type:any): string {
     long_answer: 'Long Answer',
     fill_in_blank: 'Fill in the Blank',
     matching: 'Matching',
+    matching_pairs: 'Matching Pairs',
     ordering: 'Ordering',
     code: 'Code',
     coding: 'Coding',

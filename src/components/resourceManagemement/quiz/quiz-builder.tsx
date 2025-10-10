@@ -28,7 +28,6 @@ import { usePutQuiz } from "@/lib/api/mutations";
 import { useGetQuizQuestions } from "@/lib/api/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Database } from "@/lib/database.types";
-import type { QuizUpdateData } from "@/lib/types";
 
 type DBQuestion = Database["public"]["Tables"]["questions"]["Row"];
 

@@ -18,7 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { parseCSV } from "@/lib/csv";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "react-toastify";
 import { useGetTemplate } from "@/lib/api/queries";
 import { usePostBulkImport } from "@/lib/api/mutations";
 import {
@@ -31,9 +31,12 @@ import {
   X,
   Copy,
   Sparkles,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuestionPreviewModal } from "./question-preview-modal";
+import { EditQuestionModal } from "./edit-question-modal";
 import { QuizSearchInput } from "../quiz/quiz-search-input";
 import { FolderSelect } from "./folder-select";
 import { getBulkUploadPrompt } from "@/lib/bulk-upload-prompt";
@@ -90,6 +93,8 @@ export function BulkUploadDialog({
   const [selectedQuestion, setSelectedQuestion] = useState<any>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [aiPromptOpen, setAiPromptOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<number | null>(null);
+  const [editQuestionModalOpen, setEditQuestionModalOpen] = useState(false);
   const [aiConfig, setAiConfig] = useState({
     count: 20,
     subject: "Mathematics",
@@ -141,11 +146,7 @@ export function BulkUploadDialog({
         setFile(selectedFile);
         handleFileUpload(selectedFile, "json");
       } else {
-        toast({
-          title: "Invalid file type",
-          description: "Please select a CSV or JSON file",
-          variant: "destructive",
-        });
+        toast.error("Please select a valid CSV or JSON file");
       }
     }
   };
@@ -164,10 +165,6 @@ export function BulkUploadDialog({
         // For JSON, parse and validate the structure
         try {
           const jsonData = JSON.parse(text);
-
-          // Handle both formats:
-          // 1. Direct array of questions: [{question1}, {question2}]
-          // 2. Nested structure: {questions: [{question1}, {question2}]}
           if (Array.isArray(jsonData)) {
             // Direct array format
             questions = jsonData;
@@ -188,19 +185,83 @@ export function BulkUploadDialog({
         }
       }
 
-      setParsedQuestions(questions);
+      // Transform questions to match the expected format for preview components
+      const transformedQuestions = questions.map((question) => {
+        const answers = question.answers || [];
+        const questionData: any = { ...question };
+
+        if (
+          question.type === "multiple_choice" ||
+          question.type === "true_false"
+        ) {
+          questionData.answers = answers.map((a: any) => ({
+            content: a.content,
+            isCorrect: a.isCorrect || a.is_correct, // Handle both formats
+            explanation: a.explanation,
+            orderIndex: a.orderIndex || a.order_index, // Handle both formats
+          }));
+        } else if (question.type === "free_text") {
+          // Free text questions may have multiple accepted answers
+          questionData.acceptedAnswers = answers.map((a: any) => ({
+            content: a.content,
+            gradingCriteria: a.gradingCriteria || a.grading_criteria, // Handle both formats
+          }));
+        } else if (
+          question.type === "matching_pairs" ||
+          question.type === "matching"
+        ) {
+          // Handle both matching and matching_pairs types
+          let matchingPairs = null;
+
+          // Check metadata first
+          if (question.metadata?.matchingPairs) {
+            matchingPairs = question.metadata.matchingPairs;
+          } else if (question.metadata?.matching_pairs) {
+            matchingPairs = question.metadata.matching_pairs;
+          }
+          // Check direct properties on question
+          else if (question.matchingPairs) {
+            matchingPairs = question.matchingPairs;
+          } else if (question.matching_pairs) {
+            matchingPairs = question.matching_pairs;
+          }
+          // Check answers
+          else if (answers.length > 0 && answers[0].matchingPairs) {
+            matchingPairs = answers[0].matchingPairs;
+          } else if (answers.length > 0 && answers[0].matching_pairs) {
+            matchingPairs = answers[0].matching_pairs;
+          } else {
+            console.log("No matching pairs found in any location");
+          }
+
+          if (matchingPairs) {
+            // Transform to use the interactive MatchingQuestion component format
+            questionData.type = "matching"; // Always use "matching" for the interactive component
+            questionData.matching_pairs = matchingPairs.map(
+              (pair: any, index: number) => ({
+                id: pair.left + index, // Create a unique ID for each pair
+                left: pair.left,
+                right: pair.right,
+              })
+            );
+          } else {
+            console.log("No matching pairs to transform");
+          }
+        }
+
+        return questionData;
+      });
+
+      setParsedQuestions(transformedQuestions);
       setParseErrors(errors);
 
-      if (questions.length > 0 && errors.length === 0) {
+      if (transformedQuestions.length > 0 && errors.length === 0) {
         setActiveTab("preview");
       }
     } catch (error) {
-      toast({
-        title: "Error parsing file",
-        description:
-          error instanceof Error ? error.message : "Failed to parse file",
-        variant: "destructive",
-      });
+      toast.error(
+        error instanceof Error ? error.message : "Failed to parse file"
+      );
     }
   };
 
@@ -227,7 +288,6 @@ export function BulkUploadDialog({
         });
       }
 
-      
       setImportProgress(100);
 
       // For now, just show success and move to results
@@ -238,24 +298,19 @@ export function BulkUploadDialog({
       });
       setActiveTab("results");
 
-      toast({
-        title: "Import completed",
-        description: `Successfully imported ${parsedQuestions.length} question${
+      toast.success(
+        `Successfully imported ${parsedQuestions.length} question${
           parsedQuestions.length > 1 ? "s" : ""
-        }`,
-      });
+        }`
+      );
 
       if (onComplete) {
         onComplete();
       }
     } catch (error) {
-      console.error("Import error:", error);
-      toast({
-        title: "Import failed",
-        description:
-          error instanceof Error ? error.message : "Failed to import questions",
-        variant: "destructive",
-      });
+      toast.error(
+        error instanceof Error ? error.message : "Failed to import questions"
+      );
     } finally {
       setImporting(false);
     }
@@ -279,24 +334,13 @@ export function BulkUploadDialog({
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        toast({
-          title: "Download successful",
-          description: "CSV template downloaded successfully",
-        });
+        toast.success("CSV template downloaded successfully");
       } else {
-        toast({
-          title: "Template not available",
-          description: "Please try again in a moment",
-          variant: "destructive",
-        });
+        toast.error("Template not available. Please try again in a moment.");
       }
     } catch (error) {
       const errorMessage = await handleBlobError(error);
-      toast({
-        title: "Download failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast.error(`Download failed: ${errorMessage}`);
     }
   };
 
@@ -325,24 +369,13 @@ export function BulkUploadDialog({
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        toast({
-          title: "Download successful",
-          description: "JSON template downloaded successfully",
-        });
+        toast.success("JSON template downloaded successfully");
       } else {
-        toast({
-          title: "Template not available",
-          description: "Please try again in a moment",
-          variant: "destructive",
-        });
+        toast.error("Template not available. Please try again in a moment.");
       }
     } catch (error) {
       const errorMessage = await handleBlobError(error);
-      toast({
-        title: "Download failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast.error(`Download failed: ${errorMessage}`);
     }
   };
 
@@ -386,17 +419,14 @@ export function BulkUploadDialog({
         defaultTimeLimit: aiConfig.defaultTimeLimit,
       });
       await navigator.clipboard.writeText(prompt);
-      toast({
-        title: "Prompt copied!",
-        description: `AI prompt for ${aiConfig.count} questions has been copied to your clipboard.`,
-      });
+      toast.success(
+        `AI prompt for ${aiConfig.count} questions has been copied to your clipboard.`
+      );
       setAiPromptOpen(false);
     } catch (error) {
-      toast({
-        title: "Failed to copy",
-        description: "Please try again or manually copy the prompt.",
-        variant: "destructive",
-      });
+      toast.error(
+        "Failed to copy prompt. Please try again or manually copy the prompt."
+      );
     }
   };
 
@@ -420,9 +450,6 @@ export function BulkUploadDialog({
         try {
           const jsonData = JSON.parse(text);
 
-          // Handle both formats:
-          // 1. Direct array of questions: [{question1}, {question2}]
-          // 2. Nested structure: {questions: [{question1}, {question2}]}
           if (Array.isArray(jsonData)) {
             // Direct array format
             errors = [];
@@ -450,24 +477,16 @@ export function BulkUploadDialog({
       });
 
       if (errors.length === 0) {
-        toast({
-          title: "File validated",
-          description: `File validation successful! ${questionCount} questions found.`,
-        });
+        toast.error(
+          `File validation successful! ${questionCount} questions found.`
+        );
       } else {
-        toast({
-          title: "File validation failed",
-          description: `Validation failed: ${errors.join(", ")}`,
-          variant: "destructive",
-        });
+        toast.error(`Validation failed: ${errors.join(", ")}`);
       }
     } catch (error) {
-      toast({
-        title: "Error validating file",
-        description:
-          error instanceof Error ? error.message : "Failed to validate file",
-        variant: "destructive",
-      });
+      toast.error(
+        error instanceof Error ? error.message : "Failed to validate file"
+      );
     } finally {
       setIsValidating(false);
     }
@@ -503,11 +522,94 @@ export function BulkUploadDialog({
         return "True/False";
       case "free_text":
         return "Free Text";
+      case "matching":
+        return "Matching Pairs";
       case "matching_pairs":
         return "Matching Pairs";
       default:
         return type;
     }
+  };
+
+  const handleEditQuestion = (index: number) => {
+    setEditingQuestion(index);
+    setEditQuestionModalOpen(true);
+  };
+
+  const handleSaveEditedQuestion = (updatedQuestion: any) => {
+    if (editingQuestion === null) return;
+
+    // Apply the same transformation as in file upload
+    const answers = updatedQuestion.answers || [];
+    const questionData: any = { ...updatedQuestion };
+
+    if (
+      updatedQuestion.type === "multiple_choice" ||
+      updatedQuestion.type === "true_false"
+    ) {
+      questionData.answers = answers.map((a: any) => ({
+        content: a.content,
+        isCorrect: a.isCorrect || a.is_correct, // Handle both formats
+        explanation: a.explanation,
+        orderIndex: a.orderIndex || a.order_index, // Handle both formats
+      }));
+    } else if (updatedQuestion.type === "free_text") {
+      // Free text questions may have multiple accepted answers
+      questionData.acceptedAnswers = answers.map((a: any) => ({
+        content: a.content,
+        gradingCriteria: a.gradingCriteria || a.grading_criteria, // Handle both formats
+      }));
+    } else if (
+      updatedQuestion.type === "matching_pairs" ||
+      updatedQuestion.type === "matching"
+    ) {
+      // Handle both matching and matching_pairs types
+      let matchingPairs = null;
+
+      // Check metadata first
+      if (updatedQuestion.metadata?.matchingPairs) {
+        matchingPairs = updatedQuestion.metadata.matchingPairs;
+      } else if (updatedQuestion.metadata?.matching_pairs) {
+        matchingPairs = updatedQuestion.metadata.matching_pairs;
+      }
+      // Then check answers
+      else if (answers.length > 0 && answers[0].matchingPairs) {
+        matchingPairs = answers[0].matchingPairs;
+      } else if (answers.length > 0 && answers[0].matching_pairs) {
+        matchingPairs = answers[0].matching_pairs;
+      } else {
+        console.log("No matching pairs found in metadata or answers (edit)");
+      }
+
+      if (matchingPairs) {
+        // Transform to use the interactive MatchingQuestion component format
+        questionData.type = "matching"; // Always use "matching" for the interactive component
+        questionData.matching_pairs = matchingPairs.map(
+          (pair: any, index: number) => ({
+            id: pair.left + index, // Create a unique ID for each pair
+            left: pair.left,
+            right: pair.right,
+          })
+        );
+      } else {
+        console.log("No matching pairs to transform (edit)");
+      }
+    }
+
+    setParsedQuestions((prev) =>
+      prev.map((q, i) => (i === editingQuestion ? questionData : q))
+    );
+    toast.success("Question updated successfully");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingQuestion(null);
+    setEditQuestionModalOpen(false);
+  };
+
+  const handleDeleteQuestion = (index: number) => {
+    setParsedQuestions((prev) => prev.filter((_, i) => i !== index));
+    toast.success("Question deleted successfully");
   };
 
   return (
@@ -516,7 +618,7 @@ export function BulkUploadDialog({
         <DialogHeader>
           <DialogTitle>Bulk Upload Questions</DialogTitle>
           <DialogDescription>
-            Import multiple questions from a CSV file
+            Import multiple questions from a CSV or JSON file
           </DialogDescription>
         </DialogHeader>
 
@@ -753,8 +855,32 @@ export function BulkUploadDialog({
                                 setSelectedQuestion(question);
                                 setPreviewOpen(true);
                               }}
+                              title="Preview question"
                             >
                               <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditQuestion(index);
+                              }}
+                              title="Edit question"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-800"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteQuestion(index);
+                              }}
+                              title="Delete question"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                             <span
                               className={cn(
@@ -908,6 +1034,18 @@ export function BulkUploadDialog({
         question={selectedQuestion}
         open={previewOpen}
         onOpenChange={setPreviewOpen}
+      />
+
+      {/* Edit Question Modal */}
+      <EditQuestionModal
+        open={editQuestionModalOpen}
+        onOpenChange={setEditQuestionModalOpen}
+        question={
+          editingQuestion !== null ? parsedQuestions[editingQuestion] : {}
+        }
+        questionIndex={editingQuestion || 0}
+        onSave={handleSaveEditedQuestion}
+        onCancel={handleCancelEdit}
       />
 
       {/* AI Prompt Configuration Dialog */}
@@ -1067,11 +1205,9 @@ export function BulkUploadDialog({
                               ...aiConfig,
                               questionTypes: ["matching_pairs"],
                             });
-                            toast({
-                              title: "Matching Pairs Questions",
-                              description:
-                                "Matching questions must be generated separately from other question types.",
-                            });
+                            toast.info(
+                              "Matching Pairs questions must be generated separately from other question types."
+                            );
                           }
                           // If another type is selected while matching is selected, replace matching
                           else if (
@@ -1081,11 +1217,9 @@ export function BulkUploadDialog({
                               ...aiConfig,
                               questionTypes: [type.value],
                             });
-                            toast({
-                              title: "Question Type Changed",
-                              description:
-                                "Matching Pairs questions cannot be mixed with other types.",
-                            });
+                            toast.info(
+                              "Matching Pairs questions cannot be mixed with other types."
+                            );
                           }
                           // Normal selection
                           else {

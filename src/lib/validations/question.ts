@@ -7,7 +7,7 @@ type QuestionType = Database['public']['Enums']['question_type'];
 // Base schema for all questions
 export const baseQuestionSchema = z.object({
   content: z.string().min(1, 'Content is required'),
-  type: z.enum(['multiple_choice', 'true_false', 'free_text', 'matching'] as const),
+  type: z.enum(['multiple_choice', 'true_false', 'free_text', 'matching', 'matching_pairs'] as const),
   time_limit: z.number().min(0).nullable().optional(),
   hint: z.string().nullable().optional(),
   correct_feedback: z.string().nullable().optional(),
@@ -17,6 +17,10 @@ export const baseQuestionSchema = z.object({
   metadata: z.object({
     matching_pairs: z.array(z.any()).optional(),
   }).passthrough().nullable().optional(),
+  matching_pairs: z.array(z.object({
+    left: z.string(),
+    right: z.string(),
+  })).optional(),
   folder_id: z.string().uuid().nullable().optional(),
   category_id: z.string().uuid().nullable().optional(),
   grade_id: z.string().uuid().nullable().optional(),
