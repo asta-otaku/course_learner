@@ -193,13 +193,7 @@ export function LessonList({
     useState<LessonWithQuizCount[]>(lessonsWithQuizCount);
   const [isLoading, setIsLoading] = useState(!providedLessons);
   const [searchTerm, setSearchTerm] = useState("");
-  const [difficultyFilter, setDifficultyFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"order" | "title" | "difficulty">(
-    "order"
-  );
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "list">("list");
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -221,13 +215,9 @@ export function LessonList({
       setIsLoading(false);
     } else {
       // Fallback to loading lessons if not provided
-    loadLessons();
+      loadLessons();
     }
   }, [curriculumId, providedLessons]);
-
-  useEffect(() => {
-    filterAndSortLessons();
-  }, [lessons, searchTerm, difficultyFilter, statusFilter, sortBy, sortOrder]);
 
   const loadLessons = async () => {
     try {
@@ -254,64 +244,6 @@ export function LessonList({
     }
   };
 
-  const filterAndSortLessons = () => {
-    let filtered = [...lessons];
-
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter(
-        ({ lesson }) =>
-          lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          lesson.description?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Apply difficulty filter
-    if (difficultyFilter !== "all") {
-      const difficulty = parseInt(difficultyFilter);
-      filtered = filtered.filter(
-        ({ lesson }) => lesson.difficulty_level === difficulty
-      );
-    }
-
-    // Apply status filter
-    if (statusFilter !== "all") {
-      const isPublished = statusFilter === "published";
-      filtered = filtered.filter(
-        ({ lesson }) => lesson.is_published === isPublished
-      );
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      let comparison = 0;
-
-      switch (sortBy) {
-        case "order":
-          comparison =
-            (a.lesson.order_index || 0) - (b.lesson.order_index || 0);
-          break;
-        case "title":
-          comparison = a.lesson.title.localeCompare(b.lesson.title);
-          break;
-        case "difficulty":
-          comparison =
-            (a.lesson.difficulty_level || 0) - (b.lesson.difficulty_level || 0);
-          break;
-      }
-
-      return sortOrder === "asc" ? comparison : -comparison;
-    });
-
-    setFilteredLessons(filtered);
-  };
-
-
-  const toggleSortOrder = () => {
-    setSortOrder((current) => (current === "asc" ? "desc" : "asc"));
-  };
-
-
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
@@ -319,7 +251,7 @@ export function LessonList({
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id && canEdit && sortBy === "order") {
+    if (active.id !== over?.id && canEdit) {
       const oldIndex = filteredLessons.findIndex(
         (item) => item.lesson.id === active.id
       );
@@ -445,61 +377,6 @@ export function LessonList({
               <List className="h-4 w-4" />
             </Button>
           </div>
-
-          {/* Status Filter */}
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Difficulty Filter */}
-          <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Levels</SelectItem>
-              <SelectItem value="1">Easy</SelectItem>
-              <SelectItem value="2">Easy</SelectItem>
-              <SelectItem value="3">Medium</SelectItem>
-              <SelectItem value="4">Hard</SelectItem>
-              <SelectItem value="5">Expert</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Sort Options */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                {sortOrder === "asc" ? (
-                  <SortAsc className="h-4 w-4" />
-                ) : (
-                  <SortDesc className="h-4 w-4" />
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setSortBy("order")}>
-                Sort by Order
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy("title")}>
-                Sort by Title
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy("difficulty")}>
-                Sort by Difficulty
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={toggleSortOrder}>
-                {sortOrder === "asc" ? "Sort Descending" : "Sort Ascending"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
 
@@ -546,7 +423,11 @@ export function LessonList({
                       ? (lesson) => onEditLesson(convertToApiFormat(lesson))
                       : undefined
                   }
-                  onDelete={onDeleteLesson ? (lesson) => onDeleteLesson(convertToApiFormat(lesson)) : undefined}
+                  onDelete={
+                    onDeleteLesson
+                      ? (lesson) => onDeleteLesson(convertToApiFormat(lesson))
+                      : undefined
+                  }
                   onView={
                     onViewLesson
                       ? (lesson) => onViewLesson(convertToApiFormat(lesson))
@@ -558,7 +439,7 @@ export function LessonList({
                       : undefined
                   }
                   canEdit={canEdit}
-                  showDragHandle={sortBy === "order"}
+                  showDragHandle={true}
                 />
               ))}
             </SortableContext>
@@ -574,7 +455,11 @@ export function LessonList({
                       ? (lesson) => onEditLesson(convertToApiFormat(lesson))
                       : undefined
                   }
-                  onDelete={onDeleteLesson ? (lesson) => onDeleteLesson(convertToApiFormat(lesson)) : undefined}
+                  onDelete={
+                    onDeleteLesson
+                      ? (lesson) => onDeleteLesson(convertToApiFormat(lesson))
+                      : undefined
+                  }
                   onView={
                     onViewLesson
                       ? (lesson) => onViewLesson(convertToApiFormat(lesson))
@@ -599,7 +484,11 @@ export function LessonList({
               ? (lesson) => onEditLesson(convertToApiFormat(lesson))
               : undefined
           }
-          onDelete={onDeleteLesson ? (lesson) => onDeleteLesson(convertToApiFormat(lesson)) : undefined}
+          onDelete={
+            onDeleteLesson
+              ? (lesson) => onDeleteLesson(convertToApiFormat(lesson))
+              : undefined
+          }
           onView={
             onViewLesson
               ? (lesson) => onViewLesson(convertToApiFormat(lesson))

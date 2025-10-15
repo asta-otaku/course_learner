@@ -52,7 +52,7 @@ export function CurriculumActions({
       const result = await deleteCurriculum();
       if (result.status === 200) {
         toast.success(result.data.message);
-        router.push("/curricula");
+        router.push("/admin/curricula");
       }
     } catch (error) {
       console.error(error);

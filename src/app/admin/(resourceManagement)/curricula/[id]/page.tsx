@@ -106,7 +106,7 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
       {/* Main Content */}
       <div className="space-y-6">
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Status</CardDescription>
@@ -155,18 +155,6 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">{curriculum.offerType}</span>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Duration</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {curriculum.durationWeeks}
-              </div>
-              <p className="text-xs text-muted-foreground">weeks</p>
             </CardContent>
           </Card>
         </div>

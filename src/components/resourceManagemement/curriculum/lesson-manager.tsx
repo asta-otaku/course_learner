@@ -2,163 +2,114 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { LessonList, LessonForm } from "../lessons";
+import { LessonForm } from "../lessons/lesson-form";
 import { AddQuizDialog } from "../lessons/add-quiz-dialog";
-import { useGetLessonById } from "@/lib/api/queries";
-import { useDeleteLesson } from "@/lib/api/mutations";
-import { toast } from "react-toastify";
-// Define the lesson type from the API response
-interface LessonFromAPI {
+import { ExpandableLessonList } from "./expandable-lesson-list";
+import type { Database } from "@/lib/database.types";
+
+type LessonRow = Database["public"]["Tables"]["lessons"]["Row"];
+
+interface LessonWithQuizzes {
   id: string;
   title: string;
-  description: string;
-  content: string;
+  description: string | null;
+  content: string | null;
+  durationMinutes: number;
+  objectives: string[];
+  tags: string[];
   orderIndex: number;
-  videoUrl: string;
+  activities: any;
+  resources: any;
+  videoFileName: string | null;
+  videoFileSize: number | null;
+  videoDuration: number | null;
+  videoMimeType: string | null;
+  isActive: boolean;
+  videoUrl: string | null;
   quizzesCount: number;
+  quizzes?: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    question_count: number;
+    time_limit: number | null;
+    passing_score: number | null;
+    max_attempts: number | null;
+    is_published: boolean | null;
+  }>;
 }
 
 interface LessonManagerProps {
   curriculumId: string;
   canEdit?: boolean;
-  lessons: LessonFromAPI[];
+  lessons?: LessonWithQuizzes[];
 }
 
 export function LessonManager({
   curriculumId,
   canEdit = false,
-  lessons,
+  lessons = [],
 }: LessonManagerProps) {
   const router = useRouter();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isQuizDialogOpen, setIsQuizDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedLesson, setSelectedLesson] = useState<LessonFromAPI | null>(
-    null
-  );
-  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
-
-  // Get full lesson data for editing
-  const { data: fullLessonData, isLoading: isLoadingLesson } = useGetLessonById(
-    editingLessonId || ""
-  );
-
-  // Delete lesson mutation
-  const { mutate: deleteLesson, isPending: isDeleting } = useDeleteLesson(
-    selectedLesson?.id || ""
-  );
+  const [selectedLesson, setSelectedLesson] =
+    useState<LessonWithQuizzes | null>(null);
 
   const handleCreateLesson = () => {
     setIsCreateDialogOpen(true);
   };
 
-  const handleEditLesson = (lesson: LessonFromAPI) => {
-    setEditingLessonId(lesson.id);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleViewLesson = (lesson: LessonFromAPI) => {
-    router.push(`/admin/lessons/${lesson.id}`);
-  };
-
-  const handleDeleteLesson = (lesson: LessonFromAPI) => {
+  const handleEditLesson = (lesson: LessonWithQuizzes) => {
     setSelectedLesson(lesson);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const confirmDeleteLesson = () => {
-    if (selectedLesson) {
-      deleteLesson(undefined, {
-        onSuccess: () => {
-          toast.success("Lesson deleted successfully");
-          setSelectedLesson(null);
-          setIsDeleteDialogOpen(false);
-          // The parent component should refresh the curriculum data
-        },
-        onError: (error) => {
-          toast.error("Failed to delete lesson");
-          console.error("Delete error:", error);
-        },
-      });
-    }
-  };
-
-  // Convert full lesson data to the format expected by LessonForm
-  const convertToLessonFormFormat = (lesson: any) => {
-    return {
-      id: lesson.id,
-      title: lesson.title,
-      description: lesson.description || "",
-      content: lesson.content || "",
-      durationMinutes: lesson.durationMinutes || 30,
-      objectives: lesson.objectives || [],
-      tags: lesson.tags || [],
-      quizIds: lesson.quiz_ids || [],
-      isActive: lesson.isActive ?? true,
-      videoUrl: lesson.videoUrl || "",
-      orderIndex: lesson.orderIndex || 0,
-      quizzesCount: lesson.quizzesCount || 0,
-    };
+    setIsEditDialogOpen(true);
   };
 
   const handleLessonSuccess = () => {
     setIsCreateDialogOpen(false);
     setIsEditDialogOpen(false);
     setSelectedLesson(null);
-    // The parent component should refresh the curriculum data
+    // The LessonList component will automatically refresh
   };
 
   const handleQuizSuccess = () => {
     setIsQuizDialogOpen(false);
     setSelectedLesson(null);
+    router.refresh();
   };
 
   const handleDialogClose = () => {
     setIsCreateDialogOpen(false);
     setIsEditDialogOpen(false);
     setIsQuizDialogOpen(false);
-    setIsDeleteDialogOpen(false);
     setSelectedLesson(null);
-    setEditingLessonId(null);
   };
 
   return (
     <div className="space-y-6">
-      {/* Lesson List */}
-      <LessonList
-        curriculumId={curriculumId}
+      {/* Expandable Lesson List */}
+      <ExpandableLessonList
         lessons={lessons}
-        onCreateLesson={canEdit ? handleCreateLesson : undefined}
-        onEditLesson={canEdit ? handleEditLesson : undefined}
-        onViewLesson={handleViewLesson}
-        onAddQuiz={
-          canEdit
-            ? (lesson) => {
-                setSelectedLesson(lesson);
-                setIsQuizDialogOpen(true);
-              }
-            : undefined
-        }
-        onDeleteLesson={canEdit ? handleDeleteLesson : undefined}
+        curriculumId={curriculumId}
         canEdit={canEdit}
+        onCreateLesson={canEdit ? handleCreateLesson : undefined}
       />
 
       {/* Edit Lesson Dialog */}
@@ -168,21 +119,28 @@ export function LessonManager({
             <DialogTitle>Edit Lesson</DialogTitle>
             <DialogDescription>Update the lesson details</DialogDescription>
           </DialogHeader>
-          {fullLessonData?.data && (
+          {selectedLesson && (
             <LessonForm
-              lesson={convertToLessonFormFormat(fullLessonData.data)}
+              lesson={
+                {
+                  id: selectedLesson.id,
+                  title: selectedLesson.title,
+                  description: selectedLesson.description || "",
+                  content: selectedLesson.content || "",
+                  durationMinutes: selectedLesson.durationMinutes || 30,
+                  objectives: selectedLesson.objectives || [],
+                  tags: selectedLesson.tags || [],
+                  orderIndex: selectedLesson.orderIndex,
+                  isActive: selectedLesson.isActive ?? true,
+                  videoUrl: selectedLesson.videoUrl || "",
+                  quizzesCount: selectedLesson.quizzesCount || 0,
+                  quizIds: [],
+                } as any
+              }
               curriculumId={curriculumId}
               onSuccess={handleLessonSuccess}
               onCancel={handleDialogClose}
             />
-          )}
-          {isLoadingLesson && (
-            <div className="flex items-center justify-center p-8">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-                <p>Loading lesson data...</p>
-              </div>
-            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -215,34 +173,6 @@ export function LessonManager({
           onSuccess={handleQuizSuccess}
         />
       )}
-
-      {/* Delete Lesson Alert Dialog */}
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              lesson "{selectedLesson?.title}" and all associated data.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteLesson}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

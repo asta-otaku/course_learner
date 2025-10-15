@@ -11,11 +11,29 @@ import {
   Eye,
   Edit,
   ChevronRight,
+  GripVertical,
 } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
+import { CurriculumActions } from "@/components/resourceManagemement/curriculum/curriculum-actions";
 
-export const columns: ColumnDef<any>[] = [
+export const createColumns = (canReorder?: boolean): ColumnDef<any>[] => [
+  ...(canReorder
+    ? [
+        {
+          id: "drag-handle",
+          header: "",
+          cell: () => (
+            <div className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded drag-handle">
+              <GripVertical className="h-4 w-4 text-muted-foreground" />
+            </div>
+          ),
+          size: 40,
+          enableSorting: false,
+          enableHiding: false,
+        },
+      ]
+    : []),
   {
     id: "select",
     header: ({ table }) => (
@@ -68,18 +86,6 @@ export const columns: ColumnDef<any>[] = [
     },
   },
   {
-    accessorKey: "visibility",
-    header: "Visibility",
-    cell: ({ row }) => {
-      const visibility = row.getValue("visibility") as string;
-      return (
-        <Badge variant={visibility === "PUBLIC" ? "default" : "secondary"}>
-          {visibility === "PUBLIC" ? "Public" : "Private"}
-        </Badge>
-      );
-    },
-  },
-  {
     id: "lessons",
     header: "Lessons",
     cell: ({ row }) => {
@@ -106,26 +112,6 @@ export const columns: ColumnDef<any>[] = [
     },
   },
   {
-    accessorKey: "durationWeeks",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Duration (Weeks)
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-    cell: ({ row }) => {
-      const durationWeeks = row.getValue("durationWeeks") as string;
-      return (
-        <span className="text-sm text-muted-foreground">{durationWeeks}</span>
-      );
-    },
-  },
-  {
     id: "actions",
     header: "Actions",
     cell: ({ row }) => {
@@ -143,6 +129,12 @@ export const columns: ColumnDef<any>[] = [
               <Edit className="h-4 w-4" />
             </Link>
           </Button>
+          <CurriculumActions
+            curriculumId={curriculum.id}
+            canEdit={true}
+            isPublic={curriculum.visibility === "PUBLIC"}
+            curriculum={curriculum}
+          />
         </div>
       );
     },

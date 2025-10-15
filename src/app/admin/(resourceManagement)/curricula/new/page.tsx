@@ -26,21 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getCategories } from "@/app/actions/curricula";
 import { usePostCurriculum } from "@/lib/api/mutations";
 import { useGetSubscriptionPlansWithIds } from "@/lib/api/queries";
 import type { Curriculum } from "@/lib/types";
 
 export default function NewCurriculumPage() {
   const router = useRouter();
-  const [categories, setCategories] = useState<
-    Array<{
-      id: string;
-      name: string;
-      color: string | null;
-      icon: string | null;
-    }>
-  >([]);
 
   // Get subscription plans
   const { data: subscriptionPlansData } = useGetSubscriptionPlansWithIds();
@@ -49,11 +40,10 @@ export default function NewCurriculumPage() {
     title: "",
     description: "",
     subscriptionPlanId: "",
-    durationWeeks: 1,
     learningObjectives: [],
     prerequisites: [],
     tags: [],
-    visibility: "PRIVATE",
+    visibility: "PUBLIC",
   });
   const [objectiveInput, setObjectiveInput] = useState("");
   const [prerequisiteInput, setPrerequisiteInput] = useState("");
@@ -62,14 +52,6 @@ export default function NewCurriculumPage() {
   // Use the mutation hook
   const { mutate: createCurriculum, isPending: isCreating } =
     usePostCurriculum();
-
-  useEffect(() => {
-    async function loadCategories() {
-      const cats = await getCategories();
-      setCategories(cats);
-    }
-    loadCategories();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,42 +215,6 @@ export default function NewCurriculumPage() {
                           {plan.offerType}
                         </SelectItem>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="durationWeeks">Duration (Weeks) *</Label>
-                  <Input
-                    id="durationWeeks"
-                    type="number"
-                    value={formData.durationWeeks || 1}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        durationWeeks: parseInt(e.target.value) || 1,
-                      })
-                    }
-                    placeholder="1"
-                    min="1"
-                    max="52"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="visibility">Visibility</Label>
-                  <Select
-                    value={formData.visibility || "PRIVATE"}
-                    onValueChange={(value: "PRIVATE" | "PUBLIC") =>
-                      setFormData({ ...formData, visibility: value })
-                    }
-                  >
-                    <SelectTrigger id="visibility">
-                      <SelectValue placeholder="Select visibility" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PRIVATE">Private</SelectItem>
-                      <SelectItem value="PUBLIC">Public</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
