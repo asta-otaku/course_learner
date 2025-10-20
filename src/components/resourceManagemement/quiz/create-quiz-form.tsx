@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createQuizSchema, type CreateQuizInput } from "@/lib/validations/quiz";
 import { usePostQuiz } from "@/lib/api/mutations";
-import { useGetQuestions } from "@/lib/api/queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +20,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertCircle } from "lucide-react";
 import { toast } from "react-toastify";
+
 interface CreateQuizFormProps {}
 
 export function CreateQuizForm({}: CreateQuizFormProps) {
@@ -39,13 +39,11 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
     defaultValues: {
       title: "",
       description: "",
-      instructions: "",
       tags: [],
       settings: {
         timeLimit: 30,
         randomizeQuestions: false,
         showCorrectAnswers: true,
-        maxAttempts: 3,
         passingScore: 70,
         showFeedback: true,
         allowRetakes: true,
@@ -53,7 +51,6 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
         availableFrom: "",
         availableUntil: "",
       },
-      questions: [],
     },
   });
 
@@ -61,43 +58,56 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
     setError(null);
 
     try {
-      // Filter out empty fields and only include filled values
-      const filteredData: any = {
+      // Build the payload conforming to QuizUpdateData
+      const payload: any = {
         title: data.title,
         description: data.description,
-        instructions: data.instructions,
-        settings: {
-          timeLimit: data.settings.timeLimit,
-          randomizeQuestions: data.settings.randomizeQuestions,
-          showCorrectAnswers: data.settings.showCorrectAnswers,
-          maxAttempts: data.settings.maxAttempts,
-          passingScore: data.settings.passingScore,
-          showFeedback: data.settings.showFeedback,
-          allowRetakes: data.settings.allowRetakes,
-          allowReview: data.settings.allowReview,
-        },
       };
 
-      // Only include tags if they exist and are not empty
+      // Add tags if provided
       if (data.tags && data.tags.length > 0) {
-        filteredData.tags = data.tags;
+        payload.tags = data.tags;
       }
 
-      // Only include date fields if they are filled
-      if (
-        data.settings.availableFrom &&
-        data.settings.availableFrom.trim() !== ""
-      ) {
-        filteredData.settings.availableFrom = data.settings.availableFrom;
-      }
-      if (
-        data.settings.availableUntil &&
-        data.settings.availableUntil.trim() !== ""
-      ) {
-        filteredData.settings.availableUntil = data.settings.availableUntil;
+      // Add settings if any are provided
+      if (data.settings) {
+        const settings: any = {};
+
+        if (data.settings.timeLimit !== undefined) {
+          settings.timeLimit = data.settings.timeLimit;
+        }
+        if (data.settings.randomizeQuestions !== undefined) {
+          settings.randomizeQuestions = data.settings.randomizeQuestions;
+        }
+        if (data.settings.showCorrectAnswers !== undefined) {
+          settings.showCorrectAnswers = data.settings.showCorrectAnswers;
+        }
+        if (data.settings.passingScore !== undefined) {
+          settings.passingScore = data.settings.passingScore;
+        }
+        if (data.settings.showFeedback !== undefined) {
+          settings.showFeedback = data.settings.showFeedback;
+        }
+        if (data.settings.allowRetakes !== undefined) {
+          settings.allowRetakes = data.settings.allowRetakes;
+        }
+        if (data.settings.allowReview !== undefined) {
+          settings.allowReview = data.settings.allowReview;
+        }
+        if (data.settings.availableFrom?.trim()) {
+          settings.availableFrom = data.settings.availableFrom;
+        }
+        if (data.settings.availableUntil?.trim()) {
+          settings.availableUntil = data.settings.availableUntil;
+        }
+
+        // Only include settings if at least one setting is defined
+        if (Object.keys(settings).length > 0) {
+          payload.settings = settings;
+        }
       }
 
-      const result = await createQuizMutation.mutateAsync(filteredData);
+      const result = await createQuizMutation.mutateAsync(payload);
 
       if (result.status === 200 || result.status === 201) {
         toast.success(result.data.message);
@@ -150,22 +160,6 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
               </p>
             )}
           </div>
-
-          <div>
-            <Label htmlFor="instructions">Instructions *</Label>
-            <Textarea
-              id="instructions"
-              {...register("instructions")}
-              placeholder="Provide instructions for students taking this quiz"
-              rows={3}
-              className={errors.instructions ? "border-destructive" : ""}
-            />
-            {errors.instructions && (
-              <p className="text-sm text-destructive mt-1">
-                {errors.instructions.message}
-              </p>
-            )}
-          </div>
         </CardContent>
       </Card>
 
@@ -189,24 +183,6 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
             {errors.settings?.timeLimit && (
               <p className="text-sm text-destructive mt-1">
                 {errors.settings.timeLimit.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="maxAttempts">Max Attempts *</Label>
-            <Input
-              id="maxAttempts"
-              type="number"
-              {...register("settings.maxAttempts", { valueAsNumber: true })}
-              min={1}
-              className={
-                errors.settings?.maxAttempts ? "border-destructive" : ""
-              }
-            />
-            {errors.settings?.maxAttempts && (
-              <p className="text-sm text-destructive mt-1">
-                {errors.settings.maxAttempts.message}
               </p>
             )}
           </div>

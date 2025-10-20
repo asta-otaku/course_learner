@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,14 +27,26 @@ import {
   useGetCurriculum,
   useGetSubscriptionPlansWithIds,
 } from "@/lib/api/queries";
-import { usePutCurriculum } from "@/lib/api/mutations";
+import { usePutCurriculum, useDeleteCurriculum } from "@/lib/api/mutations";
 import type { Curriculum } from "@/lib/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function EditCurriculumClient({
   curriculumId,
 }: {
   curriculumId: string;
 }) {
+  const router = useRouter();
   const [formData, setFormData] = useState<Partial<Curriculum>>({
     title: "",
     description: "",
@@ -45,9 +57,6 @@ export default function EditCurriculumClient({
     tags: [],
     visibility: "PRIVATE",
   });
-  const [objectiveInput, setObjectiveInput] = useState("");
-  const [prerequisiteInput, setPrerequisiteInput] = useState("");
-  const [tagInput, setTagInput] = useState("");
 
   // Get curriculum data
   const { data: curriculumData, isLoading: curriculumLoading } =
@@ -61,6 +70,10 @@ export default function EditCurriculumClient({
   // Update mutation
   const { mutate: updateCurriculum, isPending: isUpdating } =
     usePutCurriculum(curriculumId);
+
+  // Delete mutation
+  const { mutate: deleteCurriculum, isPending: isDeleting } =
+    useDeleteCurriculum(curriculumId);
 
   // Populate form data when curriculum is loaded
   useEffect(() => {
@@ -81,84 +94,42 @@ export default function EditCurriculumClient({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title) {
-      toast.error("Please fill in the title");
+    if (!formData.title?.trim()) {
+      toast.error("Please enter a title");
       return;
     }
 
-    updateCurriculum(formData as Curriculum, {
+    // Only send the fields that should be updated
+    const updateData = {
+      title: formData.title,
+      description: formData.description,
+      subscriptionPlanId: formData.subscriptionPlanId,
+      durationWeeks: formData.durationWeeks,
+      learningObjectives: formData.learningObjectives,
+      prerequisites: formData.prerequisites,
+      tags: formData.tags,
+      visibility: formData.visibility,
+    };
+
+    updateCurriculum(updateData as Curriculum, {
       onSuccess: (response) => {
         if (response.status === 200) {
           toast.success(response.data.message);
+          router.push(`/admin/curricula/${curriculumId}`);
         }
       },
     });
   };
 
-  const addObjective = () => {
-    if (
-      objectiveInput.trim() &&
-      !(formData.learningObjectives || []).includes(objectiveInput.trim())
-    ) {
-      setFormData({
-        ...formData,
-        learningObjectives: [
-          ...(formData.learningObjectives || []),
-          objectiveInput.trim(),
-        ],
-      });
-      setObjectiveInput("");
-    }
-  };
-
-  const removeObjective = (objective: string) => {
-    setFormData({
-      ...formData,
-      learningObjectives: (formData.learningObjectives || []).filter(
-        (o) => o !== objective
-      ),
-    });
-  };
-
-  const addPrerequisite = () => {
-    if (
-      prerequisiteInput.trim() &&
-      !(formData.prerequisites || []).includes(prerequisiteInput.trim())
-    ) {
-      setFormData({
-        ...formData,
-        prerequisites: [
-          ...(formData.prerequisites || []),
-          prerequisiteInput.trim(),
-        ],
-      });
-      setPrerequisiteInput("");
-    }
-  };
-
-  const removePrerequisite = (prerequisite: string) => {
-    setFormData({
-      ...formData,
-      prerequisites: (formData.prerequisites || []).filter(
-        (p) => p !== prerequisite
-      ),
-    });
-  };
-
-  const addTag = () => {
-    if (tagInput.trim() && !(formData.tags || []).includes(tagInput.trim())) {
-      setFormData({
-        ...formData,
-        tags: [...(formData.tags || []), tagInput.trim()],
-      });
-      setTagInput("");
-    }
-  };
-
-  const removeTag = (tag: string) => {
-    setFormData({
-      ...formData,
-      tags: (formData.tags || []).filter((t) => t !== tag),
+  const handleDelete = () => {
+    deleteCurriculum(undefined, {
+      onSuccess: (response) => {
+        toast.success("Curriculum deleted successfully");
+        router.push("/admin/curricula");
+      },
+      onError: (error) => {
+        toast.error("Failed to delete curriculum");
+      },
     });
   };
 
@@ -175,16 +146,47 @@ export default function EditCurriculumClient({
   return (
     <div className="min-h-screen flex flex-col">
       <div className="py-6 max-w-4xl mx-auto w-full flex-1 flex flex-col">
-        <div className="mb-6">
-          <Button asChild variant="ghost" size="sm" className="mb-4">
-            <Link href={`/admin/curricula/${curriculumId}`}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Curriculum
-            </Link>
-          </Button>
+        <div className="mb-6 flex justify-between items-start">
+          <div>
+            <Button asChild variant="ghost" size="sm" className="mb-4">
+              <Link href={`/admin/curricula/${curriculumId}`}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Curriculum
+              </Link>
+            </Button>
 
-          <h1 className="text-3xl font-bold">Edit Curriculum</h1>
-          <p className="text-muted-foreground">Update curriculum information</p>
+            <h1 className="text-3xl font-bold">Edit Curriculum</h1>
+            <p className="text-muted-foreground">
+              Update curriculum information
+            </p>
+          </div>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={isDeleting}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Curriculum
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the
+                  curriculum and all associated lessons and data.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         <div className="flex-1 overflow-y-auto pb-6">
@@ -215,9 +217,7 @@ export default function EditCurriculumClient({
                   <Textarea
                     id="description"
                     value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
+                    disabled
                     rows={4}
                     className="mt-1"
                   />
@@ -227,12 +227,7 @@ export default function EditCurriculumClient({
                   <Label htmlFor="subscriptionPlanId">
                     Subscription Plan *
                   </Label>
-                  <Select
-                    value={formData.subscriptionPlanId || ""}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, subscriptionPlanId: value })
-                    }
-                  >
+                  <Select value={formData.subscriptionPlanId || ""} disabled>
                     <SelectTrigger id="subscriptionPlanId" className="mt-1">
                       <SelectValue placeholder="Select subscription plan" />
                     </SelectTrigger>
@@ -252,12 +247,7 @@ export default function EditCurriculumClient({
                     id="durationWeeks"
                     type="number"
                     value={formData.durationWeeks || 1}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        durationWeeks: parseInt(e.target.value) || 1,
-                      })
-                    }
+                    disabled
                     placeholder="1"
                     min="1"
                     max="52"
@@ -267,12 +257,7 @@ export default function EditCurriculumClient({
 
                 <div>
                   <Label htmlFor="visibility">Visibility</Label>
-                  <Select
-                    value={formData.visibility || "PRIVATE"}
-                    onValueChange={(value: "PRIVATE" | "PUBLIC") =>
-                      setFormData({ ...formData, visibility: value })
-                    }
-                  >
+                  <Select value={formData.visibility || "PRIVATE"} disabled>
                     <SelectTrigger id="visibility" className="mt-1">
                       <SelectValue placeholder="Select visibility" />
                     </SelectTrigger>
@@ -293,31 +278,11 @@ export default function EditCurriculumClient({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add a learning objective"
-                    value={objectiveInput}
-                    onChange={(e) => setObjectiveInput(e.target.value)}
-                    onKeyPress={(e) =>
-                      e.key === "Enter" && (e.preventDefault(), addObjective())
-                    }
-                  />
-                  <Button type="button" onClick={addObjective} size="sm">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
                 <ul className="space-y-2">
                   {(formData.learningObjectives || []).map(
                     (objective, index) => (
                       <li key={index} className="flex items-start gap-2">
                         <span className="text-sm flex-1">• {objective}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeObjective(objective)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
                       </li>
                     )
                   )}
@@ -333,31 +298,10 @@ export default function EditCurriculumClient({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add a prerequisite"
-                    value={prerequisiteInput}
-                    onChange={(e) => setPrerequisiteInput(e.target.value)}
-                    onKeyPress={(e) =>
-                      e.key === "Enter" &&
-                      (e.preventDefault(), addPrerequisite())
-                    }
-                  />
-                  <Button type="button" onClick={addPrerequisite} size="sm">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
                 <ul className="space-y-2">
                   {(formData.prerequisites || []).map((prerequisite, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <span className="text-sm flex-1">• {prerequisite}</span>
-                      <button
-                        type="button"
-                        onClick={() => removePrerequisite(prerequisite)}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
                     </li>
                   ))}
                 </ul>
@@ -372,30 +316,10 @@ export default function EditCurriculumClient({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add a tag"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={(e) =>
-                      e.key === "Enter" && (e.preventDefault(), addTag())
-                    }
-                  />
-                  <Button type="button" onClick={addTag} size="sm">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
                 <ul className="space-y-2">
                   {(formData.tags || []).map((tag, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <span className="text-sm flex-1">• {tag}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeTag(tag)}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
                     </li>
                   ))}
                 </ul>

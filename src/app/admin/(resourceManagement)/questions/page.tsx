@@ -19,7 +19,7 @@ import { useGetFolderById, useGetQuestions } from "@/lib/api/queries";
 // Force dynamic rendering since this page uses authentication
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 200];
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 200, 500, 1000];
 
 export default function QuestionsPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -52,28 +52,27 @@ export default function QuestionsPage() {
     hasPreviousPage: false,
   });
 
-  // Transform filters for API call - only include non-default values
+  // Transform filters for API call - simplified to match question-bank approach
   const queryOptions = useMemo(() => {
     const options: any = {
       page: pagination.page,
       limit: pagination.limit,
     };
 
+    // Only include essential filters to avoid restricting results
     if (filters.search) options.search = filters.search;
     if (filters.type !== "all") options.type = filters.type;
-    if (filters.difficultyMin)
-      options.difficultyMin = Number(filters.difficultyMin);
-    if (filters.difficultyMax)
-      options.difficultyMax = Number(filters.difficultyMax);
-    if (filters.dateFrom) options.dateFrom = filters.dateFrom;
-    if (filters.dateTo) options.dateTo = filters.dateTo;
     // Only include folderId in query options if we're not using folder-specific data
     if (selectedFolderId) options.folderId = selectedFolderId;
-    if (filters.sortBy) options.sortBy = filters.sortBy;
-    if (filters.sortOrder) options.sortOrder = filters.sortOrder;
 
     return options;
-  }, [filters, pagination.page, pagination.limit, selectedFolderId]);
+  }, [
+    filters.search,
+    filters.type,
+    pagination.page,
+    pagination.limit,
+    selectedFolderId,
+  ]);
 
   // Use React Query hook with computed query options
   // Disable questions query when viewing a specific folder
@@ -238,9 +237,7 @@ export default function QuestionsPage() {
   if (selectedFolderId && foldersResponse?.data?.questions) {
     // Use folder questions when a folder is selected
     const folderQuestions = foldersResponse.data.questions;
-    const startIndex = (pagination.page - 1) * pagination.limit;
-    const endIndex = startIndex + pagination.limit;
-    const paginatedQuestions = folderQuestions.slice(startIndex, endIndex);
+    const paginatedQuestions = folderQuestions.slice(0, pagination.limit);
 
     questionsData = {
       questions: paginatedQuestions,

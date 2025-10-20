@@ -112,7 +112,7 @@ export const questionFilterSchema = z.object({
   dateTo: z.string().optional(),
   // Pagination
   page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(20),
+  limit: z.number().min(1).max(1000).default(20),
   // Sorting
   sortBy: z.enum(['created_at', 'updated_at', 'type']).default('created_at'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),

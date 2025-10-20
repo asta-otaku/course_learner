@@ -22,12 +22,14 @@ export const quizQuestionSchema = z.object({
 })
 
 export const createQuizSchema = z.object({
-  title: z.string().min(1).max(200),
-  description: z.string().min(1),
-  instructions: z.string().min(1),
+  title: z.string().min(1, "Title is required").max(200),
+  description: z.string().min(1, "Description is required"),
+  gradeId: z.string().optional(),
+  lessonId: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  settings: quizSettingsSchema,
-  questions: z.array(quizQuestionSchema),
+  settings: quizSettingsSchema.partial().optional(),
+  status: z.enum(["draft", "published", "archived"]).optional(),
+  questions: z.array(quizQuestionSchema).optional(),
 })
 
 export const updateQuizSchema = z.object({

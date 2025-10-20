@@ -37,7 +37,7 @@ export interface Quiz {
   id?: string;
   title: string;
   description: string;
-  instructions: string;
+  instructions?: string;
   categoryId?: string;
   gradeId?: string;
   lessonId?: string;

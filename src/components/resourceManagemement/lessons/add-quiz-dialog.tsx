@@ -35,8 +35,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Use the Quiz type from the API
-import type { Quiz } from "@/lib/types";
+// Use the Quiz and QuizUpdateData types from the API
+import type { Quiz, QuizUpdateData } from "@/lib/types";
 
 interface AddQuizDialogProps {
   lessonId: string;
@@ -61,11 +61,9 @@ export function AddQuizDialog({
   // New quiz form state
   const [newQuizTitle, setNewQuizTitle] = useState("");
   const [newQuizDescription, setNewQuizDescription] = useState("");
-  const [newQuizInstructions, setNewQuizInstructions] = useState("");
 
   // Quiz settings state
   const [timeLimit, setTimeLimit] = useState<number>(30);
-  const [maxAttempts, setMaxAttempts] = useState<number>(3);
   const [passingScore, setPassingScore] = useState<string>("70");
   const [randomizeQuestions, setRandomizeQuestions] = useState<boolean>(false);
   const [showCorrectAnswers, setShowCorrectAnswers] = useState<boolean>(true);
@@ -130,25 +128,26 @@ export function AddQuizDialog({
       return;
     }
 
-    const quizData: Quiz = {
+    const quizData = {
       title: newQuizTitle.trim(),
       description: newQuizDescription.trim(),
-      instructions: newQuizInstructions.trim(),
-      status: "draft",
       lessonId: lessonId,
-      timeLimit: timeLimit,
-      maxAttempts: maxAttempts,
-      passingScore: passingScore,
-      randomizeQuestions: randomizeQuestions,
-      showCorrectAnswers: showCorrectAnswers,
-      showFeedback: showFeedback,
-      allowRetakes: allowRetakes,
-      allowReview: allowReview,
+      settings: {
+        timeLimit: timeLimit,
+        randomizeQuestions: randomizeQuestions,
+        showCorrectAnswers: showCorrectAnswers,
+        passingScore: parseInt(passingScore) || 70,
+        showFeedback: showFeedback,
+        allowRetakes: allowRetakes,
+        allowReview: allowReview,
+      },
     };
 
     createQuiz(quizData, {
       onSuccess: (response) => {
-        const quizId = (response.data as any)?.id;
+        // Extract quiz ID from nested response structure
+        const quizId = response?.data?.data?.id || (response.data as any)?.id;
+
         if (quizId) {
           // Add the newly created quiz to the lesson
           const updatedQuizIds = [...existingQuizIds, quizId];
@@ -156,7 +155,7 @@ export function AddQuizDialog({
             { quizIds: updatedQuizIds },
             {
               onSuccess: () => {
-                toast.success("Quiz created and added to lesson successfully");
+                toast.success(response?.data?.message);
                 onOpenChange(false);
                 if (onSuccess) onSuccess();
                 router.refresh();
@@ -168,7 +167,8 @@ export function AddQuizDialog({
             }
           );
         } else {
-          toast.error("Failed to create quiz");
+          toast.error("Failed to get quiz ID from response");
+          console.error("Response structure:", response);
         }
       },
       onError: (error) => {
@@ -405,56 +405,32 @@ export function AddQuizDialog({
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="quiz-instructions">Instructions</Label>
-                  <Textarea
-                    id="quiz-instructions"
-                    placeholder="Enter quiz instructions"
-                    value={newQuizInstructions}
-                    onChange={(e) => setNewQuizInstructions(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-
                 <Separator className="my-6" />
 
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium">Quiz Settings</h4>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="time-limit">Time Limit (minutes)</Label>
-                      <Input
-                        id="time-limit"
-                        type="number"
-                        min="1"
-                        value={timeLimit}
-                        onChange={(e) => setTimeLimit(Number(e.target.value))}
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="time-limit">Time Limit (minutes)</Label>
+                    <Input
+                      id="time-limit"
+                      type="number"
+                      min="1"
+                      value={timeLimit}
+                      onChange={(e) => setTimeLimit(Number(e.target.value))}
+                    />
+                  </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="max-attempts">Max Attempts</Label>
-                      <Input
-                        id="max-attempts"
-                        type="number"
-                        min="1"
-                        value={maxAttempts}
-                        onChange={(e) => setMaxAttempts(Number(e.target.value))}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="passing-score">Passing Score (%)</Label>
-                      <Input
-                        id="passing-score"
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={passingScore}
-                        onChange={(e) => setPassingScore(e.target.value)}
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="passing-score">Passing Score (%)</Label>
+                    <Input
+                      id="passing-score"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={passingScore}
+                      onChange={(e) => setPassingScore(e.target.value)}
+                    />
                   </div>
 
                   <div className="space-y-4">

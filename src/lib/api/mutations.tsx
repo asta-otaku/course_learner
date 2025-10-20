@@ -893,11 +893,18 @@ export const usePutAddQuestionsToFolder = () => {
 
 // Quiz Mutations
 export const usePostQuiz = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["post-quiz"],
     mutationFn: (data: Quiz): Promise<ApiResponse<Quiz>> =>
       axiosInstance.post("/quizzes", data),
     onSuccess: (data: ApiResponse<Quiz>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["quizzes"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["quizzes-for-lesson"],
+      });
       return data;
     },
     onError: (error: AxiosError) => {

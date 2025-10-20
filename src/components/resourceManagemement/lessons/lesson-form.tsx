@@ -71,10 +71,7 @@ export function LessonForm({
   const form = useForm<Partial<Lesson>>({
     defaultValues: {
       title: lesson?.title || "",
-      description: lesson?.description || "",
-      content: lesson?.content || "",
       orderIndex: lesson?.orderIndex || 0,
-      durationMinutes: lesson?.durationMinutes || 30,
       objectives: lesson?.objectives || [],
       tags: lesson?.tags || [],
       isActive: lesson?.isActive ?? true,
@@ -123,26 +120,6 @@ export function LessonForm({
     setTags(tags.filter((_, i) => i !== index));
   };
 
-  const extractVideoDuration = (file: File): Promise<number> => {
-    return new Promise((resolve, reject) => {
-      const video = document.createElement("video");
-      const url = URL.createObjectURL(file);
-
-      video.onloadedmetadata = () => {
-        URL.revokeObjectURL(url);
-        const durationInMinutes = Math.ceil(video.duration / 60);
-        resolve(durationInMinutes);
-      };
-
-      video.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error("Failed to load video metadata"));
-      };
-
-      video.src = url;
-    });
-  };
-
   const handleVideoUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -173,16 +150,6 @@ export function LessonForm({
       // Create preview URL
       const previewUrl = URL.createObjectURL(file);
       setVideoPreview(previewUrl);
-
-      // Extract and update duration
-      try {
-        const duration = await extractVideoDuration(file);
-        form.setValue("durationMinutes", duration);
-        toast.success(`Duration: ${duration} minutes`);
-      } catch (error) {
-        console.warn("Could not extract video duration:", error);
-        // Don't show error toast as this is not critical
-      }
     }
   };
 
@@ -371,67 +338,6 @@ export function LessonForm({
                 <FormLabel>Lesson Title</FormLabel>
                 <FormControl>
                   <Input placeholder="Enter lesson title..." {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Description Field */}
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Description</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter lesson description..." {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Content Field */}
-          <FormField
-            control={form.control}
-            name="content"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Lesson Content</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Enter the main content for this lesson..."
-                    className="min-h-[200px]"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-                <p className="text-xs text-gray-500">
-                  Provide detailed content, instructions, or notes for this
-                  lesson
-                </p>
-              </FormItem>
-            )}
-          />
-
-          {/* Duration Field */}
-          <FormField
-            control={form.control}
-            name="durationMinutes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Duration (Minutes)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    placeholder="30"
-                    min="1"
-                    {...field}
-                    onChange={(e) =>
-                      field.onChange(parseInt(e.target.value) || 30)
-                    }
-                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
