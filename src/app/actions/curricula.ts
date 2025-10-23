@@ -87,10 +87,10 @@ export async function getCurricula(): Promise<any[]> {
 }
 
 // Reorder curricula
-export async function reorderCurricula(curriculumIds: string[]): Promise<ActionResponse<void>> {
+export async function reorderCurricula(subscriptionPlanId: string, curriculumIds: string[]): Promise<ActionResponse<void>> {
   try {
-    await axiosInstance.patch('/curricula/reorder', {
-      curriculum_ids: curriculumIds,
+    await axiosInstance.patch(`/curriculum/${subscriptionPlanId}/curricula`, {
+      curriculumIds: curriculumIds,
     });
 
     revalidatePath('/curricula');

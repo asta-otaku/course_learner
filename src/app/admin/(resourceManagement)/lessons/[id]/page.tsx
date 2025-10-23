@@ -160,7 +160,33 @@ export default function LessonPage() {
               </Card>
             )}
 
-            {/* Prerequisites - Not available in current Lesson interface */}
+            {/* Tags */}
+            {lesson.tags && lesson.tags.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5" />
+                    Tags
+                  </CardTitle>
+                  <CardDescription>
+                    Keywords associated with this lesson
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {lesson.tags.map((tag: string, index: number) => (
+                      <Badge
+                        key={index}
+                        variant="secondary"
+                        className="capitalize"
+                      >
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Lesson Info */}
             <Card>

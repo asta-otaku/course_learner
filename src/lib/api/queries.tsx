@@ -763,3 +763,47 @@ export const useGetChatById = (chatId: string) => {
     enabled: !!chatId,
   });
 };
+
+// Tag Queries
+export const useGetTags = () => {
+  return useQuery({
+    queryKey: ["tags"],
+    queryFn: async (): Promise<APIGetResponse<string[]>> => {
+      const response = await axiosInstance.get("/tags");
+      return response.data;
+    },
+  });
+};
+
+export const useGetTagSearch = (tag: string) => {
+  return useQuery({
+    queryKey: ["tag-search", tag],
+    queryFn: async (): Promise<APIGetResponse<string[]>> => {
+      const response = await axiosInstance.get(`/tags/search?tag=${tag}`);
+      return response.data;
+    },
+    enabled: !!tag,
+  });
+};
+
+export const useGetPopularTags = () => {
+  return useQuery({
+    queryKey: ["popular-tags"],
+    queryFn: async (): Promise<APIGetResponse<string[]>> => {
+      const response = await axiosInstance.get("/tags/popular");
+      return response.data;
+    },
+  });
+};
+
+// Child Library Queries
+export const useGetLibrary = (childId: string) => {
+  return useQuery({
+    queryKey: ["library", childId],
+    queryFn: async (): Promise<APIGetResponse<any>> => {
+      const response = await axiosInstance.get(`/library/${childId}`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+};

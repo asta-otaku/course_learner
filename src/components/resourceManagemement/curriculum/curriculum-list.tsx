@@ -13,7 +13,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DataTable } from "@/components/ui/data-table";
 import { SortableDataTable } from "@/components/ui/sortable-data-table";
 import { createColumns } from "@/app/admin/(resourceManagement)/curricula/columns";
 import {
@@ -45,9 +44,11 @@ import {
 } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { reorderCurricula } from "@/app/actions/curricula";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "react-toastify";
+import { usePatchReorderCurriculum } from "@/lib/api/mutations";
 import { CurriculumActions } from "@/components/resourceManagemement/curriculum/curriculum-actions";
+import { axiosInstance } from "@/lib/services/axiosInstance";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Curriculum {
   id: string;
@@ -58,6 +59,7 @@ interface Curriculum {
   tags: string[];
   prerequisites: string[];
   lessonsCount: number;
+  orderIndex: number;
   visibility: "PUBLIC" | "PRIVATE";
   offerType: string;
   createdAt: string;
@@ -196,7 +198,12 @@ export function CurriculumList({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isReordering, setIsReordering] = useState(false);
 
-  // Group curricula by offer type
+  // Get subscriptionPlanId from the first curriculum
+  const subscriptionPlanId = localCurricula[0]?.subscriptionPlanId;
+  const reorderMutation = usePatchReorderCurriculum(subscriptionPlanId || "");
+  const queryClient = useQueryClient();
+
+  // Group curricula by offer type and sort by orderIndex
   const groupedCurricula = React.useMemo(() => {
     const groups: Record<string, Curriculum[]> = {};
 
@@ -208,11 +215,22 @@ export function CurriculumList({
       groups[offerType].push(curriculum);
     });
 
+    // Sort each group by orderIndex
+    Object.keys(groups).forEach((offerType) => {
+      groups[offerType].sort(
+        (a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)
+      );
+    });
+
     return groups;
   }, [localCurricula]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 3,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -271,30 +289,34 @@ export function CurriculumList({
     setIsReordering(true);
     try {
       const curriculumIds = newCurricula.map((curriculum) => curriculum.id);
-      const result = await reorderCurricula(curriculumIds);
 
-      if (!result.success) {
-        // Revert on error
-        setLocalCurricula(curricula);
-        toast({
-          title: "Error",
-          description: result.error || "Failed to reorder curricula",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Curricula order updated successfully",
-        });
+      // Get subscriptionPlanId from the first curriculum in the new order
+      const firstCurriculum = newCurricula[0];
+      if (!firstCurriculum?.subscriptionPlanId) {
+        throw new Error("No subscription plan ID found");
       }
+
+      // Use axiosInstance directly with the correct subscriptionPlanId
+      await axiosInstance.patch(
+        `/curriculum/${firstCurriculum.subscriptionPlanId}/curricula`,
+        {
+          curriculumIds: curriculumIds,
+        }
+      );
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({
+        queryKey: ["curricula"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["curriculum"],
+      });
+
+      toast.success("Curriculum order updated successfully");
     } catch (error) {
       // Revert on error
       setLocalCurricula(curricula);
-      toast({
-        title: "Error",
-        description: "Failed to reorder curricula",
-        variant: "destructive",
-      });
+      toast.error("Failed to reorder curriculum");
     } finally {
       setIsReordering(false);
     }
@@ -466,31 +488,34 @@ export function CurriculumList({
                       const curriculumIds = newCurricula.map(
                         (curriculum) => curriculum.id
                       );
-                      const result = await reorderCurricula(curriculumIds);
 
-                      if (!result.success) {
-                        // Revert on error
-                        setLocalCurricula(curricula);
-                        toast({
-                          title: "Error",
-                          description:
-                            result.error || "Failed to reorder curricula",
-                          variant: "destructive",
-                        });
-                      } else {
-                        toast({
-                          title: "Success",
-                          description: "Curricula order updated successfully",
-                        });
+                      // Get subscriptionPlanId from the first curriculum in the new order
+                      const firstCurriculum = newCurricula[0];
+                      if (!firstCurriculum?.subscriptionPlanId) {
+                        throw new Error("No subscription plan ID found");
                       }
+
+                      // Use axiosInstance directly with the correct subscriptionPlanId
+                      await axiosInstance.patch(
+                        `/curriculum/${firstCurriculum.subscriptionPlanId}/curricula`,
+                        {
+                          curriculumIds: curriculumIds,
+                        }
+                      );
+
+                      // Invalidate queries to refresh data
+                      queryClient.invalidateQueries({
+                        queryKey: ["curricula"],
+                      });
+                      queryClient.invalidateQueries({
+                        queryKey: ["curriculum"],
+                      });
+
+                      toast.success("Curriculum order updated successfully");
                     } catch (error) {
                       // Revert on error
                       setLocalCurricula(curricula);
-                      toast({
-                        title: "Error",
-                        description: "Failed to reorder curricula",
-                        variant: "destructive",
-                      });
+                      toast.error("Failed to reorder curriculum");
                     } finally {
                       setIsReordering(false);
                     }

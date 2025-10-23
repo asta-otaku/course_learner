@@ -1084,6 +1084,29 @@ export const useDeleteCurriculum = (id: string) => {
   });
 };
 
+export const usePatchReorderCurriculum = (subscriptionPlanId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-reorder-curriculum", subscriptionPlanId],
+    mutationFn: (data: {
+      curriculumIds: string[];
+    }): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.patch(`/curriculum/${subscriptionPlanId}/curricula`, data),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["curricula"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["curriculum"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
 // Lesson Mutations
 export const usePostLesson = (curriculumId: string) => {
   const queryClient = useQueryClient();
@@ -1157,6 +1180,26 @@ export const useDeleteLesson = (lessonId: string) => {
       });
       queryClient.invalidateQueries({
         queryKey: ["curriculum"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchReorderLessons = (curriculumId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-reorder-lessons", curriculumId],
+    mutationFn: (data: {
+      lessonIds: string[];
+    }): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.patch(`/lesson/${curriculumId}/reorder`, data),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["lesson", curriculumId],
       });
       return data;
     },
@@ -1305,4 +1348,44 @@ export const usePostMessage = () => {
   });
 };
 
-// REST API delete message removed - now using WebSocket deleteMessages
+// Child Library Mutations
+export const usePatchLessonProgress = (lessonId: string, childId: string) => {
+  return useMutation({
+    mutationKey: ["patch-lesson-progress", lessonId, childId],
+    mutationFn: (data: {
+      progress: number;
+    }): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.patch(
+        `/library/${childId}/${lessonId}/progress/quiz`,
+        data
+      ),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchVideoLessonProgress = (
+  lessonId: string,
+  childId: string
+) => {
+  return useMutation({
+    mutationKey: ["patch-video-lesson-progress", lessonId, childId],
+    mutationFn: (data: {
+      progress: number;
+    }): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.patch(
+        `/library/${childId}/${lessonId}/progress/video`,
+        data
+      ),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};

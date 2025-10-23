@@ -66,7 +66,7 @@ function SortableRow<TData>({
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: isDragging ? undefined : transition,
   };
 
   return (
@@ -156,7 +156,7 @@ export function SortableDataTable<TData extends { id: string }, TValue>({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 3,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -353,14 +353,14 @@ export function SortableDataTable<TData extends { id: string }, TValue>({
         </SortableContext>
         <DragOverlay>
           {activeId && (
-            <div className="bg-background rounded-md shadow-lg opacity-80">
+            <div className="bg-background rounded-md shadow-2xl opacity-90 border border-border">
               <Table>
                 <TableBody>
                   {table
                     .getRowModel()
                     .rows.filter((row) => row.original.id === activeId)
                     .map((row) => (
-                      <TableRow key={row.id}>
+                      <TableRow key={row.id} className="bg-background">
                         {row.getVisibleCells().map((cell) => (
                           <TableCell key={cell.id}>
                             {flexRender(

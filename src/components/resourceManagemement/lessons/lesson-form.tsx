@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
   usePostUploader,
   usePutLesson,
 } from "@/lib/api/mutations";
+import { useGetTagSearch } from "@/lib/api/queries";
 import { toast } from "react-toastify";
 import { cn } from "@/lib/utils";
 import type { Lesson } from "@/lib/types";
@@ -57,6 +58,8 @@ export function LessonForm({
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isRemovingVideo, setIsRemovingVideo] = useState(false);
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
 
   // Mutations
   const { mutate: createLesson, isPending: isCreating } =
@@ -67,6 +70,29 @@ export function LessonForm({
   const { mutate: getUploadUrl, isPending: isGettingUrl } = usePostUploader();
 
   const isEditing = !!lesson;
+
+  // Debounced tag search
+  const [debouncedTagSearch, setDebouncedTagSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedTagSearch(tagInput);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [tagInput]);
+
+  // Tag search query
+  const { data: tagSuggestions, isLoading: isSearchingTags } =
+    useGetTagSearch(debouncedTagSearch);
+
+  // Filter suggestions to exclude already added tags
+  const filteredSuggestions = useMemo(() => {
+    if (!tagSuggestions?.data) return [];
+    return tagSuggestions.data.filter(
+      (suggestion) => !tags.includes(suggestion)
+    );
+  }, [tagSuggestions?.data, tags]);
 
   const form = useForm<Partial<Lesson>>({
     defaultValues: {
@@ -109,15 +135,58 @@ export function LessonForm({
     setObjectives(objectives.filter((_, i) => i !== index));
   };
 
-  const addTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
+  const addTag = (tagToAdd?: string) => {
+    const tag = tagToAdd || tagInput.trim();
+    if (tag && !tags.includes(tag)) {
+      setTags([...tags, tag]);
       setTagInput("");
+      setShowTagSuggestions(false);
+      setSelectedSuggestionIndex(-1);
     }
   };
 
   const removeTag = (index: number) => {
     setTags(tags.filter((_, i) => i !== index));
+  };
+
+  const handleTagInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setTagInput(value);
+    setShowTagSuggestions(value.length > 0);
+    setSelectedSuggestionIndex(-1);
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (
+        selectedSuggestionIndex >= 0 &&
+        filteredSuggestions[selectedSuggestionIndex]
+      ) {
+        addTag(filteredSuggestions[selectedSuggestionIndex]);
+      } else {
+        addTag();
+      }
+    } else if (
+      e.key === "Tab" &&
+      selectedSuggestionIndex >= 0 &&
+      filteredSuggestions[selectedSuggestionIndex]
+    ) {
+      e.preventDefault();
+      addTag(filteredSuggestions[selectedSuggestionIndex]);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedSuggestionIndex((prev) =>
+        prev < filteredSuggestions.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedSuggestionIndex((prev) => (prev > 0 ? prev - 1 : -1));
+    } else if (e.key === "Escape") {
+      setShowTagSuggestions(false);
+      setSelectedSuggestionIndex(-1);
+    }
   };
 
   const handleVideoUpload = async (
@@ -392,22 +461,51 @@ export function LessonForm({
           {/* Tags */}
           <div className="space-y-3">
             <Label>Tags</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Add a tag..."
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    addTag();
-                  }
-                }}
-              />
-              <Button type="button" onClick={addTag} size="icon">
-                <Plus className="h-4 w-4" />
-              </Button>
+            <div className="relative">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    placeholder="Add a tag..."
+                    value={tagInput}
+                    onChange={handleTagInputChange}
+                    onKeyDown={handleTagKeyDown}
+                    onFocus={() => setShowTagSuggestions(tagInput.length > 0)}
+                    onBlur={() => {
+                      // Delay hiding suggestions to allow clicking on them
+                      setTimeout(() => setShowTagSuggestions(false), 200);
+                    }}
+                  />
+
+                  {/* Tag Suggestions Dropdown */}
+                  {showTagSuggestions && filteredSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {filteredSuggestions.map((suggestion, index) => (
+                        <div
+                          key={suggestion}
+                          className={cn(
+                            "px-3 py-2 cursor-pointer text-sm hover:bg-gray-100",
+                            index === selectedSuggestionIndex &&
+                              "bg-blue-50 text-blue-600"
+                          )}
+                          onClick={() => addTag(suggestion)}
+                        >
+                          {suggestion}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Loading indicator */}
+                  {isSearchingTags && tagInput.length > 0 && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                <Button type="button" onClick={() => addTag()} size="icon">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             {tags.length > 0 && (
