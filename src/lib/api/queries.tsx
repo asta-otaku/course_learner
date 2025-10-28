@@ -19,6 +19,8 @@ import {
   Lesson,
   Chat,
   Message,
+  LibraryCurriculum,
+  ChildLesson,
 } from "../types";
 
 // User Queries
@@ -800,10 +802,23 @@ export const useGetPopularTags = () => {
 export const useGetLibrary = (childId: string) => {
   return useQuery({
     queryKey: ["library", childId],
-    queryFn: async (): Promise<APIGetResponse<any>> => {
+    queryFn: async (): Promise<APIGetResponse<LibraryCurriculum[]>> => {
       const response = await axiosInstance.get(`/library/${childId}`);
       return response.data;
     },
     enabled: !!childId,
+  });
+};
+
+export const useGetChildLessons = (childId: string, curriculumId: string) => {
+  return useQuery({
+    queryKey: ["child-lessons", childId, curriculumId],
+    queryFn: async (): Promise<APIGetResponse<ChildLesson[]>> => {
+      const response = await axiosInstance.get(
+        `/library/${childId}/curriculums/${curriculumId}/lessons`
+      );
+      return response.data;
+    },
+    enabled: !!childId && !!curriculumId,
   });
 };

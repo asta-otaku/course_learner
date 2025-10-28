@@ -1,19 +1,34 @@
 "use client";
 
-import { courses, dummyQuizzes, slugify } from "@/lib/utils";
-import Link from "next/link";
 import React, { useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useProfile } from "@/context/profileContext";
 import BackArrow from "@/assets/svgs/arrowback";
+import { useGetLibrary, useGetChildLessons } from "@/lib/api/queries";
 
-function Library() {
+interface LibraryProps {
+  curriculumId?: string;
+  lessonId?: string;
+}
+
+function Library({ curriculumId, lessonId }: LibraryProps) {
   const router = useRouter();
+  const params = useParams();
   const { activeProfile, isLoaded } = useProfile();
-  const [selectedCourse, setSelectedCourse] = useState("");
-  const [selectedTopic, setSelectedTopic] = useState("");
+  const [selectedCurriculum, setSelectedCurriculum] = useState("");
+  const [selectedLesson, setSelectedLesson] = useState("");
   const [user, setUser] = React.useState<any>({});
+
+  // Get curriculumId and lessonId from params or props
+  const urlCurriculumId = (params?.curriculumId as string) || curriculumId;
+  const urlLessonId = (params?.lessonId as string) || lessonId;
+
+  const { data: library } = useGetLibrary(activeProfile?.id || "");
+  const { data: lessons } = useGetChildLessons(
+    activeProfile?.id || "",
+    selectedCurriculum
+  );
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -22,17 +37,46 @@ function Library() {
     }
   }, []);
 
-  // Group courses by course name
-  const groupedCourses = useMemo(() => {
-    return courses.reduce((acc, course) => {
-      if (!acc[course.course]) {
-        acc[course.course] = [];
-      }
-      acc[course.course].push(course);
-      return acc;
-    }, {} as Record<string, typeof courses>);
-  }, []);
+  // Get curricula from library data
+  const curricula = useMemo(() => {
+    return library?.data || [];
+  }, [library?.data]);
 
+  // Get lessons for selected curriculum
+  const selectedCurriculumLessons = useMemo(() => {
+    return lessons?.data || [];
+  }, [lessons?.data]);
+
+  // Get current lesson details
+  const currentLesson = useMemo(() => {
+    if (!selectedLesson || !selectedCurriculum) return null;
+    return selectedCurriculumLessons.find(
+      (lesson) => lesson.id === selectedLesson
+    );
+  }, [selectedLesson, selectedCurriculum, selectedCurriculumLessons]);
+
+  // Handle URL parameters and initialize selections
+  useEffect(() => {
+    if (curricula.length > 0) {
+      // If we have curriculumId in URL, use it
+      if (urlCurriculumId) {
+        setSelectedCurriculum(urlCurriculumId);
+
+        // If we have lessonId in URL, use it
+        if (urlLessonId) {
+          setSelectedLesson(urlLessonId);
+        } else {
+          setSelectedLesson("");
+        }
+      } else if (!selectedCurriculum) {
+        // No curriculum in URL and no selection yet, select first curriculum
+        setSelectedCurriculum(curricula[0].id);
+        setSelectedLesson("");
+      }
+    }
+  }, [curricula, urlCurriculumId, urlLessonId, selectedCurriculum]);
+
+  // Early returns after all hooks
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -51,45 +95,8 @@ function Library() {
     );
   }
 
-  // Get distinct course names for dropdown
-  const distinctCourseNames = useMemo(
-    () => Object.keys(groupedCourses),
-    [groupedCourses]
-  );
-
-  // Get topics for selected course
-  const selectedCourseTopics = useMemo(() => {
-    if (!selectedCourse) return [];
-    return groupedCourses[selectedCourse].flatMap((course) => course.topics);
-  }, [selectedCourse, groupedCourses]);
-
-  // Get current topic details
-  const currentTopic = useMemo(() => {
-    if (!selectedTopic || !selectedCourse) return null;
-    return selectedCourseTopics.find((t) => t.title === selectedTopic) as {
-      title: string;
-      number_of_quizzes: number;
-      quizzes: {
-        title: string;
-        attempts: { label: string; date: string; score: number }[];
-      }[];
-    };
-  }, [selectedTopic, selectedCourse, selectedCourseTopics]);
-
-  // Initialize with first course if none selected
-  useEffect(() => {
-    if (distinctCourseNames.length > 0 && !selectedCourse) {
-      setSelectedCourse(distinctCourseNames[0]);
-    }
-  }, [distinctCourseNames, selectedCourse]);
-
-  // Reset selected topic when course changes
-  useEffect(() => {
-    setSelectedTopic("");
-  }, [selectedCourse]);
-
-  if (!selectedCourse || distinctCourseNames.length === 0) {
-    return <div className="p-8 text-center">Loading courses...</div>;
+  if (!selectedCurriculum || curricula.length === 0) {
+    return <div className="p-8 text-center">Loading curricula...</div>;
   }
 
   return (
@@ -105,92 +112,106 @@ function Library() {
         </div>
       )}
 
-      {/* Course Selector Dropdown */}
+      {/* Curriculum Selector Dropdown */}
       <div className="mb-6 mt-8">
         <select
-          value={selectedCourse}
-          onChange={(e) => setSelectedCourse(e.target.value)}
+          value={selectedCurriculum}
+          onChange={(e) => {
+            const newCurriculumId = e.target.value;
+            setSelectedCurriculum(newCurriculumId);
+            setSelectedLesson(""); // Reset lesson when curriculum changes
+            router.push(`/library/${newCurriculumId}`);
+          }}
           className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[200px]"
         >
-          <option value="">Select a Course</option>
-          {distinctCourseNames.map((courseName, idx) => (
-            <option key={idx} value={courseName}>
-              {courseName}
+          <option value="">Select a Curriculum</option>
+          {curricula.map((curriculum, idx) => (
+            <option key={idx} value={curriculum.id}>
+              {curriculum.title}
             </option>
           ))}
         </select>
       </div>
 
       <div className="flex gap-6">
-        {/* First Column - Course Topics List (Hidden on mobile when topic selected) */}
+        {/* First Column - Lessons List (Hidden on mobile when lesson selected) */}
         <div
           className={`md:max-w-xs w-full border border-dashed flex flex-col max-h-[80vh] h-fit scrollbar-hide overflow-auto ${
-            selectedTopic ? "hidden md:flex" : "flex"
+            selectedLesson ? "hidden md:flex" : "flex"
           }`}
         >
-          {selectedCourseTopics.map((topic, idx) => (
+          {selectedCurriculumLessons.map((lesson, idx) => (
             <button
               key={idx}
-              onClick={() => setSelectedTopic(topic.title)}
+              onClick={() => {
+                setSelectedLesson(lesson.id);
+                router.push(`/library/${selectedCurriculum}/${lesson.id}`);
+              }}
               className={`border-b last-of-type:border-none border-dashed p-4 hover:bg-[#EEEEEE]/20 w-full text-left ${
-                topic.title === selectedTopic ? "bg-[#EEEEEE]" : "bg-white"
+                lesson.id === selectedLesson ? "bg-[#EEEEEE]" : "bg-white"
               }`}
             >
               <span
                 className={`${
-                  topic.title === selectedTopic
+                  lesson.id === selectedLesson
                     ? "text-primaryBlue font-semibold"
                     : "text-textSubtitle"
                 } font-medium text-sm md:text-base max-w-[300px] whitespace-nowrap truncate inline-block`}
               >
-                {topic.title}
+                {lesson.title}
               </span>
               <p className="text-textSubtitle text-sm font-inter mt-2">
-                {topic.number_of_quizzes} Quiz
-                {topic.number_of_quizzes !== 1 ? "zes" : ""}
+                {lesson.totalQuizzes} Quiz
+                {lesson.totalQuizzes !== 1 ? "zes" : ""}
+                {lesson.completionPercentage > 0 && (
+                  <span className="ml-2 text-primaryBlue">
+                    {lesson.completionPercentage}% Complete
+                  </span>
+                )}
               </p>
             </button>
           ))}
         </div>
 
-        {/* Second Column - Topic Content (Show when topic is selected) */}
+        {/* Second Column - Lesson Content (Show when lesson is selected) */}
         <div
           className={`w-full flex justify-center ${
-            selectedTopic ? "flex" : "hidden md:flex"
+            selectedLesson ? "flex" : "hidden md:flex"
           }`}
         >
           <div className="space-y-6 max-w-2xl w-full">
             {/* Mobile Back Button */}
-            {selectedTopic && (
+            {selectedLesson && (
               <button
-                onClick={() => setSelectedTopic("")}
+                onClick={() => {
+                  setSelectedLesson("");
+                  router.push(`/library/${selectedCurriculum}`);
+                }}
                 className="md:hidden mb-4 text-primaryBlue font-medium flex items-center gap-2"
               >
-                <BackArrow color="#286cff" /> Back to Topics
+                <BackArrow color="#286cff" /> Back to Lessons
               </button>
             )}
 
-            {!selectedTopic ? (
+            {!selectedLesson ? (
               <div className="text-center py-12">
                 <p className="text-textSubtitle text-lg">
-                  Select a topic from the left to view content
+                  Select a lesson from the left to view content
                 </p>
               </div>
             ) : (
               <>
-                {/* Tutorial Video Section */}
+                {/* Lesson Video Section */}
                 <div className="bg-primaryBlue rounded-2xl flex items-center gap-4 justify-between py-4 px-6">
                   <h2 className="font-medium md:text-xl text-white">
-                    Tutorial Video
+                    {currentLesson?.title}
                   </h2>
                   <Button
                     variant="outline"
                     className="rounded-full text-primaryBlue font-medium text-xs"
                     onClick={() =>
                       router.push(
-                        `/videos-quiz/${slugify(selectedCourse)}/${slugify(
-                          selectedTopic
-                        )}`
+                        `/videos-quiz/${selectedCurriculum}/${currentLesson?.id}`
                       )
                     }
                   >
@@ -198,102 +219,71 @@ function Library() {
                   </Button>
                 </div>
 
-                {/* Quizzes Section */}
+                {/* Lesson Progress */}
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-medium">Quiz</h3>
-                    <select className="bg-white py-2 px-3 rounded-full font-medium text-sm">
-                      <option>All Quizzes</option>
-                    </select>
+                    <h3 className="text-lg font-medium">Progress</h3>
+                    <span className="text-sm text-textSubtitle">
+                      {currentLesson?.completionPercentage}% Complete
+                    </span>
                   </div>
 
-                  {/* Quizzes List */}
-                  {(currentTopic?.quizzes || dummyQuizzes).map(
-                    (quiz, quizIdx) => (
-                      <div
-                        key={quiz.title}
-                        className="border rounded-2xl bg-white overflow-hidden"
-                      >
-                        <div className="flex items-center justify-between px-6 py-4">
-                          <div>
-                            <h4 className="font-medium">Quiz {quizIdx + 1}</h4>
-                            <p className="text-sm text-textSubtitle">
-                              20 Questions
-                              {quiz.attempts.length > 0 && (
-                                <span className="ml-2 text-primaryBlue">
-                                  Previous Score -{" "}
-                                  {
-                                    quiz.attempts[quiz.attempts.length - 1]
-                                      .score
-                                  }
-                                  %
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                          <Button
-                            onClick={() =>
-                              router.push(
-                                `/videos-quiz/${slugify(
-                                  selectedCourse
-                                )}/${slugify(selectedTopic)}/${slugify(
-                                  quiz.title
-                                )}`
-                              )
-                            }
-                            className="rounded-full bg-primaryBlue text-white text-xs py-2 px-4"
-                          >
-                            {quiz.attempts.length > 0
-                              ? "Retake Quiz"
-                              : "Start Quiz"}
-                          </Button>
-                        </div>
+                  {/* Progress Bar */}
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-primaryBlue h-2 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${currentLesson?.completionPercentage || 0}%`,
+                      }}
+                    ></div>
+                  </div>
 
-                        {/* Attempts Table - Only show if there are attempts */}
-                        {quiz.attempts.length > 0 && (
-                          <table className="w-full table-fixed border-y border-collapse">
-                            <thead>
-                              <tr>
-                                <th className="border-b border-r border-gray-200 py-3 px-4 text-textSubtitle text-xs font-medium text-left">
-                                  N/O
-                                </th>
-                                <th className="border-b border-r border-gray-200 py-3 px-4 text-textSubtitle text-xs font-medium text-left">
-                                  Date
-                                </th>
-                                <th className="border-b border-r border-gray-200 py-3 px-4 text-textSubtitle text-xs font-medium text-left">
-                                  Score
-                                </th>
-                                <th className="border-b border-gray-200 py-3 px-4 text-textSubtitle text-xs font-medium text-left"></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {quiz.attempts.map((attempt) => (
-                                <tr key={attempt.label}>
-                                  <td className="border-b border-r border-gray-200 py-3 px-4 text-sm">
-                                    {attempt.label}
-                                  </td>
-                                  <td className="border-b border-r border-gray-200 py-3 px-4 text-sm">
-                                    {attempt.date}
-                                  </td>
-                                  <td className="border-b border-r border-gray-200 py-3 px-4 text-sm">
-                                    {attempt.score}%
-                                  </td>
-                                  <td className="border-b border-gray-200 py-3 px-4 text-sm">
-                                    <Link
-                                      href="#"
-                                      className="flex items-center gap-2 font-medium text-sm text-primaryBlue"
-                                    >
-                                      View Breakdown <span>&rarr;</span>
-                                    </Link>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
+                  {/* Lesson Details */}
+                  <div className="border rounded-2xl bg-white overflow-hidden">
+                    <div className="px-6 py-4">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-textSubtitle">
+                            Video Status:
+                          </span>
+                          <span
+                            className={`ml-2 ${currentLesson?.videoCompleted ? "text-green-600" : "text-gray-600"}`}
+                          >
+                            {currentLesson?.videoCompleted
+                              ? "Completed"
+                              : "Not Started"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-textSubtitle">Quizzes:</span>
+                          <span className="ml-2 text-primaryBlue">
+                            {currentLesson?.quizzesPassed}/
+                            {currentLesson?.totalQuizzes} Passed
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-textSubtitle">
+                            Watched Position:
+                          </span>
+                          <span className="ml-2 text-gray-600">
+                            {Math.round(currentLesson?.watchedPosition || 0)}s
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-textSubtitle">
+                            Lesson Status:
+                          </span>
+                          <span
+                            className={`ml-2 ${currentLesson?.lessonCompleted ? "text-green-600" : "text-gray-600"}`}
+                          >
+                            {currentLesson?.lessonCompleted
+                              ? "Completed"
+                              : "In Progress"}
+                          </span>
+                        </div>
                       </div>
-                    )
-                  )}
+                    </div>
+                  </div>
                 </div>
               </>
             )}

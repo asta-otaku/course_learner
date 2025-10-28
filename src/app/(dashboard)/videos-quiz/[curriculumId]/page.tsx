@@ -1,15 +1,14 @@
 "use client";
 
+import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { Layers } from "lucide-react";
 import { notFound, useParams, useRouter } from "next/navigation";
 import videoLine from "@/assets/video-line.svg";
-import { dummyVideoTopics, slugify } from "@/lib/utils";
 import groupLines from "@/assets/grouplines.svg";
 import completedStep from "@/assets/completedStep.svg";
 import incompletedStep from "@/assets/incompleteStep.svg";
 import currentStep from "@/assets/currentStep.svg";
-import { useEffect, useState, useRef } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -18,25 +17,41 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import BackArrow from "@/assets/svgs/arrowback";
+import { useProfile } from "@/context/profileContext";
+import { useGetLibrary, useGetChildLessons } from "@/lib/api/queries";
+import algebra from "@/assets/algebra.png";
+import measurement from "@/assets/measurement.png";
+import ratio from "@/assets/ratio.png";
 
-export default function VideoTopicPage() {
+const availableImages = [algebra, measurement, ratio];
+
+export default function CurriculumLessonsPage() {
   const params = useParams();
-  const topic = dummyVideoTopics.find((t) => slugify(t.title) === params.topic);
-  if (!topic) notFound();
-  const { push } = useRouter();
+  const router = useRouter();
+  const { activeProfile } = useProfile();
+  const curriculumId = params.curriculumId as string;
+
+  const { data: library } = useGetLibrary(activeProfile?.id || "");
+  const { data: lessons } = useGetChildLessons(
+    activeProfile?.id || "",
+    curriculumId
+  );
+
+  const curriculum = library?.data?.find((c) => c.id === curriculumId);
+  const curriculumLessons = lessons?.data || [];
 
   const [currentStartIndex, setCurrentStartIndex] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
   const scrollTimeout = useRef<number | null>(null);
 
   useEffect(() => {
-    const currentIndex = topic.subtopics.findIndex(
-      (st) => st.status === "current"
+    const currentIndex = curriculumLessons.findIndex(
+      (lesson: any) => !lesson.lessonCompleted && !lesson.videoCompleted
     );
     const start = currentIndex === -1 ? 0 : Math.max(0, currentIndex - 1);
     setCurrentStartIndex(start);
-    setTotalSteps(topic.subtopics.length);
-  }, [topic]);
+    setTotalSteps(curriculumLessons.length);
+  }, [curriculumLessons]);
 
   const canGoPrev = currentStartIndex > 0;
   const canGoNext = currentStartIndex + 5 < totalSteps;
@@ -65,15 +80,21 @@ export default function VideoTopicPage() {
       "absolute w-fit bottom-[160px]",
     ];
 
-    const visible = topic.subtopics
+    const visible = curriculumLessons
       .slice(currentStartIndex, currentStartIndex + 5)
-      .concat(Array(5).fill({ status: "incomplete", name: "" }))
+      .concat(
+        Array(5).fill({
+          lessonCompleted: false,
+          videoCompleted: false,
+          title: "",
+        })
+      )
       .slice(0, 5);
 
-    return visible.map((st, i) => {
+    return visible.map((lesson: any, i: number) => {
       let src = incompletedStep;
-      if (st.status === "complete") src = completedStep;
-      if (st.status === "current") src = currentStep;
+      if (lesson.lessonCompleted) src = completedStep;
+      else if (!lesson.videoCompleted) src = currentStep;
 
       return (
         <div key={i} className={`${positions[i]} flex flex-col items-center`}>
@@ -82,7 +103,7 @@ export default function VideoTopicPage() {
               <TooltipTrigger asChild>
                 <Image
                   src={src}
-                  alt={st.name || `step-${i}`}
+                  alt={lesson.title || `step-${i}`}
                   width={80}
                   height={80}
                   className="w-24 cursor-pointer hover:scale-105 transition-transform"
@@ -94,13 +115,15 @@ export default function VideoTopicPage() {
               >
                 <div className="py-4 px-6 flex flex-col gap-4 text-center">
                   <h3 className="font-semibold text-sm md:text-base text-textGray">
-                    {st.name}
+                    {lesson.title}
                   </h3>
                   <p className="text-textSubtitle text-xs md:text-sm">
-                    {topic.description}
+                    {lesson.description || curriculum?.description}
                   </p>
                   <Button
-                    onClick={() => push(`${params.topic}/${slugify(st.name)}`)}
+                    onClick={() =>
+                      router.push(`/videos-quiz/${curriculumId}/${lesson.id}`)
+                    }
                     className="w-full flex gap-2 my-3 py-5 rounded-[999px] font-medium text-sm bg-demo-gradient text-white shadow-demoShadow"
                   >
                     Proceed
@@ -110,23 +133,27 @@ export default function VideoTopicPage() {
             </Tooltip>
           </TooltipProvider>
           <p className="absolute -bottom-6 -right-12 text-xs uppercase font-semibold text-gray-600 whitespace-nowrap text-center">
-            {st.name}
+            {lesson.title}
           </p>
         </div>
       );
     });
   };
 
+  if (!curriculum) {
+    notFound();
+  }
+
   return (
     <div className="max-w-7xl mx-auto h-screen grid grid-cols-2 relative py-6">
       <button
-        onClick={() => push("/videos-quiz")}
+        onClick={() => router.push("/videos-quiz")}
         className="cursor-pointer absolute top-4 left-4 text-xl text-[#141B34] z-20"
       >
         <BackArrow />
       </button>
 
-      {/* Left: Video Placeholder */}
+      {/* Left: Curriculum Info */}
       <div className="flex flex-col items-center h-full -translate-y-24">
         <Image src={videoLine} alt="" className="w-fit" />
         <div className="bg-bgOffwhite rounded-[40px] max-w-[600px] min-h-[320px] w-full border flex items-center p-8 relative">
@@ -135,16 +162,18 @@ export default function VideoTopicPage() {
             <div className="flex items-center space-x-2">
               <Layers className="w-6 h-6 text-blue-500" />
               <span className="text-blue-500 font-medium">
-                {topic.subtopics.length} SUB-TOPICS
+                {curriculumLessons.length} LESSONS
               </span>
             </div>
             <h1 className="text-lg md:text-xl lg:text-2xl font-bold max-w-[420px]">
-              {topic.title.toUpperCase()}
+              {curriculum.title.toUpperCase()}
             </h1>
-            <p className="text-gray-600 leading-relaxed">{topic.description}</p>
+            <p className="text-gray-600 leading-relaxed">
+              {curriculum.description || "No description available"}
+            </p>
             <Image
-              src={topic.image}
-              alt={topic.title}
+              src={availableImages[0]}
+              alt={curriculum.title}
               width={120}
               height={120}
               className="object-contain absolute top-12 right-4"

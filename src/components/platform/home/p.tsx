@@ -1,16 +1,85 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import profileIcon from "@/assets/profileIcon.svg";
 import Image from "next/image";
 import { courses } from "@/lib/utils";
 import Streak from "./streaks";
 import LearningCard, { ProgressCard } from "./learningCard";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useGetLibrary, useGetChildLessons } from "@/lib/api/queries";
+import algebra from "@/assets/algebra.png";
+import measurement from "@/assets/measurement.png";
+import ratio from "@/assets/ratio.png";
+
+const availableImages = [algebra, measurement, ratio];
 
 function Home() {
   const { activeProfile, changeProfile, isLoaded, profiles } =
     useSelectedProfile();
+
+  const { data: library } = useGetLibrary(activeProfile?.id || "");
+
+  // Get curricula from library data
+  const curricula = useMemo(() => {
+    return library?.data || [];
+  }, [library?.data]);
+
+  // Fetch lessons for the first 4 curricula to display in "Continue Learning"
+  const { data: lessons1 } = useGetChildLessons(
+    activeProfile?.id || "",
+    curricula[0]?.id || ""
+  );
+  const { data: lessons2 } = useGetChildLessons(
+    activeProfile?.id || "",
+    curricula[1]?.id || ""
+  );
+  const { data: lessons3 } = useGetChildLessons(
+    activeProfile?.id || "",
+    curricula[2]?.id || ""
+  );
+  const { data: lessons4 } = useGetChildLessons(
+    activeProfile?.id || "",
+    curricula[3]?.id || ""
+  );
+
+  // Collect all lessons from the first 4 curricula
+  const allLessons = useMemo(() => {
+    const lessons: any[] = [];
+    [lessons1, lessons2, lessons3, lessons4].forEach((lessonData, index) => {
+      const curriculum = curricula[index];
+      if (lessonData?.data && curriculum) {
+        lessonData.data.forEach((lesson: any) => {
+          lessons.push({
+            ...lesson,
+            curriculumId: curriculum.id,
+            curriculumTitle: curriculum.title,
+            curriculumImage: availableImages[index % availableImages.length],
+          });
+        });
+      }
+    });
+    return lessons;
+  }, [lessons1, lessons2, lessons3, lessons4, curricula]);
+
+  // Transform library curricula to Course format
+  const curriculaAsCourses = useMemo(() => {
+    return curricula.map((curriculum, index) => ({
+      image: availableImages[index % availableImages.length],
+      course: curriculum.title,
+      topics: [
+        {
+          title: "Start Learning",
+          number_of_quizzes: curriculum.progress.totalQuizzes,
+        },
+      ],
+      progress: curriculum.progress.completionPercentage,
+      duration: curriculum.durationWeeks * 7, // Convert weeks to days
+      total_section: curriculum.lessonsCount,
+      completed_section: curriculum.progress.completedLessons,
+      curriculumId: curriculum.id, // Add curriculumId for navigation
+    }));
+  }, [curricula]);
 
   const renderHeader = () => (
     <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
@@ -65,9 +134,35 @@ function Home() {
           </span>
         </div>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {courses.slice(0, 4).map((course, index) => (
-            <LearningCard key={index} course={course} />
-          ))}
+          {allLessons.length > 0
+            ? allLessons.map((lesson, index) => (
+                <LearningCard
+                  key={lesson.id || index}
+                  course={{
+                    course: lesson.curriculumTitle,
+                    image: lesson.curriculumImage,
+                    topics: [],
+                    progress: lesson.completionPercentage,
+                    duration: 0,
+                    total_section: 0,
+                    completed_section: 0,
+                    curriculumId: lesson.curriculumId,
+                  }}
+                  lesson={lesson}
+                />
+              ))
+            : curriculaAsCourses.length > 0
+              ? curriculaAsCourses.map((course, index) => (
+                  <LearningCard
+                    key={course.curriculumId || index}
+                    course={course}
+                  />
+                ))
+              : courses
+                  .slice(0, 4)
+                  .map((course, index) => (
+                    <LearningCard key={index} course={course} />
+                  ))}
         </div>
       </div>
 
@@ -79,9 +174,16 @@ function Home() {
           This shows your progress levels in each curriculum
         </span>
         <div className="my-8 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {courses.map((course, index) => (
-            <ProgressCard key={index} course={course} />
-          ))}
+          {curriculaAsCourses.length > 0
+            ? curriculaAsCourses.map((course, index) => (
+                <ProgressCard
+                  key={course.curriculumId || index}
+                  course={course}
+                />
+              ))
+            : courses.map((course, index) => (
+                <ProgressCard key={index} course={course} />
+              ))}
         </div>
       </div>
     </div>

@@ -689,6 +689,47 @@ export interface Lesson {
   quizzesCount?: number;
 }
 
+export interface CurriculumProgress {
+  curriculumId: string;
+  totalLessons: number;
+  completedLessons: number;
+  totalQuizzes: number;
+  passedQuizzes: number;
+  totalVideoDuration: number;
+  watchedVideoDuration: number;
+  completionPercentage: number;
+  firstAccessedAt: string | null;
+  lastAccessedAt: string | null;
+  completedAt: string | null;
+  isCompleted: boolean;
+}
+
+export interface LibraryCurriculum {
+  id: string;
+  title: string;
+  description: string;
+  durationWeeks: number;
+  learningObjectives: string[];
+  prerequisites: string[];
+  lessonsCount: number;
+  createdAt: string;
+  orderIndex: number;
+  progress: CurriculumProgress;
+}
+
+export interface ChildLesson {
+  id: string;
+  title: string;
+  description: string;
+  orderIndex: number;
+  watchedPosition: number;
+  videoCompleted: boolean;
+  quizzesPassed: number;
+  totalQuizzes: number;
+  completionPercentage: number;
+  lessonCompleted: boolean;
+}
+
 export interface Chat {
   _id: string;
   tutorId: string;
