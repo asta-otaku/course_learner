@@ -8,7 +8,7 @@ function BackArrow({ color, flipped }: { color?: string; flipped?: boolean }) {
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={`${flipped ? "rotate-180" : "rotate-0"}`}
+      style={flipped ? { transform: "rotate(180deg)" } : undefined}
     >
       <path
         d="M4 12H20"

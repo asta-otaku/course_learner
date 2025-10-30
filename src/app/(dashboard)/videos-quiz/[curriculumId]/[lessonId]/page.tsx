@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import BackArrow from "@/assets/svgs/arrowback";
@@ -9,6 +9,7 @@ import {
   useGetLibrary,
   useGetChildLessons,
   useGetLessonById,
+  useGetQuizzesForLesson,
 } from "@/lib/api/queries";
 
 export default function LessonPage() {
@@ -24,12 +25,15 @@ export default function LessonPage() {
     curriculumId
   );
   const { data: lessonDetail, isLoading } = useGetLessonById(lessonId);
+  const { data: lessonQuizzes } = useGetQuizzesForLesson(lessonId);
 
   const curriculum = library?.data?.find((c) => c.id === curriculumId);
   const curriculumLessons = lessons?.data || [];
 
   // Get lesson data from useGetLessonById
   const lessonData = lessonDetail?.data;
+  const quizzes = lessonQuizzes?.data || [];
+  const [activeTab, setActiveTab] = useState<"overview" | "quiz">("overview");
 
   if (isLoading) {
     return <div className="p-8">Loading...</div>;
@@ -84,41 +88,137 @@ export default function LessonPage() {
         </nav>
       </div>
 
-      {/* Lesson title and description */}
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold">{lessonTitle}</h2>
-        <p className="text-textSubtitle">
-          {lessonDescription || "No description available"}
-        </p>
+      {/* Progress steps (Video → Quiz) */}
+      <div className="flex items-center gap-6 w-full">
+        {(["overview", "quiz"] as const).map((tab) => {
+          const isActive = activeTab === tab;
+          const isCompleted = tab === "overview" && activeTab === "quiz";
+          const borderClass =
+            isActive || isCompleted ? "border-green-500" : "border-bgWhiteGray";
+          return (
+            <div key={tab} className="flex-1">
+              <button
+                onClick={() => setActiveTab(tab)}
+                className={`w-full pb-2 uppercase tracking-wide text-xs md:text-sm border-b-[3px] ${borderClass} text-left`}
+              >
+                {tab === "overview" ? "Video" : "Quiz"}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Video Player */}
-      <div className="bg-gray-100 rounded-xl min-h-[70vh]">
-        {videoUrl ? (
-          <video
-            src={videoUrl}
-            controls
-            className="w-full h-full min-h-[70vh] object-contain rounded-lg"
-            preload="auto"
-          >
-            Your browser does not support the video tag.
-          </video>
-        ) : (
-          <div className="flex items-center justify-center h-64 w-full bg-gray-200 rounded-lg px-8">
-            <p className="text-textSubtitle">No video available</p>
+      {activeTab === "overview" ? (
+        <div className="space-y-4">
+          {/* Lesson title and description */}
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold">{lessonTitle}</h2>
+            <p className="text-textSubtitle">
+              {lessonDescription || "No description available"}
+            </p>
           </div>
-        )}
-      </div>
 
-      {/* footer with lesson overview */}
-      <div className="flex flex-col gap-3">
-        <div className="max-w-xl">
-          <h2 className="font-semibold uppercase mb-2">Lesson Overview:</h2>
-          <p className="text-gray-700">
-            {lessonDescription || "No description available"}
-          </p>
+          {/* Video Player */}
+          <div className="bg-gray-100 rounded-xl min-h-[70vh]">
+            {videoUrl ? (
+              <video
+                src={videoUrl}
+                controls
+                className="w-full h-full min-h-[70vh] object-contain rounded-lg"
+                preload="auto"
+              >
+                Your browser does not support the video tag.
+              </video>
+            ) : (
+              <div className="flex items-center justify-center h-64 w-full bg-gray-200 rounded-lg px-8">
+                <p className="text-textSubtitle">No video available</p>
+              </div>
+            )}
+          </div>
+
+          {/* footer with lesson overview */}
+          <div className="flex flex-col gap-3">
+            <div className="max-w-xl">
+              <h2 className="font-semibold uppercase mb-2">Lesson Overview:</h2>
+              <p className="text-gray-700">
+                {lessonDescription || "No description available"}
+              </p>
+            </div>
+          </div>
+          {quizzes.length > 0 && (
+            <button
+              onClick={() => setActiveTab("quiz")}
+              className="py-2.5 bg-demo-gradient rounded-full text-white shadow-demoShadow max-w-xs w-full flex justify-center mx-auto font-medium text-xs md:text-sm"
+            >
+              Proceed to Quiz
+            </button>
+          )}
         </div>
-      </div>
+      ) : (
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold">Quizzes</h2>
+          {quizzes.length === 0 ? (
+            <p className="text-textSubtitle">No quizzes available</p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {quizzes.map((quiz: any, index: number) => (
+                <div
+                  key={quiz.id || index}
+                  className="bg-bgOffwhite p-5 w-full rounded-2xl flex items-center justify-between gap-4 relative"
+                >
+                  <div className="space-y-4 z-10">
+                    <h3 className="text-sm md:text-base font-medium">
+                      {quiz.title}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-medium text-textSubtitle font-inter">
+                        {quiz.questionsCount || quiz.questions?.length || 0}{" "}
+                        Questions
+                      </p>
+                      <span className="p-1 rounded-full bg-borderGray" />
+                      <p className="text-xs font-medium text-textSubtitle font-inter">
+                        {quiz.status === "published" ? "Published" : "Draft"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => router.push(`/take-quiz/${quiz.id}`)}
+                    className="py-2.5 bg-demo-gradient rounded-full text-white shadow-demoShadow max-w-[180px] w-full flex justify-center font-medium text-xs md:text-sm z-10"
+                  >
+                    Take Quiz
+                  </button>
+                  <img
+                    src="/quiz-bulb.png"
+                    alt=""
+                    className="absolute bottom-0 left-[30%] z-0"
+                  />
+                  <img
+                    src="/quiz-tablet.png"
+                    alt=""
+                    className="absolute top-0 left-[42%] z-0"
+                  />
+                  <img
+                    src="/quiz-bulb-small.png"
+                    alt=""
+                    className="absolute bottom-0 left-[45%] z-0"
+                  />
+                  <img
+                    src="/quiz-bulb-top.png"
+                    alt=""
+                    className="absolute top-0 left-[58%] z-0"
+                  />
+                  <img
+                    src="/quiz-tablet-down.png"
+                    alt=""
+                    className="absolute bottom-0 left-[70%] z-0"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

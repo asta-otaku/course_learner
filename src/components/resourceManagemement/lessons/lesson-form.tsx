@@ -55,6 +55,9 @@ export function LessonForm({
   const [tagInput, setTagInput] = useState("");
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [videoFileName, setVideoFileName] = useState<string>("");
+  const [videoFileSize, setVideoFileSize] = useState<number>(0);
+  const [videoDuration, setVideoDuration] = useState<number>(0);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isRemovingVideo, setIsRemovingVideo] = useState(false);
@@ -219,6 +222,62 @@ export function LessonForm({
       // Create preview URL
       const previewUrl = URL.createObjectURL(file);
       setVideoPreview(previewUrl);
+
+      // Capture file metadata
+      setVideoFileName(file.name);
+      setVideoFileSize(file.size);
+
+      // Compute duration by loading video metadata
+      try {
+        const tempVideo = document.createElement("video");
+        tempVideo.preload = "metadata";
+        tempVideo.muted = true;
+        (tempVideo as any).playsInline = true;
+        tempVideo.src = previewUrl;
+        tempVideo.onloadedmetadata = () => {
+          const durationSec = tempVideo.duration || 0;
+          setVideoDuration(
+            Number.isFinite(durationSec) ? Math.round(durationSec) : 0
+          );
+          tempVideo.src = "";
+        };
+        tempVideo.onerror = () => {
+          setVideoDuration(0);
+        };
+        tempVideo.load();
+      } catch (_) {
+        setVideoDuration(0);
+      }
+    }
+  };
+
+  // Ensure we have a reliable duration before submitting
+  const ensureVideoDuration = async (): Promise<number> => {
+    if (videoDuration > 0) return videoDuration;
+    if (!selectedVideo) return 0;
+    let blobUrl: string | null = videoPreview;
+    let created = false;
+    try {
+      if (!blobUrl) {
+        blobUrl = URL.createObjectURL(selectedVideo);
+        created = true;
+      }
+      const duration = await new Promise<number>((resolve) => {
+        const v = document.createElement("video");
+        v.preload = "metadata";
+        v.muted = true;
+        (v as any).playsInline = true;
+        v.onloadedmetadata = () => {
+          resolve(Number.isFinite(v.duration) ? Math.round(v.duration) : 0);
+        };
+        v.onerror = () => resolve(0);
+        if (blobUrl) v.src = blobUrl;
+        v.load();
+      });
+      setVideoDuration(duration);
+      return duration;
+    } finally {
+      if (created && blobUrl) URL.revokeObjectURL(blobUrl);
     }
   };
 
@@ -293,6 +352,9 @@ export function LessonForm({
     setSelectedVideo(null);
     setUploadProgress(0);
     setIsUploading(false);
+    setVideoFileName("");
+    setVideoFileSize(0);
+    setVideoDuration(0);
     if (videoPreview) {
       URL.revokeObjectURL(videoPreview);
       setVideoPreview(null);
@@ -316,6 +378,10 @@ export function LessonForm({
           toast.success("Video removed successfully");
           // Update the form to reflect the change
           form.setValue("videoUrl", "");
+          // Reset tracked metadata
+          setVideoFileName("");
+          setVideoFileSize(0);
+          setVideoDuration(0);
           // Trigger a re-render by updating the lesson prop
           onSuccess?.(lessonData);
           setIsRemovingVideo(false);
@@ -335,6 +401,8 @@ export function LessonForm({
   const onSubmit = async (data: Partial<Lesson>) => {
     try {
       let videoUrl = data.videoUrl || "";
+      // Make sure duration is ready if a new file is selected
+      const ensuredDuration = await ensureVideoDuration();
 
       // Upload video if selected
       if (selectedVideo) {
@@ -346,12 +414,15 @@ export function LessonForm({
         videoUrl = uploadedVideoUrl;
       }
 
-      // Prepare lesson data
-      const lessonData: Partial<Lesson> = {
+      // Prepare lesson data with video metadata
+      const lessonData: any = {
         ...data,
         objectives,
         tags,
         videoUrl: videoUrl,
+        videoFileName,
+        videoFileSize,
+        videoDuration: ensuredDuration,
       };
 
       if (isEditing) {

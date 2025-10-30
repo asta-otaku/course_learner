@@ -59,21 +59,11 @@ export default function EditLessonPage() {
         </Link>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Edit Lesson</CardTitle>
-          <CardDescription>
-            Update the lesson details and content
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <LessonFormWrapper
-            lesson={lesson as any}
-            curriculumId={(lesson as any).curriculum_id || ""}
-            redirectPath={`/admin/lessons/${id}`}
-          />
-        </CardContent>
-      </Card>
+      <LessonFormWrapper
+        lesson={lesson as any}
+        curriculumId={(lesson as any).curriculum_id || ""}
+        redirectPath={`/admin/lessons/${id}`}
+      />
     </div>
   );
 }
