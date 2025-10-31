@@ -104,7 +104,10 @@ export function LessonForm({
       objectives: lesson?.objectives || [],
       tags: lesson?.tags || [],
       isActive: lesson?.isActive ?? true,
-      videoUrl: lesson?.videoUrl || "",
+      videoKeyName: lesson?.videoKeyName || "",
+      videoFileName: lesson?.videoFileName || "",
+      videoFileSize: lesson?.videoFileSize || 0,
+      videoDuration: lesson?.videoDuration || 0,
     },
   });
 
@@ -400,7 +403,7 @@ export function LessonForm({
 
   const onSubmit = async (data: Partial<Lesson>) => {
     try {
-      let videoUrl = data.videoUrl || "";
+      let videoKeyName: string | undefined = (data as any).videoKeyName;
       // Make sure duration is ready if a new file is selected
       const ensuredDuration = await ensureVideoDuration();
 
@@ -411,7 +414,8 @@ export function LessonForm({
           toast.error("Upload failed");
           return;
         }
-        videoUrl = uploadedVideoUrl;
+        // API returns fileKeyName as our storage key → use as videoKeyName
+        videoKeyName = uploadedVideoUrl;
       }
 
       // Prepare lesson data with video metadata
@@ -419,10 +423,16 @@ export function LessonForm({
         ...data,
         objectives,
         tags,
-        videoUrl: videoUrl,
+        // Map duration seconds → minutes as per schema
+        durationMinutes: Math.max(0, Math.ceil((ensuredDuration || 0) / 60)),
+        videoKeyName: videoKeyName || "",
         videoFileName,
         videoFileSize,
         videoDuration: ensuredDuration,
+        // Ensure optional fields exist if provided by form
+        description: (data as any)?.description ?? (data as any)?.content ?? "",
+        content: (data as any)?.content ?? (data as any)?.description ?? "",
+        quizIds: (data as any)?.quizIds ?? [],
       };
 
       if (isEditing) {
@@ -607,13 +617,16 @@ export function LessonForm({
             <Label>Lesson Video (Optional)</Label>
             <div className="space-y-4">
               {/* Show existing video if available */}
-              {lesson?.videoUrl && !selectedVideo && !videoPreview ? (
+              {(lesson as any)?.videos?.length > 0 &&
+              !selectedVideo &&
+              !videoPreview ? (
                 <div className="border rounded-lg p-4 bg-gray-50">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <Video className="h-5 w-5 text-blue-600" />
                       <span className="text-sm font-medium text-gray-900">
                         Current Video
+                        {(lesson as any).videos.length > 1 ? "s" : ""}
                       </span>
                     </div>
                     <Button
@@ -631,11 +644,16 @@ export function LessonForm({
                       )}
                     </Button>
                   </div>
-                  <video
-                    src={lesson.videoUrl}
-                    controls
-                    className="w-full max-h-64 rounded"
-                  />
+                  <div className="space-y-3">
+                    {(lesson as any).videos.map((v: any, idx: number) => (
+                      <video
+                        key={v.id || idx}
+                        src={v?.playbackUrl || ""}
+                        controls
+                        className="w-full max-h-64 rounded"
+                      />
+                    ))}
+                  </div>
                 </div>
               ) : !selectedVideo && !videoPreview ? (
                 <div className="relative">

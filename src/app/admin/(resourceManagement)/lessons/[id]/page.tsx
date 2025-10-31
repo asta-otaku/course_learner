@@ -28,6 +28,19 @@ import {
 import { useParams } from "next/navigation";
 import { useGetLessonById, useGetQuizzesForLesson } from "@/lib/api/queries";
 import { LoadingSkeleton } from "../../questions/page";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useDeleteLesson } from "@/lib/api/mutations";
+import { Trash2 } from "lucide-react";
 
 export default function LessonPage() {
   const params = useParams();
@@ -53,6 +66,15 @@ export default function LessonPage() {
 
   const lesson = lessonResponse.data;
   const quizzes = (quizzesResponse?.data || []) as any[];
+  const { mutate: deleteLesson, isPending: isDeleting } = useDeleteLesson(id);
+  const handleDeleteLesson = () => {
+    deleteLesson(undefined as any, {
+      onSuccess: () => {
+        // Go back to curricula list after deletion
+        window.location.href = "/admin/curricula";
+      },
+    });
+  };
 
   // For now, allow editing for all users
   const canEdit = true;
@@ -99,12 +121,12 @@ export default function LessonPage() {
             <p className="text-muted-foreground">{lesson.description}</p>
           )}
           <div className="flex items-center gap-3 mt-3">
-            {lesson.durationMinutes && (
+            {lesson.durationMinutes ? (
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
                 <span>{lesson.durationMinutes} minutes</span>
               </div>
-            )}
+            ) : null}
             <Badge className="bg-gray-100 text-gray-800">Not Set</Badge>
             <Badge variant={lesson.isActive ? "default" : "secondary"}>
               {lesson.isActive ? "Published" : "Draft"}
@@ -120,6 +142,32 @@ export default function LessonPage() {
                 Edit Lesson
               </Link>
             </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" disabled={isDeleting}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {isDeleting ? "Deleting..." : "Delete Lesson"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete
+                    the lesson and all associated data.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={handleDeleteLesson}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
       </div>
@@ -280,24 +328,28 @@ export default function LessonPage() {
         <TabsContent value="content" className="space-y-4">
           <div className="space-y-6">
             {/* Video Section */}
-            {lesson.videoUrl && (
+            {(lesson as any)?.videos?.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BookOpen className="h-5 w-5" />
-                    Lesson Video
+                    Lesson Video{(lesson as any).videos.length > 1 ? "s" : ""}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="aspect-video w-full">
-                    <video
-                      src={lesson.videoUrl}
-                      controls
-                      className="w-full h-full rounded-lg"
-                      preload="metadata"
-                    >
-                      Your browser does not support the video tag.
-                    </video>
+                  <div className="space-y-6">
+                    {(lesson as any).videos.map((v: any, idx: number) => (
+                      <div key={v.id || idx} className="aspect-video w-full">
+                        <video
+                          src={v?.playbackUrl || ""}
+                          controls
+                          className="w-full h-full rounded-lg"
+                          preload="metadata"
+                        >
+                          Your browser does not support the video tag.
+                        </video>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import BackArrow from "@/assets/svgs/arrowback";
@@ -11,6 +11,7 @@ import {
   useGetLessonById,
   useGetQuizzesForLesson,
 } from "@/lib/api/queries";
+import { usePatchVideoLessonProgress } from "@/lib/api/mutations";
 
 export default function LessonPage() {
   const params = useParams();
@@ -35,6 +36,35 @@ export default function LessonPage() {
   const quizzes = lessonQuizzes?.data || [];
   const [activeTab, setActiveTab] = useState<"overview" | "quiz">("overview");
 
+  // Progress patch mutation (child video progress)
+  const { mutate: patchProgress } = usePatchVideoLessonProgress(
+    lessonId,
+    activeProfile?.id || ""
+  );
+
+  // Track refs to multiple videos and throttle updates
+  const videoRefs = useRef<Array<HTMLVideoElement | null>>([]);
+  const lastSentRef = useRef<number>(0);
+  const curriculumProgress = (library?.data || []).find(
+    (c: any) => c.id === curriculumId
+  )?.progress as
+    | { watchedVideoDuration?: number; isCompleted?: boolean }
+    | undefined;
+  const isCompleted = Boolean(curriculumProgress?.isCompleted);
+
+  const maybeSendProgress = (
+    video: HTMLVideoElement | null,
+    force?: boolean
+  ) => {
+    if (!video || !activeProfile?.id) return;
+    if (isCompleted) return;
+    const now = Date.now();
+    if (!force && now - lastSentRef.current < 2000) return; // throttle ~2s
+    const watchedPosition = Math.max(0, Math.floor(video.currentTime || 0));
+    lastSentRef.current = now;
+    patchProgress({ childId: activeProfile.id, watchedPosition });
+  };
+
   if (isLoading) {
     return <div className="p-8">Loading...</div>;
   }
@@ -46,7 +76,15 @@ export default function LessonPage() {
   // Extract properties from lesson detail
   const lessonTitle = lessonData.title;
   const lessonDescription = lessonData.description || "";
-  const videoUrl = lessonData.videoUrl || "";
+  const videos = ((lessonData as any)?.videos || []) as Array<{
+    playbackUrl?: string;
+    title?: string;
+    fileName?: string;
+  }>;
+  const resumePositionSec = Math.max(
+    0,
+    Math.floor((curriculumProgress?.watchedVideoDuration as number) || 0)
+  );
 
   return (
     <div className="p-4 md:p-8 lg:p-12 space-y-6">
@@ -118,23 +156,58 @@ export default function LessonPage() {
             </p>
           </div>
 
-          {/* Video Player */}
-          <div className="bg-gray-100 rounded-xl min-h-[70vh]">
-            {videoUrl ? (
-              <video
-                src={videoUrl}
-                controls
-                className="w-full h-full min-h-[70vh] object-contain rounded-lg"
-                preload="auto"
-              >
-                Your browser does not support the video tag.
-              </video>
-            ) : (
-              <div className="flex items-center justify-center h-64 w-full bg-gray-200 rounded-lg px-8">
-                <p className="text-textSubtitle">No video available</p>
-              </div>
-            )}
-          </div>
+          {/* Video Player(s) */}
+          {videos.length > 0 ? (
+            <div className="space-y-6">
+              {videos.map((v, idx) => (
+                <div key={idx} className="bg-gray-100 rounded-xl min-h-[70vh]">
+                  <video
+                    ref={(el) => {
+                      videoRefs.current[idx] = el;
+                      return;
+                    }}
+                    src={v?.playbackUrl || ""}
+                    controls
+                    className="w-full h-full min-h-[70vh] object-contain rounded-lg"
+                    preload="auto"
+                    onLoadedMetadata={(e) => {
+                      const vid = e.currentTarget;
+                      if (resumePositionSec > 0 && vid.duration > 0) {
+                        const safe = Math.min(
+                          resumePositionSec,
+                          Math.floor(vid.duration - 1)
+                        );
+                        try {
+                          vid.currentTime = safe > 0 ? safe : 0;
+                        } catch {}
+                      }
+                    }}
+                    onTimeUpdate={(e) => maybeSendProgress(e.currentTarget)}
+                    onPlay={(e) => maybeSendProgress(e.currentTarget, true)}
+                    onPause={(e) => maybeSendProgress(e.currentTarget, true)}
+                    onEnded={(e) => {
+                      if (!activeProfile?.id || isCompleted) return;
+                      const vid = e.currentTarget;
+                      const watchedPosition = Math.max(
+                        0,
+                        Math.floor(vid.duration || 0)
+                      );
+                      patchProgress({
+                        childId: activeProfile.id,
+                        watchedPosition,
+                      });
+                    }}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-64 w-full bg-gray-200 rounded-lg px-8">
+              <p className="text-textSubtitle">No video available</p>
+            </div>
+          )}
 
           {/* footer with lesson overview */}
           <div className="flex flex-col gap-3">

@@ -27,6 +27,7 @@ import {
   QuizUpdateData,
   Lesson,
   Curriculum,
+  QuizAttempt,
 } from "../types";
 
 // Helper function to handle error messages
@@ -995,9 +996,11 @@ export const usePostAddQuestionToQuiz = (id: string) => {
 export const usePostAttemptQuiz = (id: string) => {
   return useMutation({
     mutationKey: ["post-attempt-quiz", id],
-    mutationFn: (data: { questionId: string }): Promise<ApiResponse<Quiz>> =>
+    mutationFn: (data: {
+      childId?: string;
+    }): Promise<ApiResponse<QuizAttempt>> =>
       axiosInstance.post(`/quizzes/${id}/attempt`, data),
-    onSuccess: (data: ApiResponse<Quiz>) => {
+    onSuccess: (data: ApiResponse<QuizAttempt>) => {
       return data;
     },
     onError: (error: AxiosError) => {
@@ -1009,7 +1012,9 @@ export const usePostAttemptQuiz = (id: string) => {
 export const usePostSubmitQuiz = (id: string, attemptId: string) => {
   return useMutation({
     mutationKey: ["post-submit-quiz", id, attemptId],
-    mutationFn: (data: { questionId: string }): Promise<ApiResponse<Quiz>> =>
+    mutationFn: (data: {
+      answers: Record<string, string | Record<string, string>>;
+    }): Promise<ApiResponse<Quiz>> =>
       axiosInstance.post(`/quizzes/${id}/attempt/${attemptId}/submit`, data),
     onSuccess: (data: ApiResponse<Quiz>) => {
       return data;
@@ -1375,7 +1380,8 @@ export const usePatchVideoLessonProgress = (
   return useMutation({
     mutationKey: ["patch-video-lesson-progress", lessonId, childId],
     mutationFn: (data: {
-      progress: number;
+      childId: string;
+      watchedPosition: number;
     }): Promise<ApiResponse<{ message: string }>> =>
       axiosInstance.patch(
         `/library/${childId}/${lessonId}/progress/video`,

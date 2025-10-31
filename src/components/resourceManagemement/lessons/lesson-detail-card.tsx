@@ -44,6 +44,18 @@ import {
 import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/database.types";
 import { useGetQuizzesForLesson } from "@/lib/api/queries";
+import { useDeleteLesson } from "@/lib/api/mutations";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type Lesson = {
   id: string;
@@ -112,6 +124,9 @@ export function LessonDetailCard({
   const { data: quizzesResponse, isLoading: quizzesLoading } =
     useGetQuizzesForLesson(lesson.id);
   const quizzes = quizzesResponse?.data || [];
+  const { mutate: deleteLesson, isPending: isDeletingLesson } = useDeleteLesson(
+    lesson.id
+  );
 
   // Use the delete quiz mutation hook
   const { mutate: deleteQuiz, isPending: isDeleting } = useDeleteQuiz();
@@ -323,6 +338,46 @@ export function LessonDetailCard({
                       Edit
                     </Link>
                   </Button>
+                )}
+                {canEdit && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={isDeletingLesson}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        {isDeletingLesson ? "Deleting..." : "Delete Lesson"}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          Are you absolutely sure?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently
+                          delete the lesson and its data.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={() =>
+                            deleteLesson(undefined as any, {
+                              onSuccess: () => {
+                                router.refresh();
+                              },
+                            })
+                          }
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
 

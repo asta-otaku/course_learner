@@ -4,15 +4,7 @@ import { notFound } from "next/navigation";
 import { useParams } from "next/navigation";
 import { useGetLessonById } from "@/lib/api/queries";
 import { LessonFormWrapper } from "@/components/resourceManagemement/lessons";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 // Loading component
 function LoadingSkeleton() {

@@ -77,7 +77,7 @@ interface Quiz {
 
 interface QuizPlayerProps {
   quiz: Quiz;
-  attemptNumber: number;
+  attemptNumber?: number;
   isTestMode?: boolean;
   attemptId?: string | null;
 }
@@ -89,7 +89,6 @@ type NavigationPosition = {
 
 export function QuizPlayer({
   quiz,
-  attemptNumber,
   isTestMode = false,
   attemptId,
 }: QuizPlayerProps) {
@@ -276,13 +275,11 @@ export function QuizPlayer({
     questionId: string,
     answer: string | Record<string, string>
   ) => {
-    console.log("handleAnswerChange called:", { questionId, answer });
     setAnswers((prev) => {
       const newAnswers = {
         ...prev,
         [questionId]: answer,
       };
-      console.log("New answers state:", newAnswers);
       return newAnswers;
     });
   };
@@ -555,42 +552,32 @@ export function QuizPlayer({
       return;
     }
 
-    const timeSpent = quiz.settings.timeLimit
-      ? quiz.settings.timeLimit * 60 - (timeRemaining || 0)
-      : Date.now() -
-          JSON.parse(localStorage.getItem(`quiz-progress-${quiz.id}`) || "{}")
-            .lastSaved || 0;
-
-    console.log("Submitting quiz attempt:", {
-      quizId: quiz.id,
-      attemptId,
+    const submissionData: {
+      answers: Record<string, string | Record<string, string>>;
+    } = {
       answers,
-      timeSpent: Math.floor(timeSpent / 1000),
+    };
+
+    submitQuiz(submissionData, {
+      onSuccess: (response) => {
+        // Clear saved progress
+        localStorage.removeItem(`quiz-progress-${quiz.id}`);
+
+        // Redirect to results page
+        const resultData = response.data?.data as any;
+        const resultAttemptId =
+          resultData?.id ||
+          resultData?.attemptId ||
+          resultData ||
+          attemptId ||
+          "";
+        router.push(`/quiz-results/${resultAttemptId}`);
+      },
+      onError: (error) => {
+        console.error("Error submitting quiz:", error);
+        toast.error("Failed to submit quiz. Please try again.");
+      },
     });
-
-    submitQuiz(
-      { questionId: "" }, // Empty questionId for submission
-      {
-        onSuccess: (response) => {
-          // Clear saved progress
-          localStorage.removeItem(`quiz-progress-${quiz.id}`);
-
-          // Redirect to results page
-          const resultData = response.data?.data as any;
-          const resultAttemptId =
-            resultData?.id ||
-            resultData?.attemptId ||
-            resultData ||
-            attemptId ||
-            "";
-          router.push(`/quiz-results/${resultAttemptId}`);
-        },
-        onError: (error) => {
-          console.error("Error submitting quiz:", error);
-          toast.error("Failed to submit quiz. Please try again.");
-        },
-      }
-    );
   };
 
   const formatTime = (seconds: number) => {
@@ -1190,9 +1177,7 @@ export function QuizPlayer({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => console.log("Cancel clicked")}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 handleSubmit();

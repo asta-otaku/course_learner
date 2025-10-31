@@ -74,6 +74,25 @@ export interface QuizQuestionOperation {
   required?: boolean;
 }
 
+export interface QuizAttempt {
+  id: string;
+  quizId: string;
+  childId: string;
+  attemptNumber: number;
+  status: "in_progress" | "submitted" | "graded" | "completed";
+  score: number | null;
+  percentage: number | null;
+  timeSpent: number | null;
+  startedAt: string;
+  submittedAt: string | null;
+  gradedAt: string | null;
+  gradedBy: string | null;
+  feedback: string | null;
+  metadata: any | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 export interface QuizUpdateData {
   title?: string;
@@ -686,6 +705,10 @@ export interface Lesson {
   quizIds: string[];
   isActive: boolean;
   videoUrl: string;
+  videoKeyName?: string;
+  videoFileName?: string;
+  videoFileSize?: number;
+  videoDuration?: number;
   quizzesCount?: number;
 }
 
