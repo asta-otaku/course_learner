@@ -30,6 +30,8 @@ import {
   Circle,
   ChevronFirst,
   ChevronLast,
+  XCircle,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MatchingQuestion } from "./matching-question";
@@ -82,6 +84,29 @@ interface QuizPlayerProps {
   attemptId?: string | null;
 }
 
+interface QuizResult {
+  questionId: string;
+  userAnswerContent?: string;
+  userAnswerId?: string;
+  correctAnswers: Array<{
+    id: string;
+    content: string | Record<string, string>;
+  }>;
+  isCorrect: boolean;
+  pointsEarned: number;
+  pointsPossible: number;
+}
+
+interface SubmissionResults {
+  attemptId: string;
+  quizId: string;
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  results: QuizResult[];
+  timeSpent: number;
+}
+
 type NavigationPosition = {
   type: "transition" | "question" | "explanation";
   questionIndex: number; // For question and explanation, this is the question index. For transition, it's the position.
@@ -106,6 +131,9 @@ export function QuizPlayer({
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(
     new Set()
   );
+  const [submissionResults, setSubmissionResults] =
+    useState<SubmissionResults | null>(null);
+  const [showResults, setShowResults] = useState(false);
 
   // Submit quiz mutation
   const { mutate: submitQuiz, isPending: isSubmittingQuiz } = usePostSubmitQuiz(
@@ -552,26 +580,69 @@ export function QuizPlayer({
       return;
     }
 
+    // Prepare answers for submission
+    // Convert true/false option IDs to "true" or "false" text
+    const submissionAnswers: Record<string, string | Record<string, string>> =
+      {};
+    for (const [questionId, answer] of Object.entries(answers)) {
+      const question = questions.find((q) => q.question.id === questionId);
+
+      // For true/false questions, convert option ID to lowercase text
+      if (
+        question?.question.type === "true_false" &&
+        typeof answer === "string"
+      ) {
+        const option = question.question.options?.find(
+          (opt) => opt.id === answer
+        );
+        if (option) {
+          // Convert option text to lowercase ("True" -> "true", "False" -> "false")
+          submissionAnswers[questionId] = option.text.toLowerCase();
+        } else {
+          submissionAnswers[questionId] = answer;
+        }
+      } else {
+        // For other question types, keep the answer as is
+        submissionAnswers[questionId] = answer;
+      }
+    }
+
     const submissionData: {
       answers: Record<string, string | Record<string, string>>;
     } = {
-      answers,
+      answers: submissionAnswers,
     };
+
+    // Clear saved progress before submission
+    localStorage.removeItem(`quiz-progress-${quiz.id}`);
 
     submitQuiz(submissionData, {
       onSuccess: (response) => {
-        // Clear saved progress
-        localStorage.removeItem(`quiz-progress-${quiz.id}`);
-
-        // Redirect to results page
+        // Store results and show results view
         const resultData = response.data?.data as any;
-        const resultAttemptId =
-          resultData?.id ||
-          resultData?.attemptId ||
-          resultData ||
-          attemptId ||
-          "";
-        router.push(`/quiz-results/${resultAttemptId}`);
+        if (resultData) {
+          setSubmissionResults({
+            attemptId: resultData.attemptId || attemptId || "",
+            quizId: resultData.quizId || quiz.id,
+            score: resultData.score || 0,
+            totalPoints: resultData.totalPoints || 0,
+            percentage: resultData.percentage || 0,
+            results: resultData.results || [],
+            timeSpent: resultData.timeSpent || 0,
+          });
+          setShowResults(true);
+          setCurrentPosition({ type: "question", questionIndex: 0 });
+          toast.success("Quiz submitted successfully!");
+        } else {
+          // Fallback: redirect if no results data
+          const resultAttemptId =
+            resultData?.id ||
+            resultData?.attemptId ||
+            resultData ||
+            attemptId ||
+            "";
+          router.push(`/quiz-results/${resultAttemptId}`);
+        }
       },
       onError: (error) => {
         console.error("Error submitting quiz:", error);
@@ -607,12 +678,437 @@ export function QuizPlayer({
   }).length;
   const progress = (answeredCount / questions.length) * 100;
 
+  // Get result for a specific question
+  const getQuestionResult = (questionId: string): QuizResult | undefined => {
+    if (!submissionResults) return undefined;
+    return submissionResults.results.find((r) => r.questionId === questionId);
+  };
+
+  // Get correct answer text for display
+  const getCorrectAnswerText = (
+    question: QuizQuestion,
+    result: QuizResult
+  ): string => {
+    if (result.correctAnswers.length === 0) return "No correct answer";
+
+    // For matching questions, format the object
+    if (
+      question.question.type === "matching_pairs" &&
+      typeof result.correctAnswers[0].content === "object"
+    ) {
+      const matches = result.correctAnswers[0].content as Record<
+        string,
+        string
+      >;
+      return Object.entries(matches)
+        .map(([left, right]) => `${left} → ${right}`)
+        .join("\n");
+    }
+
+    // For multiple choice/true-false, find the option text
+    if (
+      (question.question.type === "multiple_choice" ||
+        question.question.type === "true_false") &&
+      question.question.options
+    ) {
+      const correctAnswer = result.correctAnswers[0];
+      const option = question.question.options.find(
+        (opt) => opt.id === correctAnswer.id
+      );
+      return option?.text || correctAnswer.content.toString();
+    }
+
+    // For free text, return the content
+    return result.correctAnswers
+      .map((ans) => ans.content.toString())
+      .join(" or ");
+  };
+
   if (questions.length === 0) {
     return <div>Loading quiz...</div>;
   }
 
   const currentQuestionIndex = getCurrentQuestionIndex();
   const currentQ = questions[currentQuestionIndex] || questions[0]; // Fallback for edge cases
+  const currentResult = showResults
+    ? getQuestionResult(currentQ.question.id)
+    : undefined;
+
+  // Results Summary View
+  if (showResults && submissionResults) {
+    return (
+      <div className="max-w-6xl mx-auto p-6">
+        <div className="flex gap-6">
+          {/* Main Results Area */}
+          <div className="flex-1">
+            {/* Results Summary Header */}
+            <Card className="mb-6">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <CardTitle>Quiz Results: {quiz.title}</CardTitle>
+                    </div>
+                    {quiz.description && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {quiz.description}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push("/videos-quiz")}
+                  >
+                    Back to Quizzes
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <Trophy className="h-8 w-8 text-blue-600" />
+                    <div>
+                      <p className="text-sm text-blue-600 font-medium">Score</p>
+                      <p className="text-2xl font-bold text-blue-900">
+                        {submissionResults.score}/
+                        {submissionResults.totalPoints}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircle className="h-8 w-8 text-green-600" />
+                    <div>
+                      <p className="text-sm text-green-600 font-medium">
+                        Percentage
+                      </p>
+                      <p className="text-2xl font-bold text-green-900">
+                        {submissionResults.percentage}%
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <Clock className="h-8 w-8 text-purple-600" />
+                    <div>
+                      <p className="text-sm text-purple-600 font-medium">
+                        Time Spent
+                      </p>
+                      <p className="text-2xl font-bold text-purple-900">
+                        {formatTime(submissionResults.timeSpent)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <AlertCircle className="h-8 w-8 text-orange-600" />
+                    <div>
+                      <p className="text-sm text-orange-600 font-medium">
+                        Correct Answers
+                      </p>
+                      <p className="text-2xl font-bold text-orange-900">
+                        {
+                          submissionResults.results.filter((r) => r.isCorrect)
+                            .length
+                        }
+                        /{submissionResults.results.length}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Current Question with Results */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">
+                    Question {currentQuestionIndex + 1} of {questions.length}
+                  </CardTitle>
+                  {currentResult && (
+                    <Badge
+                      variant={
+                        currentResult.isCorrect ? "default" : "destructive"
+                      }
+                      className="flex items-center gap-2"
+                    >
+                      {currentResult.isCorrect ? (
+                        <>
+                          <CheckCircle className="h-4 w-4" />
+                          Correct
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="h-4 w-4" />
+                          Incorrect
+                        </>
+                      )}
+                      <span className="ml-2">
+                        {currentResult.pointsEarned}/
+                        {currentResult.pointsPossible} points
+                      </span>
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Question Content */}
+                  <div>
+                    <p className="text-base font-medium mb-2">Question:</p>
+                    <p className="text-base whitespace-pre-wrap">
+                      {currentQ.question.content}
+                    </p>
+                    {currentQ.question.image_url && (
+                      <div className="mt-4">
+                        <img
+                          src={currentQ.question.image_url}
+                          alt="Question illustration"
+                          className="max-w-full h-auto rounded-lg border shadow-sm"
+                          style={{ maxHeight: "400px", objectFit: "contain" }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* User's Answer */}
+                  {currentResult && (
+                    <div>
+                      <p className="text-base font-medium mb-2">Your Answer:</p>
+                      {currentQ.question.type === "matching_pairs" &&
+                      currentResult.userAnswerContent ? (
+                        <div className="p-4 bg-gray-50 rounded-lg border">
+                          {(() => {
+                            try {
+                              const userMatches = JSON.parse(
+                                currentResult.userAnswerContent
+                              ) as Record<string, string>;
+                              const correctMatches =
+                                typeof currentResult.correctAnswers[0]
+                                  .content === "object"
+                                  ? (currentResult.correctAnswers[0]
+                                      .content as Record<string, string>)
+                                  : {};
+
+                              return (
+                                <div className="space-y-2">
+                                  {Object.entries(userMatches).map(
+                                    ([leftText, rightText]) => {
+                                      // Find the pair that matches the left text
+                                      const leftPair =
+                                        currentQ.question.pairs?.find(
+                                          (p) => p.left === leftText
+                                        );
+                                      // Find the pair that matches the right text
+                                      const rightPair =
+                                        currentQ.question.pairs?.find(
+                                          (p) => p.right === rightText
+                                        );
+                                      // Check if this match is correct
+                                      const correctRightText =
+                                        correctMatches[leftText];
+                                      const isMatchCorrect =
+                                        correctRightText === rightText;
+
+                                      return (
+                                        <div
+                                          key={leftText}
+                                          className={cn(
+                                            "p-3 rounded-lg border-2",
+                                            isMatchCorrect
+                                              ? "bg-green-50 border-green-300"
+                                              : "bg-red-50 border-red-300"
+                                          )}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-medium">
+                                              {leftText} →
+                                            </span>
+                                            <span>{rightText}</span>
+                                            {isMatchCorrect ? (
+                                              <CheckCircle className="h-4 w-4 text-green-600 ml-auto" />
+                                            ) : (
+                                              <XCircle className="h-4 w-4 text-red-600 ml-auto" />
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+                                  )}
+                                </div>
+                              );
+                            } catch {
+                              return (
+                                <p className="text-sm text-gray-600">
+                                  {currentResult.userAnswerContent}
+                                </p>
+                              );
+                            }
+                          })()}
+                        </div>
+                      ) : (
+                        <div
+                          className={cn(
+                            "p-4 rounded-lg border-2",
+                            currentResult.isCorrect
+                              ? "bg-green-50 border-green-300"
+                              : "bg-red-50 border-red-300"
+                          )}
+                        >
+                          <p className="text-base">
+                            {currentQ.question.type === "multiple_choice" ||
+                            currentQ.question.type === "true_false"
+                              ? currentQ.question.options?.find(
+                                  (opt) =>
+                                    opt.id ===
+                                    (currentResult.userAnswerId ||
+                                      currentResult.userAnswerContent)
+                                )?.text || currentResult.userAnswerContent
+                              : currentResult.userAnswerContent || "No answer"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Correct Answer */}
+                  {currentResult && !currentResult.isCorrect && (
+                    <div>
+                      <p className="text-base font-medium mb-2 text-green-700">
+                        Correct Answer:
+                      </p>
+                      <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
+                        {currentQ.question.type === "matching_pairs" &&
+                        typeof currentResult.correctAnswers[0].content ===
+                          "object" ? (
+                          <div className="space-y-2">
+                            {Object.entries(
+                              currentResult.correctAnswers[0].content as Record<
+                                string,
+                                string
+                              >
+                            ).map(([left, right]) => (
+                              <div
+                                key={left}
+                                className="p-2 bg-white rounded border border-green-200"
+                              >
+                                <span className="font-medium">{left}</span> →{" "}
+                                <span>{right}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-base text-green-900 whitespace-pre-wrap">
+                            {getCorrectAnswerText(currentQ, currentResult)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Explanation if available */}
+                  {currentQ.explanation && (
+                    <div>
+                      <p className="text-base font-medium mb-2">Explanation:</p>
+                      <Alert className="border-blue-200 bg-blue-50">
+                        <AlertCircle className="h-4 w-4 text-blue-600" />
+                        <AlertDescription>
+                          <p className="text-blue-800 whitespace-pre-wrap">
+                            {currentQ.explanation}
+                          </p>
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  )}
+
+                  {/* Navigation */}
+                  <div className="flex items-center justify-between mt-8 pt-6 border-t">
+                    <Button
+                      variant="outline"
+                      onClick={handlePrevious}
+                      disabled={currentQuestionIndex === 0}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-2" />
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      {currentQuestionIndex + 1} of {questions.length}
+                    </span>
+                    <Button
+                      variant="outline"
+                      onClick={handleNext}
+                      disabled={currentQuestionIndex >= questions.length - 1}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Results Navigation Sidebar */}
+          <Card className="w-64 h-fit sticky top-6">
+            <CardHeader>
+              <CardTitle className="text-base">Question Review</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {questions.map((q, index) => {
+                  const result = getQuestionResult(q.question.id);
+                  const isCurrent = currentQuestionIndex === index;
+
+                  return (
+                    <button
+                      key={q.question.id}
+                      onClick={() =>
+                        setCurrentPosition({
+                          type: "question",
+                          questionIndex: index,
+                        })
+                      }
+                      className={cn(
+                        "w-full px-3 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-colors",
+                        isCurrent
+                          ? "bg-primaryBlue text-white hover:bg-primaryBlue/90"
+                          : result?.isCorrect
+                            ? "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300"
+                            : result
+                              ? "bg-red-100 text-red-700 hover:bg-red-200 border border-red-300"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold",
+                          isCurrent
+                            ? "bg-white text-primaryBlue"
+                            : result?.isCorrect
+                              ? "bg-green-600 text-white"
+                              : result
+                                ? "bg-red-600 text-white"
+                                : "bg-gray-400 text-white"
+                        )}
+                      >
+                        {index + 1}
+                      </div>
+                      <span className="truncate flex-1 text-left">
+                        Question {index + 1}
+                      </span>
+                      {result?.isCorrect ? (
+                        <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                      ) : result ? (
+                        <XCircle className="h-4 w-4 flex-shrink-0" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -790,22 +1286,60 @@ export function QuizPlayer({
                       onValueChange={(value) =>
                         handleAnswerChange(currentQ.question.id, value)
                       }
+                      disabled={showResults}
                     >
                       <div className="space-y-3">
-                        {currentQ.question.options?.map((option) => (
-                          <div
-                            key={option.id}
-                            className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-muted/50"
-                          >
-                            <RadioGroupItem value={option.id} id={option.id} />
-                            <Label
-                              htmlFor={option.id}
-                              className="flex-1 cursor-pointer"
+                        {currentQ.question.options?.map((option) => {
+                          const isSelected =
+                            answers[currentQ.question.id] === option.id;
+                          const isCorrect =
+                            currentResult?.correctAnswers.some(
+                              (ans) => ans.id === option.id
+                            ) || false;
+                          const showCorrectness = showResults && currentResult;
+
+                          return (
+                            <div
+                              key={option.id}
+                              className={cn(
+                                "flex items-center space-x-2 p-3 rounded-lg border transition-colors",
+                                !showResults && "hover:bg-muted/50",
+                                showCorrectness &&
+                                  isCorrect &&
+                                  "bg-green-50 border-green-300",
+                                showCorrectness &&
+                                  isSelected &&
+                                  !isCorrect &&
+                                  "bg-red-50 border-red-300",
+                                showCorrectness &&
+                                  !isSelected &&
+                                  !isCorrect &&
+                                  "border-gray-200"
+                              )}
                             >
-                              {option.text}
-                            </Label>
-                          </div>
-                        ))}
+                              <RadioGroupItem
+                                value={option.id}
+                                id={option.id}
+                                disabled={showResults}
+                              />
+                              <Label
+                                htmlFor={option.id}
+                                className={cn(
+                                  "flex-1",
+                                  !showResults && "cursor-pointer"
+                                )}
+                              >
+                                {option.text}
+                              </Label>
+                              {showCorrectness && isCorrect && (
+                                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                              )}
+                              {showCorrectness && isSelected && !isCorrect && (
+                                <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </RadioGroup>
                   )}
@@ -825,7 +1359,7 @@ export function QuizPlayer({
                         onChange={(matches) =>
                           handleAnswerChange(currentQ.question.id, matches)
                         }
-                        disabled={false}
+                        disabled={showResults}
                       />
                     )}
 
@@ -834,32 +1368,54 @@ export function QuizPlayer({
                     currentQ.question.type === "short_answer" ||
                     currentQ.question.type === "long_answer" ||
                     currentQ.question.type === "coding") && (
-                    <FreeTextInput
-                      questionId={currentQ.question.id}
-                      value={(answers[currentQ.question.id] as string) || ""}
-                      onChange={(value) =>
-                        handleAnswerChange(currentQ.question.id, value)
-                      }
-                      disabled={
-                        isTestMode &&
-                        answeredQuestions.has(currentQuestionIndex)
-                      }
-                      maxLength={
-                        currentQ.question.type === "short_answer" ? 500 : 5000
-                      }
-                      minHeight={
-                        currentQ.question.type === "short_answer"
-                          ? "100px"
-                          : "200px"
-                      }
-                      placeholder={
-                        currentQ.question.type === "coding"
-                          ? "Enter your code here..."
-                          : currentQ.question.type === "short_answer"
-                            ? "Enter a brief answer..."
-                            : "Enter your answer here..."
-                      }
-                    />
+                    <div className="space-y-4">
+                      <FreeTextInput
+                        questionId={currentQ.question.id}
+                        value={(answers[currentQ.question.id] as string) || ""}
+                        onChange={(value) =>
+                          handleAnswerChange(currentQ.question.id, value)
+                        }
+                        disabled={
+                          showResults ||
+                          (isTestMode &&
+                            answeredQuestions.has(currentQuestionIndex))
+                        }
+                        maxLength={
+                          currentQ.question.type === "short_answer" ? 500 : 5000
+                        }
+                        minHeight={
+                          currentQ.question.type === "short_answer"
+                            ? "100px"
+                            : "200px"
+                        }
+                        placeholder={
+                          currentQ.question.type === "coding"
+                            ? "Enter your code here..."
+                            : currentQ.question.type === "short_answer"
+                              ? "Enter a brief answer..."
+                              : "Enter your answer here..."
+                        }
+                      />
+                      {showResults && currentResult && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-green-700">
+                            Correct Answer
+                            {currentResult.correctAnswers.length > 1 ? "s" : ""}
+                            :
+                          </p>
+                          <div className="p-3 bg-green-50 rounded-lg border border-green-300">
+                            {currentResult.correctAnswers.map((ans, idx) => (
+                              <p
+                                key={idx}
+                                className="text-sm text-green-900 whitespace-pre-wrap"
+                              >
+                                {ans.content.toString()}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {/* Navigation */}
@@ -992,6 +1548,9 @@ export function QuizPlayer({
                   isTestMode &&
                   answeredQuestions.has(index) &&
                   index < currentQuestionIndex;
+                const result = showResults
+                  ? getQuestionResult(q.question.id)
+                  : undefined;
 
                 return (
                   <div key={q.question.id} className="space-y-2">
@@ -1027,9 +1586,13 @@ export function QuizPlayer({
                         "w-full px-3 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-colors",
                         isCurrent
                           ? "bg-primaryBlue text-white hover:bg-primaryBlue/90"
-                          : isAnswered
-                            ? "bg-primaryBlue/20 text-primaryBlue hover:bg-primaryBlue/30 border border-primaryBlue/30"
-                            : "bg-muted hover:bg-muted/80 border border-muted-foreground/20",
+                          : showResults && result
+                            ? result.isCorrect
+                              ? "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300"
+                              : "bg-red-100 text-red-700 hover:bg-red-200 border border-red-300"
+                            : isAnswered
+                              ? "bg-primaryBlue/20 text-primaryBlue hover:bg-primaryBlue/30 border border-primaryBlue/30"
+                              : "bg-muted hover:bg-muted/80 border border-muted-foreground/20",
                         isDisabled && "opacity-50 cursor-not-allowed"
                       )}
                       disabled={isDisabled}
@@ -1040,9 +1603,13 @@ export function QuizPlayer({
                           "flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold",
                           isCurrent
                             ? "bg-white text-primaryBlue"
-                            : isAnswered
-                              ? "bg-primaryBlue text-white"
-                              : "bg-muted-foreground/20 text-muted-foreground"
+                            : showResults && result
+                              ? result.isCorrect
+                                ? "bg-green-600 text-white"
+                                : "bg-red-600 text-white"
+                              : isAnswered
+                                ? "bg-primaryBlue text-white"
+                                : "bg-muted-foreground/20 text-muted-foreground"
                         )}
                       >
                         {index + 1}
@@ -1050,9 +1617,15 @@ export function QuizPlayer({
                       <span className="truncate flex-1 text-left">
                         Question {index + 1}
                       </span>
-                      {isAnswered && (
+                      {showResults && result ? (
+                        result.isCorrect ? (
+                          <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                        ) : (
+                          <XCircle className="h-4 w-4 flex-shrink-0" />
+                        )
+                      ) : isAnswered ? (
                         <CheckCircle className="h-4 w-4 flex-shrink-0" />
-                      )}
+                      ) : null}
                     </button>
 
                     {/* Explanation (if exists and question is answered) */}
