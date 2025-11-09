@@ -20,9 +20,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { toast } from "react-toastify";
-import { useDeleteCurriculum, usePutCurriculum } from "@/lib/api/mutations";
-import { Trash, MoreVertical, Eye, EyeOff } from "lucide-react";
+import {
+  useDeleteCurriculum,
+  usePutCurriculum,
+  usePostDuplicateCurriculum,
+} from "@/lib/api/mutations";
+import { useGetSubscriptionPlansWithIds } from "@/lib/api/queries";
+import { Trash, MoreVertical, Eye, EyeOff, Copy } from "lucide-react";
 import { Curriculum } from "@/lib/types";
 
 interface CurriculumActionsProps {
@@ -40,12 +53,17 @@ export function CurriculumActions({
 }: CurriculumActionsProps) {
   const router = useRouter();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
   const { mutateAsync: deleteCurriculum, isPending: isDeleting } =
     useDeleteCurriculum(curriculumId);
   const {
     mutateAsync: toggleCurriculumVisibility,
     isPending: isTogglingVisibility,
   } = usePutCurriculum(curriculumId);
+  const { mutateAsync: duplicateCurriculum, isPending: isDuplicating } =
+    usePostDuplicateCurriculum(curriculumId);
+  const { data: subscriptionPlansData } = useGetSubscriptionPlansWithIds();
 
   const handleDelete = async () => {
     try {
@@ -81,43 +99,89 @@ export function CurriculumActions({
     }
   };
 
+  const handleDuplicate = async () => {
+    if (!selectedPlanId) {
+      toast.error("Please select a subscription plan");
+      return;
+    }
+    try {
+      const result = await duplicateCurriculum({
+        subscriptionPlanId: selectedPlanId,
+      });
+      if (result.status === 200) {
+        toast.success(result.data.message);
+        setShowDuplicateDialog(false);
+        setSelectedPlanId("");
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const availablePlans =
+    subscriptionPlansData?.data?.filter(
+      (plan) => plan.id !== curriculum.subscriptionPlanId && plan.isActive
+    ) || [];
+
   if (!canEdit) return null;
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onClick={handleToggleVisibility}
-            disabled={isTogglingVisibility}
-          >
-            {isPublic ? (
-              <>
-                <EyeOff className="mr-2 h-4 w-4" />
-                Make Private
-              </>
-            ) : (
-              <>
-                <Eye className="mr-2 h-4 w-4" />
-                Make Public
-              </>
-            )}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="text-destructive"
-            onClick={() => setShowDeleteDialog(true)}
-          >
-            <Trash className="mr-2 h-4 w-4" />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleVisibility();
+              }}
+              disabled={isTogglingVisibility}
+            >
+              {isPublic ? (
+                <>
+                  <EyeOff className="mr-2 h-4 w-4" />
+                  Make Private
+                </>
+              ) : (
+                <>
+                  <Eye className="mr-2 h-4 w-4" />
+                  Make Public
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDuplicateDialog(true);
+              }}
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              Duplicate
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDeleteDialog(true);
+              }}
+            >
+              <Trash className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
@@ -136,6 +200,66 @@ export function CurriculumActions({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={showDuplicateDialog}
+        onOpenChange={(open) => {
+          setShowDuplicateDialog(open);
+          if (!open) {
+            setSelectedPlanId("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate Curriculum</AlertDialogTitle>
+            <AlertDialogDescription>
+              Select a subscription plan to duplicate this curriculum into.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="subscription-plan">Subscription Plan</Label>
+              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                <SelectTrigger id="subscription-plan">
+                  <SelectValue placeholder="Select a subscription plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availablePlans.length === 0 ? (
+                    <SelectItem value="no-plans" disabled>
+                      No other plans available
+                    </SelectItem>
+                  ) : (
+                    availablePlans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.offerType}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setSelectedPlanId("");
+                setShowDuplicateDialog(false);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDuplicate}
+              disabled={
+                isDuplicating || !selectedPlanId || availablePlans.length === 0
+              }
+            >
+              {isDuplicating ? "Duplicating..." : "Duplicate"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1112,6 +1112,29 @@ export const usePatchReorderCurriculum = (subscriptionPlanId: string) => {
   });
 };
 
+export const usePostDuplicateCurriculum = (id: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-duplicate-curriculum", id],
+    mutationFn: (data: {
+      subscriptionPlanId: string;
+    }): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.post(`/curriculum/${id}/duplicate`, data),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["curricula"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["curriculum", id],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
 // Lesson Mutations
 export const usePostLesson = (curriculumId: string) => {
   const queryClient = useQueryClient();
@@ -1205,6 +1228,29 @@ export const usePatchReorderLessons = (curriculumId: string) => {
     onSuccess: (data: ApiResponse<{ message: string }>) => {
       queryClient.invalidateQueries({
         queryKey: ["lesson", curriculumId],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostDuplicateLessonToCurriculum = (lessonId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-duplicate-lesson-to-curriculum", lessonId],
+    mutationFn: (data: {
+      targetCurriculumId: string;
+    }): Promise<ApiResponse<{ message: string }>> =>
+      axiosInstance.post(`/lesson/${lessonId}/curriculum`, data),
+    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["lesson", lessonId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["curriculum"],
       });
       return data;
     },

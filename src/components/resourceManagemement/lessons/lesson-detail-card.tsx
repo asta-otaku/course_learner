@@ -43,8 +43,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/database.types";
-import { useGetQuizzesForLesson } from "@/lib/api/queries";
-import { useDeleteLesson } from "@/lib/api/mutations";
+import { useGetQuizzesForLesson, useGetCurricula } from "@/lib/api/queries";
+import {
+  useDeleteLesson,
+  usePostDuplicateLessonToCurriculum,
+} from "@/lib/api/mutations";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,6 +59,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Copy } from "lucide-react";
+import { toast as toastify } from "react-toastify";
 
 type Lesson = {
   id: string;
@@ -121,12 +134,17 @@ export function LessonDetailCard({
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(isExpanded);
   const [isDeletingQuiz, setIsDeletingQuiz] = useState<string | null>(null);
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [selectedCurriculumId, setSelectedCurriculumId] = useState<string>("");
   const { data: quizzesResponse, isLoading: quizzesLoading } =
     useGetQuizzesForLesson(lesson.id);
   const quizzes = quizzesResponse?.data || [];
   const { mutate: deleteLesson, isPending: isDeletingLesson } = useDeleteLesson(
     lesson.id
   );
+  const { mutateAsync: duplicateLesson, isPending: isDuplicating } =
+    usePostDuplicateLessonToCurriculum(lesson.id);
+  const { data: curriculaResponse } = useGetCurricula();
 
   // Use the delete quiz mutation hook
   const { mutate: deleteQuiz, isPending: isDeleting } = useDeleteQuiz();
@@ -173,6 +191,29 @@ export function LessonDetailCard({
       }
     );
   };
+
+  const handleDuplicate = async () => {
+    if (!selectedCurriculumId) {
+      toastify.error("Please select a curriculum");
+      return;
+    }
+    try {
+      const result = await duplicateLesson({
+        targetCurriculumId: selectedCurriculumId,
+      });
+      if (result.status === 201) {
+        toastify.success("Lesson duplicated successfully");
+        setShowDuplicateDialog(false);
+        setSelectedCurriculumId("");
+        router.refresh();
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const availableCurricula =
+    curriculaResponse?.curricula?.filter((c) => c.id !== curriculumId) || [];
 
   return (
     <Card className="overflow-hidden">
@@ -340,12 +381,100 @@ export function LessonDetailCard({
                   </Button>
                 )}
                 {canEdit && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDuplicateDialog(true);
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Duplicate
+                    </Button>
+                    <AlertDialog
+                      open={showDuplicateDialog}
+                      onOpenChange={(open) => {
+                        setShowDuplicateDialog(open);
+                        if (!open) {
+                          setSelectedCurriculumId("");
+                        }
+                      }}
+                    >
+                      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Duplicate Lesson</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Select a curriculum to duplicate this lesson into.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="target-curriculum">
+                              Curriculum
+                            </Label>
+                            <Select
+                              value={selectedCurriculumId}
+                              onValueChange={setSelectedCurriculumId}
+                            >
+                              <SelectTrigger id="target-curriculum">
+                                <SelectValue placeholder="Select a curriculum" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableCurricula.length === 0 ? (
+                                  <SelectItem value="no-curricula" disabled>
+                                    No other curricula available
+                                  </SelectItem>
+                                ) : (
+                                  availableCurricula.map((curriculum) => (
+                                    <SelectItem
+                                      key={curriculum.id}
+                                      value={curriculum.id}
+                                    >
+                                      {curriculum.title}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel
+                            onClick={() => {
+                              setSelectedCurriculumId("");
+                              setShowDuplicateDialog(false);
+                            }}
+                          >
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDuplicate();
+                            }}
+                            disabled={
+                              isDuplicating ||
+                              !selectedCurriculumId ||
+                              availableCurricula.length === 0
+                            }
+                          >
+                            {isDuplicating ? "Duplicating..." : "Duplicate"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                )}
+                {canEdit && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
                         variant="destructive"
                         size="sm"
                         disabled={isDeletingLesson}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
                         {isDeletingLesson ? "Deleting..." : "Delete Lesson"}
