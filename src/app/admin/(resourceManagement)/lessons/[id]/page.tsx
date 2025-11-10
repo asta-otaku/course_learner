@@ -56,6 +56,9 @@ export default function LessonPage() {
   const { data: quizzesResponse, isLoading: quizzesLoading } =
     useGetQuizzesForLesson(id);
 
+  // Call all hooks before any conditional returns
+  const { mutate: deleteLesson, isPending: isDeleting } = useDeleteLesson(id);
+
   if (lessonLoading || quizzesLoading) {
     return <LoadingSkeleton />;
   }
@@ -66,7 +69,6 @@ export default function LessonPage() {
 
   const lesson = lessonResponse.data;
   const quizzes = (quizzesResponse?.data || []) as any[];
-  const { mutate: deleteLesson, isPending: isDeleting } = useDeleteLesson(id);
   const handleDeleteLesson = () => {
     deleteLesson(undefined as any, {
       onSuccess: () => {

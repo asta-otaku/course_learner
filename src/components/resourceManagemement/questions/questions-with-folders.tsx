@@ -11,7 +11,7 @@ import { FolderTree } from "./folder-tree";
 
 import { columns } from "@/app/admin/(resourceManagement)/questions/columns";
 import { useGetFolders } from "@/lib/api/queries";
-import { usePostFolder, useDeleteFolderDynamic } from "@/lib/api/mutations";
+import { usePostFolder } from "@/lib/api/mutations";
 import { getQuestions } from "@/app/actions/questions";
 import { toast } from "sonner";
 import {
@@ -68,10 +68,6 @@ export function QuestionsWithFolders({
   // Use React Query hooks
   const { data: foldersResult, refetch: refetchFolders } = useGetFolders();
   const createFolderMutation = usePostFolder();
-  const deleteFolderMutation = useDeleteFolderDynamic();
-  // We'll create patch mutations when we need them, since they require a folderId
-
-  // Use external folder selection state if provided, otherwise use internal state
   const [internalSelectedFolderId, setInternalSelectedFolderId] = useState<
     string | null
   >(null);
