@@ -213,7 +213,8 @@ export function LessonDetailCard({
   };
 
   const availableCurricula =
-    curriculaResponse?.curricula?.filter((c) => c.id !== curriculumId) || [];
+    curriculaResponse?.curricula?.filter((c: any) => c.id !== curriculumId) ||
+    [];
 
   return (
     <Card className="overflow-hidden">
@@ -242,12 +243,12 @@ export function LessonDetailCard({
 
               <div className="flex items-center gap-4 ml-4">
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  {lesson.durationMinutes && (
+                  {lesson.durationMinutes ? (
                     <div className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />
                       {formatDuration(lesson.durationMinutes)}
                     </div>
-                  )}
+                  ) : null}
                   <div className="flex items-center gap-1">
                     <FileText className="h-3.5 w-3.5" />
                     {lesson.quizzesCount} quiz
@@ -427,7 +428,7 @@ export function LessonDetailCard({
                                     No other curricula available
                                   </SelectItem>
                                 ) : (
-                                  availableCurricula.map((curriculum) => (
+                                  availableCurricula.map((curriculum: any) => (
                                     <SelectItem
                                       key={curriculum.id}
                                       value={curriculum.id}

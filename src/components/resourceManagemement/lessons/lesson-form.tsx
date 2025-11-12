@@ -60,9 +60,13 @@ export function LessonForm({
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [isRemovingVideo, setIsRemovingVideo] = useState(false);
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  // Track if there was an existing video when form loaded (for edit mode)
+  const [hadExistingVideo, setHadExistingVideo] = useState<boolean>(false);
+  // Track if user removed the existing video (for edit mode)
+  const [removedExistingVideo, setRemovedExistingVideo] =
+    useState<boolean>(false);
 
   // Mutations
   const { mutate: createLesson, isPending: isCreating } =
@@ -120,6 +124,15 @@ export function LessonForm({
   useEffect(() => {
     form.setValue("tags", tags);
   }, [tags, form]);
+
+  // Track if lesson had existing video when form loaded
+  useEffect(() => {
+    if (isEditing && lesson) {
+      const hasVideo =
+        (lesson as any)?.videos?.length > 0 || lesson.videoKeyName;
+      setHadExistingVideo(!!hasVideo);
+    }
+  }, [isEditing, lesson]);
 
   // Cleanup video preview URL on unmount
   useEffect(() => {
@@ -221,6 +234,10 @@ export function LessonForm({
       }
 
       setSelectedVideo(file);
+      // If user uploads a new video, they're not removing the existing one
+      if (isEditing && hadExistingVideo) {
+        setRemovedExistingVideo(false);
+      }
 
       // Create preview URL
       const previewUrl = URL.createObjectURL(file);
@@ -368,54 +385,56 @@ export function LessonForm({
     e.preventDefault();
     e.stopPropagation();
 
-    if (isEditing && lesson?.id) {
-      setIsRemovingVideo(true);
-      // Update the lesson to remove the video
-      const lessonData = {
-        ...lesson,
-        videoUrl: "",
-      };
-
-      updateLesson(lessonData as Lesson, {
-        onSuccess: () => {
-          toast.success("Video removed successfully");
-          // Update the form to reflect the change
-          form.setValue("videoUrl", "");
-          // Reset tracked metadata
-          setVideoFileName("");
-          setVideoFileSize(0);
-          setVideoDuration(0);
-          // Trigger a re-render by updating the lesson prop
-          onSuccess?.(lessonData);
-          setIsRemovingVideo(false);
-        },
-        onError: (error) => {
-          toast.error("Failed to remove video");
-          console.error("Remove video error:", error);
-          setIsRemovingVideo(false);
-        },
-      });
+    // Just update UI state - don't call API yet
+    // The removal will be handled on form submit
+    if (isEditing && hadExistingVideo) {
+      setRemovedExistingVideo(true);
+      // Clear any selected new video if user was replacing
+      removeVideo(e);
     } else {
       // For new lessons, just clear the form
-      form.setValue("videoUrl", "");
+      removeVideo(e);
     }
   };
 
   const onSubmit = async (data: Partial<Lesson>) => {
     try {
       let videoKeyName: string | undefined = (data as any).videoKeyName;
+      let removeVideo = false;
       // Make sure duration is ready if a new file is selected
       const ensuredDuration = await ensureVideoDuration();
 
-      // Upload video if selected
-      if (selectedVideo) {
-        const uploadedVideoUrl = await uploadVideoToS3(selectedVideo);
-        if (!uploadedVideoUrl) {
-          toast.error("Upload failed");
-          return;
+      if (isEditing) {
+        // For edit mode, determine removeVideo flag
+        if (hadExistingVideo && !selectedVideo && removedExistingVideo) {
+          // User removed existing video and didn't upload a new one
+          removeVideo = true;
+          videoKeyName = ""; // Clear video key when removing
+        } else if (selectedVideo) {
+          // User uploaded a new video (replacing or adding)
+          removeVideo = false;
+          const uploadedVideoUrl = await uploadVideoToS3(selectedVideo);
+          if (!uploadedVideoUrl) {
+            toast.error("Upload failed");
+            return;
+          }
+          videoKeyName = uploadedVideoUrl;
+        } else {
+          // No change to video - keep existing
+          removeVideo = false;
+          // Keep existing videoKeyName from lesson
+          videoKeyName = lesson?.videoKeyName || "";
         }
-        // API returns fileKeyName as our storage key → use as videoKeyName
-        videoKeyName = uploadedVideoUrl;
+      } else {
+        // For create mode, upload video if selected
+        if (selectedVideo) {
+          const uploadedVideoUrl = await uploadVideoToS3(selectedVideo);
+          if (!uploadedVideoUrl) {
+            toast.error("Upload failed");
+            return;
+          }
+          videoKeyName = uploadedVideoUrl;
+        }
       }
 
       // Prepare lesson data with video metadata
@@ -425,15 +444,40 @@ export function LessonForm({
         tags,
         // Map duration seconds → minutes as per schema
         durationMinutes: Math.max(0, Math.ceil((ensuredDuration || 0) / 60)),
-        videoKeyName: videoKeyName || "",
-        videoFileName,
-        videoFileSize,
-        videoDuration: ensuredDuration,
         // Ensure optional fields exist if provided by form
         description: (data as any)?.description ?? (data as any)?.content ?? "",
         content: (data as any)?.content ?? (data as any)?.description ?? "",
         quizIds: (data as any)?.quizIds ?? [],
       };
+
+      // Add video-related fields
+      if (isEditing) {
+        lessonData.removeVideo = removeVideo;
+        if (!removeVideo && selectedVideo) {
+          // Only update video fields if we're uploading a new video
+          lessonData.videoKeyName = videoKeyName || "";
+          lessonData.videoFileName = videoFileName;
+          lessonData.videoFileSize = videoFileSize;
+          lessonData.videoDuration = ensuredDuration;
+        } else if (!removeVideo && !selectedVideo) {
+          // Keep existing video - don't update video fields
+          // videoKeyName stays as is from lesson
+        } else {
+          // Removing video - clear all video fields
+          lessonData.videoKeyName = "";
+          lessonData.videoFileName = "";
+          lessonData.videoFileSize = 0;
+          lessonData.videoDuration = 0;
+        }
+      } else {
+        // Create mode - only include video fields if video was uploaded
+        if (selectedVideo) {
+          lessonData.videoKeyName = videoKeyName || "";
+          lessonData.videoFileName = videoFileName;
+          lessonData.videoFileSize = videoFileSize;
+          lessonData.videoDuration = ensuredDuration;
+        }
+      }
 
       if (isEditing) {
         updateLesson(lessonData as Lesson, {
@@ -616,10 +660,11 @@ export function LessonForm({
           <div className="space-y-3">
             <Label>Lesson Video (Optional)</Label>
             <div className="space-y-4">
-              {/* Show existing video if available */}
+              {/* Show existing video if available and not removed */}
               {(lesson as any)?.videos?.length > 0 &&
               !selectedVideo &&
-              !videoPreview ? (
+              !videoPreview &&
+              !removedExistingVideo ? (
                 <div className="border rounded-lg p-4 bg-gray-50">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
@@ -634,14 +679,9 @@ export function LessonForm({
                       variant="ghost"
                       size="sm"
                       onClick={handleRemoveExistingVideo}
-                      disabled={isRemovingVideo || isUpdating}
-                      className="text-red-600 hover:text-red-700 disabled:opacity-50"
+                      className="text-red-600 hover:text-red-700"
                     >
-                      {isRemovingVideo ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <X className="h-4 w-4" />
-                      )}
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
                   <div className="space-y-3">
