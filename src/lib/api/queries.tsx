@@ -798,6 +798,17 @@ export const useGetPopularTags = () => {
   });
 };
 
+export const useGetTagLessons = (tag: string) => {
+  return useQuery({
+    queryKey: ["tag-lessons", tag],
+    queryFn: async (): Promise<APIGetResponse<Lesson[]>> => {
+      const response = await axiosInstance.get(`/tags/${tag}/lessons`);
+      return response.data;
+    },
+    enabled: !!tag,
+  });
+};
+
 // Child Library Queries
 export const useGetLibrary = (childId: string) => {
   return useQuery({
