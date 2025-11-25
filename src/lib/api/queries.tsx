@@ -21,6 +21,7 @@ import {
   Message,
   LibraryCurriculum,
   ChildLesson,
+  Analytics,
 } from "../types";
 
 // User Queries
@@ -831,5 +832,16 @@ export const useGetChildLessons = (childId: string, curriculumId: string) => {
       return response.data;
     },
     enabled: !!childId && !!curriculumId,
+  });
+};
+
+// Analytics Queries
+export const useGetAnalytics = () => {
+  return useQuery({
+    queryKey: ["analytics"],
+    queryFn: async (): Promise<APIGetResponse<Analytics>> => {
+      const response = await axiosInstance.get("/analytics");
+      return response.data;
+    },
   });
 };

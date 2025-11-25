@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Calendar } from "lucide-react";
+import { Calendar, Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -9,10 +9,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import BackArrow from "@/assets/svgs/arrowback";
+import { useGetAnalytics } from "@/lib/api/queries";
 
 export function UserEngagement() {
   const [timePeriod, setTimePeriod] = useState("this-month");
+
+  // Fetch analytics data
+  const { data: analyticsResponse, isLoading, error } = useGetAnalytics();
+  const analytics = analyticsResponse?.data;
 
   // Helper function to get date range display text
   const getDateRangeText = (range: string) => {
@@ -48,36 +52,65 @@ export function UserEngagement() {
     }
   };
 
-  const metrics = [
-    {
-      title: "DAILY ACTIVE USERS",
-      value: "50",
-      change: "+20%",
-      changeText: "increase in daily user",
-      isPositive: true,
-    },
-    {
-      title: "USER THAT JOINED THEIR SESSIONS",
-      value: "20",
-      change: "-20%",
-      changeText: "decrease in daily user",
-      isPositive: false,
-    },
-    {
-      title: "USER THAT MISSED THEIR SESSIONS",
-      value: "50",
-      change: "+20%",
-      changeText: "increase in daily user",
-      isPositive: true,
-    },
-    {
-      title: "NEW SIGN UPS",
-      value: "20",
-      change: "-20%",
-      changeText: "decrease in daily user",
-      isPositive: false,
-    },
-  ];
+  const metrics = analytics
+    ? [
+        {
+          title: "DAILY ACTIVE USERS",
+          value: analytics.totalChildren.toString(),
+        },
+        {
+          title: "USER THAT CONFIRMED THEIR SESSIONS",
+          value: analytics.confirmedSessions.toString(),
+        },
+        {
+          title: "USER THAT MISSED THEIR SESSIONS",
+          value: analytics.cancelledSessions.toString(),
+        },
+        {
+          title: "NEW SIGN UPS",
+          value: analytics.newSignups.toString(),
+        },
+      ]
+    : [
+        {
+          title: "DAILY ACTIVE USERS",
+          value: "0",
+        },
+        {
+          title: "USER THAT CONFIRMED THEIR SESSIONS",
+          value: "0",
+        },
+        {
+          title: "USER THAT MISSED THEIR SESSIONS",
+          value: "0",
+        },
+        {
+          title: "NEW SIGN UPS",
+          value: "0",
+        },
+      ];
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Loading user engagement data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-red-600">Failed to load user engagement data</p>
+          <p className="text-sm text-gray-500 mt-2">Please try again later</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -115,27 +148,9 @@ export function UserEngagement() {
             className="bg-white rounded-2xl p-8 shadow-sm border border-[#00000033] hover:shadow-md transition-shadow"
           >
             <h3 className="text-xs md:text-sm font-medium">{metric.title}</h3>
-            <h1 className="font-medium text-3xl md:text-7xl mt-10 md:mt-20 mb-4">
+            <h1 className="font-medium text-3xl md:text-7xl mt-10 md:mt-20">
               {metric.value}
             </h1>
-            <div className="flex items-center gap-2 text-sm">
-              {metric.isPositive ? (
-                <div className="rotate-90 p-2 bg-[#E0FFE8] rounded-full w-8 h-8 flex items-center justify-center">
-                  <BackArrow color="#34C759" />
-                </div>
-              ) : (
-                <div className="-rotate-90 p-2 bg-[#FFE8E8] rounded-full w-8 h-8 flex items-center justify-center">
-                  <BackArrow color="#FF0000" />
-                </div>
-              )}
-              <span
-                className={`text-xs md:text-sm  ${
-                  metric.isPositive ? "text-[#34C759]" : "text-[#FF0000]"
-                }`}
-              >
-                {metric.change.slice(1)} {metric.changeText}
-              </span>
-            </div>
           </div>
         ))}
       </div>

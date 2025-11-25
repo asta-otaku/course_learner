@@ -786,5 +786,15 @@ export interface Message {
   __v: number;
 }
 
+export interface Analytics {
+  totalParents: number;
+  totalTutors: number;
+  totalAdmins: number;
+  totalChildren: number;
+  newSignups: number;
+  completedSessions: number;
+  confirmedSessions: number;
+  cancelledSessions: number;
+}
 // Export socket types
 export * from "./types/socket";

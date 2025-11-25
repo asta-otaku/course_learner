@@ -3,16 +3,67 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import BackArrow from "@/assets/svgs/arrowback";
+import { useGetAnalytics } from "@/lib/api/queries";
+import { Loader2 } from "lucide-react";
 import { dummyProfiles, dummyTutorProfiles } from "@/lib/utils";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 function AdminDashboard() {
-  // Dummy stats
-  const stats = [
-    { label: "No of Users", value: dummyTutorProfiles.length },
-    { label: "No of Active User", value: dummyProfiles.length },
-    { label: "No of Sessions", value: 72 },
-    { label: "No of New Sign Ups", value: 72 },
-  ];
+  const router = useRouter();
+
+  // Fetch analytics data
+  const { data: analyticsResponse, isLoading, error } = useGetAnalytics();
+  const analytics = analyticsResponse?.data;
+
+  // Map analytics data to stats cards - show all stats individually
+  // User-related stats route to /admin/user-management
+  // Session-related stats route to /admin/session-management
+  const stats = analytics
+    ? [
+        {
+          label: "Total Children",
+          value: analytics.totalChildren,
+          route: "/admin/user-management",
+        },
+        {
+          label: "Total Tutors",
+          value: analytics.totalTutors,
+          route: "/admin/user-management",
+        },
+        {
+          label: "Completed Sessions",
+          value: analytics.completedSessions,
+          route: "/admin/session-management",
+        },
+        {
+          label: "New Sign Ups",
+          value: analytics.newSignups,
+          route: "/admin/user-management",
+        },
+      ]
+    : [
+        {
+          label: "Total Children",
+          value: 0,
+          route: "/admin/user-management",
+        },
+        {
+          label: "Total Tutors",
+          value: 0,
+          route: "/admin/user-management",
+        },
+        {
+          label: "Completed Sessions",
+          value: 0,
+          route: "/admin/session-management",
+        },
+        {
+          label: "New Sign Ups",
+          value: 0,
+          route: "/admin/user-management",
+        },
+      ];
 
   // Prepare right column activities from dummyProfiles
   const rightActivities = dummyProfiles.map((profile) => {
@@ -32,6 +83,30 @@ function AdminDashboard() {
 
   // Use all dummyTutorProfiles for left column
   const leftActivities = dummyTutorProfiles;
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Loading analytics...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <p className="text-red-600">Failed to load analytics</p>
+          <p className="text-sm text-gray-500 mt-2">Please try again later</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -56,13 +131,15 @@ function AdminDashboard() {
             <span className="text-xl md:text-2xl lg:text-4xl font-medium my-2.5">
               {stat.value}
             </span>
-            <Button
-              variant="ghost"
-              className="flex items-center text-primaryBlue p-0 text-xs font-medium mt-auto w-fit"
-            >
-              View All
-              <BackArrow flipped color="#286CFF" />
-            </Button>
+            <Link href={stat.route}>
+              <Button
+                variant="ghost"
+                className="flex items-center text-primaryBlue p-0 text-xs font-medium mt-auto w-fit"
+              >
+                View All
+                <BackArrow flipped color="#286CFF" />
+              </Button>
+            </Link>
           </div>
         ))}
       </div>
