@@ -19,17 +19,39 @@ export default function VideoMeetingPage() {
   const router = useRouter();
   const roomName = params.roomName as string;
 
+  // Get role from query parameters
+  const [userRole, setUserRole] = useState<"admin" | "tutor" | "user">("user");
+
   const [twilioLoaded, setTwilioLoaded] = useState(false);
   const [room, setRoom] = useState<any>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localAudioEnabled, setLocalAudioEnabled] = useState(true);
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
+  const [isSecureContext, setIsSecureContext] = useState(true);
 
   const localVideoRef = useRef<HTMLDivElement>(null);
   const remoteVideosRef = useRef<HTMLDivElement>(null);
 
   const accessTokenMutation = usePostTwilioAccessToken();
+
+  // Extract role from URL on mount and check for secure context
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const role = searchParams.get("role");
+      if (role === "admin" || role === "tutor" || role === "user") {
+        setUserRole(role);
+        console.log("User role detected:", role);
+      }
+
+      // Check if we're on a secure context
+      const isSecure =
+        window.location.protocol === "https:" ||
+        window.location.hostname === "localhost";
+      setIsSecureContext(isSecure);
+    }
+  }, []);
 
   // Load Twilio Video SDK
   const handleTwilioScriptLoad = () => {
@@ -51,6 +73,18 @@ export default function VideoMeetingPage() {
       return;
     }
 
+    // Check if we're on a secure context (HTTPS or localhost)
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol !== "https:" &&
+      window.location.hostname !== "localhost"
+    ) {
+      setError(
+        "Video calls require a secure connection (HTTPS). Please use HTTPS to access this page."
+      );
+      return;
+    }
+
     setIsConnecting(true);
     setError(null);
 
@@ -67,7 +101,11 @@ export default function VideoMeetingPage() {
       const connectedRoom = await window.Twilio.Video.connect(token, {
         name: roomName,
         audio: true,
-        video: { width: 640 },
+        video: {
+          width: { min: 640, ideal: 1280, max: 1920 },
+          height: { min: 480, ideal: 720, max: 1080 },
+          frameRate: 24,
+        },
       });
 
       console.log("Successfully joined room:", connectedRoom);
@@ -108,12 +146,12 @@ export default function VideoMeetingPage() {
     const localDiv = document.createElement("div");
     localDiv.id = `participant-${participant.identity}`;
     localDiv.className =
-      "relative rounded-lg overflow-hidden bg-gray-900 aspect-video";
+      "relative rounded-lg overflow-hidden bg-gray-900 w-full aspect-video min-h-[500px] md:min-h-[600px] lg:min-h-[700px]";
 
     // Create name label
     const nameLabel = document.createElement("div");
     nameLabel.className =
-      "absolute bottom-2 left-2 bg-black/60 text-white px-3 py-1 rounded-full text-sm font-medium";
+      "absolute bottom-3 left-3 bg-black/70 text-white px-3 py-1.5 rounded-full text-sm font-medium z-10";
     nameLabel.textContent = `${participant.identity} (You)`;
     localDiv.appendChild(nameLabel);
 
@@ -139,12 +177,12 @@ export default function VideoMeetingPage() {
     const participantDiv = document.createElement("div");
     participantDiv.id = `participant-${participant.identity}`;
     participantDiv.className =
-      "relative rounded-lg overflow-hidden bg-gray-900 aspect-video";
+      "relative rounded-lg overflow-hidden bg-gray-900 w-full aspect-video min-h-[600px] md:min-h-[700px] lg:min-h-[800px]";
 
     // Create name label
     const nameLabel = document.createElement("div");
     nameLabel.className =
-      "absolute bottom-2 left-2 bg-black/60 text-white px-3 py-1 rounded-full text-sm font-medium";
+      "absolute bottom-3 left-3 bg-black/70 text-white px-3 py-1.5 rounded-full text-sm font-medium z-10";
     nameLabel.textContent = participant.identity;
     participantDiv.appendChild(nameLabel);
 
@@ -221,13 +259,21 @@ export default function VideoMeetingPage() {
     }
   };
 
-  // Leave room
+  // Leave room and redirect based on role
   const leaveRoom = () => {
     if (room) {
       room.disconnect();
       setRoom(null);
     }
-    router.push("/dashboard");
+
+    // Redirect to appropriate dashboard based on role
+    if (userRole === "admin") {
+      router.push("/admin");
+    } else if (userRole === "tutor") {
+      router.push("/tutor");
+    } else {
+      router.push("/dashboard");
+    }
   };
 
   // Cleanup on unmount
@@ -248,19 +294,31 @@ export default function VideoMeetingPage() {
         strategy="afterInteractive"
       />
 
-      <div className="min-h-screen bg-gray-950 text-white">
+      <div className="min-h-screen bg-gray-950 text-white flex flex-col">
         {/* Header */}
-        <div className="bg-gray-900 border-b border-gray-800 px-6 py-4">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold">Video Conference</h1>
-              <p className="text-sm text-gray-400">Room: {roomName}</p>
+        <div className="bg-gray-900 border-b border-gray-800 px-4 md:px-6 py-4 flex-shrink-0">
+          <div className="w-full max-w-screen-2xl mx-auto flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg md:text-xl font-semibold">
+                Video Conference
+              </h1>
+              <div className="flex items-center gap-2 md:gap-3 mt-1 flex-wrap">
+                <p className="text-xs md:text-sm text-gray-400 truncate">
+                  Room: {roomName}
+                </p>
+                {userRole && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 capitalize flex-shrink-0">
+                    {userRole}
+                  </span>
+                )}
+              </div>
             </div>
             {room && (
-              <div className="flex items-center gap-2">
-                <span className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 text-green-400 rounded-full text-sm">
+              <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                <span className="flex items-center gap-2 px-2 md:px-3 py-1 md:py-1.5 bg-green-500/20 text-green-400 rounded-full text-xs md:text-sm">
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                  Connected
+                  <span className="hidden sm:inline">Connected</span>
+                  <span className="sm:hidden">●</span>
                 </span>
               </div>
             )}
@@ -268,18 +326,52 @@ export default function VideoMeetingPage() {
         </div>
 
         {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="w-full max-w-6xl mx-auto px-4 md:px-6 py-6 pb-28 flex-1">
+          {/* HTTPS Warning */}
+          {!isSecureContext && (
+            <div className="mb-6 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-6">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                  <span className="text-yellow-400 text-xl">🔒</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-yellow-400 font-medium mb-2">
+                    Secure Connection Required
+                  </h3>
+                  <p className="text-yellow-300 text-sm mb-2">
+                    Video calls require a secure HTTPS connection, especially on
+                    mobile devices.
+                  </p>
+                  <p className="text-yellow-300 text-sm">
+                    Please access this page using <strong>https://</strong>{" "}
+                    instead of http://
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Error State */}
           {error && (
-            <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-              <p className="text-red-400">{error}</p>
-              <Button
-                onClick={joinRoom}
-                className="mt-3 bg-red-600 hover:bg-red-700"
-                disabled={isConnecting}
-              >
-                Try Again
-              </Button>
+            <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-lg p-6">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                  <span className="text-red-400 text-xl">⚠️</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-red-400 font-medium mb-2">
+                    Connection Error
+                  </h3>
+                  <p className="text-red-300 text-sm mb-4">{error}</p>
+                  <Button
+                    onClick={joinRoom}
+                    className="bg-red-600 hover:bg-red-700"
+                    disabled={isConnecting}
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -304,23 +396,25 @@ export default function VideoMeetingPage() {
 
           {/* Video Grid */}
           {twilioLoaded && !isConnecting && (
-            <div className="space-y-6">
-              {/* Remote Participants */}
-              <div
-                ref={remoteVideosRef}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-              />
+            <div className="w-full space-y-6">
+              {/* Remote Participants - Full width grid */}
+              <div ref={remoteVideosRef} className="w-full" />
 
-              {/* Local Participant */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div ref={localVideoRef} />
+              {/* Local Participant - Full width */}
+              <div className="w-full">
+                <div ref={localVideoRef} className="w-full" />
               </div>
 
               {/* No participants message */}
               {room && remoteVideosRef.current?.children.length === 0 && (
-                <div className="text-center py-12 bg-gray-900/50 rounded-lg border border-gray-800">
-                  <Video className="w-12 h-12 mx-auto mb-3 text-gray-600" />
-                  <p className="text-gray-400">Waiting for others to join...</p>
+                <div className="text-center py-16 bg-gray-900/50 rounded-lg border border-gray-800">
+                  <Video className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+                  <p className="text-gray-400 text-lg">
+                    Waiting for others to join...
+                  </p>
+                  <p className="text-gray-500 text-sm mt-2">
+                    Share the meeting link with participants
+                  </p>
                 </div>
               )}
             </div>
@@ -329,22 +423,23 @@ export default function VideoMeetingPage() {
 
         {/* Controls Bar */}
         {room && (
-          <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 px-6 py-4">
-            <div className="max-w-7xl mx-auto flex items-center justify-center gap-4">
+          <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 px-4 md:px-6 py-4 md:py-5 z-50">
+            <div className="w-full max-w-6xl mx-auto flex items-center justify-center gap-3 md:gap-4">
               {/* Mute/Unmute Audio */}
               <Button
                 onClick={toggleAudio}
                 size="lg"
-                className={`rounded-full w-14 h-14 ${
+                className={`rounded-full w-12 h-12 md:w-14 md:h-14 ${
                   localAudioEnabled
                     ? "bg-gray-700 hover:bg-gray-600"
                     : "bg-red-600 hover:bg-red-700"
                 }`}
+                title={localAudioEnabled ? "Mute" : "Unmute"}
               >
                 {localAudioEnabled ? (
-                  <Mic className="w-6 h-6" />
+                  <Mic className="w-5 h-5 md:w-6 md:h-6" />
                 ) : (
-                  <MicOff className="w-6 h-6" />
+                  <MicOff className="w-5 h-5 md:w-6 md:h-6" />
                 )}
               </Button>
 
@@ -352,16 +447,17 @@ export default function VideoMeetingPage() {
               <Button
                 onClick={toggleVideo}
                 size="lg"
-                className={`rounded-full w-14 h-14 ${
+                className={`rounded-full w-12 h-12 md:w-14 md:h-14 ${
                   localVideoEnabled
                     ? "bg-gray-700 hover:bg-gray-600"
                     : "bg-red-600 hover:bg-red-700"
                 }`}
+                title={localVideoEnabled ? "Turn off camera" : "Turn on camera"}
               >
                 {localVideoEnabled ? (
-                  <Video className="w-6 h-6" />
+                  <Video className="w-5 h-5 md:w-6 md:h-6" />
                 ) : (
-                  <VideoOff className="w-6 h-6" />
+                  <VideoOff className="w-5 h-5 md:w-6 md:h-6" />
                 )}
               </Button>
 
@@ -369,9 +465,10 @@ export default function VideoMeetingPage() {
               <Button
                 onClick={leaveRoom}
                 size="lg"
-                className="rounded-full w-14 h-14 bg-red-600 hover:bg-red-700"
+                className="rounded-full w-12 h-12 md:w-14 md:h-14 bg-red-600 hover:bg-red-700"
+                title="Leave meeting"
               >
-                <PhoneOff className="w-6 h-6" />
+                <PhoneOff className="w-5 h-5 md:w-6 md:h-6" />
               </Button>
             </div>
           </div>

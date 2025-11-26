@@ -65,7 +65,10 @@ const SessionCard = ({
   const { data: meetingUrlData, isLoading: isLoadingUrl } =
     useGetSessionMeetingUrl(isConfirmedOrBooked ? session.id : "");
 
-  const meetingUrl = meetingUrlData?.data;
+  // Append role parameter to meeting URL for regular users
+  const meetingUrl = meetingUrlData?.data
+    ? `${meetingUrlData.data}?role=user`
+    : undefined;
 
   return (
     <div className="flex flex-col md:flex-row md:items-center gap-2 mb-3 last:mb-0">

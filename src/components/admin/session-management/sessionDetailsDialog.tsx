@@ -40,7 +40,10 @@ export default function SessionDetailsDialog({
   const { data: meetingUrlData, isLoading: isLoadingUrl } =
     useGetSessionMeetingUrl(isConfirmedOrBooked ? session.id : "");
 
-  const meetingUrl = meetingUrlData?.data;
+  // Append role parameter to meeting URL for admin
+  const meetingUrl = meetingUrlData?.data 
+    ? `${meetingUrlData.data}?role=admin`
+    : undefined;
 
   const handleCancel = () => {
     onCancel(session.id);

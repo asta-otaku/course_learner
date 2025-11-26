@@ -25,6 +25,17 @@ function getUserTypeFromRoute(): "admin" | "tutor" | "user" {
   if (typeof window === "undefined") return "user";
   const pathname = window.location.pathname;
 
+  // Special handling for /meet route - check for role query parameter
+  if (pathname.startsWith("/meet/")) {
+    const searchParams = new URLSearchParams(window.location.search);
+    const role = searchParams.get("role");
+    if (role === "admin") return "admin";
+    if (role === "tutor") return "tutor";
+    if (role === "user") return "user";
+    // If no role specified, default to user
+    return "user";
+  }
+
   if (pathname.startsWith("/admin")) {
     return "admin";
   } else if (pathname.startsWith("/tutor")) {

@@ -190,7 +190,10 @@ const SessionActionsDialog = ({
   const { data: meetingUrlData, isLoading: isLoadingUrl } =
     useGetSessionMeetingUrl(session?.id || "");
 
-  const meetingUrl = meetingUrlData?.data;
+  // Append role parameter to meeting URL for tutors
+  const meetingUrl = meetingUrlData?.data 
+    ? `${meetingUrlData.data}?role=tutor`
+    : undefined;
 
   if (!session) return null;
 
