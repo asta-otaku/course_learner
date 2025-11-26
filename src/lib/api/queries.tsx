@@ -845,3 +845,17 @@ export const useGetAnalytics = () => {
     },
   });
 };
+
+// Twillio Queries
+export const useGetSessionMeetingUrl = (sessionId: string) => {
+  return useQuery({
+    queryKey: ["session-meeting-url", sessionId],
+    queryFn: async (): Promise<APIGetResponse<string>> => {
+      const response = await axiosInstance.get(
+        `/twilio-video/url/${sessionId}`
+      );
+      return response.data;
+    },
+    enabled: !!sessionId,
+  });
+};

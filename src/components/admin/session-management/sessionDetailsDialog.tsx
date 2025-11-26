@@ -1,6 +1,14 @@
 import { Session } from "@/lib/types";
 import { formatDisplayDate } from "@/lib/utils";
-import { Users, Calendar, Clock, User, AlertCircle } from "lucide-react";
+import {
+  Users,
+  Calendar,
+  Clock,
+  User,
+  AlertCircle,
+  Video,
+  ExternalLink,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useGetSessionMeetingUrl } from "@/lib/api/queries";
 
 export default function SessionDetailsDialog({
   open,
@@ -24,6 +33,14 @@ export default function SessionDetailsDialog({
 
   const displayDate = formatDisplayDate(session.date);
   const participantCount = session.participants?.length || 1;
+  const isConfirmedOrBooked =
+    session.status === "confirmed" || session.status === "booked";
+
+  // Fetch meeting URL for confirmed/booked sessions
+  const { data: meetingUrlData, isLoading: isLoadingUrl } =
+    useGetSessionMeetingUrl(isConfirmedOrBooked ? session.id : "");
+
+  const meetingUrl = meetingUrlData?.data;
 
   const handleCancel = () => {
     onCancel(session.id);
@@ -122,12 +139,12 @@ export default function SessionDetailsDialog({
                         session.status === "available"
                           ? "bg-green-100 text-green-800"
                           : session.status === "booked"
-                          ? "bg-blue-100 text-blue-800"
-                          : session.status === "cancelled"
-                          ? "bg-red-100 text-red-800"
-                          : session.status === "expired"
-                          ? "bg-orange-100 text-orange-800"
-                          : "bg-gray-100 text-gray-800"
+                            ? "bg-blue-100 text-blue-800"
+                            : session.status === "cancelled"
+                              ? "bg-red-100 text-red-800"
+                              : session.status === "expired"
+                                ? "bg-orange-100 text-orange-800"
+                                : "bg-gray-100 text-gray-800"
                       }`}
                     >
                       {session.status.charAt(0).toUpperCase() +
@@ -182,11 +199,51 @@ export default function SessionDetailsDialog({
                   </p>
                 </div>
               )}
+
+              {/* Meeting URL for confirmed/booked sessions */}
+              {isConfirmedOrBooked && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Video className="w-4 h-4 text-gray-600" />
+                    <h4 className="text-sm font-medium text-gray-700">
+                      VIDEO CONFERENCE
+                    </h4>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+                    {isLoadingUrl ? (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                        <span>Loading meeting link...</span>
+                      </div>
+                    ) : meetingUrl ? (
+                      <div className="space-y-3">
+                        <p className="text-sm text-gray-700">
+                          Click the link below to join the video conference:
+                        </p>
+                        <a
+                          href={meetingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center w-full h-10 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
+                        >
+                          <Video className="w-4 h-4 mr-2" />
+                          Join Video Meeting
+                          <ExternalLink className="w-3 h-3 ml-2" />
+                        </a>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-600">
+                        Meeting URL is not available yet.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
@@ -194,13 +251,16 @@ export default function SessionDetailsDialog({
             >
               Close
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleCancel}
-              className="rounded-full"
-            >
-              Cancel Session
-            </Button>
+            {session.status !== "cancelled" &&
+              session.status !== "completed" && (
+                <Button
+                  variant="destructive"
+                  onClick={handleCancel}
+                  className="rounded-full"
+                >
+                  Cancel Session
+                </Button>
+              )}
           </div>
         </div>
       </DialogContent>

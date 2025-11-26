@@ -1441,3 +1441,20 @@ export const usePatchVideoLessonProgress = (
     },
   });
 };
+
+// Twillio Mutations
+export const usePostTwilioAccessToken = () => {
+  return useMutation({
+    mutationKey: ["post-twilio-access-token"],
+    mutationFn: (data: {
+      roomName: string;
+    }): Promise<ApiResponse<{ token: string }>> =>
+      axiosInstance.post(`/twilio-video`, data),
+    onSuccess: (data: ApiResponse<{ token: string }>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};

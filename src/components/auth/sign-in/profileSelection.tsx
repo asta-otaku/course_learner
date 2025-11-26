@@ -89,7 +89,7 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
                 `}
               >
                 {/* Profile image */}
-                <div className="relative w-[222px] h-[244px]">
+                <div className="relative w-[222px] h-[244px] avatar-dashed">
                   <Image
                     src={profile.avatar || profileImage}
                     alt={profile.name}
