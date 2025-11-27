@@ -1,13 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import BackArrow from "@/assets/svgs/arrowback";
-import { useGetAnalytics } from "@/lib/api/queries";
+import { useGetActivityLog, useGetAnalytics } from "@/lib/api/queries";
 import { Loader2 } from "lucide-react";
-import { dummyProfiles, dummyTutorProfiles } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatDistanceToNow } from "date-fns";
+import { useActivitySocket } from "@/context/ActivitySocketContext";
 
 function AdminDashboard() {
   const router = useRouter();
@@ -16,9 +17,84 @@ function AdminDashboard() {
   const { data: analyticsResponse, isLoading, error } = useGetAnalytics();
   const analytics = analyticsResponse?.data;
 
-  // Map analytics data to stats cards - show all stats individually
-  // User-related stats route to /admin/user-management
-  // Session-related stats route to /admin/session-management
+  // Activity log state
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [allActivities, setAllActivities] = useState<any[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  const { data: activityLogResponse, isLoading: isLoadingActivities } =
+    useGetActivityLog(cursor, 10);
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Get activity socket
+  const { isConnected, lastActivity } = useActivitySocket();
+
+  // Update activities when new data arrives
+  useEffect(() => {
+    if (activityLogResponse?.data) {
+      const newActivities = activityLogResponse.data;
+
+      if (cursor === undefined) {
+        // Initial load - replace all activities
+        setAllActivities(newActivities);
+      } else {
+        // Loading more - append to existing activities
+        setAllActivities((prev) => [...prev, ...newActivities]);
+        setIsLoadingMore(false);
+      }
+
+      // Update pagination state
+      setHasMore(activityLogResponse.pagination?.hasMore || false);
+    }
+  }, [activityLogResponse, cursor]);
+
+  // Listen for new activities via WebSocket
+  useEffect(() => {
+    if (lastActivity) {
+      // Prepend new activity to the list
+      setAllActivities((prev) => {
+        // Check if activity already exists to avoid duplicates
+        const exists = prev.some(
+          (activity) => activity.timeStamp === lastActivity.timeStamp
+        );
+        if (exists) return prev;
+        return [lastActivity, ...prev];
+      });
+    }
+  }, [lastActivity]);
+
+  // Handle scroll to load more
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !hasMore || isLoadingMore || isLoadingActivities) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    // Trigger when scrolled to 80% of the content
+    if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+      const nextCursor = activityLogResponse?.pagination?.nextCursor;
+      if (nextCursor) {
+        setIsLoadingMore(true);
+        setCursor(nextCursor);
+      }
+    }
+  }, [hasMore, isLoadingMore, isLoadingActivities, activityLogResponse]);
+
+  // Format timestamp to relative time
+  const formatActivityTime = (timestamp: string) => {
+    try {
+      return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    } catch {
+      return "Recently";
+    }
+  };
+
+  // Handle activity click
+  const handleActivityClick = () => {
+    router.push("/admin/report-analysis?audit-log=true");
+  };
+
   const stats = analytics
     ? [
         {
@@ -64,25 +140,6 @@ function AdminDashboard() {
           route: "/admin/user-management",
         },
       ];
-
-  // Prepare right column activities from dummyProfiles
-  const rightActivities = dummyProfiles.map((profile) => {
-    let activity = "";
-    if (profile.subscriptionName) {
-      activity = `subscribed to ${profile.subscriptionName}`;
-    } else {
-      activity = `status changed to ${profile.status}`;
-    }
-    return {
-      id: profile.id,
-      name: profile.name,
-      activity,
-      time: "Today, 9:04PM",
-    };
-  });
-
-  // Use all dummyTutorProfiles for left column
-  const leftActivities = dummyTutorProfiles;
 
   // Show loading state
   if (isLoading) {
@@ -146,41 +203,70 @@ function AdminDashboard() {
 
       {/* Activity Section */}
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-base font-medium">Activity</h2>
-        <div className="flex gap-2 text-xs text-gray-400">
-          <select className="bg-white rounded-md px-2 py-1 outline-none">
-            <option>This Month</option>
-          </select>
-          <select className="bg-white rounded-md px-2 py-1 outline-none">
-            <option>December 4 - January 4</option>
-          </select>
+        <h2 className="text-base font-medium">Activity Log</h2>
+        <div className="flex gap-2 items-center">
+          {isLoadingActivities && !isLoadingMore && (
+            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+          )}
+          <span className="text-xs text-gray-500">
+            {allActivities.length}{" "}
+            {allActivities.length === 1 ? "activity" : "activities"}
+          </span>
         </div>
       </div>
       <div className="bg-white rounded-2xl p-4 md:p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:max-h-[380px] overflow-y-auto scrollbar-hide">
-          {[leftActivities, rightActivities].map((col, colIdx) => (
-            <div key={colIdx} className="space-y-2">
-              {col.map((activity, idx) => (
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+        >
+          {allActivities.length === 0 && !isLoadingActivities ? (
+            <div className="text-center py-12 text-gray-400">
+              <p className="text-sm">No activities yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {allActivities.map((activity, idx) => (
                 <div
-                  key={activity.id + idx}
-                  className="flex items-center justify-between px-2 py-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                  key={activity.timeStamp + idx}
+                  onClick={handleActivityClick}
+                  className="flex items-center justify-between px-3 py-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors border border-transparent hover:border-gray-200"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                     <span className="w-2 h-2 rounded-full bg-primaryBlue border border-white ring-2 ring-borderGray flex-shrink-0" />
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="text-sm text-gray-900 font-medium">
-                        {activity.name} {activity.activity}
+                        {activity.message}
                       </div>
                       <div className="text-xs text-gray-400 mt-1">
-                        {activity.time}
+                        {formatActivityTime(activity.timeStamp)}
                       </div>
                     </div>
                   </div>
-                  <BackArrow flipped color="#286CFF" />
+                  <div className="flex-shrink-0">
+                    <BackArrow flipped color="#286CFF" />
+                  </div>
                 </div>
               ))}
+
+              {/* Loading more indicator */}
+              {isLoadingMore && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-primaryBlue" />
+                  <span className="ml-2 text-sm text-gray-500">
+                    Loading more...
+                  </span>
+                </div>
+              )}
+
+              {/* End of list indicator */}
+              {!hasMore && allActivities.length > 0 && (
+                <div className="text-center py-4 text-xs text-gray-400">
+                  No more activities to load
+                </div>
+              )}
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>

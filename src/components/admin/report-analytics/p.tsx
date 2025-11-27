@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { AuditLog } from "./auditLog";
 import { UserEngagement } from "./userEngagement";
 import { SessionStatistics } from "./sessionStatistics";
@@ -13,7 +14,16 @@ type DashboardTab =
   | "referral-campaign";
 
 function ReportAnalytics() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<DashboardTab>("user-engagement");
+
+  // Check for audit-log query parameter on mount
+  useEffect(() => {
+    const showAuditLog = searchParams.get("audit-log");
+    if (showAuditLog === "true") {
+      setActiveTab("audit-log");
+    }
+  }, [searchParams]);
 
   const tabs = [
     { id: "user-engagement" as DashboardTab, label: "User Engagement" },
@@ -38,13 +48,14 @@ function ReportAnalytics() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen w-full">
       <h2 className="text-xl font-medium my-6 text-gray-900">
         Report And Analytics
       </h2>
-      {/* Left Sidebar */}
-      <div className="flex flex-col md:flex-row gap-4 justify-center md:justify-between w-full">
-        <div className="w-60 shrink-0">
+      {/* Layout with Sidebar and Content */}
+      <div className="flex flex-col md:flex-row gap-6 w-full">
+        {/* Left Sidebar */}
+        <div className="w-full md:w-60 flex-shrink-0">
           <nav className="space-y-2">
             {tabs.map((tab) => (
               <button
@@ -62,8 +73,8 @@ function ReportAnalytics() {
           </nav>
         </div>
 
-        {/* Main Content */}
-        <div>{renderContent()}</div>
+        {/* Main Content - Flex grow to take remaining space */}
+        <div className="flex-1 min-w-0 w-full">{renderContent()}</div>
       </div>
     </div>
   );

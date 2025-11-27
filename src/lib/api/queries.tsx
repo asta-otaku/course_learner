@@ -846,6 +846,33 @@ export const useGetAnalytics = () => {
   });
 };
 
+// Activity Queries
+export const useGetActivityLog = (cursor?: string, limit?: number) => {
+  return useQuery({
+    queryKey: ["activity-log", cursor, limit],
+    queryFn: async (): Promise<{
+      status: string;
+      message: string;
+      data: {
+        message: string;
+        timestamp: string;
+      }[];
+      pagination: {
+        nextCursor: string | null;
+        hasMore: boolean;
+      };
+    }> => {
+      const response = await axiosInstance.get("/activity-log", {
+        params: {
+          cursor,
+          limit,
+        },
+      });
+      return response.data;
+    },
+  });
+};
+
 // Twillio Queries
 export const useGetSessionMeetingUrl = (sessionId: string) => {
   return useQuery({
