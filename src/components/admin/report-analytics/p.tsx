@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { AuditLog } from "./auditLog";
 import { UserEngagement } from "./userEngagement";
@@ -13,7 +13,7 @@ type DashboardTab =
   | "audit-log"
   | "referral-campaign";
 
-function ReportAnalytics() {
+function ReportAnalyticsContent() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<DashboardTab>("user-engagement");
 
@@ -77,6 +77,20 @@ function ReportAnalytics() {
         <div className="flex-1 min-w-0 w-full">{renderContent()}</div>
       </div>
     </div>
+  );
+}
+
+function ReportAnalytics() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen w-full flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <ReportAnalyticsContent />
+    </Suspense>
   );
 }
 
