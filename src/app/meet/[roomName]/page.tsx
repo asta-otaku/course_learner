@@ -7,7 +7,6 @@ import { Video, Mic, MicOff, VideoOff, PhoneOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Script from "next/script";
 
-// Twilio Video types (will be available globally after script loads)
 declare global {
   interface Window {
     Twilio: any;
@@ -19,9 +18,7 @@ export default function VideoMeetingPage() {
   const router = useRouter();
   const roomName = params.roomName as string;
 
-  // Get role from query parameters
   const [userRole, setUserRole] = useState<"admin" | "tutor" | "user">("user");
-
   const [twilioLoaded, setTwilioLoaded] = useState(false);
   const [room, setRoom] = useState<any>(null);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -30,14 +27,11 @@ export default function VideoMeetingPage() {
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
   const [isSecureContext, setIsSecureContext] = useState(true);
 
-  const localVideoRef = useRef<HTMLDivElement>(null);
-  const remoteVideosRef = useRef<HTMLDivElement>(null);
-  // Keep track of participants we've already handled
+  const videoGridRef = useRef<HTMLDivElement>(null);
   const handledParticipantsRef = useRef<Set<string>>(new Set());
 
   const accessTokenMutation = usePostTwilioAccessToken();
 
-  // Extract role from URL on mount and check for secure context
   useEffect(() => {
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
@@ -46,7 +40,6 @@ export default function VideoMeetingPage() {
         setUserRole(role);
       }
 
-      // Check if we're on a secure context
       const isSecure =
         window.location.protocol === "https:" ||
         window.location.hostname === "localhost";
@@ -54,271 +47,50 @@ export default function VideoMeetingPage() {
     }
   }, []);
 
-  // Load Twilio Video SDK
   const handleTwilioScriptLoad = () => {
     setTwilioLoaded(true);
   };
 
-  // Join the room when Twilio is loaded
   useEffect(() => {
     if (twilioLoaded && !room && !isConnecting && roomName) {
       joinRoom();
     }
   }, [twilioLoaded, roomName]);
 
-  // Join video room
-  const joinRoom = async () => {
-    if (!roomName) {
-      setError("Room name is required");
-      return;
-    }
-
-    // Check if we're on a secure context (HTTPS or localhost)
-    if (
-      typeof window !== "undefined" &&
-      window.location.protocol !== "https:" &&
-      window.location.hostname !== "localhost"
-    ) {
-      setError(
-        "Video calls require a secure connection (HTTPS). Please use HTTPS to access this page."
-      );
-      return;
-    }
-
-    setIsConnecting(true);
-    setError(null);
-
-    try {
-      // Get access token from backend
-      const response = await accessTokenMutation.mutateAsync({
-        roomName: roomName,
-      });
-
-      const token = response.data.data;
-
-      // Connect to Twilio Video room
-      const connectedRoom = await window.Twilio.Video.connect(token, {
-        name: roomName,
-        audio: true,
-        video: {
-          width: { min: 640, ideal: 1280, max: 1920 },
-          height: { min: 480, ideal: 720, max: 1080 },
-          frameRate: 24,
-        },
-      });
-
-      console.log(
-        "Room connected. Local participant:",
-        connectedRoom.localParticipant.identity
-      );
-      console.log(
-        "Existing remote participants:",
-        connectedRoom.participants.size
-      );
-
-      setRoom(connectedRoom);
-
-      // Clear handled participants set for new room
-      handledParticipantsRef.current.clear();
-
-      // Handle local participant
-      handleLocalParticipant(connectedRoom.localParticipant);
-
-      // Handle existing remote participants
-      connectedRoom.participants.forEach((participant: any) => {
-        console.log(
-          "Processing existing remote participant:",
-          participant.identity
-        );
-        handleRemoteParticipant(participant);
-      });
-
-      // Listen for new participants
-      connectedRoom.on("participantConnected", (participant: any) => {
-        console.log("New participant connected:", participant.identity);
-        handleRemoteParticipant(participant);
-      });
-
-      // Listen for participants leaving
-      connectedRoom.on(
-        "participantDisconnected",
-        handleParticipantDisconnected
-      );
-
-      // Handle room disconnection
-      connectedRoom.on("disconnected", (room: any, error: any) => {
-        if (error) {
-          setError(`Disconnected: ${error.message}`);
-        }
-        setRoom(null);
-        handledParticipantsRef.current.clear();
-        // Clear video containers
-        if (localVideoRef.current) {
-          localVideoRef.current.innerHTML = "";
-        }
-        if (remoteVideosRef.current) {
-          remoteVideosRef.current.innerHTML = "";
-        }
-      });
-    } catch (err: any) {
-      console.error("Error joining room:", err);
-      setError(err.message || "Failed to join room");
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  // Handle local participant (your own video/audio)
-  const handleLocalParticipant = (participant: any) => {
-    // Clear any existing local video
-    if (localVideoRef.current) {
-      localVideoRef.current.innerHTML = "";
-    }
-
-    const localDiv = document.createElement("div");
-    localDiv.id = `participant-${participant.identity}`;
-    localDiv.className =
-      "relative rounded-lg overflow-hidden bg-gray-900 w-full aspect-video min-h-[500px] md:min-h-[600px] lg:min-h-[700px]";
-
-    // Create name label
-    const nameLabel = document.createElement("div");
-    nameLabel.className =
-      "absolute bottom-3 left-3 bg-black/70 text-white px-3 py-1.5 rounded-full text-sm font-medium z-10";
-    nameLabel.textContent = `${participant.identity} (You)`;
-    localDiv.appendChild(nameLabel);
-
-    // Attach all existing tracks
-    participant.tracks.forEach((publication: any) => {
-      if (publication.track) {
-        console.log("Attaching local track:", publication.track.kind);
-        attachTrack(publication.track, localDiv);
-      }
-    });
-
-    // Listen for future tracks (shouldn't be needed but good to have)
-    participant.on("trackPublished", (publication: any) => {
-      if (publication.track) {
-        console.log("Local track published:", publication.track.kind);
-        attachTrack(publication.track, localDiv);
-      }
-    });
-
-    if (localVideoRef.current) {
-      localVideoRef.current.appendChild(localDiv);
-    }
-  };
-
-  // Handle remote participants
-  const handleRemoteParticipant = (participant: any) => {
-    // Check if we've already handled this participant
-    if (handledParticipantsRef.current.has(participant.identity)) {
-      console.log(
-        "Participant already handled, skipping:",
-        participant.identity
-      );
-      return;
-    }
-
-    // Check if participant div already exists
-    const existingDiv = document.getElementById(
-      `participant-${participant.identity}`
-    );
-    if (existingDiv) {
-      handledParticipantsRef.current.add(participant.identity);
-      return;
-    }
-
-    // Mark participant as handled
-    handledParticipantsRef.current.add(participant.identity);
-
+  const createParticipantElement = (
+    participant: any,
+    isLocal: boolean = false
+  ) => {
     const participantDiv = document.createElement("div");
     participantDiv.id = `participant-${participant.identity}`;
     participantDiv.className =
-      "relative rounded-lg overflow-hidden bg-gray-900 w-full aspect-video min-h-[600px] md:min-h-[700px] lg:min-h-[800px]";
+      "relative rounded-lg overflow-hidden bg-gray-900 aspect-video min-h-[300px] lg:min-h-[400px]";
 
-    // Create name label
     const nameLabel = document.createElement("div");
     nameLabel.className =
       "absolute bottom-3 left-3 bg-black/70 text-white px-3 py-1.5 rounded-full text-sm font-medium z-10";
-    nameLabel.textContent = participant.identity;
+    nameLabel.textContent = isLocal
+      ? `${participant.identity} (You)`
+      : participant.identity;
     participantDiv.appendChild(nameLabel);
 
-    // Handle already subscribed tracks
-    participant.tracks.forEach((publication: any) => {
-      if (publication.isSubscribed && publication.track) {
-        console.log(
-          "Attaching existing subscribed track:",
-          publication.track.kind,
-          participant.identity
-        );
-        attachTrack(publication.track, participantDiv);
-      }
-    });
-
-    // Listen for newly subscribed tracks - THIS IS CRITICAL
-    participant.on("trackSubscribed", (track: any) => {
-      console.log(
-        "Track subscribed:",
-        track.kind,
-        track.name,
-        participant.identity
-      );
-      attachTrack(track, participantDiv);
-    });
-
-    // Listen for track enabled (when track becomes active)
-    participant.on("trackEnabled", (publication: any) => {
-      console.log(
-        "Track enabled:",
-        publication.trackName,
-        participant.identity
-      );
-    });
-
-    // Listen for unsubscribed tracks
-    participant.on("trackUnsubscribed", (track: any) => {
-      console.log("Track unsubscribed:", track.kind, participant.identity);
-      detachTrack(track, participantDiv);
-    });
-
-    if (remoteVideosRef.current) {
-      remoteVideosRef.current.appendChild(participantDiv);
-    }
+    return participantDiv;
   };
 
-  // Handle participant disconnection
-  const handleParticipantDisconnected = (participant: any) => {
-    // Remove from handled participants set
-    handledParticipantsRef.current.delete(participant.identity);
-
-    const participantDiv = document.getElementById(
-      `participant-${participant.identity}`
-    );
-    if (participantDiv) {
-      participantDiv.remove();
-    }
-  };
-
-  // Attach track (video or audio) to DOM
   const attachTrack = (track: any, container: HTMLElement) => {
-    // Generate a unique identifier for the track
     const trackId =
       track.sid || track.id || track.name || `${track.kind}-${Date.now()}`;
 
     console.log("Attempting to attach track:", track.kind, trackId);
 
-    // Check if this specific track is already attached
     const existingElement = container.querySelector(
       `[data-track-id="${trackId}"]`
     );
-
     if (existingElement) {
       console.log("Track already attached, skipping:", trackId, track.kind);
       return;
     }
 
-    // Also check if we already have a track of this kind from this participant
-    // This prevents duplicate video or audio elements
     const existingKindElement = container.querySelector(
       `[data-track-kind="${track.kind}"]:not([data-track-id])`
     );
@@ -342,12 +114,10 @@ export default function VideoMeetingPage() {
     }
   };
 
-  // Detach track from DOM
   const detachTrack = (track: any, container: HTMLElement) => {
     const trackId = track.sid || track.id || track.name;
     console.log("Detaching track:", track.kind, trackId);
 
-    // Try to find by track ID first
     if (trackId) {
       const element = container.querySelector(`[data-track-id="${trackId}"]`);
       if (element) {
@@ -356,7 +126,6 @@ export default function VideoMeetingPage() {
       }
     }
 
-    // Fallback to Twilio's detach method
     try {
       const elements = track.detach();
       elements.forEach((element: HTMLElement) => {
@@ -367,7 +136,185 @@ export default function VideoMeetingPage() {
     }
   };
 
-  // Toggle local audio
+  const handleLocalParticipant = (participant: any) => {
+    const localDiv = createParticipantElement(participant, true);
+
+    participant.tracks.forEach((publication: any) => {
+      if (publication.track) {
+        console.log("Attaching local track:", publication.track.kind);
+        attachTrack(publication.track, localDiv);
+      }
+    });
+
+    participant.on("trackPublished", (publication: any) => {
+      if (publication.track) {
+        console.log("Local track published:", publication.track.kind);
+        attachTrack(publication.track, localDiv);
+      }
+    });
+
+    if (videoGridRef.current) {
+      videoGridRef.current.appendChild(localDiv);
+    }
+  };
+
+  const handleRemoteParticipant = (participant: any) => {
+    if (handledParticipantsRef.current.has(participant.identity)) {
+      console.log(
+        "Participant already handled, skipping:",
+        participant.identity
+      );
+      return;
+    }
+
+    const existingDiv = document.getElementById(
+      `participant-${participant.identity}`
+    );
+    if (existingDiv) {
+      handledParticipantsRef.current.add(participant.identity);
+      return;
+    }
+
+    handledParticipantsRef.current.add(participant.identity);
+
+    const participantDiv = createParticipantElement(participant, false);
+
+    participant.tracks.forEach((publication: any) => {
+      if (publication.isSubscribed && publication.track) {
+        console.log(
+          "Attaching existing subscribed track:",
+          publication.track.kind,
+          participant.identity
+        );
+        attachTrack(publication.track, participantDiv);
+      }
+    });
+
+    participant.on("trackSubscribed", (track: any) => {
+      console.log(
+        "Track subscribed:",
+        track.kind,
+        track.name,
+        participant.identity
+      );
+      attachTrack(track, participantDiv);
+    });
+
+    participant.on("trackEnabled", (publication: any) => {
+      console.log(
+        "Track enabled:",
+        publication.trackName,
+        participant.identity
+      );
+    });
+
+    participant.on("trackUnsubscribed", (track: any) => {
+      console.log("Track unsubscribed:", track.kind, participant.identity);
+      detachTrack(track, participantDiv);
+    });
+
+    if (videoGridRef.current) {
+      videoGridRef.current.appendChild(participantDiv);
+    }
+  };
+
+  const handleParticipantDisconnected = (participant: any) => {
+    handledParticipantsRef.current.delete(participant.identity);
+    const participantDiv = document.getElementById(
+      `participant-${participant.identity}`
+    );
+    if (participantDiv) {
+      participantDiv.remove();
+    }
+  };
+
+  const joinRoom = async () => {
+    if (!roomName) {
+      setError("Room name is required");
+      return;
+    }
+
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol !== "https:" &&
+      window.location.hostname !== "localhost"
+    ) {
+      setError(
+        "Video calls require a secure connection (HTTPS). Please use HTTPS to access this page."
+      );
+      return;
+    }
+
+    setIsConnecting(true);
+    setError(null);
+
+    try {
+      const response = await accessTokenMutation.mutateAsync({
+        roomName: roomName,
+      });
+
+      const token = response.data.data;
+
+      const connectedRoom = await window.Twilio.Video.connect(token, {
+        name: roomName,
+        audio: true,
+        video: {
+          width: { min: 640, ideal: 1280, max: 1920 },
+          height: { min: 480, ideal: 720, max: 1080 },
+          frameRate: 24,
+        },
+      });
+
+      console.log(
+        "Room connected. Local participant:",
+        connectedRoom.localParticipant.identity
+      );
+      console.log(
+        "Existing remote participants:",
+        connectedRoom.participants.size
+      );
+
+      setRoom(connectedRoom);
+      handledParticipantsRef.current.clear();
+
+      handleLocalParticipant(connectedRoom.localParticipant);
+
+      connectedRoom.participants.forEach((participant: any) => {
+        console.log(
+          "Processing existing remote participant:",
+          participant.identity
+        );
+        handleRemoteParticipant(participant);
+      });
+
+      connectedRoom.on("participantConnected", (participant: any) => {
+        console.log("New participant connected:", participant.identity);
+        handleRemoteParticipant(participant);
+      });
+
+      connectedRoom.on(
+        "participantDisconnected",
+        handleParticipantDisconnected
+      );
+
+      connectedRoom.on("disconnected", (room: any, error: any) => {
+        if (error) {
+          setError(`Disconnected: ${error.message}`);
+        }
+        setRoom(null);
+        handledParticipantsRef.current.clear();
+        if (videoGridRef.current) {
+          videoGridRef.current.innerHTML = "";
+        }
+      });
+    } catch (err: any) {
+      console.error("Error joining room:", err);
+      setError(err.message || "Failed to join room");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   const toggleAudio = () => {
     if (room && room.localParticipant) {
       room.localParticipant.audioTracks.forEach((publication: any) => {
@@ -381,7 +328,6 @@ export default function VideoMeetingPage() {
     }
   };
 
-  // Toggle local video
   const toggleVideo = () => {
     if (room && room.localParticipant) {
       room.localParticipant.videoTracks.forEach((publication: any) => {
@@ -395,14 +341,12 @@ export default function VideoMeetingPage() {
     }
   };
 
-  // Leave room and redirect based on role
   const leaveRoom = () => {
     if (room) {
       room.disconnect();
       setRoom(null);
     }
 
-    // Redirect to appropriate dashboard based on role
     if (userRole === "admin") {
       router.push("/admin");
     } else if (userRole === "tutor") {
@@ -412,7 +356,6 @@ export default function VideoMeetingPage() {
     }
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (room) {
@@ -423,7 +366,6 @@ export default function VideoMeetingPage() {
 
   return (
     <>
-      {/* Load Twilio Video SDK */}
       <Script
         src="https://sdk.twilio.com/js/video/releases/2.28.1/twilio-video.min.js"
         onLoad={handleTwilioScriptLoad}
@@ -532,17 +474,15 @@ export default function VideoMeetingPage() {
 
           {/* Video Grid */}
           {twilioLoaded && !isConnecting && (
-            <div className="w-full space-y-6">
-              {/* Remote Participants - Full width grid */}
-              <div ref={remoteVideosRef} className="w-full" />
-
-              {/* Local Participant - Full width */}
-              <div className="w-full">
-                <div ref={localVideoRef} className="w-full" />
-              </div>
+            <div className="w-full">
+              {/* Single grid container for ALL participants */}
+              <div
+                ref={videoGridRef}
+                className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full"
+              />
 
               {/* No participants message */}
-              {room && remoteVideosRef.current?.children.length === 0 && (
+              {room && videoGridRef.current?.children.length === 0 && (
                 <div className="text-center py-16 bg-gray-900/50 rounded-lg border border-gray-800">
                   <Video className="w-16 h-16 mx-auto mb-4 text-gray-600" />
                   <p className="text-gray-400 text-lg">
