@@ -32,6 +32,8 @@ export default function VideoMeetingPage() {
 
   const localVideoRef = useRef<HTMLDivElement>(null);
   const remoteVideosRef = useRef<HTMLDivElement>(null);
+  // Keep track of participants we've already handled
+  const handledParticipantsRef = useRef<Set<string>>(new Set());
 
   const accessTokenMutation = usePostTwilioAccessToken();
 
@@ -105,8 +107,6 @@ export default function VideoMeetingPage() {
         },
       });
 
-      setRoom(connectedRoom);
-
       console.log(
         "Room connected. Local participant:",
         connectedRoom.localParticipant.identity
@@ -115,6 +115,11 @@ export default function VideoMeetingPage() {
         "Existing remote participants:",
         connectedRoom.participants.size
       );
+
+      setRoom(connectedRoom);
+
+      // Clear handled participants set for new room
+      handledParticipantsRef.current.clear();
 
       // Handle local participant
       handleLocalParticipant(connectedRoom.localParticipant);
@@ -146,6 +151,7 @@ export default function VideoMeetingPage() {
           setError(`Disconnected: ${error.message}`);
         }
         setRoom(null);
+        handledParticipantsRef.current.clear();
         // Clear video containers
         if (localVideoRef.current) {
           localVideoRef.current.innerHTML = "";
@@ -204,13 +210,26 @@ export default function VideoMeetingPage() {
 
   // Handle remote participants
   const handleRemoteParticipant = (participant: any) => {
+    // Check if we've already handled this participant
+    if (handledParticipantsRef.current.has(participant.identity)) {
+      console.log(
+        "Participant already handled, skipping:",
+        participant.identity
+      );
+      return;
+    }
+
     // Check if participant div already exists
     const existingDiv = document.getElementById(
       `participant-${participant.identity}`
     );
     if (existingDiv) {
+      handledParticipantsRef.current.add(participant.identity);
       return;
     }
+
+    // Mark participant as handled
+    handledParticipantsRef.current.add(participant.identity);
 
     const participantDiv = document.createElement("div");
     participantDiv.id = `participant-${participant.identity}`;
@@ -269,6 +288,9 @@ export default function VideoMeetingPage() {
 
   // Handle participant disconnection
   const handleParticipantDisconnected = (participant: any) => {
+    // Remove from handled participants set
+    handledParticipantsRef.current.delete(participant.identity);
+
     const participantDiv = document.getElementById(
       `participant-${participant.identity}`
     );
