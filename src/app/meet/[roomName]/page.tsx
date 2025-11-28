@@ -279,33 +279,70 @@ export default function VideoMeetingPage() {
 
   // Attach track (video or audio) to DOM
   const attachTrack = (track: any, container: HTMLElement) => {
-    // Check if track is already attached to avoid duplicates
+    // Generate a unique identifier for the track
+    const trackId =
+      track.sid || track.id || track.name || `${track.kind}-${Date.now()}`;
+
+    console.log("Attempting to attach track:", track.kind, trackId);
+
+    // Check if this specific track is already attached
     const existingElement = container.querySelector(
-      `[data-track-sid="${track.sid}"]`
+      `[data-track-id="${trackId}"]`
     );
+
     if (existingElement) {
-      console.log("Track already attached, skipping:", track.sid, track.kind);
+      console.log("Track already attached, skipping:", trackId, track.kind);
+      return;
+    }
+
+    // Also check if we already have a track of this kind from this participant
+    // This prevents duplicate video or audio elements
+    const existingKindElement = container.querySelector(
+      `[data-track-kind="${track.kind}"]:not([data-track-id])`
+    );
+
+    if (existingKindElement && !track.sid) {
+      console.log("Track of same kind already exists, skipping:", track.kind);
       return;
     }
 
     try {
       const element = track.attach();
-      element.setAttribute("data-track-sid", track.sid);
+      element.setAttribute("data-track-id", trackId);
+      element.setAttribute("data-track-kind", track.kind);
       element.className =
         track.kind === "video" ? "w-full h-full object-cover" : "";
+
       container.appendChild(element);
-      console.log("Track attached successfully:", track.kind, track.sid);
+      console.log("Track attached successfully:", track.kind, trackId);
     } catch (error) {
-      console.error("Error attaching track:", error, track);
+      console.error("Error attaching track:", error, track.kind, trackId);
     }
   };
 
   // Detach track from DOM
   const detachTrack = (track: any, container: HTMLElement) => {
-    const elements = track.detach();
-    elements.forEach((element: HTMLElement) => {
-      element.remove();
-    });
+    const trackId = track.sid || track.id || track.name;
+    console.log("Detaching track:", track.kind, trackId);
+
+    // Try to find by track ID first
+    if (trackId) {
+      const element = container.querySelector(`[data-track-id="${trackId}"]`);
+      if (element) {
+        element.remove();
+        return;
+      }
+    }
+
+    // Fallback to Twilio's detach method
+    try {
+      const elements = track.detach();
+      elements.forEach((element: HTMLElement) => {
+        element.remove();
+      });
+    } catch (error) {
+      console.error("Error detaching track:", error);
+    }
   };
 
   // Toggle local audio
