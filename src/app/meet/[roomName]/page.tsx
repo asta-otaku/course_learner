@@ -107,16 +107,30 @@ export default function VideoMeetingPage() {
 
       setRoom(connectedRoom);
 
+      console.log(
+        "Room connected. Local participant:",
+        connectedRoom.localParticipant.identity
+      );
+      console.log(
+        "Existing remote participants:",
+        connectedRoom.participants.size
+      );
+
       // Handle local participant
       handleLocalParticipant(connectedRoom.localParticipant);
 
       // Handle existing remote participants
       connectedRoom.participants.forEach((participant: any) => {
+        console.log(
+          "Processing existing remote participant:",
+          participant.identity
+        );
         handleRemoteParticipant(participant);
       });
 
       // Listen for new participants
       connectedRoom.on("participantConnected", (participant: any) => {
+        console.log("New participant connected:", participant.identity);
         handleRemoteParticipant(participant);
       });
 
@@ -167,16 +181,18 @@ export default function VideoMeetingPage() {
     nameLabel.textContent = `${participant.identity} (You)`;
     localDiv.appendChild(nameLabel);
 
-    // Handle already published tracks
+    // Attach all existing tracks
     participant.tracks.forEach((publication: any) => {
       if (publication.track) {
+        console.log("Attaching local track:", publication.track.kind);
         attachTrack(publication.track, localDiv);
       }
     });
 
-    // Listen for newly published tracks (local tracks use trackPublished, not trackSubscribed)
+    // Listen for future tracks (shouldn't be needed but good to have)
     participant.on("trackPublished", (publication: any) => {
       if (publication.track) {
+        console.log("Local track published:", publication.track.kind);
         attachTrack(publication.track, localDiv);
       }
     });
@@ -211,22 +227,38 @@ export default function VideoMeetingPage() {
     // Handle already subscribed tracks
     participant.tracks.forEach((publication: any) => {
       if (publication.isSubscribed && publication.track) {
+        console.log(
+          "Attaching existing subscribed track:",
+          publication.track.kind,
+          participant.identity
+        );
         attachTrack(publication.track, participantDiv);
-      } else if (publication.trackSubscribed) {
-        // If track is subscribed but not yet available, wait for it
-        publication.trackSubscribed.then((track: any) => {
-          attachTrack(track, participantDiv);
-        });
       }
     });
 
-    // Listen for newly subscribed tracks
+    // Listen for newly subscribed tracks - THIS IS CRITICAL
     participant.on("trackSubscribed", (track: any) => {
+      console.log(
+        "Track subscribed:",
+        track.kind,
+        track.name,
+        participant.identity
+      );
       attachTrack(track, participantDiv);
+    });
+
+    // Listen for track enabled (when track becomes active)
+    participant.on("trackEnabled", (publication: any) => {
+      console.log(
+        "Track enabled:",
+        publication.trackName,
+        participant.identity
+      );
     });
 
     // Listen for unsubscribed tracks
     participant.on("trackUnsubscribed", (track: any) => {
+      console.log("Track unsubscribed:", track.kind, participant.identity);
       detachTrack(track, participantDiv);
     });
 
@@ -252,14 +284,20 @@ export default function VideoMeetingPage() {
       `[data-track-sid="${track.sid}"]`
     );
     if (existingElement) {
+      console.log("Track already attached, skipping:", track.sid, track.kind);
       return;
     }
 
-    const element = track.attach();
-    element.setAttribute("data-track-sid", track.sid);
-    element.className =
-      track.kind === "video" ? "w-full h-full object-cover" : "";
-    container.appendChild(element);
+    try {
+      const element = track.attach();
+      element.setAttribute("data-track-sid", track.sid);
+      element.className =
+        track.kind === "video" ? "w-full h-full object-cover" : "";
+      container.appendChild(element);
+      console.log("Track attached successfully:", track.kind, track.sid);
+    } catch (error) {
+      console.error("Error attaching track:", error, track);
+    }
   };
 
   // Detach track from DOM
