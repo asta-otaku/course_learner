@@ -42,7 +42,6 @@ export default function VideoMeetingPage() {
       const role = searchParams.get("role");
       if (role === "admin" || role === "tutor" || role === "user") {
         setUserRole(role);
-        console.log("User role detected:", role);
       }
 
       // Check if we're on a secure context
@@ -55,7 +54,6 @@ export default function VideoMeetingPage() {
 
   // Load Twilio Video SDK
   const handleTwilioScriptLoad = () => {
-    console.log("Twilio Video SDK loaded");
     setTwilioLoaded(true);
   };
 
@@ -95,7 +93,6 @@ export default function VideoMeetingPage() {
       });
 
       const token = response.data.data;
-      console.log("Access token received:", token);
 
       // Connect to Twilio Video room
       const connectedRoom = await window.Twilio.Video.connect(token, {
@@ -108,17 +105,20 @@ export default function VideoMeetingPage() {
         },
       });
 
-      console.log("Successfully joined room:", connectedRoom);
       setRoom(connectedRoom);
 
       // Handle local participant
       handleLocalParticipant(connectedRoom.localParticipant);
 
       // Handle existing remote participants
-      connectedRoom.participants.forEach(handleRemoteParticipant);
+      connectedRoom.participants.forEach((participant: any) => {
+        handleRemoteParticipant(participant);
+      });
 
       // Listen for new participants
-      connectedRoom.on("participantConnected", handleRemoteParticipant);
+      connectedRoom.on("participantConnected", (participant: any) => {
+        handleRemoteParticipant(participant);
+      });
 
       // Listen for participants leaving
       connectedRoom.on(
@@ -127,9 +127,18 @@ export default function VideoMeetingPage() {
       );
 
       // Handle room disconnection
-      connectedRoom.on("disconnected", () => {
-        console.log("Disconnected from room");
+      connectedRoom.on("disconnected", (room: any, error: any) => {
+        if (error) {
+          setError(`Disconnected: ${error.message}`);
+        }
         setRoom(null);
+        // Clear video containers
+        if (localVideoRef.current) {
+          localVideoRef.current.innerHTML = "";
+        }
+        if (remoteVideosRef.current) {
+          remoteVideosRef.current.innerHTML = "";
+        }
       });
     } catch (err: any) {
       console.error("Error joining room:", err);
@@ -141,7 +150,10 @@ export default function VideoMeetingPage() {
 
   // Handle local participant (your own video/audio)
   const handleLocalParticipant = (participant: any) => {
-    console.log("Local participant:", participant.identity);
+    // Clear any existing local video
+    if (localVideoRef.current) {
+      localVideoRef.current.innerHTML = "";
+    }
 
     const localDiv = document.createElement("div");
     localDiv.id = `participant-${participant.identity}`;
@@ -155,14 +167,18 @@ export default function VideoMeetingPage() {
     nameLabel.textContent = `${participant.identity} (You)`;
     localDiv.appendChild(nameLabel);
 
+    // Handle already published tracks
     participant.tracks.forEach((publication: any) => {
       if (publication.track) {
         attachTrack(publication.track, localDiv);
       }
     });
 
-    participant.on("trackSubscribed", (track: any) => {
-      attachTrack(track, localDiv);
+    // Listen for newly published tracks (local tracks use trackPublished, not trackSubscribed)
+    participant.on("trackPublished", (publication: any) => {
+      if (publication.track) {
+        attachTrack(publication.track, localDiv);
+      }
     });
 
     if (localVideoRef.current) {
@@ -172,7 +188,13 @@ export default function VideoMeetingPage() {
 
   // Handle remote participants
   const handleRemoteParticipant = (participant: any) => {
-    console.log("Remote participant connected:", participant.identity);
+    // Check if participant div already exists
+    const existingDiv = document.getElementById(
+      `participant-${participant.identity}`
+    );
+    if (existingDiv) {
+      return;
+    }
 
     const participantDiv = document.createElement("div");
     participantDiv.id = `participant-${participant.identity}`;
@@ -186,16 +208,24 @@ export default function VideoMeetingPage() {
     nameLabel.textContent = participant.identity;
     participantDiv.appendChild(nameLabel);
 
+    // Handle already subscribed tracks
     participant.tracks.forEach((publication: any) => {
       if (publication.isSubscribed && publication.track) {
         attachTrack(publication.track, participantDiv);
+      } else if (publication.trackSubscribed) {
+        // If track is subscribed but not yet available, wait for it
+        publication.trackSubscribed.then((track: any) => {
+          attachTrack(track, participantDiv);
+        });
       }
     });
 
+    // Listen for newly subscribed tracks
     participant.on("trackSubscribed", (track: any) => {
       attachTrack(track, participantDiv);
     });
 
+    // Listen for unsubscribed tracks
     participant.on("trackUnsubscribed", (track: any) => {
       detachTrack(track, participantDiv);
     });
@@ -207,7 +237,6 @@ export default function VideoMeetingPage() {
 
   // Handle participant disconnection
   const handleParticipantDisconnected = (participant: any) => {
-    console.log("Participant disconnected:", participant.identity);
     const participantDiv = document.getElementById(
       `participant-${participant.identity}`
     );
@@ -218,7 +247,16 @@ export default function VideoMeetingPage() {
 
   // Attach track (video or audio) to DOM
   const attachTrack = (track: any, container: HTMLElement) => {
+    // Check if track is already attached to avoid duplicates
+    const existingElement = container.querySelector(
+      `[data-track-sid="${track.sid}"]`
+    );
+    if (existingElement) {
+      return;
+    }
+
     const element = track.attach();
+    element.setAttribute("data-track-sid", track.sid);
     element.className =
       track.kind === "video" ? "w-full h-full object-cover" : "";
     container.appendChild(element);
@@ -226,7 +264,8 @@ export default function VideoMeetingPage() {
 
   // Detach track from DOM
   const detachTrack = (track: any, container: HTMLElement) => {
-    track.detach().forEach((element: HTMLElement) => {
+    const elements = track.detach();
+    elements.forEach((element: HTMLElement) => {
       element.remove();
     });
   };

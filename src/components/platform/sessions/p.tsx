@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { Session, TimeSlot } from "@/lib/types";
+import React, { useState, useMemo } from "react";
+import { Session } from "@/lib/types";
 import { formatDateString } from "@/lib/utils";
 import Calendar from "./calendar";
 import BookingDialog from "./bookingDialog";
@@ -76,13 +76,14 @@ function Sessions() {
 
   // Transform and combine sessions data
   const allSessions = useMemo(() => {
-    const sessions: Session[] = [];
+    const sessionsMap = new Map<string, Session>();
 
-    // Add booked sessions
+    // Add booked sessions first (they take priority)
     if (bookedSessionsData?.data?.data) {
-      const bookedSessions = bookedSessionsData.data.data.map(
-        (apiSession: any) => ({
-          id: apiSession.id.toString(),
+      bookedSessionsData.data.data.forEach((apiSession: any) => {
+        const sessionId = apiSession.id.toString();
+        sessionsMap.set(sessionId, {
+          id: sessionId,
           date: apiSession.sessionDate,
           name: `Session with ${apiSession.tutor}`,
           time: `${apiSession.startTime?.slice(
@@ -103,42 +104,44 @@ function Sessions() {
           bookedBy: activeProfile?.name || null,
           bookedById: activeProfile?.id?.toString() || null,
           notes: apiSession.notes,
-        })
-      );
-      sessions.push(...bookedSessions);
+        });
+      });
     }
 
-    // Add available sessions (for calendar display)
+    // Add available sessions only if they don't already exist (deduplicate by ID)
     if (availableSessionsData?.data?.data) {
-      const availableSessions = availableSessionsData.data.data.map(
-        (apiSession: any) => ({
-          id: apiSession.id.toString(),
-          date: apiSession.sessionDate,
-          name: `Available with ${apiSession.tutor}`,
-          time: `${apiSession.startTime?.slice(
-            0,
-            5
-          )} - ${apiSession.endTime?.slice(0, 5)}`,
-          timeSlot: `${apiSession.startTime?.slice(
-            0,
-            5
-          )} - ${apiSession.endTime?.slice(0, 5)}`,
-          tutor: apiSession.tutor,
-          tutorId: apiSession.tutorId,
-          student: undefined,
-          participants: [],
-          issue: undefined,
-          status: apiSession.status,
-          bookedAt: null,
-          bookedBy: null,
-          bookedById: null,
-          notes: apiSession.notes,
-        })
-      );
-      sessions.push(...availableSessions);
+      availableSessionsData.data.data.forEach((apiSession: any) => {
+        const sessionId = apiSession.id.toString();
+        // Only add if not already in the map (booked sessions take priority)
+        if (!sessionsMap.has(sessionId)) {
+          sessionsMap.set(sessionId, {
+            id: sessionId,
+            date: apiSession.sessionDate,
+            name: `Available with ${apiSession.tutor}`,
+            time: `${apiSession.startTime?.slice(
+              0,
+              5
+            )} - ${apiSession.endTime?.slice(0, 5)}`,
+            timeSlot: `${apiSession.startTime?.slice(
+              0,
+              5
+            )} - ${apiSession.endTime?.slice(0, 5)}`,
+            tutor: apiSession.tutor,
+            tutorId: apiSession.tutorId,
+            student: undefined,
+            participants: [],
+            issue: undefined,
+            status: apiSession.status,
+            bookedAt: null,
+            bookedBy: null,
+            bookedById: null,
+            notes: apiSession.notes,
+          });
+        }
+      });
     }
 
-    return sessions;
+    return Array.from(sessionsMap.values());
   }, [bookedSessionsData, availableSessionsData, activeProfile]);
 
   // Extract unique tutors from available sessions

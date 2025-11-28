@@ -142,12 +142,12 @@ export default function SessionDetailsDialog({
                         session.status === "available"
                           ? "bg-green-100 text-green-800"
                           : session.status === "booked"
-                            ? "bg-blue-100 text-blue-800"
-                            : session.status === "cancelled"
-                              ? "bg-red-100 text-red-800"
-                              : session.status === "expired"
-                                ? "bg-orange-100 text-orange-800"
-                                : "bg-gray-100 text-gray-800"
+                          ? "bg-blue-100 text-blue-800"
+                          : session.status === "cancelled"
+                          ? "bg-red-100 text-red-800"
+                          : session.status === "expired"
+                          ? "bg-orange-100 text-orange-800"
+                          : "bg-gray-100 text-gray-800"
                       }`}
                     >
                       {session.status.charAt(0).toUpperCase() +
@@ -256,13 +256,13 @@ export default function SessionDetailsDialog({
             </Button>
             {session.status !== "cancelled" &&
               session.status !== "completed" && (
-                <Button
-                  variant="destructive"
-                  onClick={handleCancel}
-                  className="rounded-full"
-                >
-                  Cancel Session
-                </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancel}
+              className="rounded-full"
+            >
+              Cancel Session
+            </Button>
               )}
           </div>
         </div>
