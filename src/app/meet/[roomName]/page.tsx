@@ -56,67 +56,62 @@ export default function VideoMeetingPage() {
     }
   }, [twilioLoaded, roomName]);
 
-  // EXACT PATTERN FROM TWILIO DOCS
-  const handleConnectedParticipant = (participant: any) => {
-    console.log("Participant connected:", participant.identity);
-
+  // EXACT PATTERN FROM TWILIO DOCS (with local/remote distinction)
+  const handleConnectedParticipant = (participant: any, isLocal = false) => {
     // Create a div for this participant's tracks
     const participantDiv = document.createElement("div");
     participantDiv.setAttribute("id", participant.identity);
-    participantDiv.className =
-      "relative rounded-lg overflow-hidden bg-gray-900 aspect-video min-h-[250px]";
+    participantDiv.setAttribute(
+      "data-participant-type",
+      isLocal ? "local" : "remote"
+    );
+
+    if (isLocal) {
+      participantDiv.className =
+        "absolute bottom-4 right-4 w-48 md:w-64 rounded-lg overflow-hidden bg-gray-900 aspect-video shadow-2xl border-2 border-gray-700 z-10";
+    } else {
+      participantDiv.className =
+        "w-full h-full rounded-lg overflow-hidden bg-gray-900 aspect-video";
+    }
 
     if (videoContainerRef.current) {
       videoContainerRef.current.appendChild(participantDiv);
+    } else {
+      console.error(`❌ videoContainerRef.current is null!`);
+      return; // Exit early if container not ready
     }
 
-    // Iterate through the participant's published tracks and call handleTrackPublication on them
-    participant.tracks.forEach((trackPublication: any) => {
-      handleTrackPublication(trackPublication, participant);
-    });
-
-    // Listen for any new track publications
-    participant.on("trackPublished", (publication: any) => {
-      handleTrackPublication(publication, participant);
-    });
-  };
-
-  // EXACT PATTERN FROM TWILIO DOCS
-  const handleTrackPublication = (trackPublication: any, participant: any) => {
-    const displayTrack = (track: any) => {
-      console.log("Displaying track:", track.kind, "for", participant.identity);
-
-      // Append this track to the participant's div and render it on the page
-      const participantDiv = document.getElementById(participant.identity);
-      if (participantDiv) {
-        // track.attach creates an HTMLVideoElement or HTMLAudioElement
+    // Define handleTrackPublication inside so it can access participantDiv via closure
+    const handleTrackPublication = (trackPublication: any) => {
+      function displayTrack(track: any) {
         const attachedElement = track.attach();
 
         // Style video elements
         if (track.kind === "video") {
           attachedElement.className = "w-full h-full object-cover rounded-lg";
-        } else {
-          attachedElement.className = "hidden"; // Hide audio elements
         }
 
         participantDiv.appendChild(attachedElement);
       }
+
+      if (trackPublication.track) {
+        displayTrack(trackPublication.track);
+      }
+
+      // Listen for any new subscriptions to this track publication
+      trackPublication.on("subscribed", displayTrack);
     };
 
-    // Check if the trackPublication contains a `track` attribute. If it does,
-    // we are subscribed to this track. If not, we are not subscribed.
-    if (trackPublication.track) {
-      displayTrack(trackPublication.track);
-    }
+    // Iterate through the participant's published tracks and
+    // call `handleTrackPublication` on them
+    participant.tracks.forEach(handleTrackPublication);
 
-    // Listen for any new subscriptions to this track publication
-    trackPublication.on("subscribed", displayTrack);
+    // Listen for any new track publications
+    participant.on("trackPublished", handleTrackPublication);
   };
 
   // EXACT PATTERN FROM TWILIO DOCS
   const handleDisconnectedParticipant = (participant: any) => {
-    console.log("Participant disconnected:", participant.identity);
-
     // Remove this participant's div from the page
     const participantDiv = document.getElementById(participant.identity);
     if (participantDiv) {
@@ -159,31 +154,19 @@ export default function VideoMeetingPage() {
       // Join the video room with the Access Token and the given room name
       const connectedRoom = await window.Twilio.Video.connect(token, {
         room: roomName,
-        audio: true,
-        video: {
-          width: { min: 640, ideal: 1280, max: 1920 },
-          height: { min: 480, ideal: 720, max: 1080 },
-          frameRate: 24,
-        },
       });
-
-      console.log(
-        "Room connected. Local participant:",
-        connectedRoom.localParticipant.identity
-      );
-      console.log(
-        "Existing remote participants:",
-        connectedRoom.participants.size
-      );
 
       setRoom(connectedRoom);
 
-      // EXACT PATTERN FROM TWILIO DOCS - render all participants
-      handleConnectedParticipant(connectedRoom.localParticipant);
-      connectedRoom.participants.forEach(handleConnectedParticipant);
-
-      // Listen for new participants
-      connectedRoom.on("participantConnected", handleConnectedParticipant);
+      // Render the local and remote participants' video and audio tracks
+      handleConnectedParticipant(connectedRoom.localParticipant, true); // true = local participant
+      connectedRoom.participants.forEach(
+        (participant: any) => handleConnectedParticipant(participant, false) // false = remote participant
+      );
+      connectedRoom.on(
+        "participantConnected",
+        (participant: any) => handleConnectedParticipant(participant, false) // New remote participants
+      );
 
       // Listen for participants leaving
       connectedRoom.on(
@@ -193,7 +176,6 @@ export default function VideoMeetingPage() {
 
       // Handle room disconnection
       connectedRoom.on("disconnected", (room: any, error: any) => {
-        console.log("Room disconnected");
         if (error) {
           setError(`Disconnected: ${error.message}`);
         }
@@ -373,28 +355,27 @@ export default function VideoMeetingPage() {
             </div>
           )}
 
-          {/* Video Container - SIMPLE CONTAINER LIKE TWILIO DOCS */}
-          {twilioLoaded && !isConnecting && (
-            <div className="w-full">
-              <div
-                ref={videoContainerRef}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 w-full"
-              />
+          {/* Video Container - ALWAYS RENDERED so ref is never null */}
+          <div className="w-full">
+            {/* Relative container for PIP layout: remote video fills space, local video in corner */}
+            <div
+              ref={videoContainerRef}
+              className="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden"
+            />
 
-              {/* No participants message */}
-              {room && videoContainerRef.current?.children.length === 0 && (
-                <div className="text-center py-16 bg-gray-900/50 rounded-lg border border-gray-800">
-                  <Video className="w-16 h-16 mx-auto mb-4 text-gray-600" />
-                  <p className="text-gray-400 text-lg">
-                    Waiting for others to join...
-                  </p>
-                  <p className="text-gray-500 text-sm mt-2">
-                    Share the meeting link with participants
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+            {/* No participants message */}
+            {room && videoContainerRef.current?.children.length === 0 && (
+              <div className="text-center py-16 bg-gray-900/50 rounded-lg border border-gray-800">
+                <Video className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+                <p className="text-gray-400 text-lg">
+                  Waiting for others to join...
+                </p>
+                <p className="text-gray-500 text-sm mt-2">
+                  Share the meeting link with participants
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Controls Bar */}
