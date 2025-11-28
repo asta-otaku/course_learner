@@ -13,6 +13,12 @@ declare global {
   }
 }
 
+interface ParticipantState {
+  element: HTMLDivElement;
+  videoTrack?: any;
+  audioTrack?: any;
+}
+
 export default function VideoMeetingPage() {
   const params = useParams();
   const router = useRouter();
@@ -28,7 +34,11 @@ export default function VideoMeetingPage() {
   const [isSecureContext, setIsSecureContext] = useState(true);
 
   const videoGridRef = useRef<HTMLDivElement>(null);
-  const handledParticipantsRef = useRef<Set<string>>(new Set());
+
+  // Track all participants in state
+  const [participants, setParticipants] = useState<
+    Map<string, ParticipantState>
+  >(new Map());
 
   const accessTokenMutation = usePostTwilioAccessToken();
 
@@ -57,175 +67,195 @@ export default function VideoMeetingPage() {
     }
   }, [twilioLoaded, roomName]);
 
+  // Create participant element
   const createParticipantElement = (
-    participant: any,
+    participantId: string,
     isLocal: boolean = false
   ) => {
     const participantDiv = document.createElement("div");
-    participantDiv.id = `participant-${participant.identity}`;
+    participantDiv.id = `participant-${participantId}`;
     participantDiv.className =
-      "relative rounded-lg overflow-hidden bg-gray-900 aspect-video min-h-[300px] lg:min-h-[400px]";
+      "relative rounded-lg overflow-hidden bg-gray-900 aspect-video min-h-[250px]";
 
+    // Video container
+    const videoContainer = document.createElement("div");
+    videoContainer.className = "w-full h-full";
+    videoContainer.id = `video-container-${participantId}`;
+    participantDiv.appendChild(videoContainer);
+
+    // Name label
     const nameLabel = document.createElement("div");
     nameLabel.className =
       "absolute bottom-3 left-3 bg-black/70 text-white px-3 py-1.5 rounded-full text-sm font-medium z-10";
-    nameLabel.textContent = isLocal
-      ? `${participant.identity} (You)`
-      : participant.identity;
+    nameLabel.textContent = isLocal ? `${participantId} (You)` : participantId;
     participantDiv.appendChild(nameLabel);
+
+    // Audio indicator (will show when audio is active)
+    const audioIndicator = document.createElement("div");
+    audioIndicator.className =
+      "absolute top-3 right-3 bg-green-500 w-3 h-3 rounded-full hidden";
+    audioIndicator.id = `audio-indicator-${participantId}`;
+    participantDiv.appendChild(audioIndicator);
 
     return participantDiv;
   };
 
-  const attachTrack = (track: any, container: HTMLElement) => {
-    const trackId =
-      track.sid || track.id || track.name || `${track.kind}-${Date.now()}`;
+  // Attach track to participant element
+  const attachTrack = (track: any, participantId: string) => {
+    const participantState = participants.get(participantId);
+    if (!participantState) return;
 
-    console.log("Attempting to attach track:", track.kind, trackId);
-
-    const existingElement = container.querySelector(
-      `[data-track-id="${trackId}"]`
+    const container = participantState.element.querySelector(
+      `#video-container-${participantId}`
     );
-    if (existingElement) {
-      console.log("Track already attached, skipping:", trackId, track.kind);
-      return;
-    }
+    if (!container) return;
 
-    const existingKindElement = container.querySelector(
-      `[data-track-kind="${track.kind}"]:not([data-track-id])`
+    // Remove existing track of same kind
+    const existingTrack = container.querySelector(
+      `[data-track-kind="${track.kind}"]`
     );
-
-    if (existingKindElement && !track.sid) {
-      console.log("Track of same kind already exists, skipping:", track.kind);
-      return;
+    if (existingTrack) {
+      existingTrack.remove();
     }
 
     try {
       const element = track.attach();
-      element.setAttribute("data-track-id", trackId);
       element.setAttribute("data-track-kind", track.kind);
-      element.className =
-        track.kind === "video" ? "w-full h-full object-cover" : "";
+      element.setAttribute("data-track-id", track.sid || track.id);
+
+      if (track.kind === "video") {
+        element.className = "w-full h-full object-cover";
+        // Update participant state with video track
+        setParticipants((prev) => {
+          const newState = new Map(prev);
+          const current = newState.get(participantId);
+          if (current) {
+            newState.set(participantId, { ...current, videoTrack: track });
+          }
+          return newState;
+        });
+      } else {
+        element.className = "hidden"; // Hide audio elements
+        // Update participant state with audio track
+        setParticipants((prev) => {
+          const newState = new Map(prev);
+          const current = newState.get(participantId);
+          if (current) {
+            newState.set(participantId, { ...current, audioTrack: track });
+          }
+          return newState;
+        });
+      }
 
       container.appendChild(element);
-      console.log("Track attached successfully:", track.kind, trackId);
+      console.log(`Track attached: ${track.kind} for ${participantId}`);
     } catch (error) {
-      console.error("Error attaching track:", error, track.kind, trackId);
+      console.error("Error attaching track:", error, track.kind, participantId);
     }
   };
 
-  const detachTrack = (track: any, container: HTMLElement) => {
-    const trackId = track.sid || track.id || track.name;
-    console.log("Detaching track:", track.kind, trackId);
+  // Detach track from participant element
+  const detachTrack = (track: any, participantId: string) => {
+    const participantState = participants.get(participantId);
+    if (!participantState) return;
 
-    if (trackId) {
-      const element = container.querySelector(`[data-track-id="${trackId}"]`);
-      if (element) {
-        element.remove();
-        return;
-      }
+    const container = participantState.element.querySelector(
+      `#video-container-${participantId}`
+    );
+    if (!container) return;
+
+    const trackElement = container.querySelector(
+      `[data-track-id="${track.sid || track.id}"]`
+    );
+    if (trackElement) {
+      trackElement.remove();
     }
 
-    try {
-      const elements = track.detach();
-      elements.forEach((element: HTMLElement) => {
-        element.remove();
+    // Update participant state
+    setParticipants((prev) => {
+      const newState = new Map(prev);
+      const current = newState.get(participantId);
+      if (current) {
+        if (track.kind === "video") {
+          newState.set(participantId, { ...current, videoTrack: undefined });
+        } else {
+          newState.set(participantId, { ...current, audioTrack: undefined });
+        }
+      }
+      return newState;
+    });
+  };
+
+  // Add participant to the grid
+  const addParticipant = (participant: any, isLocal: boolean = false) => {
+    const participantId = participant.identity;
+
+    if (participants.has(participantId)) {
+      console.log("Participant already exists:", participantId);
+      return;
+    }
+
+    console.log(
+      "Adding participant:",
+      participantId,
+      isLocal ? "(local)" : "(remote)"
+    );
+
+    const participantElement = createParticipantElement(participantId, isLocal);
+
+    // Add to participants state
+    setParticipants((prev) => {
+      const newState = new Map(prev);
+      newState.set(participantId, { element: participantElement });
+      return newState;
+    });
+
+    // Add to DOM
+    if (videoGridRef.current) {
+      videoGridRef.current.appendChild(participantElement);
+    }
+
+    // Handle existing tracks
+    participant.tracks.forEach((publication: any) => {
+      if (publication.track) {
+        attachTrack(publication.track, participantId);
+      }
+    });
+
+    // Listen for track subscriptions (remote) or publications (local)
+    if (isLocal) {
+      participant.on("trackPublished", (publication: any) => {
+        if (publication.track) {
+          attachTrack(publication.track, participantId);
+        }
       });
-    } catch (error) {
-      console.error("Error detaching track:", error);
+    } else {
+      participant.on("trackSubscribed", (track: any) => {
+        console.log("Track subscribed:", track.kind, participantId);
+        attachTrack(track, participantId);
+      });
+
+      participant.on("trackUnsubscribed", (track: any) => {
+        console.log("Track unsubscribed:", track.kind, participantId);
+        detachTrack(track, participantId);
+      });
     }
   };
 
-  const handleLocalParticipant = (participant: any) => {
-    const localDiv = createParticipantElement(participant, true);
+  // Remove participant from grid
+  const removeParticipant = (participantId: string) => {
+    console.log("Removing participant:", participantId);
 
-    participant.tracks.forEach((publication: any) => {
-      if (publication.track) {
-        console.log("Attaching local track:", publication.track.kind);
-        attachTrack(publication.track, localDiv);
-      }
-    });
-
-    participant.on("trackPublished", (publication: any) => {
-      if (publication.track) {
-        console.log("Local track published:", publication.track.kind);
-        attachTrack(publication.track, localDiv);
-      }
-    });
-
-    if (videoGridRef.current) {
-      videoGridRef.current.appendChild(localDiv);
-    }
-  };
-
-  const handleRemoteParticipant = (participant: any) => {
-    if (handledParticipantsRef.current.has(participant.identity)) {
-      console.log(
-        "Participant already handled, skipping:",
-        participant.identity
-      );
-      return;
+    const participantState = participants.get(participantId);
+    if (participantState) {
+      participantState.element.remove();
     }
 
-    const existingDiv = document.getElementById(
-      `participant-${participant.identity}`
-    );
-    if (existingDiv) {
-      handledParticipantsRef.current.add(participant.identity);
-      return;
-    }
-
-    handledParticipantsRef.current.add(participant.identity);
-
-    const participantDiv = createParticipantElement(participant, false);
-
-    participant.tracks.forEach((publication: any) => {
-      if (publication.isSubscribed && publication.track) {
-        console.log(
-          "Attaching existing subscribed track:",
-          publication.track.kind,
-          participant.identity
-        );
-        attachTrack(publication.track, participantDiv);
-      }
+    setParticipants((prev) => {
+      const newState = new Map(prev);
+      newState.delete(participantId);
+      return newState;
     });
-
-    participant.on("trackSubscribed", (track: any) => {
-      console.log(
-        "Track subscribed:",
-        track.kind,
-        track.name,
-        participant.identity
-      );
-      attachTrack(track, participantDiv);
-    });
-
-    participant.on("trackEnabled", (publication: any) => {
-      console.log(
-        "Track enabled:",
-        publication.trackName,
-        participant.identity
-      );
-    });
-
-    participant.on("trackUnsubscribed", (track: any) => {
-      console.log("Track unsubscribed:", track.kind, participant.identity);
-      detachTrack(track, participantDiv);
-    });
-
-    if (videoGridRef.current) {
-      videoGridRef.current.appendChild(participantDiv);
-    }
-  };
-
-  const handleParticipantDisconnected = (participant: any) => {
-    handledParticipantsRef.current.delete(participant.identity);
-    const participantDiv = document.getElementById(
-      `participant-${participant.identity}`
-    );
-    if (participantDiv) {
-      participantDiv.remove();
-    }
   };
 
   const joinRoom = async () => {
@@ -249,6 +279,12 @@ export default function VideoMeetingPage() {
     setError(null);
 
     try {
+      // Clear any existing participants
+      setParticipants(new Map());
+      if (videoGridRef.current) {
+        videoGridRef.current.innerHTML = "";
+      }
+
       const response = await accessTokenMutation.mutateAsync({
         roomName: roomName,
       });
@@ -275,34 +311,39 @@ export default function VideoMeetingPage() {
       );
 
       setRoom(connectedRoom);
-      handledParticipantsRef.current.clear();
 
-      handleLocalParticipant(connectedRoom.localParticipant);
+      // Add local participant
+      addParticipant(connectedRoom.localParticipant, true);
 
+      // Add existing remote participants
       connectedRoom.participants.forEach((participant: any) => {
         console.log(
-          "Processing existing remote participant:",
+          "Adding existing remote participant:",
           participant.identity
         );
-        handleRemoteParticipant(participant);
+        addParticipant(participant, false);
       });
 
+      // Listen for new participants
       connectedRoom.on("participantConnected", (participant: any) => {
         console.log("New participant connected:", participant.identity);
-        handleRemoteParticipant(participant);
+        addParticipant(participant, false);
       });
 
-      connectedRoom.on(
-        "participantDisconnected",
-        handleParticipantDisconnected
-      );
+      // Listen for participants leaving
+      connectedRoom.on("participantDisconnected", (participant: any) => {
+        console.log("Participant disconnected:", participant.identity);
+        removeParticipant(participant.identity);
+      });
 
+      // Handle room disconnection
       connectedRoom.on("disconnected", (room: any, error: any) => {
+        console.log("Room disconnected");
         if (error) {
           setError(`Disconnected: ${error.message}`);
         }
         setRoom(null);
-        handledParticipantsRef.current.clear();
+        setParticipants(new Map());
         if (videoGridRef.current) {
           videoGridRef.current.innerHTML = "";
         }
@@ -364,6 +405,16 @@ export default function VideoMeetingPage() {
     };
   }, [room]);
 
+  // Calculate grid columns based on number of participants
+  const getGridClass = () => {
+    const count = participants.size;
+    if (count === 1) return "grid-cols-1 max-w-2xl";
+    if (count === 2) return "grid-cols-1 md:grid-cols-2 max-w-4xl";
+    if (count === 3 || count === 4)
+      return "grid-cols-1 md:grid-cols-2 lg:grid-cols-2 max-w-6xl";
+    return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 max-w-7xl";
+  };
+
   return (
     <>
       <Script
@@ -389,6 +440,12 @@ export default function VideoMeetingPage() {
                     {userRole}
                   </span>
                 )}
+                {room && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 flex-shrink-0">
+                    {participants.size} participant
+                    {participants.size !== 1 ? "s" : ""}
+                  </span>
+                )}
               </div>
             </div>
             {room && (
@@ -404,104 +461,105 @@ export default function VideoMeetingPage() {
         </div>
 
         {/* Main Content */}
-        <div className="w-full max-w-6xl mx-auto px-4 md:px-6 py-6 pb-28 flex-1">
-          {/* HTTPS Warning */}
-          {!isSecureContext && (
-            <div className="mb-6 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-6">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                  <span className="text-yellow-400 text-xl">🔒</span>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-yellow-400 font-medium mb-2">
-                    Secure Connection Required
-                  </h3>
-                  <p className="text-yellow-300 text-sm mb-2">
-                    Video calls require a secure HTTPS connection, especially on
-                    mobile devices.
-                  </p>
-                  <p className="text-yellow-300 text-sm">
-                    Please access this page using <strong>https://</strong>{" "}
-                    instead of http://
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Error State */}
-          {error && (
-            <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-lg p-6">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
-                  <span className="text-red-400 text-xl">⚠️</span>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-red-400 font-medium mb-2">
-                    Connection Error
-                  </h3>
-                  <p className="text-red-300 text-sm mb-4">{error}</p>
-                  <Button
-                    onClick={joinRoom}
-                    className="bg-red-600 hover:bg-red-700"
-                    disabled={isConnecting}
-                  >
-                    Try Again
-                  </Button>
+        <div className="flex-1 w-full overflow-auto">
+          <div className="w-full mx-auto px-4 md:px-6 py-6 pb-28">
+            {/* HTTPS Warning */}
+            {!isSecureContext && (
+              <div className="mb-6 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-6">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                    <span className="text-yellow-400 text-xl">🔒</span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-yellow-400 font-medium mb-2">
+                      Secure Connection Required
+                    </h3>
+                    <p className="text-yellow-300 text-sm mb-2">
+                      Video calls require a secure HTTPS connection, especially
+                      on mobile devices.
+                    </p>
+                    <p className="text-yellow-300 text-sm">
+                      Please access this page using <strong>https://</strong>{" "}
+                      instead of http://
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Loading State */}
-          {!twilioLoaded && (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-500" />
-                <p className="text-gray-400">Loading video SDK...</p>
-              </div>
-            </div>
-          )}
-
-          {isConnecting && (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-500" />
-                <p className="text-gray-400">Connecting to room...</p>
-              </div>
-            </div>
-          )}
-
-          {/* Video Grid */}
-          {twilioLoaded && !isConnecting && (
-            <div className="w-full">
-              {/* Single grid container for ALL participants */}
-              <div
-                ref={videoGridRef}
-                className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full"
-              />
-
-              {/* No participants message */}
-              {room && videoGridRef.current?.children.length === 0 && (
-                <div className="text-center py-16 bg-gray-900/50 rounded-lg border border-gray-800">
-                  <Video className="w-16 h-16 mx-auto mb-4 text-gray-600" />
-                  <p className="text-gray-400 text-lg">
-                    Waiting for others to join...
-                  </p>
-                  <p className="text-gray-500 text-sm mt-2">
-                    Share the meeting link with participants
-                  </p>
+            {/* Error State */}
+            {error && (
+              <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-lg p-6">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <span className="text-red-400 text-xl">⚠️</span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-red-400 font-medium mb-2">
+                      Connection Error
+                    </h3>
+                    <p className="text-red-300 text-sm mb-4">{error}</p>
+                    <Button
+                      onClick={joinRoom}
+                      className="bg-red-600 hover:bg-red-700"
+                      disabled={isConnecting}
+                    >
+                      Try Again
+                    </Button>
+                  </div>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+
+            {/* Loading States */}
+            {!twilioLoaded && (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                  <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-500" />
+                  <p className="text-gray-400">Loading video SDK...</p>
+                </div>
+              </div>
+            )}
+
+            {isConnecting && (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                  <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-500" />
+                  <p className="text-gray-400">Connecting to room...</p>
+                </div>
+              </div>
+            )}
+
+            {/* Video Grid */}
+            {twilioLoaded && !isConnecting && (
+              <div className="w-full">
+                {/* Dynamic grid container for ALL participants */}
+                <div
+                  ref={videoGridRef}
+                  className={`grid gap-4 w-full mx-auto ${getGridClass()}`}
+                />
+
+                {/* No participants message */}
+                {room && participants.size <= 1 && (
+                  <div className="text-center py-16 bg-gray-900/50 rounded-lg border border-gray-800 mt-4">
+                    <Video className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+                    <p className="text-gray-400 text-lg">
+                      Waiting for others to join...
+                    </p>
+                    <p className="text-gray-500 text-sm mt-2">
+                      Share the meeting link with participants
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Controls Bar */}
         {room && (
           <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 px-4 md:px-6 py-4 md:py-5 z-50">
             <div className="w-full max-w-6xl mx-auto flex items-center justify-center gap-3 md:gap-4">
-              {/* Mute/Unmute Audio */}
               <Button
                 onClick={toggleAudio}
                 size="lg"
@@ -519,7 +577,6 @@ export default function VideoMeetingPage() {
                 )}
               </Button>
 
-              {/* Turn Video On/Off */}
               <Button
                 onClick={toggleVideo}
                 size="lg"
@@ -537,7 +594,6 @@ export default function VideoMeetingPage() {
                 )}
               </Button>
 
-              {/* Leave Room */}
               <Button
                 onClick={leaveRoom}
                 size="lg"
