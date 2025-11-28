@@ -68,7 +68,7 @@ export default function VideoMeetingPage() {
 
     if (isLocal) {
       participantDiv.className =
-        "absolute bottom-4 right-4 w-48 md:w-64 rounded-lg overflow-hidden bg-gray-900 aspect-video shadow-2xl border-2 border-gray-700 z-10";
+        "absolute bottom-24 md:bottom-28 right-4 w-48 md:w-64 rounded-lg overflow-hidden bg-gray-900 aspect-video shadow-2xl border-2 border-gray-700 z-10";
     } else {
       participantDiv.className =
         "w-full h-full rounded-lg overflow-hidden bg-gray-900 aspect-video";
