@@ -1,7 +1,7 @@
 // hooks/useSelectedProfile.ts
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ChildProfile } from "@/lib/types";
 
 const ACTIVE_PROFILE_KEY = "activeProfile";
@@ -15,6 +15,12 @@ export function useSelectedProfile() {
   const [profiles, setProfiles] = useState<ChildProfile[]>([]);
   const [isChangingProfile, setIsChangingProfile] = useState(false);
 
+  // Filter out inactive profiles - only show profiles where isActive is explicitly true
+  const activeProfiles = useMemo(() => {
+    const filtered = profiles.filter((profile) => profile.isActive === true);
+    return filtered;
+  }, [profiles]);
+
   // Function to load profiles from localStorage
   const loadProfiles = () => {
     if (typeof window === "undefined") return;
@@ -26,7 +32,14 @@ export function useSelectedProfile() {
     if (storedProfiles) {
       try {
         const profilesData = JSON.parse(storedProfiles);
-        setProfiles(profilesData);
+        // Ensure all profiles have isActive property set correctly
+        const normalizedProfiles = profilesData.map(
+          (profile: ChildProfile) => ({
+            ...profile,
+            isActive: profile.isActive !== undefined ? profile.isActive : true, // Default to true if not set
+          })
+        );
+        setProfiles(normalizedProfiles);
       } catch (e) {
         console.error("Error parsing profiles", e);
       }
@@ -45,13 +58,34 @@ export function useSelectedProfile() {
               (p: ChildProfile) => p.id === profile.id
             );
             if (updatedProfile) {
-              setActiveProfile(updatedProfile);
-              // Update activeProfile in localStorage with the updated data
-              localStorage.setItem(
-                ACTIVE_PROFILE_KEY,
-                JSON.stringify(updatedProfile)
-              );
-              return;
+              // Check if the profile is still active (explicitly true)
+              if (updatedProfile.isActive === true) {
+                setActiveProfile(updatedProfile);
+                // Update activeProfile in localStorage with the updated data
+                localStorage.setItem(
+                  ACTIVE_PROFILE_KEY,
+                  JSON.stringify(updatedProfile)
+                );
+                return;
+              } else {
+                // Profile became inactive, switch to first active profile
+                const firstActiveProfile = profilesData.find(
+                  (p: ChildProfile) => p.isActive === true
+                );
+                if (firstActiveProfile) {
+                  setActiveProfile(firstActiveProfile);
+                  localStorage.setItem(
+                    ACTIVE_PROFILE_KEY,
+                    JSON.stringify(firstActiveProfile)
+                  );
+                  return;
+                } else {
+                  // No active profiles, clear active profile
+                  setActiveProfile(null);
+                  localStorage.removeItem(ACTIVE_PROFILE_KEY);
+                  return;
+                }
+              }
             } else if (
               profilesData.some((p: ChildProfile) => p.name === profile.name)
             ) {
@@ -59,12 +93,46 @@ export function useSelectedProfile() {
               const profileByName = profilesData.find(
                 (p: ChildProfile) => p.name === profile.name
               );
-              if (profileByName) {
+              if (profileByName && profileByName.isActive === true) {
                 setActiveProfile(profileByName);
                 localStorage.setItem(
                   ACTIVE_PROFILE_KEY,
                   JSON.stringify(profileByName)
                 );
+                return;
+              } else {
+                // Profile not found or inactive, switch to first active profile
+                const firstActiveProfile = profilesData.find(
+                  (p: ChildProfile) => p.isActive === true
+                );
+                if (firstActiveProfile) {
+                  setActiveProfile(firstActiveProfile);
+                  localStorage.setItem(
+                    ACTIVE_PROFILE_KEY,
+                    JSON.stringify(firstActiveProfile)
+                  );
+                  return;
+                } else {
+                  setActiveProfile(null);
+                  localStorage.removeItem(ACTIVE_PROFILE_KEY);
+                  return;
+                }
+              }
+            } else {
+              // Profile not found in profiles array, switch to first active profile
+              const firstActiveProfile = profilesData.find(
+                (p: ChildProfile) => p.isActive === true
+              );
+              if (firstActiveProfile) {
+                setActiveProfile(firstActiveProfile);
+                localStorage.setItem(
+                  ACTIVE_PROFILE_KEY,
+                  JSON.stringify(firstActiveProfile)
+                );
+                return;
+              } else {
+                setActiveProfile(null);
+                localStorage.removeItem(ACTIVE_PROFILE_KEY);
                 return;
               }
             }
@@ -73,8 +141,14 @@ export function useSelectedProfile() {
           }
         }
 
-        // If no profiles data or profile not found in profiles, use stored profile directly
-        setActiveProfile(profile);
+        // If no profiles data, use stored profile directly (but check if it's active)
+        if (profile.isActive === true) {
+          setActiveProfile(profile);
+        } else {
+          // Stored profile is inactive, clear it
+          setActiveProfile(null);
+          localStorage.removeItem(ACTIVE_PROFILE_KEY);
+        }
       } catch (e) {
         console.error("Error parsing active profile", e);
       }
@@ -96,7 +170,10 @@ export function useSelectedProfile() {
     if (typeof window !== "undefined") {
       // Handle same-tab updates via custom event
       const handleProfilesUpdate = () => {
-        loadProfiles();
+        // Use setTimeout to ensure localStorage write has completed
+        setTimeout(() => {
+          loadProfiles();
+        }, 0);
       };
 
       // Handle active profile changes via custom event
@@ -139,8 +216,11 @@ export function useSelectedProfile() {
   }, []);
 
   const changeProfile = (profileName: string) => {
-    const profile = profiles.find((p: ChildProfile) => p.name === profileName);
-    if (profile) {
+    // Only allow changing to active profiles
+    const profile = activeProfiles.find(
+      (p: ChildProfile) => p.name === profileName
+    );
+    if (profile && profile.isActive === true) {
       setIsChangingProfile(true);
       setActiveProfile(profile);
       if (typeof window !== "undefined") {
@@ -163,7 +243,7 @@ export function useSelectedProfile() {
     activeProfile,
     changeProfile,
     isLoaded,
-    profiles,
+    profiles: activeProfiles, // Return only active profiles
     isChangingProfile,
   };
 }

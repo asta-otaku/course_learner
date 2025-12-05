@@ -97,7 +97,6 @@ function Page() {
       isActive: updatedProfile.isActive ?? existingProfile?.isActive ?? true,
       offerType: updatedProfile.offerType || existingProfile?.offerType || "",
       updatedAt: updatedProfile.updatedAt || new Date().toISOString(),
-      deletedAt: updatedProfile.deletedAt ?? existingProfile?.deletedAt ?? null,
       tutorId: updatedProfile.tutorId || existingProfile?.tutorId,
       parentFirstName:
         updatedProfile.parentFirstName ||
@@ -322,7 +321,7 @@ function Page() {
                       setStep(1);
                     }}
                     className={`bg-bgWhiteGray border cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 relative ${
-                      profile.deletedAt
+                      profile.isActive === false
                         ? "border-gray-300 bg-gray-50"
                         : "border-black/20"
                     }`}
@@ -343,7 +342,7 @@ function Page() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {profile.deletedAt && (
+                      {profile.isActive === false && (
                         <div className="bg-gray-50 border border-gray-200 text-gray-600 text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
                           <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse"></div>
                           <span className="font-medium">Deactivated</span>
@@ -371,7 +370,7 @@ function Page() {
 
               <div className="flex flex-col items-center gap-2">
                 {/* Status Badge for Deactivated Profiles */}
-                {isEditMode && selectedProfile?.deletedAt && (
+                {isEditMode && selectedProfile?.isActive === false && (
                   <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-2 mb-2">
                     <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
                     Profile Deactivated
@@ -489,7 +488,7 @@ function Page() {
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="text-xs font-medium text-black">
-                        {selectedProfile?.deletedAt
+                        {selectedProfile?.isActive === false
                           ? "Reactivate Account"
                           : "Deactivate Account"}
                       </div>
@@ -502,12 +501,12 @@ function Page() {
                       <AlertDialogTrigger asChild>
                         <button
                           className={`text-xs ${
-                            selectedProfile?.deletedAt
+                            selectedProfile?.isActive === false
                               ? "text-[#008000]"
                               : "text-[#FF0000]"
                           } font-semibold`}
                         >
-                          {selectedProfile?.deletedAt
+                          {selectedProfile?.isActive === false
                             ? "Restore"
                             : "Deactivate"}
                         </button>
@@ -520,7 +519,7 @@ function Page() {
                               Are you sure?
                             </AlertDialogTitle>
                             <AlertDialogDescription className="text-sm text-gray-500 text-center">
-                              {selectedProfile?.deletedAt
+                              {selectedProfile?.isActive === false
                                 ? "This action will restore your profile. You can deactivate it again later."
                                 : "This action will deactivate your profile. You can restore it later."}
                             </AlertDialogDescription>
@@ -529,26 +528,61 @@ function Page() {
                         <AlertDialogFooter className="grid grid-cols-1 gap-1.5 mt-3">
                           <AlertDialogAction
                             className={`${
-                              selectedProfile?.deletedAt
+                              selectedProfile?.isActive === false
                                 ? "bg-[#008000] hover:bg-[#006600]"
                                 : "bg-[#FF0000] hover:bg-[#e60000]"
                             } text-white rounded-full w-full py-2 text-sm font-medium`}
                             onClick={async () => {
+                              const willDeactivate =
+                                selectedProfile.isActive === true;
                               const res = await patchChildProfile({
                                 id: selectedProfile.id,
-                                deactivate: !selectedProfile.deletedAt,
+                                deactivate: willDeactivate,
                               });
                               if (res.status === 200) {
-                                // Update localStorage with the updated profile
-                                if (res.data?.data) {
-                                  updateLocalStorageProfiles(
-                                    res.data.data as any
-                                  );
-                                  // Dispatch event to notify other components
-                                  window.dispatchEvent(
-                                    new CustomEvent("childProfilesUpdate")
-                                  );
+                                // The API response may not include data, so we need to update based on the action
+                                // Get the current profile from localStorage to update it
+                                const storedProfiles =
+                                  localStorage.getItem("childProfiles");
+                                let profileToUpdate = selectedProfile;
+
+                                if (storedProfiles) {
+                                  try {
+                                    const profilesData: ChildProfile[] =
+                                      JSON.parse(storedProfiles);
+                                    const existingProfile = profilesData.find(
+                                      (p) => p.id === selectedProfile.id
+                                    );
+                                    if (existingProfile) {
+                                      profileToUpdate = existingProfile;
+                                    }
+                                  } catch (error) {
+                                    console.error(
+                                      "Error parsing profiles:",
+                                      error
+                                    );
+                                  }
                                 }
+
+                                // Create updated profile data with the new isActive value
+                                // Use API response data if available, otherwise use existing profile
+                                const updatedProfileData = res.data?.data
+                                  ? {
+                                      ...res.data.data,
+                                      isActive: !willDeactivate, // Explicitly set based on action
+                                    }
+                                  : {
+                                      ...profileToUpdate,
+                                      isActive: !willDeactivate, // Explicitly set based on action
+                                    };
+
+                                updateLocalStorageProfiles(updatedProfileData);
+
+                                // Dispatch event to notify other components
+                                window.dispatchEvent(
+                                  new CustomEvent("childProfilesUpdate")
+                                );
+
                                 toast.success(res.data.message);
                                 setStep(0);
                               }
@@ -556,7 +590,7 @@ function Page() {
                           >
                             {isPatching ? (
                               <Loader className="w-4 h-4 animate-spin" />
-                            ) : selectedProfile?.deletedAt ? (
+                            ) : selectedProfile?.isActive === false ? (
                               "Restore Profile"
                             ) : (
                               "Deactivate Profile"
