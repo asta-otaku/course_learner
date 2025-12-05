@@ -359,45 +359,6 @@ export const convertDuration = (progress: number, duration: number) => {
   }
 };
 
-function makeQuestions(n: number): Quiz["questions"] {
-  return Array.from({ length: n }, (_, i) => {
-    // For demonstration, mark every 3rd question as fill-in-blank:
-    const idx = i + 1;
-    const isBlank = idx % 3 === 0;
-
-    if (isBlank) {
-      return {
-        question: `Sample FILL-IN question ${idx}: Type the answer for ${idx}.`,
-        isFillInBlank: true,
-      };
-    } else {
-      return {
-        question: `Sample MCQ question ${idx}: What is the answer to question ${idx}?`,
-        options: [
-          `Option ${idx}.A`,
-          `Option ${idx}.B`,
-          `Option ${idx}.C`,
-          `Option ${idx}.D`,
-        ],
-      };
-    }
-  });
-}
-
-// helper to pick the “A” option as correct for each
-function makeAnswers(n: number): Array<string> {
-  return Array.from({ length: n }, (_, i) => {
-    const idx = i + 1;
-    if (idx % 3 === 0) {
-      return "test answer";
-    } else {
-      return `Option ${i + 1}.A`;
-    }
-  });
-}
-
-// lib/utils.ts
-// lib/utils.ts
 export function slugify(str: string) {
   return str
     .toLowerCase()
@@ -417,110 +378,6 @@ export function getCurrentTopic(course: Course): {
   const safeIdx = idx > maxIdx ? maxIdx : idx;
   return course.topics[safeIdx];
 }
-
-export const dummyCurriculum = [
-  { name: "UK National Curriculum", value: "uk" },
-  { name: "US Common Core Standards", value: "us" },
-  { name: "International Baccalaureate", value: "ib" },
-  { name: "Cambridge International", value: "cambridge" },
-  { name: "Australian Curriculum", value: "australia" },
-  { name: "Indian CBSE Curriculum", value: "cbse" },
-];
-
-export const dummyQuizzes: Quiz[] = [
-  {
-    title: "Quiz 1",
-    attempts: [{ label: "Attempt 1", date: "20-10-2025", score: 62 }],
-    questions: makeQuestions(10),
-    correctAnswers: makeAnswers(10),
-  },
-  {
-    title: "Quiz 2",
-    attempts: [
-      { label: "Attempt 1", date: "20-10-2025", score: 62 },
-      { label: "Attempt 2", date: "20-10-2025", score: 78 },
-      { label: "Attempt 3", date: "20-10-2025", score: 85 },
-    ],
-    questions: makeQuestions(12),
-    correctAnswers: makeAnswers(12),
-  },
-  {
-    title: "Quiz 3",
-    attempts: [],
-    questions: makeQuestions(8),
-    correctAnswers: makeAnswers(8),
-  },
-];
-
-export const dummyVideoTopics: VideoTopic[] = [
-  {
-    title: "Mathematics",
-    image: algebra,
-    description: "Learn the basics of addition and subtraction.",
-    subtopics: [
-      { name: "Algebra Basics", status: "complete" },
-      { name: "Simple Subtraction", status: "current" },
-      { name: "Word Problems", status: "incomplete" },
-    ],
-  },
-  {
-    title: "Multiplication & Division",
-    image: measurement,
-    description: "Master multiplication and division techniques.",
-    subtopics: [
-      { name: "Times Tables", status: "complete" },
-      { name: "Long Division", status: "complete" },
-      { name: "Word Problems", status: "incomplete" },
-    ],
-  },
-  {
-    title: "Fractions",
-    image: ratio,
-    description: "Understand fractions and their applications.",
-    subtopics: [
-      { name: "Simplifying Fractions", status: "complete" },
-      { name: "Adding Fractions", status: "current" },
-      { name: "Mixed Numbers", status: "incomplete" },
-    ],
-  },
-  {
-    title: "Decimals",
-    image: ans,
-    description: "Work with decimals in various contexts.",
-    subtopics: [
-      { name: "Decimal Addition", status: "current" },
-      { name: "Decimal Multiplication", status: "incomplete" },
-      { name: "Rounding Decimals", status: "incomplete" },
-    ],
-  },
-  {
-    title: "Geometry",
-    image: algebra,
-    description: "Explore shapes, angles, and measurements.",
-    subtopics: [
-      { name: "Triangles", status: "incomplete" },
-      { name: "Circles", status: "incomplete" },
-      { name: "Perimeter & Area", status: "current" },
-    ],
-  },
-  {
-    title: "Angles",
-    image: algebra,
-    description: "Dive deep into the world of angles and their properties.",
-    subtopics: [
-      { name: "Acute Angles", status: "incomplete" },
-      { name: "Obtuse Angles", status: "incomplete" },
-      { name: "Right Angles", status: "incomplete" },
-      { name: "Straight Angles", status: "incomplete" },
-      { name: "Reflex Angles", status: "incomplete" },
-      { name: "Complementary Angles", status: "incomplete" },
-      { name: "Supplementary Angles", status: "incomplete" },
-      { name: "Angles in a Triangle", status: "incomplete" },
-      { name: "Angles in a Quadrilateral", status: "incomplete" },
-      { name: "Angles on Parallel Lines", status: "incomplete" },
-    ],
-  },
-];
 
 export function generateHomeworkWithStatus(
   statuses: readonly ["TO-DO", "SUBMITTED", "DONE AND MARKED"]
@@ -655,39 +512,6 @@ export const formatDateString = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-export const chats = [
-  {
-    id: "tutor",
-    name: "Mr. Prosper Awoniyi",
-    role: "Math Tutor",
-    avatar: "/api/placeholder/50/50",
-    lastMessage: "I've shared the study materials",
-    lastTime: "10:32 AM",
-    unread: 2,
-    online: true,
-  },
-  {
-    id: "student1",
-    name: "Sarah Johnson",
-    role: "Biology Student",
-    avatar: "/api/placeholder/50/50",
-    lastMessage: "Thank you for the lesson!",
-    lastTime: "9:45 AM",
-    unread: 0,
-    online: false,
-  },
-  {
-    id: "student2",
-    name: "Michael Chen",
-    role: "Physics Student",
-    avatar: "/api/placeholder/50/50",
-    lastMessage: "When is our next session?",
-    lastTime: "Yesterday",
-    unread: 1,
-    online: true,
-  },
-];
-
 export const tutorHomeworkMockData = [
   {
     student: "Dean Henderson",
@@ -810,14 +634,6 @@ export const generateStudentResponse = (tutorName: string, userMessage: string):
   
   return responses[Math.floor(Math.random() * responses.length)];
 };
-
-export const timeSlots = [
-  { id: "4-5", label: "4-5PM", value: "4:00-5:00PM" },
-  { id: "5-6", label: "5-6PM", value: "5:00-6:00PM" },
-  { id: "6-7", label: "6-7PM", value: "6:00-7:00PM" },
-];
-
-
 
 // Dummy data for all code requests
 export const allCodeRequests = [

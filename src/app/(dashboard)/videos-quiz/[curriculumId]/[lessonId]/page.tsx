@@ -160,7 +160,12 @@ export default function LessonPage() {
           {videos.length > 0 ? (
             <div className="space-y-6">
               {videos.map((v, idx) => (
-                <div key={idx} className="bg-gray-100 rounded-xl min-h-[70vh]">
+                <div
+                  key={idx}
+                  className="bg-gray-100 rounded-xl min-h-[70vh] select-none"
+                  onContextMenu={(e) => e.preventDefault()}
+                  onDragStart={(e) => e.preventDefault()}
+                >
                   <video
                     ref={(el) => {
                       videoRefs.current[idx] = el;
@@ -168,7 +173,9 @@ export default function LessonPage() {
                     }}
                     src={v?.playbackUrl || ""}
                     controls
-                    className="w-full h-full min-h-[70vh] object-contain rounded-lg"
+                    controlsList="nodownload nofullscreen noremoteplayback"
+                    disablePictureInPicture
+                    className="w-full h-full min-h-[70vh] object-contain rounded-lg pointer-events-auto"
                     preload="auto"
                     onLoadedMetadata={(e) => {
                       const vid = e.currentTarget;
@@ -197,6 +204,7 @@ export default function LessonPage() {
                         watchedPosition,
                       });
                     }}
+                    onContextMenu={(e) => e.preventDefault()}
                   >
                     Your browser does not support the video tag.
                   </video>

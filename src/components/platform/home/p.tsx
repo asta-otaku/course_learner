@@ -3,11 +3,11 @@
 import React, { useMemo } from "react";
 import profileIcon from "@/assets/profileIcon.svg";
 import Image from "next/image";
-import { courses } from "@/lib/utils";
 import Streak from "./streaks";
 import LearningCard, { ProgressCard } from "./learningCard";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
 import { useGetLibrary, useGetChildLessons } from "@/lib/api/queries";
+import ProfileLoader from "../profile-loader";
 import algebra from "@/assets/algebra.png";
 import measurement from "@/assets/measurement.png";
 import ratio from "@/assets/ratio.png";
@@ -15,8 +15,13 @@ import ratio from "@/assets/ratio.png";
 const availableImages = [algebra, measurement, ratio];
 
 function Home() {
-  const { activeProfile, changeProfile, isLoaded, profiles } =
-    useSelectedProfile();
+  const {
+    activeProfile,
+    changeProfile,
+    isLoaded,
+    profiles,
+    isChangingProfile,
+  } = useSelectedProfile();
 
   const { data: library } = useGetLibrary(activeProfile?.id || "");
 
@@ -121,21 +126,23 @@ function Home() {
   );
 
   return (
-    <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
-      {renderHeader()}
+    <>
+      {isChangingProfile && <ProfileLoader />}
+      <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
+        {renderHeader()}
 
-      <div className="my-8">
-        <div>
-          <h1 className="text-textGray font-medium md:text-lg lg:text-xl capitalize">
-            continue Learning
-          </h1>
-          <span className="text-xs text-textSubtitle">
-            We recommend the following baseline tests.
-          </span>
-        </div>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {allLessons.length > 0
-            ? allLessons.map((lesson, index) => (
+        <div className="my-8">
+          <div>
+            <h1 className="text-textGray font-medium md:text-lg lg:text-xl capitalize">
+              continue Learning
+            </h1>
+            <span className="text-xs text-textSubtitle">
+              We recommend the following baseline tests.
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {allLessons.length > 0 ? (
+              allLessons.map((lesson, index) => (
                 <LearningCard
                   key={lesson.id || index}
                   course={{
@@ -151,42 +158,45 @@ function Home() {
                   lesson={lesson}
                 />
               ))
-            : curriculaAsCourses.length > 0
-              ? curriculaAsCourses.map((course, index) => (
-                  <LearningCard
-                    key={course.curriculumId || index}
-                    course={course}
-                  />
-                ))
-              : courses
-                  .slice(0, 4)
-                  .map((course, index) => (
-                    <LearningCard key={index} course={course} />
-                  ))}
+            ) : curriculaAsCourses.length > 0 ? (
+              curriculaAsCourses.map((course, index) => (
+                <LearningCard
+                  key={course.curriculumId || index}
+                  course={course}
+                />
+              ))
+            ) : (
+              <div className="text-center py-8 text-textSubtitle">
+                No lessons found
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      <div>
-        <h1 className="text-textGray font-medium md:text-lg lg:text-xl capitalize">
-          Your Progress
-        </h1>
-        <span className="text-xs text-textSubtitle">
-          This shows your progress levels in each curriculum
-        </span>
-        <div className="my-8 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {curriculaAsCourses.length > 0
-            ? curriculaAsCourses.map((course, index) => (
+        <div>
+          <h1 className="text-textGray font-medium md:text-lg lg:text-xl capitalize">
+            Your Progress
+          </h1>
+          <span className="text-xs text-textSubtitle">
+            This shows your progress levels in each curriculum
+          </span>
+          <div className="my-8 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {curriculaAsCourses.length > 0 ? (
+              curriculaAsCourses.map((course, index) => (
                 <ProgressCard
                   key={course.curriculumId || index}
                   course={course}
                 />
               ))
-            : courses.map((course, index) => (
-                <ProgressCard key={index} course={course} />
-              ))}
+            ) : (
+              <div className="text-center py-8 text-textSubtitle">
+                No progress found
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 export default Home;

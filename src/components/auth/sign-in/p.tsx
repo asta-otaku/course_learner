@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { isAuthenticated } from "@/lib/services/axiosInstance";
 import { ChildProfile } from "../sign-up/profileSetup";
 import SigninForm from "./signinForm";
 import ProfileSelection from "./profileSelection";
@@ -8,6 +10,7 @@ import CreateProfile from "./createProfile";
 
 export default function Signin() {
   const [step, setStep] = useState(0);
+  const router = useRouter();
 
   const [data, setData] = useState<ChildProfile>({
     avatar: null,
@@ -23,6 +26,13 @@ export default function Signin() {
       setData((d) => ({ ...d, avatar: e.target.files![0] }));
     }
   };
+
+  // Check if user is already signed in and redirect to dashboard
+  useEffect(() => {
+    if (typeof window !== "undefined" && isAuthenticated()) {
+      router.push("/dashboard");
+    }
+  }, [router]);
 
   return (
     <div className="w-screen h-screen bg-bgWhiteGray flex justify-center items-center flex-col px-4 relative">

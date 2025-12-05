@@ -1,16 +1,36 @@
 "use client";
 
-import { courses, dummyCurriculum, dummyQuizzes, slugify } from "@/lib/utils";
+import { courses, slugify } from "@/lib/utils";
 import Link from "next/link";
 import React, { useState, useMemo, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import BackArrow from "@/assets/svgs/arrowback";
+import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useGetLibrary } from "@/lib/api/queries";
 
 export default function CourseList() {
   const pathname = usePathname();
   const router = useRouter();
-  const [selectedCurriculum, setSelectedCurriculum] = useState("uk");
+  const { activeProfile } = useSelectedProfile();
+  const { data: library } = useGetLibrary(activeProfile?.id || "");
+
+  // Transform library data to curriculum options
+  const curricula = useMemo(() => {
+    return library?.data || [];
+  }, [library?.data]);
+
+  const curriculumOptions = useMemo(() => {
+    return curricula.map((curriculum) => ({
+      name: curriculum.title,
+      value: curriculum.id,
+    }));
+  }, [curricula]);
+
+  const [selectedCurriculum, setSelectedCurriculum] = useState(
+    curriculumOptions[0]?.value || ""
+  );
+
   const pathParts = useMemo(() => pathname.split("/"), [pathname]);
   const courseSlug = pathParts[2] || "";
   const topicSlug = pathParts[3] || "";
@@ -19,6 +39,13 @@ export default function CourseList() {
     () => courses.find((c) => slugify(c.course) === courseSlug) ?? null,
     [courseSlug]
   );
+
+  // Update selected curriculum when curricula load
+  useEffect(() => {
+    if (curriculumOptions.length > 0 && !selectedCurriculum) {
+      setSelectedCurriculum(curriculumOptions[0].value);
+    }
+  }, [curriculumOptions, selectedCurriculum]);
 
   useEffect(() => {
     if (course && !topicSlug) {
@@ -53,21 +80,23 @@ export default function CourseList() {
   return (
     <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-[calc(100vh-80px)]">
       {/* Curriculum selector */}
-      <select
-        value={selectedCurriculum}
-        onChange={(e) => setSelectedCurriculum(e.target.value)}
-        className="bg-white py-2 px-4 rounded-full border-none focus:outline-none focus:ring-0 active:outline-none max-w-fit active:ring-0 my-6"
-      >
-        {dummyCurriculum.map((curr, index) => (
-          <option
-            key={index}
-            value={curr.value}
-            className="text-sm text-textSubtitle"
-          >
-            {curr.name}
-          </option>
-        ))}
-      </select>
+      {curriculumOptions.length > 0 && (
+        <select
+          value={selectedCurriculum}
+          onChange={(e) => setSelectedCurriculum(e.target.value)}
+          className="bg-white py-2 px-4 rounded-full border-none focus:outline-none focus:ring-0 active:outline-none max-w-fit active:ring-0 my-6"
+        >
+          {curriculumOptions.map((curr) => (
+            <option
+              key={curr.value}
+              value={curr.value}
+              className="text-sm text-textSubtitle"
+            >
+              {curr.name}
+            </option>
+          ))}
+        </select>
+      )}
 
       <div className="flex gap-6">
         {/* Sidebar - Hidden on mobile when topic selected */}
@@ -138,7 +167,7 @@ export default function CourseList() {
             </div>
 
             {/* Quizzes List */}
-            {(currentTopic?.quizzes || dummyQuizzes).map((quiz) => (
+            {(currentTopic?.quizzes ?? []).map((quiz) => (
               <div
                 key={quiz.title}
                 className="border rounded-2xl bg-white overflow-hidden"

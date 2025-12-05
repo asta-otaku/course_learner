@@ -1,11 +1,17 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { useProfile } from "@/context/profileContext";
-import BackArrow from "@/assets/svgs/arrowback";
-import { useGetLibrary, useGetChildLessons } from "@/lib/api/queries";
+import {
+  useGetLibrary,
+  useGetChildLessons,
+  useGetLessonById,
+  useGetQuizzesForLesson,
+} from "@/lib/api/queries";
+import { usePatchVideoLessonProgress } from "@/lib/api/mutations";
+import LessonList from "./lessonList";
+import LessonContent from "./lessonContent";
 
 interface LibraryProps {
   curriculumId?: string;
@@ -29,6 +35,19 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
     activeProfile?.id || "",
     selectedCurriculum
   );
+  const { data: lessonDetail, isLoading: lessonLoading } = useGetLessonById(
+    selectedLesson || ""
+  );
+  const { data: lessonQuizzes } = useGetQuizzesForLesson(selectedLesson || "");
+
+  // Progress patch mutation (child video progress)
+  const { mutate: patchProgress } = usePatchVideoLessonProgress(
+    selectedLesson || "",
+    activeProfile?.id || ""
+  );
+
+  // Track last sent progress for throttling
+  const lastSentRef = useRef<number>(0);
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -54,6 +73,60 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
       (lesson) => lesson.id === selectedLesson
     );
   }, [selectedLesson, selectedCurriculum, selectedCurriculumLessons]);
+
+  // Get lesson data from useGetLessonById
+  const lessonData = lessonDetail?.data;
+  const quizzes = lessonQuizzes?.data || [];
+
+  // Get curriculum progress
+  const curriculumProgress = useMemo(() => {
+    return (library?.data || []).find((c: any) => c.id === selectedCurriculum)
+      ?.progress as
+      | { watchedVideoDuration?: number; isCompleted?: boolean }
+      | undefined;
+  }, [library?.data, selectedCurriculum]);
+
+  const isCompleted = Boolean(curriculumProgress?.isCompleted);
+  const resumePositionSec = Math.max(
+    0,
+    Math.floor((curriculumProgress?.watchedVideoDuration as number) || 0)
+  );
+
+  // Extract videos from lesson data
+  const videos = useMemo(() => {
+    return ((lessonData as any)?.videos || []) as Array<{
+      playbackUrl?: string;
+      title?: string;
+      fileName?: string;
+    }>;
+  }, [lessonData]);
+
+  const maybeSendProgress = (
+    video: HTMLVideoElement | null,
+    force?: boolean
+  ) => {
+    if (!video || !activeProfile?.id || !selectedLesson) return;
+    if (isCompleted) return;
+    const now = Date.now();
+    if (!force && now - lastSentRef.current < 2000) return; // throttle ~2s
+    const watchedPosition = Math.max(0, Math.floor(video.currentTime || 0));
+    lastSentRef.current = now;
+    patchProgress({ childId: activeProfile.id, watchedPosition });
+  };
+
+  const handleVideoEnd = (watchedPosition: number) => {
+    if (!activeProfile?.id || isCompleted) return;
+    patchProgress({ childId: activeProfile.id, watchedPosition });
+  };
+
+  const handleSelectLesson = (lessonId: string) => {
+    setSelectedLesson(lessonId);
+  };
+
+  const handleBackToLessons = () => {
+    setSelectedLesson("");
+    router.push(`/library/${selectedCurriculum}`);
+  };
 
   // Handle URL parameters and initialize selections
   useEffect(() => {
@@ -122,11 +195,17 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
             setSelectedLesson(""); // Reset lesson when curriculum changes
             router.push(`/library/${newCurriculumId}`);
           }}
-          className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[200px]"
+          className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[200px] w-fit"
         >
-          <option value="">Select a Curriculum</option>
+          <option value="" className="text-textGray">
+            Select a Curriculum
+          </option>
           {curricula.map((curriculum, idx) => (
-            <option key={idx} value={curriculum.id}>
+            <option
+              key={idx}
+              value={curriculum.id}
+              className="text-textGray w-fit"
+            >
               {curriculum.title}
             </option>
           ))}
@@ -134,159 +213,36 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
       </div>
 
       <div className="flex gap-6">
-        {/* First Column - Lessons List (Hidden on mobile when lesson selected) */}
-        <div
-          className={`md:max-w-xs w-full border border-dashed flex flex-col max-h-[80vh] h-fit scrollbar-hide overflow-auto ${
-            selectedLesson ? "hidden md:flex" : "flex"
-          }`}
-        >
-          {selectedCurriculumLessons.map((lesson, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                setSelectedLesson(lesson.id);
-                router.push(`/library/${selectedCurriculum}/${lesson.id}`);
-              }}
-              className={`border-b last-of-type:border-none border-dashed p-4 hover:bg-[#EEEEEE]/20 w-full text-left ${
-                lesson.id === selectedLesson ? "bg-[#EEEEEE]" : "bg-white"
-              }`}
-            >
-              <span
-                className={`${
-                  lesson.id === selectedLesson
-                    ? "text-primaryBlue font-semibold"
-                    : "text-textSubtitle"
-                } font-medium text-sm md:text-base max-w-[300px] whitespace-nowrap truncate inline-block`}
-              >
-                {lesson.title}
-              </span>
-              <p className="text-textSubtitle text-sm font-inter mt-2">
-                {lesson.totalQuizzes} Quiz
-                {lesson.totalQuizzes !== 1 ? "zes" : ""}
-                {lesson.completionPercentage > 0 && (
-                  <span className="ml-2 text-primaryBlue">
-                    {lesson.completionPercentage}% Complete
-                  </span>
-                )}
-              </p>
-            </button>
-          ))}
-        </div>
+        {/* First Column - Lessons List */}
+        <LessonList
+          lessons={selectedCurriculumLessons}
+          selectedLesson={selectedLesson}
+          selectedCurriculum={selectedCurriculum}
+          onSelectLesson={handleSelectLesson}
+        />
 
-        {/* Second Column - Lesson Content (Show when lesson is selected) */}
+        {/* Second Column - Lesson Content */}
         <div
           className={`w-full flex justify-center ${
             selectedLesson ? "flex" : "hidden md:flex"
           }`}
         >
           <div className="space-y-6 max-w-2xl w-full">
-            {/* Mobile Back Button */}
-            {selectedLesson && (
-              <button
-                onClick={() => {
-                  setSelectedLesson("");
-                  router.push(`/library/${selectedCurriculum}`);
-                }}
-                className="md:hidden mb-4 text-primaryBlue font-medium flex items-center gap-2"
-              >
-                <BackArrow color="#286cff" /> Back to Lessons
-              </button>
-            )}
-
-            {!selectedLesson ? (
-              <div className="text-center py-12">
-                <p className="text-textSubtitle text-lg">
-                  Select a lesson from the left to view content
-                </p>
-              </div>
-            ) : (
-              <>
-                {/* Lesson Video Section */}
-                <div className="bg-primaryBlue rounded-2xl flex items-center gap-4 justify-between py-4 px-6">
-                  <h2 className="font-medium md:text-xl text-white">
-                    {currentLesson?.title}
-                  </h2>
-                  <Button
-                    variant="outline"
-                    className="rounded-full text-primaryBlue font-medium text-xs"
-                    onClick={() =>
-                      router.push(
-                        `/videos-quiz/${selectedCurriculum}/${currentLesson?.id}`
-                      )
-                    }
-                  >
-                    Watch Video <img src="/play.svg" alt="" />
-                  </Button>
-                </div>
-
-                {/* Lesson Progress */}
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-medium">Progress</h3>
-                    <span className="text-sm text-textSubtitle">
-                      {currentLesson?.completionPercentage}% Complete
-                    </span>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-primaryBlue h-2 rounded-full transition-all duration-300"
-                      style={{
-                        width: `${currentLesson?.completionPercentage || 0}%`,
-                      }}
-                    ></div>
-                  </div>
-
-                  {/* Lesson Details */}
-                  <div className="border rounded-2xl bg-white overflow-hidden">
-                    <div className="px-6 py-4">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-textSubtitle">
-                            Video Status:
-                          </span>
-                          <span
-                            className={`ml-2 ${currentLesson?.videoCompleted ? "text-green-600" : "text-gray-600"}`}
-                          >
-                            {currentLesson?.videoCompleted
-                              ? "Completed"
-                              : "Not Started"}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-textSubtitle">Quizzes:</span>
-                          <span className="ml-2 text-primaryBlue">
-                            {currentLesson?.quizzesPassed}/
-                            {currentLesson?.totalQuizzes} Passed
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-textSubtitle">
-                            Watched Position:
-                          </span>
-                          <span className="ml-2 text-gray-600">
-                            {Math.round(currentLesson?.watchedPosition || 0)}s
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-textSubtitle">
-                            Lesson Status:
-                          </span>
-                          <span
-                            className={`ml-2 ${currentLesson?.lessonCompleted ? "text-green-600" : "text-gray-600"}`}
-                          >
-                            {currentLesson?.lessonCompleted
-                              ? "Completed"
-                              : "In Progress"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+            <LessonContent
+              selectedLesson={selectedLesson}
+              selectedCurriculum={selectedCurriculum}
+              lessonLoading={lessonLoading}
+              lessonData={lessonData || null}
+              currentLesson={currentLesson || null}
+              videos={videos}
+              quizzes={quizzes as any}
+              resumePositionSec={resumePositionSec}
+              isCompleted={isCompleted}
+              activeProfileId={activeProfile?.id}
+              onProgress={maybeSendProgress}
+              onVideoEnd={handleVideoEnd}
+              onBack={handleBackToLessons}
+            />
           </div>
         </div>
       </div>

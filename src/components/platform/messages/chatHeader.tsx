@@ -20,6 +20,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const ChatHeader = ({
   activeChat,
@@ -48,39 +58,83 @@ export const ChatHeader = ({
       ? currentChat.childName
       : currentChat.tutorName
     : "";
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   if (selectionMode) {
     return (
-      <div className="bg-blue-50 border-b border-blue-200 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={onCancelSelection}
-              className="p-2 hover:bg-blue-100 rounded-full transition-colors"
-            >
-              <X className="w-5 h-5 text-blue-600" />
-            </button>
+      <>
+        <div className="bg-blue-50 border-b border-blue-200 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={onCancelSelection}
+                className="p-2 hover:bg-blue-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-blue-600" />
+              </button>
+              <div className="flex items-center space-x-2">
+                <CheckSquare className="w-5 h-5 text-blue-600" />
+                <span className="font-semibold text-blue-900">
+                  {selectedCount} message{selectedCount !== 1 ? "s" : ""}{" "}
+                  selected
+                </span>
+              </div>
+            </div>
+
             <div className="flex items-center space-x-2">
-              <CheckSquare className="w-5 h-5 text-blue-600" />
-              <span className="font-semibold text-blue-900">
-                {selectedCount} message{selectedCount !== 1 ? "s" : ""} selected
-              </span>
+              {selectedCount > 0 && (
+                <button
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete ({selectedCount})</span>
+                </button>
+              )}
             </div>
           </div>
-
-          <div className="flex items-center space-x-2">
-            {selectedCount > 0 && (
-              <button
-                onClick={onDeleteSelected}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete ({selectedCount})</span>
-              </button>
-            )}
-          </div>
         </div>
-      </div>
+
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Messages?</AlertDialogTitle>
+              <AlertDialogDescription>
+                <div className="space-y-2">
+                  <p>
+                    Are you sure you want to delete {selectedCount} message
+                    {selectedCount !== 1 ? "s" : ""}?
+                  </p>
+                  <p className="font-semibold text-amber-600">
+                    ⚠️ Warning: This will delete the message
+                    {selectedCount !== 1 ? "s" : ""} for both you and{" "}
+                    {isTutorMode ? "the student" : "the tutor"}. This action
+                    cannot be undone.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  // Prevent default form submission if any
+                  e.preventDefault();
+                  // Call the delete function
+                  if (onDeleteSelected) {
+                    onDeleteSelected();
+                  }
+                  // Close the dialog
+                  setShowDeleteDialog(false);
+                }}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete Messages
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
     );
   }
 
@@ -203,6 +257,7 @@ export const MessageBubble = ({
 
   const handleMessageClick = () => {
     if (selectionMode && isUser) {
+      // Toggle selection when clicking the message bubble
       if (isSelected) {
         onDeselect();
       } else {
@@ -213,8 +268,13 @@ export const MessageBubble = ({
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation(); // Prevent triggering the message click
-    // Always call onSelect since handleToggleSelection handles both add/remove logic
+    // Since both onSelect and onDeselect toggle, just call onSelect
+    // The toggle function will handle adding/removing from the set
     onSelect();
+  };
+
+  const handleCheckboxClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    e.stopPropagation(); // Prevent triggering the message click
   };
 
   return (
@@ -299,12 +359,16 @@ export const MessageBubble = ({
                   </DropdownMenu>
                 )}
                 {isUser && selectionMode && (
-                  <div className="ml-2 flex items-center">
+                  <div
+                    className="ml-2 flex items-center"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={handleCheckboxChange}
-                      className="w-4 h-4 text-blue-600 bg-white border-2 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      onClick={handleCheckboxClick}
+                      className="w-4 h-4 text-blue-600 bg-white border-2 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
                     />
                   </div>
                 )}

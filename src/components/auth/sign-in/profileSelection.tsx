@@ -79,8 +79,17 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
                       );
                       // Set flag to initialize socket
                       localStorage.setItem("initializeSocket", "true");
+                      // Dispatch event to notify profile context immediately
+                      window.dispatchEvent(
+                        new CustomEvent("activeProfileChange", {
+                          detail: profile,
+                        })
+                      );
                     }
-                    push("/dashboard");
+                    // Small delay to ensure localStorage and event are processed
+                    setTimeout(() => {
+                      push("/dashboard");
+                    }, 100);
                   }
                 }}
                 className={`
@@ -89,12 +98,12 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
                 `}
               >
                 {/* Profile image */}
-                <div className="relative w-[222px] h-[244px] avatar-dashed">
+                <div className="relative w-[222px] h-[222px]">
                   <Image
                     src={profile.avatar || profileImage}
                     alt={profile.name}
                     fill
-                    className="rounded-2xl object-cover"
+                    className="rounded-full object-contain"
                     onLoadingComplete={updateScrollButtons}
                   />
                   {isInactive && (

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -12,15 +12,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import TagIcon from "@/assets/svgs/tag";
 import { UserCircle } from "lucide-react";
 import LogoutIcon from "@/assets/svgs/logout";
+import { getTutorUser } from "@/lib/services/axiosInstance";
+import { logout } from "@/lib/services/axiosInstance";
 
 export default function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { push } = useRouter();
+  const [tutorUser, setTutorUser] = useState<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const user = getTutorUser();
+      setTutorUser(user);
+    }
+  }, []);
 
   const routes = [
     { name: "Dashboard", path: "/tutor" },
@@ -69,44 +78,54 @@ export default function Navbar() {
         <div className="flex-1" />
 
         <div className="hidden md:flex items-center gap-4">
-          <div>
-            <DropdownMenu open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-              <DropdownMenuTrigger asChild>
-                <button
-                  onClick={() => setIsProfileOpen(true)}
-                  className="p-2 text-gray-700 hover:text-blue-500 transition"
-                  aria-label="Tag menu"
-                >
-                  <TagIcon />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-60 max-h-[80vh] overflow-auto scrollbar-hide p-1 mt-1 !rounded-xl shadow-lg"
-                align="end"
-                onMouseEnter={() => setIsProfileOpen(true)}
-                onMouseLeave={() => setIsProfileOpen(false)}
+          <DropdownMenu open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center focus:outline-none cursor-pointer">
+                <div className="w-10 h-10 bg-[#D9D9D9] rounded-full flex items-center justify-center overflow-hidden cursor-pointer">
+                  <span className="text-gray-500 text-sm font-semibold">
+                    {tutorUser?.data?.data?.firstName &&
+                    tutorUser?.data?.data?.lastName
+                      ? `${tutorUser.data.data.firstName[0]}${tutorUser.data.data.lastName[0]}`
+                      : tutorUser?.data?.data?.name
+                        ? tutorUser.data.data.name
+                            .split(" ")
+                            .map((n: string) => n[0])
+                            .join("")
+                            .slice(0, 2)
+                        : tutorUser?.data?.firstName &&
+                            tutorUser?.data?.lastName
+                          ? `${tutorUser.data.firstName[0]}${tutorUser.data.lastName[0]}`
+                          : "TU"}
+                  </span>
+                </div>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-60 max-h-[80vh] overflow-auto scrollbar-hide p-1 mt-1 !rounded-xl shadow-lg"
+              align="end"
+              onMouseEnter={() => setIsProfileOpen(true)}
+              onMouseLeave={() => setIsProfileOpen(false)}
+            >
+              <DropdownMenuItem
+                onClick={() => push("/tutor/settings")}
+                className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 items-center"
               >
-                <DropdownMenuItem
-                  onClick={() => push("/tutor/settings")}
-                  className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 items-center"
-                >
-                  <UserCircle className="text-gray-400" />
-                  Account
-                </DropdownMenuItem>
+                <UserCircle className="text-gray-400" />
+                Account Settings
+              </DropdownMenuItem>
 
-                <DropdownMenuSeparator className="my-1" />
-                <DropdownMenuItem
-                  onClick={() => {
-                    push("/tutor/sign-in");
-                  }}
-                  className="px-3 py-2 text-sm cursor-pointer font-inter text-red-500 hover:bg-red-50 hover:text-red-600 rounded-sm flex gap-3 items-center"
-                >
-                  <LogoutIcon />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+              <DropdownMenuSeparator className="my-1" />
+              <DropdownMenuItem
+                onClick={() => {
+                  logout("tutor");
+                }}
+                className="px-3 py-2 text-sm cursor-pointer font-inter text-red-500 hover:bg-red-50 hover:text-red-600 rounded-sm flex gap-3 items-center"
+              >
+                <LogoutIcon />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Mobile toggle */}

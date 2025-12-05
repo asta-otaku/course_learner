@@ -39,7 +39,12 @@ function SigninForm() {
       // Set flag to initialize socket
       localStorage.setItem("initializeSocket", "true");
       toast.success(res.data.message);
-      push(`/${res.data.data.userRole}`);
+      // Redirect to /dashboard if userRole is parent, otherwise use the userRole path
+      const redirectPath =
+        res.data.data.userRole === "parent"
+          ? "/dashboard"
+          : `/${res.data.data.userRole}`;
+      push(redirectPath);
     }
   };
   return (

@@ -70,6 +70,97 @@ function Page() {
 
   const watchedName = watch("name");
 
+  // Helper function to update localStorage after profile update
+  const updateLocalStorageProfiles = (updatedProfile: any) => {
+    if (typeof window === "undefined") return;
+
+    // Get existing profile to preserve fields that might not be in the response
+    let existingProfile: ChildProfile | null = null;
+    const storedProfiles = localStorage.getItem("childProfiles");
+    if (storedProfiles) {
+      try {
+        const profilesData: ChildProfile[] = JSON.parse(storedProfiles);
+        existingProfile =
+          profilesData.find((p) => p.id === String(updatedProfile.id)) || null;
+      } catch (error) {
+        // Ignore error
+      }
+    }
+
+    // Convert DetailedChildProfile to ChildProfile format if needed
+    const profileToStore = {
+      id: String(updatedProfile.id),
+      name: updatedProfile.name,
+      year: updatedProfile.year,
+      avatar: updatedProfile.avatar || "",
+      createdAt: updatedProfile.createdAt || existingProfile?.createdAt || "",
+      isActive: updatedProfile.isActive ?? existingProfile?.isActive ?? true,
+      offerType: updatedProfile.offerType || existingProfile?.offerType || "",
+      updatedAt: updatedProfile.updatedAt || new Date().toISOString(),
+      deletedAt: updatedProfile.deletedAt ?? existingProfile?.deletedAt ?? null,
+      tutorId: updatedProfile.tutorId || existingProfile?.tutorId,
+      parentFirstName:
+        updatedProfile.parentFirstName ||
+        existingProfile?.parentFirstName ||
+        "",
+      parentLastName:
+        updatedProfile.parentLastName || existingProfile?.parentLastName || "",
+      tutorFirstName:
+        updatedProfile.tutorFirstName || existingProfile?.tutorFirstName || "",
+      tutorLastName:
+        updatedProfile.tutorLastName || existingProfile?.tutorLastName || "",
+    } as ChildProfile;
+
+    // Update childProfiles in localStorage
+    if (storedProfiles) {
+      try {
+        const profilesData: ChildProfile[] = JSON.parse(storedProfiles);
+        const updatedProfiles = profilesData.map((profile) =>
+          profile.id === profileToStore.id ? profileToStore : profile
+        );
+        localStorage.setItem("childProfiles", JSON.stringify(updatedProfiles));
+        // Dispatch event to notify other components
+        window.dispatchEvent(new CustomEvent("childProfilesUpdate"));
+      } catch (error) {
+        console.error("Error updating childProfiles in localStorage:", error);
+      }
+    }
+
+    // Update activeProfile if it's the one being updated
+    const storedActiveProfile = localStorage.getItem("activeProfile");
+    if (storedActiveProfile) {
+      try {
+        const activeProfile: ChildProfile = JSON.parse(storedActiveProfile);
+        if (activeProfile.id === profileToStore.id) {
+          localStorage.setItem("activeProfile", JSON.stringify(profileToStore));
+        }
+      } catch (error) {
+        console.error("Error updating activeProfile in localStorage:", error);
+      }
+    }
+
+    // Update user object in localStorage if it contains child profiles
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        if (
+          userData?.data?.childProfiles &&
+          Array.isArray(userData.data.childProfiles)
+        ) {
+          const updatedChildProfiles = userData.data.childProfiles.map(
+            (profile: ChildProfile) =>
+              profile.id === profileToStore.id ? profileToStore : profile
+          );
+          userData.data.childProfiles = updatedChildProfiles;
+          localStorage.setItem("user", JSON.stringify(userData));
+        }
+      } catch (error) {
+        console.error("Error updating user object in localStorage:", error);
+      }
+    }
+  };
+
   useEffect(() => {
     if (childProfiles?.data) {
       setProfiles(childProfiles.data);
@@ -144,6 +235,12 @@ function Page() {
         const res = await patchUpdateChildProfile(updateData);
 
         if (res.status === 200) {
+          // Update localStorage with the updated profile
+          if (res.data?.data) {
+            updateLocalStorageProfiles(res.data.data as any);
+            // Dispatch event to notify other components
+            window.dispatchEvent(new CustomEvent("childProfilesUpdate"));
+          }
           toast.success("Profile updated successfully!");
           setAvatarData({ avatar: null, avatarFile: null });
           setStep(0);
@@ -158,6 +255,12 @@ function Page() {
         });
 
         if (res.status === 201) {
+          // Update localStorage with the new profile
+          if (res.data?.data) {
+            updateLocalStorageProfiles(res.data.data as any);
+            // Dispatch event to notify other components
+            window.dispatchEvent(new CustomEvent("childProfilesUpdate"));
+          }
           toast.success("Profile created successfully!");
           setAvatarData({ avatar: null, avatarFile: null });
           setStep(0);
@@ -436,6 +539,16 @@ function Page() {
                                 deactivate: !selectedProfile.deletedAt,
                               });
                               if (res.status === 200) {
+                                // Update localStorage with the updated profile
+                                if (res.data?.data) {
+                                  updateLocalStorageProfiles(
+                                    res.data.data as any
+                                  );
+                                  // Dispatch event to notify other components
+                                  window.dispatchEvent(
+                                    new CustomEvent("childProfilesUpdate")
+                                  );
+                                }
                                 toast.success(res.data.message);
                                 setStep(0);
                               }
