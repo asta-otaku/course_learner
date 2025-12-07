@@ -22,6 +22,7 @@ import {
   LibraryCurriculum,
   ChildLesson,
   Analytics,
+  TutorAnalytics,
 } from "../types";
 
 // User Queries
@@ -843,6 +844,17 @@ export const useGetAnalytics = () => {
       const response = await axiosInstance.get("/analytics");
       return response.data;
     },
+  });
+};
+
+export const useGetTutorAnalytics = (tutorId: string) => {
+  return useQuery({
+    queryKey: ["tutor-analytics", tutorId],
+    queryFn: async (): Promise<APIGetResponse<TutorAnalytics>> => {
+      const response = await axiosInstance.get(`/analytics/tutor/${tutorId}`);
+      return response.data;
+    },
+    enabled: !!tutorId,
   });
 };
 

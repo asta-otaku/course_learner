@@ -2,6 +2,7 @@ import { io, Socket } from "socket.io-client";
 
 interface ActivityServerToClientEvents {
   activity: (data: any) => void;
+  studentActivity: (data: any) => void;
 }
 
 interface ActivityClientToServerEvents {

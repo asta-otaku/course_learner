@@ -796,5 +796,12 @@ export interface Analytics {
   confirmedSessions: number;
   cancelledSessions: number;
 }
+
+export interface TutorAnalytics {
+  totalStudents: number;
+  completedSessions: number;
+  confirmedSessions: number;
+  cancelledSessions: number;
+}
 // Export socket types
 export * from "./types/socket";

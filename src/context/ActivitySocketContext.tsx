@@ -25,6 +25,11 @@ export const ActivitySocketProvider: React.FC<{
   const [lastActivity, setLastActivity] = useState<any | null>(null);
 
   useEffect(() => {
+    // Check if user is a tutor
+    const isTutor =
+      typeof window !== "undefined" &&
+      window.location.pathname.startsWith("/tutor");
+
     // Initialize socket
     const activitySocket = initActivitySocket();
     setSocket(activitySocket);
@@ -37,7 +42,7 @@ export const ActivitySocketProvider: React.FC<{
       setIsConnected(true);
     };
 
-    const onDisconnect = () => {
+    const onDisconnect = (reason?: string) => {
       setIsConnected(false);
     };
 
@@ -45,16 +50,38 @@ export const ActivitySocketProvider: React.FC<{
       setLastActivity(data);
     };
 
+    const onStudentActivity = (data: any) => {
+      // Only handle studentActivity for tutors
+      if (isTutor) {
+        // Create a new object reference to ensure React detects the change
+        const activityWithId = {
+          ...data,
+          _wsId: Date.now() + Math.random(), // Unique ID to force React to see it as new
+        };
+        setLastActivity(activityWithId);
+      }
+    };
+
     // Register event listeners
     activitySocket.on("connect", onConnect);
     activitySocket.on("disconnect", onDisconnect);
-    activitySocket.on("activity", onActivity);
+
+    // Listen to different events based on user type
+    if (isTutor) {
+      activitySocket.on("studentActivity", onStudentActivity);
+    } else {
+      activitySocket.on("activity", onActivity);
+    }
 
     // Cleanup
     return () => {
       activitySocket.off("connect", onConnect);
       activitySocket.off("disconnect", onDisconnect);
-      activitySocket.off("activity", onActivity);
+      if (isTutor) {
+        activitySocket.off("studentActivity", onStudentActivity);
+      } else {
+        activitySocket.off("activity", onActivity);
+      }
       disconnectActivitySocket();
     };
   }, []);
