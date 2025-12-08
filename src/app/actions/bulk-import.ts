@@ -227,50 +227,95 @@ function transformQuestionFromTemplate(question: any): any {
     metadata: null, // Initialize metadata
   };
 
+  // Preserve image_settings if present
+  if (question.image_settings) {
+    if (!transformed.metadata) {
+      transformed.metadata = {};
+    }
+    transformed.metadata.image_settings = question.image_settings;
+  }
+
   // Transform answers based on question type
   switch (question.type) {
     case 'multiple_choice':
-      transformed.answers = [];
-      // Handle answer1, answer2, answer3, answer4 format
-      for (let i = 1; i <= 10; i++) {
-        const answerKey = `answer${i}`;
-        const correctKey = `answer${i}_correct`;
-        
-        if (question[answerKey]) {
-          transformed.answers.push({
-            content: question[answerKey],
-            is_correct: question[correctKey] || false,
-            order_index: i - 1,
-          });
+      // Handle both array format and answer1, answer2 format
+      if (question.answers && Array.isArray(question.answers)) {
+        transformed.answers = question.answers.map((a: any, index: number) => ({
+          content: a.content,
+          is_correct: a.is_correct || a.isCorrect || false,
+          explanation: a.explanation || null,
+          order_index: a.order_index !== undefined ? a.order_index : index,
+        }));
+      } else {
+        transformed.answers = [];
+        // Handle answer1, answer2, answer3, answer4 format
+        for (let i = 1; i <= 10; i++) {
+          const answerKey = `answer${i}`;
+          const correctKey = `answer${i}_correct`;
+          
+          if (question[answerKey]) {
+            transformed.answers.push({
+              content: question[answerKey],
+              is_correct: question[correctKey] || false,
+              order_index: i - 1,
+            });
+          }
         }
       }
       break;
 
     case 'true_false':
-      transformed.answers = [];
-      // Handle answer1, answer2 format for true/false
-      for (let i = 1; i <= 2; i++) {
-        const answerKey = `answer${i}`;
-        const correctKey = `answer${i}_correct`;
-        
-        if (question[answerKey]) {
-          transformed.answers.push({
-            content: question[answerKey],
-            is_correct: question[correctKey] || false,
-            order_index: i - 1,
-          });
+      // Handle both array format and answer1, answer2 format
+      if (question.answers && Array.isArray(question.answers)) {
+        transformed.answers = question.answers.map((a: any, index: number) => ({
+          content: a.content,
+          is_correct: a.is_correct || a.isCorrect || false,
+          explanation: a.explanation || null,
+          order_index: a.order_index !== undefined ? a.order_index : index,
+        }));
+      } else {
+        transformed.answers = [];
+        // Handle answer1, answer2 format for true/false
+        for (let i = 1; i <= 2; i++) {
+          const answerKey = `answer${i}`;
+          const correctKey = `answer${i}_correct`;
+          
+          if (question[answerKey]) {
+            transformed.answers.push({
+              content: question[answerKey],
+              is_correct: question[correctKey] || false,
+              order_index: i - 1,
+            });
+          }
         }
       }
       break;
 
     case 'free_text':
-      transformed.acceptedAnswers = question.accepted_answers || [];
+      // Handle accepted_answers as array of strings or objects
+      if (question.accepted_answers && Array.isArray(question.accepted_answers)) {
+        transformed.acceptedAnswers = question.accepted_answers.map((answer: any) => {
+          if (typeof answer === 'string') {
+            return {
+              content: answer,
+              grading_criteria: question.grading_criteria || null,
+            };
+          }
+          return {
+            content: answer.content,
+            grading_criteria: answer.grading_criteria || answer.gradingCriteria || question.grading_criteria || null,
+          };
+        });
+      } else {
+        transformed.acceptedAnswers = question.accepted_answers || [];
+      }
       transformed.grading_criteria = question.grading_criteria || null;
       // Ensure image_url is explicitly set for free_text
       transformed.image_url = question.image_url || null;
       break;
 
     case 'matching_pairs':
+    case 'matching':
       // Transform matching_pairs from complex object to array format
       if (question.matching_pairs && Array.isArray(question.matching_pairs)) {
         transformed.matching_pairs = question.matching_pairs.map((pair: any, index: number) => ({
@@ -283,10 +328,11 @@ function transformQuestionFromTemplate(question: any): any {
   }
 
   // Add metadata for matching questions
-  if (question.type === 'matching_pairs') {
-    transformed.metadata = {
-      matching_pairs: transformed.matching_pairs || []
-    };
+  if (question.type === 'matching_pairs' || question.type === 'matching') {
+    if (!transformed.metadata) {
+      transformed.metadata = {};
+    }
+    transformed.metadata.matching_pairs = transformed.matching_pairs || [];
   }
 
   // Ensure all required fields are explicitly set to avoid undefined

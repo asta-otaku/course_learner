@@ -77,6 +77,8 @@ export function BulkUploadDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [fileType, setFileType] = useState<"csv" | "json" | null>(null);
+  const [uploadMethod, setUploadMethod] = useState<"file" | "paste">("file");
+  const [jsonText, setJsonText] = useState<string>("");
   const [parsedQuestions, setParsedQuestions] = useState<any[]>([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [validationResult, setValidationResult] = useState<any>(null);
@@ -154,109 +156,10 @@ export function BulkUploadDialog({
   const handleFileUpload = async (file: File, type: "csv" | "json") => {
     try {
       const text = await file.text();
-      let questions: any[] = [];
-      let errors: string[] = [];
-
       if (type === "csv") {
-        const parseResult = parseCSV(text);
-        questions = parseResult.questions;
-        errors = parseResult.errors;
+        handleCSVParse(text);
       } else {
-        // For JSON, parse and validate the structure
-        try {
-          const jsonData = JSON.parse(text);
-          if (Array.isArray(jsonData)) {
-            // Direct array format
-            questions = jsonData;
-            errors = [];
-          } else if (jsonData.questions && Array.isArray(jsonData.questions)) {
-            // Nested structure format
-            questions = jsonData.questions;
-            errors = [];
-          } else {
-            questions = [];
-            errors = [
-              "Invalid JSON structure. Expected array of questions or {questions: [...]} format.",
-            ];
-          }
-        } catch (jsonError) {
-          questions = [];
-          errors = ["Invalid JSON format"];
-        }
-      }
-
-      // Transform questions to match the expected format for preview components
-      const transformedQuestions = questions.map((question) => {
-        const answers = question.answers || [];
-        const questionData: any = { ...question };
-
-        if (
-          question.type === "multiple_choice" ||
-          question.type === "true_false"
-        ) {
-          questionData.answers = answers.map((a: any) => ({
-            content: a.content,
-            isCorrect: a.isCorrect || a.is_correct, // Handle both formats
-            explanation: a.explanation,
-            orderIndex: a.orderIndex || a.order_index, // Handle both formats
-          }));
-        } else if (question.type === "free_text") {
-          // Free text questions may have multiple accepted answers
-          questionData.acceptedAnswers = answers.map((a: any) => ({
-            content: a.content,
-            gradingCriteria: a.gradingCriteria || a.grading_criteria, // Handle both formats
-          }));
-        } else if (
-          question.type === "matching_pairs" ||
-          question.type === "matching"
-        ) {
-          // Handle both matching and matching_pairs types
-          let matchingPairs = null;
-
-          // Check metadata first
-          if (question.metadata?.matchingPairs) {
-            matchingPairs = question.metadata.matchingPairs;
-          } else if (question.metadata?.matching_pairs) {
-            matchingPairs = question.metadata.matching_pairs;
-          }
-          // Check direct properties on question
-          else if (question.matchingPairs) {
-            matchingPairs = question.matchingPairs;
-          } else if (question.matching_pairs) {
-            matchingPairs = question.matching_pairs;
-          }
-          // Check answers
-          else if (answers.length > 0 && answers[0].matchingPairs) {
-            matchingPairs = answers[0].matchingPairs;
-          } else if (answers.length > 0 && answers[0].matching_pairs) {
-            matchingPairs = answers[0].matching_pairs;
-          } else {
-            console.log("No matching pairs found in any location");
-          }
-
-          if (matchingPairs) {
-            // Transform to use the interactive MatchingQuestion component format
-            questionData.type = "matching"; // Always use "matching" for the interactive component
-            questionData.matching_pairs = matchingPairs.map(
-              (pair: any, index: number) => ({
-                id: pair.left + index, // Create a unique ID for each pair
-                left: pair.left,
-                right: pair.right,
-              })
-            );
-          } else {
-            console.log("No matching pairs to transform");
-          }
-        }
-
-        return questionData;
-      });
-
-      setParsedQuestions(transformedQuestions);
-      setParseErrors(errors);
-
-      if (transformedQuestions.length > 0 && errors.length === 0) {
-        setActiveTab("preview");
+        handleJSONParse(text);
       }
     } catch (error) {
       toast.error(
@@ -265,8 +168,173 @@ export function BulkUploadDialog({
     }
   };
 
+  const handleCSVParse = (text: string) => {
+    try {
+      const parseResult = parseCSV(text);
+      const transformedQuestions = transformQuestionsForPreview(
+        parseResult.questions
+      );
+
+      setParsedQuestions(transformedQuestions);
+      setParseErrors(parseResult.errors);
+
+      if (transformedQuestions.length > 0 && parseResult.errors.length === 0) {
+        setActiveTab("preview");
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to parse CSV"
+      );
+    }
+  };
+
+  const handleJSONParse = (text: string) => {
+    try {
+      let questions: any[] = [];
+      let errors: string[] = [];
+
+      // For JSON, parse and validate the structure
+      try {
+        const jsonData = JSON.parse(text);
+        if (Array.isArray(jsonData)) {
+          // Direct array format
+          questions = jsonData;
+          errors = [];
+        } else if (jsonData.questions && Array.isArray(jsonData.questions)) {
+          // Nested structure format
+          questions = jsonData.questions;
+          errors = [];
+        } else {
+          questions = [];
+          errors = [
+            "Invalid JSON structure. Expected array of questions or {questions: [...]} format.",
+          ];
+        }
+      } catch (jsonError) {
+        questions = [];
+        errors = ["Invalid JSON format"];
+      }
+
+      // Transform questions to match the expected format for preview components
+      const transformedQuestions = transformQuestionsForPreview(questions);
+
+      setParsedQuestions(transformedQuestions);
+      setParseErrors(errors);
+      setJsonText(text);
+
+      if (transformedQuestions.length > 0 && errors.length === 0) {
+        setActiveTab("preview");
+        toast.success(
+          `Successfully parsed ${transformedQuestions.length} questions`
+        );
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to parse JSON"
+      );
+    }
+  };
+
+  const transformQuestionsForPreview = (questions: any[]) => {
+    return questions.map((question) => {
+      const questionData: any = { ...question };
+
+      // Handle free_text questions with accepted_answers array
+      if (question.type === "free_text") {
+        // If accepted_answers is already an array of strings, keep it
+        if (Array.isArray(question.accepted_answers)) {
+          questionData.acceptedAnswers = question.accepted_answers.map(
+            (answer: any) => {
+              if (typeof answer === "string") {
+                return {
+                  content: answer,
+                  gradingCriteria: question.grading_criteria || null,
+                };
+              }
+              return {
+                content: answer.content,
+                gradingCriteria:
+                  answer.grading_criteria ||
+                  answer.gradingCriteria ||
+                  question.grading_criteria ||
+                  null,
+              };
+            }
+          );
+        }
+        // Keep grading_criteria at question level
+        questionData.grading_criteria =
+          question.grading_criteria || question.gradingCriteria || null;
+      }
+
+      // Handle multiple_choice and true_false with answers array
+      else if (
+        question.type === "multiple_choice" ||
+        question.type === "true_false"
+      ) {
+        const answers = question.answers || [];
+        questionData.answers = answers.map((a: any) => ({
+          content: a.content,
+          is_correct: a.is_correct || a.isCorrect, // Handle both formats, use snake_case
+          explanation: a.explanation,
+          order_index: a.order_index || a.orderIndex, // Handle both formats, use snake_case
+        }));
+      }
+
+      // Handle matching questions
+      else if (
+        question.type === "matching_pairs" ||
+        question.type === "matching"
+      ) {
+        let matchingPairs = null;
+        const answers = question.answers || [];
+
+        // Check metadata first
+        if (question.metadata?.matchingPairs) {
+          matchingPairs = question.metadata.matchingPairs;
+        } else if (question.metadata?.matching_pairs) {
+          matchingPairs = question.metadata.matching_pairs;
+        }
+        // Check direct properties on question
+        else if (question.matchingPairs) {
+          matchingPairs = question.matchingPairs;
+        } else if (question.matching_pairs) {
+          matchingPairs = question.matching_pairs;
+        }
+        // Check answers
+        else if (answers.length > 0 && answers[0].matchingPairs) {
+          matchingPairs = answers[0].matchingPairs;
+        } else if (answers.length > 0 && answers[0].matching_pairs) {
+          matchingPairs = answers[0].matching_pairs;
+        }
+
+        if (matchingPairs) {
+          // Transform to use the interactive MatchingQuestion component format
+          questionData.type = "matching"; // Always use "matching" for the interactive component
+          questionData.matching_pairs = matchingPairs.map(
+            (pair: any, index: number) => ({
+              id: pair.left + index, // Create a unique ID for each pair
+              left: pair.left,
+              right: pair.right,
+            })
+          );
+        }
+      }
+
+      // Preserve image_url and image_settings
+      if (question.image_url) {
+        questionData.image_url = question.image_url;
+      }
+      if (question.image_settings) {
+        questionData.image_settings = question.image_settings;
+      }
+
+      return questionData;
+    });
+  };
+
   const handleImport = async () => {
-    if (parsedQuestions.length === 0 || !file || !fileType) return;
+    if (parsedQuestions.length === 0) return;
 
     setImporting(true);
     setImportProgress(0);
@@ -274,15 +342,41 @@ export function BulkUploadDialog({
     try {
       let result;
 
-      if (fileType === "csv") {
+      // Use file upload method if file exists and using CSV
+      if (file && fileType === "csv") {
         result = await csvImportMutation.mutateAsync({
           file,
           addToQuizId: addToExistingQuiz ? targetQuizId : undefined,
           folderId: targetFolderId || undefined,
         });
-      } else {
+      }
+      // Use file upload for JSON files OR pasted JSON
+      else if (fileType === "json" || jsonText) {
+        // Transform image_url to image for backend compatibility
+        const transformedQuestions = parsedQuestions.map((q) => {
+          const transformed = { ...q };
+
+          // Rename image_url to image if it exists
+          if (transformed.image_url) {
+            transformed.image = transformed.image_url;
+            delete transformed.image_url;
+          }
+
+          return transformed;
+        });
+
+        // Create JSON string with transformed questions
+        const jsonContent = JSON.stringify(transformedQuestions, null, 2);
+
+        // If pasted JSON, convert transformed text to File object
+        const jsonFile =
+          file ||
+          new File([jsonContent], "pasted-questions.json", {
+            type: "application/json",
+          });
+
         result = await jsonImportMutation.mutateAsync({
-          file,
+          file: jsonFile,
           addToQuizId: addToExistingQuiz ? targetQuizId : undefined,
           folderId: targetFolderId || undefined,
         });
@@ -290,7 +384,7 @@ export function BulkUploadDialog({
 
       setImportProgress(100);
 
-      // For now, just show success and move to results
+      // Handle result (same for all import types)
       setImportResult({
         success: parsedQuestions.length,
         failed: 0,
@@ -495,6 +589,8 @@ export function BulkUploadDialog({
   const resetDialog = () => {
     setFile(null);
     setFileType(null);
+    setUploadMethod("file");
+    setJsonText("");
     setParsedQuestions([]);
     setParseErrors([]);
     setValidationResult(null);
@@ -539,9 +635,18 @@ export function BulkUploadDialog({
   const handleSaveEditedQuestion = (updatedQuestion: any) => {
     if (editingQuestion === null) return;
 
+    // Get the original question to preserve image settings
+    const originalQuestion = parsedQuestions[editingQuestion];
+
     // Apply the same transformation as in file upload
     const answers = updatedQuestion.answers || [];
-    const questionData: any = { ...updatedQuestion };
+    const questionData: any = {
+      ...updatedQuestion,
+      // Preserve image_url and image_settings from original if not changed
+      image_url: updatedQuestion.image_url || originalQuestion.image_url,
+      image_settings:
+        updatedQuestion.image_settings || originalQuestion.image_settings,
+    };
 
     if (
       updatedQuestion.type === "multiple_choice" ||
@@ -549,9 +654,9 @@ export function BulkUploadDialog({
     ) {
       questionData.answers = answers.map((a: any) => ({
         content: a.content,
-        isCorrect: a.isCorrect || a.is_correct, // Handle both formats
+        is_correct: a.is_correct || a.isCorrect, // Handle both formats, use snake_case
         explanation: a.explanation,
-        orderIndex: a.orderIndex || a.order_index, // Handle both formats
+        order_index: a.order_index || a.orderIndex, // Handle both formats, use snake_case
       }));
     } else if (updatedQuestion.type === "free_text") {
       // Free text questions may have multiple accepted answers
@@ -577,8 +682,6 @@ export function BulkUploadDialog({
         matchingPairs = answers[0].matchingPairs;
       } else if (answers.length > 0 && answers[0].matching_pairs) {
         matchingPairs = answers[0].matching_pairs;
-      } else {
-        console.log("No matching pairs found in metadata or answers (edit)");
       }
 
       if (matchingPairs) {
@@ -591,8 +694,6 @@ export function BulkUploadDialog({
             right: pair.right,
           })
         );
-      } else {
-        console.log("No matching pairs to transform (edit)");
       }
     }
 
@@ -645,61 +746,126 @@ export function BulkUploadDialog({
           <div className="flex-1 overflow-y-auto">
             <TabsContent value="upload" className="space-y-4">
               <div className="space-y-4">
-                <div>
-                  <Label>File Upload</Label>
-                  <div className="mt-2">
-                    <Input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".csv,.json"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
-                    <Button
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full"
-                    >
-                      <Upload className="mr-2 h-4 w-4" />
-                      {file ? file.name : "Choose CSV or JSON file"}
-                    </Button>
-                  </div>
+                {/* Upload Method Selector */}
+                <div className="flex gap-2 border-b pb-2">
+                  <Button
+                    type="button"
+                    variant={uploadMethod === "file" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setUploadMethod("file")}
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload File
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={uploadMethod === "paste" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setUploadMethod("paste")}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Paste JSON
+                  </Button>
+                </div>
 
-                  {file && !validationResult && (
-                    <div className="mt-3">
+                {/* File Upload Method */}
+                {uploadMethod === "file" ? (
+                  <div>
+                    <Label>File Upload</Label>
+                    <div className="mt-2">
+                      <Input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".csv,.json"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
                       <Button
-                        onClick={handleValidateFile}
-                        disabled={isValidating}
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
                         className="w-full"
-                        variant="secondary"
                       >
-                        {isValidating ? "Validating..." : "Validate File"}
+                        <Upload className="mr-2 h-4 w-4" />
+                        {file ? file.name : "Choose CSV or JSON file"}
                       </Button>
                     </div>
-                  )}
 
-                  {validationResult && (
-                    <div className="mt-3">
-                      {validationResult.valid ? (
-                        <Alert>
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <AlertDescription className="text-green-800">
-                            File validation successful!{" "}
-                            {validationResult.questionCount} questions found.
-                          </AlertDescription>
-                        </Alert>
-                      ) : (
-                        <Alert variant="destructive">
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>
-                            Validation failed:{" "}
-                            {validationResult.errors?.join(", ")}
-                          </AlertDescription>
-                        </Alert>
-                      )}
+                    {file && !validationResult && (
+                      <div className="mt-3">
+                        <Button
+                          onClick={handleValidateFile}
+                          disabled={isValidating}
+                          className="w-full"
+                          variant="secondary"
+                        >
+                          {isValidating ? "Validating..." : "Validate File"}
+                        </Button>
+                      </div>
+                    )}
+
+                    {validationResult && (
+                      <div className="mt-3">
+                        {validationResult.valid ? (
+                          <Alert>
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <AlertDescription className="text-green-800">
+                              File validation successful!{" "}
+                              {validationResult.questionCount} questions found.
+                            </AlertDescription>
+                          </Alert>
+                        ) : (
+                          <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              Validation failed:{" "}
+                              {validationResult.errors?.join(", ")}
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Paste JSON Method */
+                  <div>
+                    <Label>Paste JSON Content</Label>
+                    <div className="mt-2">
+                      <Textarea
+                        value={jsonText}
+                        onChange={(e) => setJsonText(e.target.value)}
+                        placeholder='Paste your JSON here... Example:
+[
+  {
+    "content": "What is 2+2?",
+    "type": "multiple_choice",
+    "answers": [
+      {"content": "3", "is_correct": false},
+      {"content": "4", "is_correct": true}
+    ]
+  }
+]'
+                        className="min-h-[200px] font-mono text-xs"
+                      />
                     </div>
-                  )}
-                </div>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        onClick={() => handleJSONParse(jsonText)}
+                        disabled={!jsonText.trim()}
+                        className="flex-1"
+                      >
+                        Parse JSON
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setJsonText("")}
+                        disabled={!jsonText.trim()}
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="p-4 border rounded-lg space-y-4">
                   <div className="space-y-3">
@@ -840,13 +1006,29 @@ export function BulkUploadDialog({
                           setPreviewOpen(true);
                         }}
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          {/* Question Image Preview */}
+                          {question.image_url && (
+                            <div className="flex-shrink-0 w-20 h-20 rounded overflow-hidden border">
+                              <img
+                                src={question.image_url}
+                                alt="Question preview"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  // Hide image if it fails to load
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                            </div>
+                          )}
+
+                          <div className="flex-1 min-w-0">
                             <p className="font-medium line-clamp-2">
                               {question.content}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2">
+
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <Button
                               size="sm"
                               variant="ghost"
@@ -884,14 +1066,15 @@ export function BulkUploadDialog({
                             </Button>
                             <span
                               className={cn(
-                                "text-xs px-2 py-1 rounded-full",
+                                "text-xs px-2 py-1 rounded-full whitespace-nowrap",
                                 question.type === "multiple_choice" &&
                                   "bg-blue-100 text-blue-700",
                                 question.type === "true_false" &&
                                   "bg-green-100 text-green-700",
                                 question.type === "free_text" &&
                                   "bg-purple-100 text-purple-700",
-                                question.type === "matching_pairs" &&
+                                (question.type === "matching_pairs" ||
+                                  question.type === "matching") &&
                                   "bg-orange-100 text-orange-700"
                               )}
                             >
@@ -901,19 +1084,24 @@ export function BulkUploadDialog({
                         </div>
 
                         <div className="flex flex-wrap gap-2 text-xs">
+                          {question.image_url && (
+                            <span className="text-muted-foreground bg-blue-50 px-2 py-1 rounded">
+                              📷 Has image
+                            </span>
+                          )}
                           {question.hint && (
-                            <span className="text-muted-foreground">
-                              Has hint
+                            <span className="text-muted-foreground bg-yellow-50 px-2 py-1 rounded">
+                              💡 Has hint
                             </span>
                           )}
                           {question.correct_feedback && (
-                            <span className="text-muted-foreground">
-                              Has feedback
+                            <span className="text-muted-foreground bg-green-50 px-2 py-1 rounded">
+                              ✓ Has feedback
                             </span>
                           )}
                           {question.time_limit && (
-                            <span className="text-muted-foreground">
-                              Time limit: {question.time_limit}s
+                            <span className="text-muted-foreground bg-gray-50 px-2 py-1 rounded">
+                              ⏱ {question.time_limit}s
                             </span>
                           )}
                         </div>

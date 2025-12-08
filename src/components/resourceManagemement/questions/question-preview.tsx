@@ -164,22 +164,39 @@ export function QuestionPreview({
                         className={`p-3 rounded-lg border transition-colors ${
                           selectedAnswer === index.toString()
                             ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50"
+                            : showAnswers && answer.is_correct
+                              ? "border-green-200 bg-green-50"
+                              : showAnswers && !answer.is_correct
+                                ? "border-red-100 bg-red-50/50"
+                                : "border-border hover:border-primary/50"
                         }`}
                       >
-                        <MathPreview
-                          content={answer.content}
-                          renderMarkdown={true}
-                        />
-                        {showAnswers && (
-                          <div className="mt-2 flex items-center gap-2">
-                            {answer.is_correct ? (
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <XCircle className="h-4 w-4 text-red-600" />
-                            )}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <MathPreview
+                              content={answer.content}
+                              renderMarkdown={true}
+                            />
                           </div>
-                        )}
+                          {showAnswers && (
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {answer.is_correct ? (
+                                <Badge className="bg-green-600 hover:bg-green-700 text-white">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Correct
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="border-red-600 text-red-600"
+                                >
+                                  <XCircle className="h-3 w-3 mr-1" />
+                                  Incorrect
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </Label>
                   </div>
@@ -210,7 +227,11 @@ export function QuestionPreview({
                         className={`p-4 rounded-lg border text-center transition-colors ${
                           selectedAnswer === index.toString()
                             ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50"
+                            : showAnswers && answer.is_correct
+                              ? "border-green-200 bg-green-50"
+                              : showAnswers && !answer.is_correct
+                                ? "border-red-100 bg-red-50/50"
+                                : "border-border hover:border-primary/50"
                         }`}
                       >
                         <div className="font-medium">
@@ -219,8 +240,23 @@ export function QuestionPreview({
                             renderMarkdown={true}
                           />
                         </div>
-                        {showAnswers && answer.is_correct && (
-                          <CheckCircle className="h-4 w-4 text-green-600 mx-auto mt-2" />
+                        {showAnswers && (
+                          <div className="mt-2 flex items-center justify-center">
+                            {answer.is_correct ? (
+                              <Badge className="bg-green-600 hover:bg-green-700 text-white">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Correct
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="border-red-600 text-red-600"
+                              >
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Incorrect
+                              </Badge>
+                            )}
+                          </div>
                         )}
                       </div>
                     </Label>
@@ -242,27 +278,37 @@ export function QuestionPreview({
                 rows={3}
               />
               {showAnswers && (question as any).acceptedAnswers && (
-                <div className="mt-4 p-4 bg-muted rounded-lg">
-                  <h4 className="font-medium mb-2">Accepted Answers:</h4>
-                  <ul className="list-disc list-inside space-y-1">
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <h4 className="font-medium text-green-900">
+                      Accepted Answers:
+                    </h4>
+                  </div>
+                  <div className="space-y-2">
                     {(question as any).acceptedAnswers.map(
                       (answer: any, index: number) => (
-                        <li key={index} className="text-sm">
-                          <MathPreview
-                            content={answer.content}
-                            renderMarkdown={true}
-                            className="inline"
-                          />
-                          {answer.grading_criteria && (
-                            <span className="text-muted-foreground">
-                              {" "}
-                              ({answer.grading_criteria})
-                            </span>
-                          )}
-                        </li>
+                        <div
+                          key={index}
+                          className="flex items-start gap-2 bg-white p-2 rounded border border-green-100"
+                        >
+                          <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 text-sm">
+                            <MathPreview
+                              content={answer.content}
+                              renderMarkdown={true}
+                              className="inline font-medium"
+                            />
+                            {answer.grading_criteria && (
+                              <div className="text-muted-foreground text-xs mt-1">
+                                Criteria: {answer.grading_criteria}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       )
                     )}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
@@ -322,27 +368,37 @@ export function QuestionPreview({
                 rows={5}
               />
               {showAnswers && (question as any).acceptedAnswers && (
-                <div className="mt-4 p-4 bg-muted rounded-lg">
-                  <h4 className="font-medium mb-2">Accepted Answers:</h4>
-                  <ul className="list-disc list-inside space-y-1">
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <h4 className="font-medium text-green-900">
+                      Accepted Answers:
+                    </h4>
+                  </div>
+                  <div className="space-y-2">
                     {(question as any).acceptedAnswers.map(
                       (answer: any, index: number) => (
-                        <li key={index} className="text-sm">
-                          <MathPreview
-                            content={answer.content}
-                            renderMarkdown={true}
-                            className="inline"
-                          />
-                          {answer.grading_criteria && (
-                            <span className="text-muted-foreground">
-                              {" "}
-                              ({answer.grading_criteria})
-                            </span>
-                          )}
-                        </li>
+                        <div
+                          key={index}
+                          className="flex items-start gap-2 bg-white p-2 rounded border border-green-100"
+                        >
+                          <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 text-sm">
+                            <MathPreview
+                              content={answer.content}
+                              renderMarkdown={true}
+                              className="inline font-medium"
+                            />
+                            {answer.grading_criteria && (
+                              <div className="text-muted-foreground text-xs mt-1">
+                                Criteria: {answer.grading_criteria}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       )
                     )}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
