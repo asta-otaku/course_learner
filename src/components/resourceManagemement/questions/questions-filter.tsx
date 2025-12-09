@@ -173,7 +173,7 @@ export function QuestionsFilter({
           {activeFilterCount > 0 && (
             <Badge
               variant="secondary"
-              className="ml-2 h-5 w-5 rounded-full p-0 text-xs"
+              className="ml-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
             >
               {activeFilterCount}
             </Badge>

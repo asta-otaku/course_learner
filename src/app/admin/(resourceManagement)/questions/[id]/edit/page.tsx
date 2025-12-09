@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,9 +32,11 @@ import { MatchingPairsEditor } from "@/components/resourceManagemement/questions
 import { useGetQuestionById } from "@/lib/api/queries";
 import { usePutQuestion } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
-import { ArrowLeft, Loader2, X } from "lucide-react";
+import { ArrowLeft, Loader2, X, ImageIcon } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { ImageControls } from "@/components/resourceManagemement/editor/image-controls";
+import { QuestionImage } from "@/components/ui/question-image";
 
 const questionTypes = [
   { value: "multiple_choice", label: "Multiple Choice" },
@@ -54,6 +56,7 @@ export default function EditQuestionPage({
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [originalType, setOriginalType] = useState<string>("multiple_choice");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<any>({
     title: "",
@@ -113,6 +116,11 @@ export default function EditQuestionPage({
       !questionData.metadata.incorrectFeedback
     ) {
       questionData.metadata.incorrectFeedback = question.incorrectFeedback;
+    }
+
+    // Handle image settings from metadata
+    if (question.metadata?.image_settings) {
+      questionData.metadata.image_settings = question.metadata.image_settings;
     }
 
     // Transform answers based on question type
@@ -177,8 +185,32 @@ export default function EditQuestionPage({
       // Add image file if present, or keep existing imageUrl if no new file
       if (formData.image && formData.image instanceof File) {
         formDataToSend.append("image", formData.image);
+
+        // Add image settings metadata if present
+        if (formData.metadata?.image_settings) {
+          formDataToSend.append(
+            "metadata",
+            JSON.stringify({
+              correctFeedback: formData.metadata?.correctFeedback || "",
+              incorrectFeedback: formData.metadata?.incorrectFeedback || "",
+              image_settings: formData.metadata.image_settings,
+            })
+          );
+        }
       } else if (formData.imageUrl) {
         formDataToSend.append("imageUrl", formData.imageUrl);
+
+        // Add metadata with image settings if present
+        if (formData.metadata?.image_settings) {
+          formDataToSend.append(
+            "metadata",
+            JSON.stringify({
+              correctFeedback: formData.metadata?.correctFeedback || "",
+              incorrectFeedback: formData.metadata?.incorrectFeedback || "",
+              image_settings: formData.metadata.image_settings,
+            })
+          );
+        }
       }
 
       // Add type-specific fields
@@ -317,7 +349,6 @@ export default function EditQuestionPage({
                     }))
                   }
                   placeholder="Enter a descriptive title for the question"
-                  required
                 />
               </div>
 
@@ -341,69 +372,142 @@ export default function EditQuestionPage({
               <div>
                 <Label>Question Image (Optional)</Label>
                 {formData.image && formData.image instanceof File ? (
-                  <div className="relative">
-                    <img
-                      src={URL.createObjectURL(formData.image)}
-                      alt="Question image preview"
-                      className="w-full max-h-64 object-contain rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2"
-                      onClick={() =>
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <QuestionImage
+                        src={URL.createObjectURL(formData.image)}
+                        metadata={formData.metadata}
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 z-10"
+                        onClick={() =>
+                          setFormData((prev: any) => ({
+                            ...prev,
+                            image: null,
+                            metadata: {
+                              ...prev.metadata,
+                              image_settings: undefined,
+                            },
+                          }))
+                        }
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <ImageControls
+                      settings={
+                        formData.metadata?.image_settings || {
+                          size_mode: "auto",
+                          alignment: "center",
+                          object_fit: "contain",
+                          max_height: "600px",
+                        }
+                      }
+                      onChange={(settings: any) => {
                         setFormData((prev: any) => ({
                           ...prev,
-                          image: null,
-                        }))
-                      }
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                          metadata: {
+                            ...prev.metadata,
+                            image_settings: settings,
+                          },
+                        }));
+                      }}
+                      imageUrl={URL.createObjectURL(formData.image)}
+                    />
                   </div>
                 ) : formData.imageUrl ? (
-                  <div className="relative">
-                    <img
-                      src={formData.imageUrl}
-                      alt="Question image"
-                      className="w-full max-h-64 object-contain rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2"
-                      onClick={() =>
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <QuestionImage
+                        src={formData.imageUrl}
+                        metadata={formData.metadata}
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 z-10"
+                        onClick={() =>
+                          setFormData((prev: any) => ({
+                            ...prev,
+                            imageUrl: null,
+                            metadata: {
+                              ...prev.metadata,
+                              image_settings: undefined,
+                            },
+                          }))
+                        }
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <ImageControls
+                      settings={
+                        formData.metadata?.image_settings || {
+                          size_mode: "auto",
+                          alignment: "center",
+                          object_fit: "contain",
+                          max_height: "600px",
+                        }
+                      }
+                      onChange={(settings: any) => {
                         setFormData((prev: any) => ({
                           ...prev,
-                          imageUrl: null,
-                        }))
-                      }
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                          metadata: {
+                            ...prev.metadata,
+                            image_settings: settings,
+                          },
+                        }));
+                      }}
+                      imageUrl={formData.imageUrl}
+                    />
                   </div>
                 ) : (
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 10 * 1024 * 1024) {
-                          // 10MB limit
-                          toast.error("Image size must be less than 10MB");
-                          return;
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 10 * 1024 * 1024) {
+                            // 10MB limit
+                            toast.error("Image size must be less than 10MB");
+                            return;
+                          }
+                          setFormData((prev: any) => ({
+                            ...prev,
+                            image: file,
+                          }));
                         }
-                        setFormData((prev: any) => ({
-                          ...prev,
-                          image: file,
-                        }));
-                      }
-                    }}
-                    className="w-full p-2 border border-dashed border-gray-300 rounded-lg"
-                  />
+                      }}
+                      className="hidden"
+                    />
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary/50 hover:bg-gray-50/50 transition-colors cursor-pointer"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-3 text-center">
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                          <ImageIcon className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">
+                            Click to upload an image
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            PNG, JPG, GIF up to 10MB
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
                 )}
                 <p className="text-xs text-muted-foreground mt-1">
                   Upload an image to accompany your question (max 10MB)

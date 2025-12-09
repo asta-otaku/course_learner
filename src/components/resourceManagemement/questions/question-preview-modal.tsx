@@ -65,7 +65,7 @@ export function QuestionPreviewModal({
         transformedQuestion.answers = answers.map((a: any) => ({
           id: a.id,
           content: a.content,
-          is_correct: a.isCorrect,
+          isCorrect: a.isCorrect || a.is_correct,
           explanation: a.explanation,
           order_index: a.orderIndex,
         }));
