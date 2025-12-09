@@ -26,6 +26,11 @@ import { FreeTextEditor } from "@/components/resourceManagemement/questions";
 import { MatchingEditor } from "@/components/resourceManagemement/questions";
 import { MathPreview } from "../editor";
 import { MarkdownEditor } from "../editor";
+import { ImageUpload } from "../editor/image-upload";
+import { ImageControls } from "../editor/image-controls";
+import { QuestionImage } from "@/components/ui/question-image";
+import { X } from "lucide-react";
+import { toast } from "sonner";
 import type { Question } from "@/lib/validations/question";
 
 interface UniversalQuestionEditorProps {
@@ -182,6 +187,70 @@ export function UniversalQuestionEditor({
                 />
               </div>
             )}
+          </div>
+
+          <div>
+            <Label>Question Image (Optional)</Label>
+            {question.image_url ? (
+              <div className="space-y-4">
+                <div className="relative">
+                  <QuestionImage
+                    src={question.image_url}
+                    metadata={question.metadata}
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 z-10"
+                    onClick={() => {
+                      const updatedQuestion = {
+                        ...question,
+                        image_url: null,
+                        metadata: {
+                          ...question.metadata,
+                          image_settings: undefined,
+                        },
+                      };
+                      onChange(updatedQuestion);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <ImageControls
+                  settings={
+                    question.metadata?.image_settings || {
+                      size_mode: "auto",
+                      alignment: "center",
+                      object_fit: "contain",
+                      max_height: "600px",
+                    }
+                  }
+                  onChange={(settings) => {
+                    const updatedQuestion = {
+                      ...question,
+                      metadata: {
+                        ...question.metadata,
+                        image_settings: settings,
+                      },
+                    };
+                    onChange(updatedQuestion);
+                  }}
+                  imageUrl={question.image_url}
+                />
+              </div>
+            ) : (
+              <ImageUpload
+                onUpload={(url) => handleFieldChange("image_url", url)}
+                onError={(error) => toast.error(`Image Upload Error: ${error}`)}
+                maxSize={10 * 1024 * 1024} // 10MB
+              />
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Upload an image to accompany your question (max 10MB)
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

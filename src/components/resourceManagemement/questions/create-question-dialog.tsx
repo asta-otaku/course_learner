@@ -38,9 +38,12 @@ import {
 } from "@/components/resourceManagemement/questions";
 import { MatchingPairsEditor } from "@/components/resourceManagemement/questions/matching-pairs-editor";
 import { toast } from "sonner";
-import { Loader2, Save, X } from "lucide-react";
+import { Loader2, Save, X, Upload, ImageIcon } from "lucide-react";
 import { usePostQuestion } from "@/lib/api/mutations";
 import { FolderSelect } from "./folder-select";
+import { ImageControls } from "../editor/image-controls";
+import { QuestionImage } from "@/components/ui/question-image";
+import { useRef } from "react";
 
 const questionTypes = [
   { value: "multiple_choice", label: "Multiple Choice" },
@@ -65,6 +68,7 @@ export function CreateQuestionDialog({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const createQuestionMutation = usePostQuestion();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const initialFormData = {
     title: "",
@@ -75,7 +79,7 @@ export function CreateQuestionDialog({
     incorrectFeedback: "",
     isPublic: true,
     image: null,
-    imageUrl: null,
+    metadata: null,
   };
   const [formData, setFormData] = useState<any>(initialFormData);
   const [folderId, setFolderId] = useState<string | null>(
@@ -108,11 +112,14 @@ export function CreateQuestionDialog({
       );
       formDataToSend.append("isPublic", String(formData.isPublic || false));
 
-      // Add image file if present
+      // Add image file and metadata if present
       if (formData.image && formData.image instanceof File) {
         formDataToSend.append("image", formData.image);
-      } else if (formData.imageUrl) {
-        formDataToSend.append("imageUrl", formData.imageUrl);
+
+        // Add image settings metadata if present
+        if (formData.metadata?.image_settings) {
+          formDataToSend.append("metadata", JSON.stringify(formData.metadata));
+        }
       }
 
       // Add folder ID if selected
@@ -130,7 +137,7 @@ export function CreateQuestionDialog({
           JSON.stringify(
             (formData.answers || []).map((answer: any, index: number) => ({
               content: answer.content || "",
-              isCorrect: answer.isCorrect || false,
+              isCorrect: answer.isCorrect || answer.is_correct || false, // Handle both camelCase and snake_case
               explanation: answer.explanation || "",
               orderIndex:
                 answer.orderIndex !== undefined ? answer.orderIndex : index,
@@ -329,47 +336,94 @@ export function CreateQuestionDialog({
                 <div>
                   <Label>Question Image (Optional)</Label>
                   {formData.image ? (
-                    <div className="relative">
-                      <img
-                        src={URL.createObjectURL(formData.image)}
-                        alt="Question image preview"
-                        className="w-full max-h-64 object-contain rounded-lg border"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2"
-                        onClick={() =>
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <QuestionImage
+                          src={URL.createObjectURL(formData.image)}
+                          metadata={formData.metadata}
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 z-10"
+                          onClick={() =>
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              image: null,
+                              metadata: {
+                                ...prev.metadata,
+                                image_settings: undefined,
+                              },
+                            }))
+                          }
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <ImageControls
+                        settings={
+                          formData.metadata?.image_settings || {
+                            size_mode: "auto",
+                            alignment: "center",
+                            object_fit: "contain",
+                            max_height: "600px",
+                          }
+                        }
+                        onChange={(settings: any) => {
                           setFormData((prev: any) => ({
                             ...prev,
-                            image: null,
-                          }))
-                        }
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                            metadata: {
+                              ...prev.metadata,
+                              image_settings: settings,
+                            },
+                          }));
+                        }}
+                        imageUrl={URL.createObjectURL(formData.image)}
+                      />
                     </div>
                   ) : (
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          if (file.size > 10 * 1024 * 1024) {
-                            // 10MB limit
-                            toast.error("Image size must be less than 10MB");
-                            return;
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 10 * 1024 * 1024) {
+                              // 10MB limit
+                              toast.error("Image size must be less than 10MB");
+                              return;
+                            }
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              image: file,
+                            }));
                           }
-                          setFormData((prev: any) => ({
-                            ...prev,
-                            image: file,
-                          }));
-                        }
-                      }}
-                      className="w-full p-2 border border-dashed border-gray-300 rounded-lg"
-                    />
+                        }}
+                        className="hidden"
+                      />
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary/50 hover:bg-gray-50/50 transition-colors cursor-pointer"
+                      >
+                        <div className="flex flex-col items-center justify-center gap-3 text-center">
+                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                            <ImageIcon className="w-6 h-6 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">
+                              Click to upload an image
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              PNG, JPG, GIF up to 10MB
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </>
                   )}
                   <p className="text-xs text-muted-foreground mt-1">
                     Upload an image to accompany your question (max 10MB)

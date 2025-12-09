@@ -164,9 +164,9 @@ export function QuestionPreview({
                         className={`p-3 rounded-lg border transition-colors ${
                           selectedAnswer === index.toString()
                             ? "border-primary bg-primary/5"
-                            : showAnswers && answer.is_correct
+                            : showAnswers && answer.isCorrect
                               ? "border-green-200 bg-green-50"
-                              : showAnswers && !answer.is_correct
+                              : showAnswers && !answer.isCorrect
                                 ? "border-red-100 bg-red-50/50"
                                 : "border-border hover:border-primary/50"
                         }`}
@@ -180,7 +180,7 @@ export function QuestionPreview({
                           </div>
                           {showAnswers && (
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              {answer.is_correct ? (
+                              {answer.isCorrect ? (
                                 <Badge className="bg-green-600 hover:bg-green-700 text-white">
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   Correct
@@ -227,9 +227,9 @@ export function QuestionPreview({
                         className={`p-4 rounded-lg border text-center transition-colors ${
                           selectedAnswer === index.toString()
                             ? "border-primary bg-primary/5"
-                            : showAnswers && answer.is_correct
+                            : showAnswers && answer.isCorrect
                               ? "border-green-200 bg-green-50"
-                              : showAnswers && !answer.is_correct
+                              : showAnswers && !answer.isCorrect
                                 ? "border-red-100 bg-red-50/50"
                                 : "border-border hover:border-primary/50"
                         }`}
@@ -242,7 +242,7 @@ export function QuestionPreview({
                         </div>
                         {showAnswers && (
                           <div className="mt-2 flex items-center justify-center">
-                            {answer.is_correct ? (
+                            {answer.isCorrect ? (
                               <Badge className="bg-green-600 hover:bg-green-700 text-white">
                                 <CheckCircle className="h-3 w-3 mr-1" />
                                 Correct
