@@ -227,12 +227,14 @@ function transformQuestionFromTemplate(question: any): any {
     metadata: null, // Initialize metadata
   };
 
-  // Preserve image_settings if present
+  // Preserve image_settings at top level if present
   if (question.image_settings) {
-    if (!transformed.metadata) {
-      transformed.metadata = {};
-    }
-    transformed.metadata.image_settings = question.image_settings;
+    transformed.image_settings = question.image_settings;
+  }
+
+  // If image_settings is in metadata, move it to top level
+  if (question.metadata?.image_settings) {
+    transformed.image_settings = question.metadata.image_settings;
   }
 
   // Transform answers based on question type
@@ -327,12 +329,16 @@ function transformQuestionFromTemplate(question: any): any {
       break;
   }
 
-  // Add metadata for matching questions
+  // Add metadata for matching questions (but keep image_settings at top level)
   if (question.type === 'matching_pairs' || question.type === 'matching') {
     if (!transformed.metadata) {
       transformed.metadata = {};
     }
     transformed.metadata.matching_pairs = transformed.matching_pairs || [];
+    // Remove image_settings from metadata if it was added there
+    if (transformed.metadata.image_settings && transformed.image_settings) {
+      delete transformed.metadata.image_settings;
+    }
   }
 
   // Ensure all required fields are explicitly set to avoid undefined

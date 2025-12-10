@@ -118,8 +118,15 @@ export default function EditQuestionPage({
       questionData.metadata.incorrectFeedback = question.incorrectFeedback;
     }
 
-    // Handle image settings from metadata
-    if (question.metadata?.image_settings) {
+    // Handle image settings - check both top level and metadata
+    // Backend returns imageSettings at top level (camelCase)
+    if (question.imageSettings) {
+      questionData.metadata.image_settings = question.imageSettings;
+    } else if (question.image_settings) {
+      // Also check snake_case version
+      questionData.metadata.image_settings = question.image_settings;
+    } else if (question.metadata?.image_settings) {
+      // Fallback to metadata if present
       questionData.metadata.image_settings = question.metadata.image_settings;
     }
 
@@ -185,32 +192,16 @@ export default function EditQuestionPage({
       // Add image file if present, or keep existing imageUrl if no new file
       if (formData.image && formData.image instanceof File) {
         formDataToSend.append("image", formData.image);
-
-        // Add image settings metadata if present
-        if (formData.metadata?.image_settings) {
-          formDataToSend.append(
-            "metadata",
-            JSON.stringify({
-              correctFeedback: formData.metadata?.correctFeedback || "",
-              incorrectFeedback: formData.metadata?.incorrectFeedback || "",
-              image_settings: formData.metadata.image_settings,
-            })
-          );
-        }
       } else if (formData.imageUrl) {
-        formDataToSend.append("imageUrl", formData.imageUrl);
+        formDataToSend.append("image", formData.imageUrl);
+      }
 
-        // Add metadata with image settings if present
-        if (formData.metadata?.image_settings) {
-          formDataToSend.append(
-            "metadata",
-            JSON.stringify({
-              correctFeedback: formData.metadata?.correctFeedback || "",
-              incorrectFeedback: formData.metadata?.incorrectFeedback || "",
-              image_settings: formData.metadata.image_settings,
-            })
-          );
-        }
+      // Add image settings at top level if present
+      if (formData.metadata?.image_settings) {
+        formDataToSend.append(
+          "imageSettings",
+          JSON.stringify(formData.metadata.image_settings)
+        );
       }
 
       // Add type-specific fields

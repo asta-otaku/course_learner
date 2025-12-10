@@ -79,6 +79,7 @@ export function CreateQuestionDialog({
     incorrectFeedback: "",
     isPublic: true,
     image: null,
+    image_settings: null,
     metadata: null,
   };
   const [formData, setFormData] = useState<any>(initialFormData);
@@ -112,14 +113,17 @@ export function CreateQuestionDialog({
       );
       formDataToSend.append("isPublic", String(formData.isPublic || false));
 
-      // Add image file and metadata if present
+      // Add image file if present
       if (formData.image && formData.image instanceof File) {
         formDataToSend.append("image", formData.image);
+      }
 
-        // Add image settings metadata if present
-        if (formData.metadata?.image_settings) {
-          formDataToSend.append("metadata", JSON.stringify(formData.metadata));
-        }
+      // Add image settings at top level if present
+      if (formData.metadata?.image_settings) {
+        formDataToSend.append(
+          "imageSettings",
+          JSON.stringify(formData.metadata.image_settings)
+        );
       }
 
       // Add folder ID if selected
@@ -351,9 +355,10 @@ export function CreateQuestionDialog({
                             setFormData((prev: any) => ({
                               ...prev,
                               image: null,
+                              image_settings: undefined, // Remove from top level
                               metadata: {
                                 ...prev.metadata,
-                                image_settings: undefined,
+                                image_settings: undefined, // Remove from metadata
                               },
                             }))
                           }
@@ -364,6 +369,7 @@ export function CreateQuestionDialog({
 
                       <ImageControls
                         settings={
+                          formData.image_settings ||
                           formData.metadata?.image_settings || {
                             size_mode: "auto",
                             alignment: "center",
@@ -374,9 +380,10 @@ export function CreateQuestionDialog({
                         onChange={(settings: any) => {
                           setFormData((prev: any) => ({
                             ...prev,
+                            image_settings: settings, // Store at top level
                             metadata: {
                               ...prev.metadata,
-                              image_settings: settings,
+                              image_settings: settings, // Keep in metadata for backward compatibility
                             },
                           }));
                         }}

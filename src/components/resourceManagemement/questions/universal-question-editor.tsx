@@ -207,9 +207,10 @@ export function UniversalQuestionEditor({
                       const updatedQuestion = {
                         ...question,
                         image_url: null,
+                        image_settings: undefined, // Remove from top level
                         metadata: {
                           ...question.metadata,
-                          image_settings: undefined,
+                          image_settings: undefined, // Remove from metadata
                         },
                       };
                       onChange(updatedQuestion);
@@ -221,6 +222,8 @@ export function UniversalQuestionEditor({
 
                 <ImageControls
                   settings={
+                    question.image_settings ||
+                    question.imageSettings ||
                     question.metadata?.image_settings || {
                       size_mode: "auto",
                       alignment: "center",
@@ -231,9 +234,10 @@ export function UniversalQuestionEditor({
                   onChange={(settings) => {
                     const updatedQuestion = {
                       ...question,
+                      image_settings: settings, // Store at top level
                       metadata: {
                         ...question.metadata,
-                        image_settings: settings,
+                        image_settings: settings, // Keep in metadata for backward compatibility
                       },
                     };
                     onChange(updatedQuestion);

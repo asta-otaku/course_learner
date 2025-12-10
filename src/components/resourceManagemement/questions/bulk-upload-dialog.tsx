@@ -325,8 +325,11 @@ export function BulkUploadDialog({
       if (question.image_url) {
         questionData.image_url = question.image_url;
       }
+      // Check for image_settings at top level or in metadata
       if (question.image_settings) {
         questionData.image_settings = question.image_settings;
+      } else if (question.metadata?.image_settings) {
+        questionData.image_settings = question.metadata.image_settings;
       }
 
       return questionData;
@@ -352,7 +355,7 @@ export function BulkUploadDialog({
       }
       // Use file upload for JSON files OR pasted JSON
       else if (fileType === "json" || jsonText) {
-        // Transform image_url to image for backend compatibility
+        // Transform image_url to image for backend compatibility and flatten image_settings
         const transformedQuestions = parsedQuestions.map((q) => {
           const transformed = { ...q };
 
@@ -360,6 +363,29 @@ export function BulkUploadDialog({
           if (transformed.image_url) {
             transformed.image = transformed.image_url;
             delete transformed.image_url;
+          }
+
+          // Flatten image_settings from metadata to top level
+          if (transformed.metadata?.image_settings) {
+            transformed.image_settings = transformed.metadata.image_settings;
+            // Remove from metadata to avoid duplication
+            const { image_settings, ...restMetadata } = transformed.metadata;
+            if (Object.keys(restMetadata).length > 0) {
+              transformed.metadata = restMetadata;
+            } else {
+              delete transformed.metadata;
+            }
+          } else if (transformed.image_settings) {
+            // If image_settings already exists at top level, keep it there
+            // and remove from metadata if present
+            if (transformed.metadata) {
+              const { image_settings, ...restMetadata } = transformed.metadata;
+              if (Object.keys(restMetadata).length > 0) {
+                transformed.metadata = restMetadata;
+              } else {
+                delete transformed.metadata;
+              }
+            }
           }
 
           return transformed;
@@ -645,7 +671,9 @@ export function BulkUploadDialog({
       // Preserve image_url and image_settings from original if not changed
       image_url: updatedQuestion.image_url || originalQuestion.image_url,
       image_settings:
-        updatedQuestion.image_settings || originalQuestion.image_settings,
+        updatedQuestion.image_settings ||
+        updatedQuestion.metadata?.image_settings ||
+        originalQuestion.image_settings,
     };
 
     if (
