@@ -27,18 +27,27 @@ export function QuestionPreviewModal({
 }: QuestionPreviewModalProps) {
   const [fullQuestionData, setFullQuestionData] = useState<any>(null);
 
-  // Use the query hook to fetch question data only when modal is open
+  // If question has an ID, always fetch from API for fresh data
+  // If no ID, it's from bulk upload - use provided data directly
+  const shouldFetchFromAPI = !!question?.id;
+  const isFromBulkUpload =
+    !question?.id &&
+    question &&
+    (question.answers || question.acceptedAnswers || question.matching_pairs);
+
+  // Use the query hook to fetch question data when modal is open AND question has an ID
   const {
     data: questionData,
     isLoading,
     error,
+    refetch,
   } = useGetQuestionById(question?.id || "", {
-    enabled: open && !!question?.id,
+    enabled: open && shouldFetchFromAPI,
   });
 
-  // Handle data transformation when query data is available
+  // Handle data transformation for API data
   useEffect(() => {
-    if (questionData?.data) {
+    if (open && questionData?.data) {
       const questionDataFromAPI = questionData.data;
       const answers = questionDataFromAPI.answers || [];
 
@@ -124,22 +133,22 @@ export function QuestionPreviewModal({
       }
       setFullQuestionData(transformedQuestion);
     }
-  }, [questionData]);
+  }, [open, questionData]);
 
-  // Use provided question data directly if it has complete data
+  // Use provided question data directly for bulk upload (no ID)
   useEffect(() => {
-    if (open && question) {
-      if (
-        question.answers ||
-        question.acceptedAnswers ||
-        question.matching_pairs ||
-        question.testCases
-      ) {
-        setFullQuestionData(question);
-        return;
-      }
+    if (open && question && isFromBulkUpload) {
+      setFullQuestionData(question);
     }
-  }, [open, question]);
+  }, [open, question, isFromBulkUpload]);
+
+  // Trigger refetch when modal opens to ensure fresh data (only for questions with IDs)
+  useEffect(() => {
+    if (open && question?.id) {
+      // Trigger a fresh fetch
+      refetch();
+    }
+  }, [open, question?.id, refetch]);
 
   // Reset when modal closes
   useEffect(() => {
@@ -184,14 +193,14 @@ export function QuestionPreviewModal({
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 pb-6">
-          {isLoading ? (
+          {isLoading && shouldFetchFromAPI ? (
             <div className="flex items-center justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               <span className="ml-3 text-muted-foreground">
                 Loading question details...
               </span>
             </div>
-          ) : error ? (
+          ) : error && shouldFetchFromAPI ? (
             <div className="p-8 text-center text-muted-foreground">
               <p>Error loading question details: {error.message}</p>
             </div>

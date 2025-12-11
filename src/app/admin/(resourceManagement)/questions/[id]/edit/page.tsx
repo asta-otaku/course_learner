@@ -15,8 +15,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -34,7 +32,6 @@ import { usePutQuestion } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { ArrowLeft, Loader2, X, ImageIcon } from "lucide-react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { ImageControls } from "@/components/resourceManagemement/editor/image-controls";
 import { QuestionImage } from "@/components/ui/question-image";
 
@@ -59,16 +56,10 @@ export default function EditQuestionPage({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<any>({
-    title: "",
     content: "",
     type: "multiple_choice",
-    difficultyLevel: 3,
-    points: 0,
-    timeLimit: null,
-    tags: [],
     hint: "",
-    explanation: "",
-    isPublic: false,
+    isPublic: true,
     imageUrl: null,
     image: null,
     metadata: {
@@ -76,8 +67,6 @@ export default function EditQuestionPage({
       incorrectFeedback: "",
     },
   });
-
-  const [tagInput, setTagInput] = useState("");
 
   const {
     data: result,
@@ -167,19 +156,11 @@ export default function EditQuestionPage({
       // Create FormData for multipart/form-data submission
       const formDataToSend = new FormData();
 
-      formDataToSend.append("title", formData.title || formData.content);
+      formDataToSend.append("title", formData.content); // Use content as title
       formDataToSend.append("content", formData.content);
       formDataToSend.append("type", formData.type);
-      formDataToSend.append(
-        "difficultyLevel",
-        String(formData.difficultyLevel || 3)
-      );
-      formDataToSend.append("points", String(formData.points || 0));
-      formDataToSend.append("timeLimit", String(formData.timeLimit || 0));
-      formDataToSend.append("tags", JSON.stringify(formData.tags || []));
       formDataToSend.append("hint", formData.hint || "");
-      formDataToSend.append("explanation", formData.explanation || "");
-      formDataToSend.append("isPublic", String(formData.isPublic || false));
+      formDataToSend.append("isPublic", "true"); // Always public
       formDataToSend.append(
         "correctFeedback",
         formData.metadata?.correctFeedback || ""
@@ -258,27 +239,6 @@ export default function EditQuestionPage({
     }
   };
 
-  const handleTagAdd = () => {
-    if (
-      tagInput.trim() &&
-      formData.tags &&
-      !formData.tags.includes(tagInput.trim())
-    ) {
-      setFormData((prev: any) => ({
-        ...prev,
-        tags: [...(prev.tags || []), tagInput.trim()],
-      }));
-      setTagInput("");
-    }
-  };
-
-  const handleTagRemove = (tag: string) => {
-    setFormData((prev: any) => ({
-      ...prev,
-      tags: prev.tags?.filter((t: string) => t !== tag) || [],
-    }));
-  };
-
   if (isLoading || isFetching) {
     return (
       <div className="mx-auto py-10 max-w-4xl w-full">
@@ -328,21 +288,6 @@ export default function EditQuestionPage({
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-4">
-              <div>
-                <Label htmlFor="title">Question Title</Label>
-                <Input
-                  id="title"
-                  value={formData.title || ""}
-                  onChange={(e) =>
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      title: e.target.value,
-                    }))
-                  }
-                  placeholder="Enter a descriptive title for the question"
-                />
-              </div>
-
               <div>
                 <Label htmlFor="content">Question Content</Label>
                 <Textarea
@@ -505,125 +450,28 @@ export default function EditQuestionPage({
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="type">Question Type</Label>
-                  <Select
-                    value={formData.type || "multiple_choice"}
-                    disabled={true} // Type cannot be changed after creation
-                  >
-                    <SelectTrigger id="type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {questionTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {formData.type !== originalType && (
-                    <p className="text-sm text-yellow-600 mt-1">
-                      Warning: Changing question type will reset answers
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="difficulty">
-                    Difficulty Level: {formData.difficultyLevel}
-                  </Label>
-                  <Slider
-                    id="difficulty"
-                    min={1}
-                    max={10}
-                    step={1}
-                    value={[formData.difficultyLevel || 3]}
-                    onValueChange={([value]) =>
-                      setFormData((prev: any) => ({
-                        ...prev,
-                        difficultyLevel: value,
-                      }))
-                    }
-                    className="mt-2"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="points">Points</Label>
-                  <Input
-                    id="points"
-                    type="number"
-                    min="0"
-                    value={formData.points || 0}
-                    onChange={(e) =>
-                      setFormData((prev: any) => ({
-                        ...prev,
-                        points: parseInt(e.target.value) || 0,
-                      }))
-                    }
-                    placeholder="Points for this question"
-                  />
-                </div>
-              </div>
-
               <div>
-                <Label htmlFor="time-limit">Time Limit (seconds)</Label>
-                <Input
-                  id="time-limit"
-                  type="number"
-                  min="0"
-                  value={formData.timeLimit || ""}
-                  onChange={(e) =>
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      timeLimit: e.target.value
-                        ? parseInt(e.target.value)
-                        : null,
-                    }))
-                  }
-                  placeholder="Optional time limit"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="tags">Tags</Label>
-                <div className="flex gap-2 mb-2">
-                  <Input
-                    id="tags"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    placeholder="Add a tag"
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleTagAdd();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleTagAdd}
-                  >
-                    Add
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {formData.tags?.map((tag: string) => (
-                    <Badge
-                      key={tag}
-                      variant="secondary"
-                      className="cursor-pointer"
-                      onClick={() => handleTagRemove(tag)}
-                    >
-                      {tag} ×
-                    </Badge>
-                  ))}
-                </div>
+                <Label htmlFor="type">Question Type</Label>
+                <Select
+                  value={formData.type || "multiple_choice"}
+                  disabled={true} // Type cannot be changed after creation
+                >
+                  <SelectTrigger id="type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {questionTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formData.type !== originalType && (
+                  <p className="text-sm text-yellow-600 mt-1">
+                    Warning: Changing question type will reset answers
+                  </p>
+                )}
               </div>
 
               <div>
@@ -639,22 +487,6 @@ export default function EditQuestionPage({
                   }
                   placeholder="Provide a hint to help students"
                   rows={2}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="explanation">Explanation (optional)</Label>
-                <Textarea
-                  id="explanation"
-                  value={formData.explanation || ""}
-                  onChange={(e) =>
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      explanation: e.target.value,
-                    }))
-                  }
-                  placeholder="Explain the correct answer"
-                  rows={3}
                 />
               </div>
 
@@ -700,20 +532,6 @@ export default function EditQuestionPage({
                     rows={2}
                   />
                 </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="public"
-                  checked={formData.isPublic || false}
-                  onCheckedChange={(checked) =>
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      isPublic: checked,
-                    }))
-                  }
-                />
-                <Label htmlFor="public">Make this question public</Label>
               </div>
             </div>
           </CardContent>

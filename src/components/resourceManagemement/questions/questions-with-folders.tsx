@@ -294,8 +294,6 @@ export function QuestionsWithFolders({
 
   const handleFolderDelete = async (folderId: string) => {
     try {
-      // For now, we'll just refresh the folders after deletion
-      // The actual deletion should be handled by the FolderTree component
       toast.info("Folder deletion is handled by the FolderTree component.");
 
       // Refresh the folders to reflect any changes
@@ -324,8 +322,6 @@ export function QuestionsWithFolders({
     newParentId: string | null
   ) => {
     try {
-      // For now, we'll just refresh the folders after moving
-      // The actual moving should be handled by the FolderTree component
       toast.info("Folder moving is handled by the FolderTree component.");
 
       // Refresh the folders to reflect any changes

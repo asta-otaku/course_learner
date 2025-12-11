@@ -763,6 +763,15 @@ export const useDeleteQuestions = () => {
       queryClient.invalidateQueries({
         queryKey: ["questions"],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["question"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["folders"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["folder"],
+      });
       return data;
     },
     onError: (error: AxiosError) => {
