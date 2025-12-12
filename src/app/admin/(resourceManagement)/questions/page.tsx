@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useGetFolderById, useGetQuestions } from "@/lib/api/queries";
 
 // Force dynamic rendering since this page uses authentication
@@ -25,6 +25,10 @@ export default function QuestionsPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Initialize folder from URL params
+  const folderFromUrl = searchParams.get("folderId");
 
   // Filter state management
   const [filters, setFilters] = useState({
@@ -34,13 +38,15 @@ export default function QuestionsPage() {
     difficultyMax: "",
     dateFrom: "",
     dateTo: "",
-    folderId: "",
+    folderId: folderFromUrl || "",
     sortBy: "",
     sortOrder: "",
   });
 
-  // Folder selection state
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  // Folder selection state - initialize from URL
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(
+    folderFromUrl || null
+  );
 
   // Pagination state management
   const [pagination, setPagination] = useState({
@@ -150,6 +156,15 @@ export default function QuestionsPage() {
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
+  // Sync with URL params changes
+  useEffect(() => {
+    const folderIdParam = searchParams.get("folderId");
+    if (folderIdParam !== selectedFolderId) {
+      setSelectedFolderId(folderIdParam);
+      setFilters((prev) => ({ ...prev, folderId: folderIdParam || "" }));
+    }
+  }, [searchParams]);
+
   // Folder selection handler
   const handleFolderSelect = (folderId: string | null) => {
     setSelectedFolderId(folderId);
@@ -157,6 +172,16 @@ export default function QuestionsPage() {
     setFilters((prev) => ({ ...prev, folderId: folderId || "" }));
     // Reset to first page when folder changes
     setPagination((prev) => ({ ...prev, page: 1 }));
+
+    // Update URL with folder ID
+    const params = new URLSearchParams(searchParams.toString());
+    if (folderId) {
+      params.set("folderId", folderId);
+    } else {
+      params.delete("folderId");
+    }
+    params.set("page", "1"); // Reset to first page
+    router.push(`/admin/questions?${params.toString()}`);
   };
 
   useEffect(() => {

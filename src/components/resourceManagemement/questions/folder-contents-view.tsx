@@ -49,7 +49,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type QuestionFolder = Database["public"]["Tables"]["question_folders"]["Row"];
 type Question = Database["public"]["Tables"]["questions"]["Row"];
@@ -242,6 +242,7 @@ export function FolderContentsView({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [localSubfolders, setLocalSubfolders] = useState(subfolders);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -416,7 +417,11 @@ export function FolderContentsView({
             rowSelection={rowSelection}
             onRowSelectionChange={onRowSelectionChange}
             onRowClick={(question: any) => {
-              router.push(`/admin/questions/${question.id}`);
+              // Preserve folder context in URL
+              const params = new URLSearchParams(searchParams.toString());
+              const folderId = params.get("folderId");
+              const queryString = folderId ? `?folderId=${folderId}` : "";
+              router.push(`/admin/questions/${question.id}/edit${queryString}`);
             }}
             onPageChange={onPageChange}
             onPageSizeChange={onPageSizeChange}

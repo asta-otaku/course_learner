@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -49,11 +49,15 @@ export default function EditQuestionPage({
   params: { id: string };
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { id: questionId } = params;
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [originalType, setOriginalType] = useState<string>("multiple_choice");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get folder context from URL
+  const folderIdFromUrl = searchParams.get("folderId");
 
   const [formData, setFormData] = useState<any>({
     content: "",
@@ -229,7 +233,15 @@ export default function EditQuestionPage({
       if (result.status === 200) {
         toast.success(result.data.message);
         setTimeout(() => {
-          router.push(`/admin/questions/${questionId}`);
+          // Preserve folder context in redirect
+          const params = new URLSearchParams();
+          if (folderIdFromUrl) {
+            params.set("folderId", folderIdFromUrl);
+          }
+          const queryString = params.toString();
+          router.push(
+            `/admin/questions/${questionId}${queryString ? `?${queryString}` : ""}`
+          );
         }, 1000);
       }
     } catch (error) {
@@ -268,15 +280,25 @@ export default function EditQuestionPage({
     );
   }
 
+  // Build back URL with folder context
+  const backUrl = (() => {
+    const params = new URLSearchParams();
+    if (folderIdFromUrl) {
+      params.set("folderId", folderIdFromUrl);
+    }
+    const queryString = params.toString();
+    return `/admin/questions${queryString ? `?${queryString}` : ""}`;
+  })();
+
   return (
     <div className="mx-auto py-10 max-w-4xl w-full">
       <div className="mb-8">
         <Link
-          href={`/admin/questions/${questionId}`}
+          href={backUrl}
           className="inline-flex items-center text-sm text-muted-foreground hover:text-primary"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Question
+          Back to Questions
         </Link>
       </div>
 
@@ -604,7 +626,7 @@ export default function EditQuestionPage({
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push(`/admin/questions/${questionId}`)}
+            onClick={() => router.push(backUrl)}
           >
             Cancel
           </Button>

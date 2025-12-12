@@ -174,25 +174,14 @@ export function QuestionsWithFolders({
     // Use external handler if provided, otherwise use internal state
     if (externalOnFolderSelect) {
       externalOnFolderSelect(folderId);
+      setSelectedQuestionIds({}); // Clear selection when changing folders
+      return; // Let parent handle URL updates
     } else {
       setInternalSelectedFolderId(folderId);
     }
 
     setSelectedQuestionIds({}); // Clear selection when changing folders
     setIsLoading(true);
-
-    // Only update URL if we're using internal state management
-    if (!externalOnFolderSelect) {
-      const params = new URLSearchParams(searchParams.toString());
-      if (folderId) {
-        params.set("folder", folderId);
-      } else {
-        params.delete("folder");
-      }
-      params.set("page", "1"); // Reset to first page
-
-      router.push(`/admin/questions?${params.toString()}`);
-    }
 
     // Fetch folder contents (subfolders and questions)
     try {

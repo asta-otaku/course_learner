@@ -208,6 +208,14 @@ function QuestionActions({ question }: { question: Question }) {
   const [isDuplicating, setIsDuplicating] = useState(false);
 
   const deleteQuestionMutation = useDeleteQuestion(question.id);
+  
+  // Get current folder context from URL
+  const getFolderContext = () => {
+    if (typeof window === 'undefined') return '';
+    const params = new URLSearchParams(window.location.search);
+    const folderId = params.get('folderId');
+    return folderId ? `?folderId=${folderId}` : '';
+  };
 
   const handleDelete = async () => {
     try {
@@ -251,11 +259,11 @@ function QuestionActions({ question }: { question: Question }) {
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
           <DropdownMenuItem asChild>
-            <Link href={`/admin/questions/${question.id}`}>View details</Link>
+            <Link href={`/admin/questions/${question.id}${getFolderContext()}`}>View details</Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link href={`/admin/questions/${question.id}/edit`}>
+            <Link href={`/admin/questions/${question.id}/edit${getFolderContext()}`}>
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </Link>
