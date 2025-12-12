@@ -23,6 +23,7 @@ import {
   ChildLesson,
   Analytics,
   TutorAnalytics,
+  SupportTicket,
 } from "../types";
 
 // User Queries
@@ -896,5 +897,27 @@ export const useGetSessionMeetingUrl = (sessionId: string) => {
       return response.data;
     },
     enabled: !!sessionId,
+  });
+};
+
+// Support Queries
+export const useGetSupports = () => {
+  return useQuery({
+    queryKey: ["supports"],
+    queryFn: async (): Promise<APIGetResponse<SupportTicket[]>> => {
+      const response = await axiosInstance.get("/support");
+      return response.data;
+    },
+  });
+};
+
+export const useGetSupportTicketById = (id: string) => {
+  return useQuery({
+    queryKey: ["support", id],
+    queryFn: async (): Promise<APIGetResponse<SupportTicket>> => {
+      const response = await axiosInstance.get(`/support/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
   });
 };

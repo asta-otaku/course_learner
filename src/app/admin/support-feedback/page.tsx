@@ -1,7 +1,8 @@
-import SupportFeedback from "@/components/admin/support-feedback/p";
+"use client";
 
-function Page() {
-  return <SupportFeedback />;
+import React from "react";
+import AdminSupportFeedback from "@/components/admin/support-feedback/p";
+
+export default function AdminSupportPage() {
+  return <AdminSupportFeedback />;
 }
-
-export default Page;

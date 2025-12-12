@@ -803,5 +803,38 @@ export interface TutorAnalytics {
   confirmedSessions: number;
   cancelledSessions: number;
 }
+
+export interface SupportTicket {
+  id: string;
+  title: string;
+  description: string;
+  status: "open" | "closed";
+  media?: string;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role?: string;
+  };
+  creatorId?: string;
+  creatorName?: string;
+  messages?: {
+    id: string;
+    messageId?: string;
+    message: string;
+    user?: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      role?: string;
+    };
+    senderName?: string;
+    createdAt: string;
+    updatedAt: string;
+  }[];
+  createdAt: string;
+  updatedAt: string;
+}
 // Export socket types
 export * from "./types/socket";

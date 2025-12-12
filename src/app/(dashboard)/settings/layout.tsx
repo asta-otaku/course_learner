@@ -2,7 +2,6 @@
 
 import React from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import Navbar from "@/components/platform/navbar";
 import BackArrow from "@/assets/svgs/arrowback";
 
@@ -15,6 +14,7 @@ const tabs: TabItem[] = [
   { label: "Overview", path: "/settings" },
   { label: "Subscription", path: "/settings/subscription" },
   { label: "Profiles", path: "/settings/profiles" },
+  { label: "Support", path: "/settings/support" },
 ];
 
 function SettingsLayout({ children }: { children: React.ReactNode }) {
