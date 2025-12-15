@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Popover,
   PopoverContent,
@@ -18,14 +19,17 @@ import {
 } from "@/components/ui/dialog";
 import BackArrow from "@/assets/svgs/arrowback";
 import AvailabilityPopup from "./availabilityPopup";
-import { ChangeRequest, TransformedTutorProfile } from "@/lib/types";
+import { TransformedTutorProfile } from "@/lib/types";
+import { usePatchUpdateTutorChangeRequest } from "@/lib/api/mutations";
+import { toast } from "react-toastify";
+import { formatDistanceToNow } from "date-fns";
+import { Loader2 } from "lucide-react";
 
 // Tutor Replacement Component Props
 interface TutorReplacementProps {
-  request: ChangeRequest;
+  request: any; // API ChangeRequest type
   onBack: () => void;
   onComplete: () => void;
-  onRemoveRequest: (requestId: string) => void;
   tutors: TransformedTutorProfile[];
 }
 
@@ -33,15 +37,21 @@ const TutorReplacement: React.FC<TutorReplacementProps> = ({
   request,
   onBack,
   onComplete,
-  onRemoveRequest,
   tutors,
 }) => {
-  const [selectedTutor, setSelectedTutor] = useState<string | null>(null);
+  // Pre-select the requested tutor
+  const [selectedTutor, setSelectedTutor] = useState<string | null>(
+    request.requestedTutorId || null
+  );
   const [isPopoverOpen, setIsPopoverOpen] = useState<Record<string, boolean>>(
     {}
   );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [tutorSearchQuery, setTutorSearchQuery] = useState("");
+  const [reviewNote, setReviewNote] = useState("");
+
+  const approveMutation = usePatchUpdateTutorChangeRequest(request.id);
+  const rejectMutation = usePatchUpdateTutorChangeRequest(request.id);
 
   // Get the current tutor data (being replaced) from actual tutors
   const currentTutor = tutors.find(
@@ -67,6 +77,44 @@ const TutorReplacement: React.FC<TutorReplacementProps> = ({
       ...prev,
       [tutorId]: false,
     }));
+  };
+
+  const handleReject = async () => {
+    try {
+      const result = await rejectMutation.mutateAsync({
+        status: "rejected",
+        reviewNote: reviewNote || "Request cancelled by admin",
+      });
+      if (result.status === 200) {
+        toast.success("Request rejected successfully");
+        onBack();
+      }
+    } catch (error) {
+      toast.error("Failed to reject request");
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!selectedTutor) {
+      toast.error("Please select a tutor");
+      return;
+    }
+
+    try {
+      const result = await approveMutation.mutateAsync({
+        status: "approved",
+        reviewNote: reviewNote || `Assigned new tutor`,
+      });
+      if (result.status === 200) {
+        toast.success("Tutor change approved successfully");
+        setIsDialogOpen(false);
+        setSelectedTutor(null);
+        setTutorSearchQuery("");
+        onComplete();
+      }
+    } catch (error) {
+      toast.error("Failed to approve request");
+    }
   };
 
   return (
@@ -124,30 +172,52 @@ const TutorReplacement: React.FC<TutorReplacementProps> = ({
         {/* Change Request Card */}
         <div className="space-y-4 max-w-2xl w-full mx-auto">
           <div className="bg-white rounded-3xl p-6 shadow-sm border">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4">
               <div className="flex-1">
                 <h3 className="font-geist text-sm md:text-base font-semibold text-textGray mb-2">
                   CHANGE REQUEST
                 </h3>
-                <p className="text-textSubtitle text-xs md:text-sm font-geist">
-                  {request.className} requested that {request.currentTutor} be
-                  replaced
+                <p className="text-textSubtitle text-xs md:text-sm font-geist mb-2">
+                  {request.childName || "Student"} requested that{" "}
+                  {request.currentTutorName || "current tutor"} be replaced with{" "}
+                  <span className="font-medium text-gray-900">
+                    {request.requestedTutorName}
+                  </span>
+                </p>
+                {request.reason && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs font-semibold text-textGray mb-1">
+                      Reason:
+                    </p>
+                    <p className="text-xs text-textSubtitle">
+                      {request.reason}
+                    </p>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Requested {formatDistanceToNow(new Date(request.createdAt))}{" "}
+                  ago
                 </p>
               </div>
-              <div className="flex gap-3 ml-4">
+              <div className="flex gap-3">
                 <Button
                   className="bg-[#FF0000] hover:bg-[#FF0000]/80 text-white font-geist text-xs md:text-sm rounded-full"
-                  onClick={() => {
-                    onRemoveRequest(request.id);
-                    onBack();
-                  }}
+                  onClick={handleReject}
+                  disabled={rejectMutation.isPending}
                 >
-                  Cancel Request
+                  {rejectMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Rejecting...
+                    </>
+                  ) : (
+                    "Reject Request"
+                  )}
                 </Button>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
                     <Button className="bg-primaryBlue hover:bg-blue-700 text-white font-geist text-xs md:text-sm rounded-full">
-                      Proceed to replace
+                      Select New Tutor
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -155,6 +225,14 @@ const TutorReplacement: React.FC<TutorReplacementProps> = ({
                       <DialogTitle className="font-geist text-sm md:text-base font-semibold text-textGray">
                         Select New Tutor
                       </DialogTitle>
+                      {request.requestedTutorName && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Parent requested:{" "}
+                          <span className="font-medium text-gray-900">
+                            {request.requestedTutorName}
+                          </span>
+                        </p>
+                      )}
                     </DialogHeader>
 
                     <div className="space-y-4">
@@ -170,35 +248,46 @@ const TutorReplacement: React.FC<TutorReplacementProps> = ({
 
                       <div className="space-y-2">
                         {availableTutors.length > 0 ? (
-                          availableTutors.map((tutor) => (
-                            <div
-                              key={tutor.id}
-                              className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                                selectedTutor === tutor.id
-                                  ? "border-primaryBlue bg-blue-50"
-                                  : "border-gray-200 hover:border-gray-300"
-                              }`}
-                              onClick={() => setSelectedTutor(tutor.id)}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <h3 className="font-medium text-gray-900">
-                                    {tutor.name}
-                                  </h3>
-                                  <p className="text-sm text-gray-600">
-                                    {tutor.studentCount} students •{" "}
-                                    {tutor.homeworkCount} homework •{" "}
-                                    {tutor.averageResponseTime} response time
-                                  </p>
-                                </div>
-                                {selectedTutor === tutor.id && (
-                                  <div className="w-5 h-5 bg-primaryBlue rounded-full flex items-center justify-center">
-                                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                          availableTutors.map((tutor) => {
+                            const isRequestedTutor =
+                              tutor.id === request.requestedTutorId;
+                            return (
+                              <div
+                                key={tutor.id}
+                                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                                  selectedTutor === tutor.id
+                                    ? "border-primaryBlue bg-blue-50"
+                                    : "border-gray-200 hover:border-gray-300"
+                                }`}
+                                onClick={() => setSelectedTutor(tutor.id)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="font-medium text-gray-900">
+                                        {tutor.name}
+                                      </h3>
+                                      {isRequestedTutor && (
+                                        <Badge className="bg-green-100 text-green-800 text-xs">
+                                          Requested
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <p className="text-sm text-gray-600">
+                                      {tutor.studentCount} students •{" "}
+                                      {tutor.homeworkCount} homework •{" "}
+                                      {tutor.averageResponseTime} response time
+                                    </p>
                                   </div>
-                                )}
+                                  {selectedTutor === tutor.id && (
+                                    <div className="w-5 h-5 bg-primaryBlue rounded-full flex items-center justify-center">
+                                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <div className="text-center py-8 text-gray-500">
                             No tutors found matching your search criteria
@@ -211,28 +300,27 @@ const TutorReplacement: React.FC<TutorReplacementProps> = ({
                           variant="outline"
                           onClick={() => {
                             setIsDialogOpen(false);
-                            setSelectedTutor(null);
+                            // Reset to requested tutor on cancel
+                            setSelectedTutor(request.requestedTutorId || null);
                             setTutorSearchQuery("");
                           }}
+                          disabled={approveMutation.isPending}
                         >
                           Cancel
                         </Button>
                         <Button
                           className="bg-primaryBlue hover:bg-blue-700 text-white"
-                          disabled={!selectedTutor}
-                          onClick={() => {
-                            if (selectedTutor) {
-                              // Handle the assignment logic here
-
-                              setIsDialogOpen(false);
-                              setSelectedTutor(null);
-                              setTutorSearchQuery("");
-                              onRemoveRequest(request.id);
-                              onComplete();
-                            }
-                          }}
+                          disabled={!selectedTutor || approveMutation.isPending}
+                          onClick={handleApprove}
                         >
-                          Assign Tutor
+                          {approveMutation.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Assigning...
+                            </>
+                          ) : (
+                            "Assign Tutor"
+                          )}
                         </Button>
                       </div>
                     </div>

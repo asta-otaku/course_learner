@@ -29,6 +29,7 @@ import {
   Curriculum,
   QuizAttempt,
   SupportTicket,
+  ChangeRequest,
 } from "../types";
 
 // Helper function to handle error messages
@@ -1537,6 +1538,58 @@ export const usePostSupportMessages = (id: string) => {
     onSuccess: (data: ApiResponse<SupportTicket>) => {
       queryClient.invalidateQueries({
         queryKey: ["support", id],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Tutor Change Mutations
+export const usePostTutorChangeRequest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-tutor-change-request"],
+    mutationFn: (data: {
+      childProfileId: string;
+      currentTutorId: string;
+      currentTutorName: string;
+      requestedTutorId: string;
+      requestedTutorName: string;
+      reason: string | null;
+    }): Promise<ApiResponse<ChangeRequest>> =>
+      axiosInstance.post("/tutor-change-request", data),
+    onSuccess: (data: ApiResponse<ChangeRequest>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["tutor-change-requests"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchUpdateTutorChangeRequest = (id: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-update-tutor-change-request", id],
+    mutationFn: (data: {
+      status: "pending" | "approved" | "rejected";
+      reviewNote: string;
+    }): Promise<ApiResponse<ChangeRequest>> => {
+      const url =
+        data.status === "approved"
+          ? `/tutor-change-request/${id}/approve`
+          : `/tutor-change-request/${id}/reject`;
+      return axiosInstance.patch(url, { reviewNote: data.reviewNote });
+    },
+    onSuccess: (data: ApiResponse<ChangeRequest>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["tutor-change-requests"],
       });
       return data;
     },

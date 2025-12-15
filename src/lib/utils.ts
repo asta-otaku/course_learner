@@ -907,22 +907,3 @@ export const transformTutorData = (tutors: TutorDetails[]): TransformedTutorProf
     };
   });
 };
-
-// Create change requests based on actual tutor data
-export const createChangeRequestsFromTutors = (tutors: TutorDetails[]): ChangeRequest[] => {
-  if (tutors.length < 2) return [];
-  
-  // Create a sample change request using actual tutor data
-  return [
-    {
-      id: "1", 
-      className: "Class Red",
-      currentTutorId: tutors[0].id,
-      currentTutor: `${tutors[0].user.firstName} ${tutors[0].user.lastName}`,
-      requestedTutorId: tutors[1].id,
-      requestedTutor: `${tutors[1].user.firstName} ${tutors[1].user.lastName}`,
-      status: "pending",
-      requestDate: new Date().toISOString().split('T')[0],
-    }
-  ];
-};

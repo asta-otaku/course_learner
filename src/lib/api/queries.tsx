@@ -24,6 +24,7 @@ import {
   Analytics,
   TutorAnalytics,
   SupportTicket,
+  ChangeRequest,
 } from "../types";
 
 // User Queries
@@ -916,6 +917,28 @@ export const useGetSupportTicketById = (id: string) => {
     queryKey: ["support", id],
     queryFn: async (): Promise<APIGetResponse<SupportTicket>> => {
       const response = await axiosInstance.get(`/support/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
+  });
+};
+
+// Tutor Change Queries
+export const useGetTutorChangeRequests = () => {
+  return useQuery({
+    queryKey: ["tutor-change-requests"],
+    queryFn: async (): Promise<APIGetResponse<ChangeRequest[]>> => {
+      const response = await axiosInstance.get("/tutor-change-request");
+      return response.data;
+    },
+  });
+};
+
+export const useGetChangeRequestById = (id: string) => {
+  return useQuery({
+    queryKey: ["tutor-change-request", id],
+    queryFn: async (): Promise<APIGetResponse<ChangeRequest>> => {
+      const response = await axiosInstance.get(`/tutor-change-request/${id}`);
       return response.data;
     },
     enabled: !!id,

@@ -836,5 +836,20 @@ export interface SupportTicket {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ChangeRequest {
+  id: string,
+  childProfileId: string | null,
+  childName: string | null,
+  currentTutorId: string,
+  currentTutorName: string | null,
+  requestedTutorId: string;
+  requestedTutorName: string;
+  status: string;
+  reason: string | null;
+  reviewNote: string;
+  createdAt: string;
+  reviewedAt: string;
+}
 // Export socket types
 export * from "./types/socket";

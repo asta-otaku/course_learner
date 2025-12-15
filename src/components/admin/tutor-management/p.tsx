@@ -1,21 +1,27 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import {
-  transformTutorData,
-  createChangeRequestsFromTutors,
-} from "@/lib/utils";
+import { transformTutorData } from "@/lib/utils";
 import ChangeRequestList from "./changeRequestList";
 import TutorReplacement from "./tutorReplacement";
 import TutorIndex from "./tutorIndex";
-import { useGetTutors } from "@/lib/api/queries";
-import { TutorDetails, ChangeRequest } from "@/lib/types";
+import { useGetTutors, useGetTutorChangeRequests } from "@/lib/api/queries";
+import { TutorDetails } from "@/lib/types";
 
 function TutorManagement() {
   const [steps, setSteps] = useState(0);
-  const { data: tutorsResponse, isLoading, error } = useGetTutors();
+  const {
+    data: tutorsResponse,
+    isLoading: tutorsLoading,
+    error: tutorsError,
+  } = useGetTutors();
+  const {
+    data: changeRequestsResponse,
+    isLoading: requestsLoading,
+    error: requestsError,
+  } = useGetTutorChangeRequests();
 
-  // Memoize transformed data and change requests
+  // Memoize transformed data
   const tutorData = useMemo(() => {
     if (!tutorsResponse?.data) return [];
     return tutorsResponse.data as TutorDetails[];
@@ -25,35 +31,29 @@ function TutorManagement() {
     return transformTutorData(tutorData);
   }, [tutorData]);
 
-  const dynamicChangeRequests = useMemo(() => {
-    return createChangeRequestsFromTutors(tutorData);
-  }, [tutorData]);
+  // Get all change requests from API (including rejected/approved)
+  const changeRequests = useMemo(() => {
+    if (!changeRequestsResponse?.data) return [];
+    // Return all requests, sorted by status (pending first) and date
+    return [...changeRequestsResponse.data].sort((a: any, b: any) => {
+      // Pending requests first
+      if (a.status === "pending" && b.status !== "pending") return -1;
+      if (a.status !== "pending" && b.status === "pending") return 1;
+      // Then sort by date (newest first)
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [changeRequestsResponse]);
 
-  const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>(
-    dynamicChangeRequests
-  );
-  const [selectedRequest, setSelectedRequest] = useState<ChangeRequest | null>(
-    null
-  );
+  // Count only pending requests for the button
+  const pendingRequestsCount = useMemo(() => {
+    return changeRequests.filter((req: any) => req.status === "pending").length;
+  }, [changeRequests]);
 
-  // Update change requests when tutor data changes
-  React.useEffect(() => {
-    if (dynamicChangeRequests.length > 0) {
-      setChangeRequests(dynamicChangeRequests);
-    }
-  }, [dynamicChangeRequests]);
+  const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
 
-  const handleProceedToReplace = (request: ChangeRequest) => {
+  const handleProceedToReplace = (request: any) => {
     setSelectedRequest(request);
     setSteps(1);
-  };
-
-  const handleCancelRequest = (requestId: string) => {
-    setChangeRequests((prev) => prev.filter((req) => req.id !== requestId));
-  };
-
-  const handleRemoveRequest = (requestId: string) => {
-    setChangeRequests((prev) => prev.filter((req) => req.id !== requestId));
   };
 
   const handleBack = () => {
@@ -62,20 +62,20 @@ function TutorManagement() {
   };
 
   // Show loading state
-  if (isLoading) {
+  if (tutorsLoading || requestsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading tutors...</div>
+        <div className="text-lg">Loading...</div>
       </div>
     );
   }
 
   // Show error state
-  if (error) {
+  if (tutorsError || requestsError) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg text-red-600">
-          Error loading tutors: {error.message}
+          Error loading data: {tutorsError?.message || requestsError?.message}
         </div>
       </div>
     );
@@ -88,7 +88,7 @@ function TutorManagement() {
           0: (
             <TutorIndex
               onNavigateToChangeRequests={() => setSteps(1)}
-              changeRequestsCount={changeRequests.length}
+              changeRequestsCount={pendingRequestsCount}
               tutors={transformedTutors}
             />
           ),
@@ -97,17 +97,14 @@ function TutorManagement() {
               request={selectedRequest}
               onBack={handleBack}
               onComplete={() => {
-                // Handle completion logic
                 handleBack();
               }}
-              onRemoveRequest={handleRemoveRequest}
               tutors={transformedTutors}
             />
           ) : (
             <ChangeRequestList
               requests={changeRequests}
               onProceedToReplace={handleProceedToReplace}
-              onCancelRequest={handleCancelRequest}
               onBack={() => {
                 setSteps(0);
                 setSelectedRequest(null);

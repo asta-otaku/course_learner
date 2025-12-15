@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import profileIcon from "@/assets/profileIcon.svg";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
@@ -14,10 +14,12 @@ import HomeworkCard from "./homeworkCard";
 import { useRouter } from "next/navigation";
 import { usePostCreateChat } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
+import { TutorChangeRequestDialog } from "./tutor-change-request-dialog";
 
 function TuitionHome() {
   const { activeProfile, changeProfile, isLoaded, profiles } =
     useSelectedProfile();
+  const [showChangeRequestDialog, setShowChangeRequestDialog] = useState(false);
 
   const homeworks = generateHomeworkWithDates();
 
@@ -160,6 +162,7 @@ function TuitionHome() {
                 <h3 className="text-base font-semibold">Tutor</h3>
                 <Button
                   variant="link"
+                  onClick={() => push("/settings/support")}
                   className="text-xs text-primaryBlue px-0"
                 >
                   Provide Feedback <BackArrow color="#286CFF" flipped />
@@ -184,7 +187,8 @@ function TuitionHome() {
                 <div className="flex gap-2 justify-center">
                   <Button
                     variant="outline"
-                    className="rounded-full text-xs px-4 bg-gradient-to-tr from-[#545454] to-black text-white"
+                    className="rounded-full text-xs px-4 bg-gradient-to-tr from-[#545454] to-black text-white hover:opacity-90"
+                    onClick={() => setShowChangeRequestDialog(true)}
                   >
                     Request Change
                   </Button>
@@ -201,6 +205,18 @@ function TuitionHome() {
           )}
         </div>
       </div>
+
+      {/* Tutor Change Request Dialog */}
+      {activeProfile?.tutorId && (
+        <TutorChangeRequestDialog
+          open={showChangeRequestDialog}
+          onOpenChange={setShowChangeRequestDialog}
+          childProfileId={activeProfile.id}
+          childName={activeProfile.name}
+          currentTutorId={activeProfile.tutorId}
+          currentTutorName={`${activeProfile.tutorFirstName} ${activeProfile.tutorLastName}`}
+        />
+      )}
     </div>
   );
 }
