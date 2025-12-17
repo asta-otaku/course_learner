@@ -3,12 +3,13 @@ import { z } from 'zod'
 export const quizSettingsSchema = z.object({
   timeLimit: z.number().min(0).max(180), // in minutes
   randomizeQuestions: z.boolean(),
-  showCorrectAnswers: z.boolean(),
-  maxAttempts: z.number().min(1),
+  showCorrectAnswers: z.boolean().optional(),
+  maxAttempts: z.number().min(1).optional(),
   passingScore: z.number().min(0).max(100),
-  showFeedback: z.boolean(),
-  allowRetakes: z.boolean(),
-  allowReview: z.boolean(),
+  showFeedback: z.boolean().optional(),
+  allowRetakes: z.boolean().optional(),
+  allowReview: z.boolean().optional(),
+  feedbackMode: z.enum(["immediate", "after_completion", "delayed_random", "manual_tutor_review"]),
   availableFrom: z.string().optional(),
   availableUntil: z.string().optional(),
   preventSkipping: z.boolean().default(false),

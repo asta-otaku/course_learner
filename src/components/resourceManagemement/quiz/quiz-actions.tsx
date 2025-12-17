@@ -62,7 +62,7 @@ export function QuizActions({ quizId, canEdit }: QuizActionsProps) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem
-            onClick={() => router.push(`/quizzes/${quizId}/edit`)}
+            onClick={() => router.push(`/admin/quizzes/${quizId}/edit`)}
           >
             <Edit className="mr-2 h-4 w-4" />
             Edit

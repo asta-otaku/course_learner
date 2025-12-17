@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createQuizSchema, type CreateQuizInput } from "@/lib/validations/quiz";
 import { usePostQuiz } from "@/lib/api/mutations";
@@ -18,6 +18,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2, AlertCircle } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -33,6 +34,7 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<CreateQuizInput>({
     resolver: zodResolver(createQuizSchema),
@@ -41,13 +43,10 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
       description: "",
       tags: [],
       settings: {
-        timeLimit: 30,
+        timeLimit: 0,
         randomizeQuestions: false,
-        showCorrectAnswers: true,
-        passingScore: 70,
-        showFeedback: true,
-        allowRetakes: true,
-        allowReview: true,
+        passingScore: 80,
+        feedbackMode: "immediate",
         availableFrom: "",
         availableUntil: "",
       },
@@ -79,20 +78,11 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
         if (data.settings.randomizeQuestions !== undefined) {
           settings.randomizeQuestions = data.settings.randomizeQuestions;
         }
-        if (data.settings.showCorrectAnswers !== undefined) {
-          settings.showCorrectAnswers = data.settings.showCorrectAnswers;
-        }
         if (data.settings.passingScore !== undefined) {
           settings.passingScore = data.settings.passingScore;
         }
-        if (data.settings.showFeedback !== undefined) {
-          settings.showFeedback = data.settings.showFeedback;
-        }
-        if (data.settings.allowRetakes !== undefined) {
-          settings.allowRetakes = data.settings.allowRetakes;
-        }
-        if (data.settings.allowReview !== undefined) {
-          settings.allowReview = data.settings.allowReview;
+        if (data.settings.feedbackMode) {
+          settings.feedbackMode = data.settings.feedbackMode;
         }
         if (data.settings.availableFrom?.trim()) {
           settings.availableFrom = data.settings.availableFrom;
@@ -168,18 +158,21 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
           <CardTitle>Quiz Settings</CardTitle>
           <CardDescription>Configure how the quiz will behave</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div>
-            <Label htmlFor="timeLimit">Time Limit (minutes) *</Label>
+            <Label htmlFor="timeLimit">Time Limit (minutes)</Label>
             <Input
               id="timeLimit"
               type="number"
               {...register("settings.timeLimit", { valueAsNumber: true })}
-              placeholder="Enter time limit in minutes"
+              placeholder="0"
               min={0}
               max={180}
               className={errors.settings?.timeLimit ? "border-destructive" : ""}
             />
+            <p className="text-sm text-muted-foreground mt-1">
+              Leave as 0 for no time limit
+            </p>
             {errors.settings?.timeLimit && (
               <p className="text-sm text-destructive mt-1">
                 {errors.settings.timeLimit.message}
@@ -188,7 +181,7 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
           </div>
 
           <div>
-            <Label htmlFor="passingScore">Passing Score (%) *</Label>
+            <Label htmlFor="passingScore">Passing Score (%)</Label>
             <Input
               id="passingScore"
               type="number"
@@ -206,100 +199,122 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
             )}
           </div>
 
-          <div>
-            <Label htmlFor="availableFrom">Available From</Label>
-            <Input
-              id="availableFrom"
-              type="date"
-              {...register("settings.availableFrom")}
-              className={
-                errors.settings?.availableFrom ? "border-destructive" : ""
-              }
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="randomizeQuestions"
+              {...register("settings.randomizeQuestions")}
+              className="rounded border-gray-300"
             />
-            {errors.settings?.availableFrom && (
-              <p className="text-sm text-destructive mt-1">
-                {errors.settings.availableFrom.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="availableUntil">Available Until</Label>
-            <Input
-              id="availableUntil"
-              type="date"
-              {...register("settings.availableUntil")}
-              className={
-                errors.settings?.availableUntil ? "border-destructive" : ""
-              }
-            />
-            {errors.settings?.availableUntil && (
-              <p className="text-sm text-destructive mt-1">
-                {errors.settings.availableUntil.message}
-              </p>
-            )}
+            <Label htmlFor="randomizeQuestions" className="font-normal">
+              Randomize question order for each attempt
+            </Label>
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="randomizeQuestions"
-                {...register("settings.randomizeQuestions")}
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="randomizeQuestions" className="font-normal">
-                Randomize question order for each attempt
-              </Label>
+            <div>
+              <Label className="text-base">Feedback Mode</Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                Choose when and how students receive feedback on their answers
+              </p>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="showCorrectAnswers"
-                {...register("settings.showCorrectAnswers")}
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="showCorrectAnswers" className="font-normal">
-                Show correct answers after submission
-              </Label>
-            </div>
+            <Controller
+              name="settings.feedbackMode"
+              control={control}
+              render={({ field }) => (
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  value={field.value}
+                  className="space-y-4"
+                >
+                  <div className="flex items-start space-x-3 space-y-0">
+                    <RadioGroupItem
+                      value="immediate"
+                      id="immediate"
+                      className="mt-1"
+                    />
+                    <div className="space-y-1 leading-none">
+                      <Label
+                        htmlFor="immediate"
+                        className="font-medium cursor-pointer"
+                      >
+                        Immediate Feedback
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Students see correct answers immediately after answering
+                        each question
+                      </p>
+                    </div>
+                  </div>
 
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="showFeedback"
-                {...register("settings.showFeedback")}
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="showFeedback" className="font-normal">
-                Show feedback to students
-              </Label>
-            </div>
+                  <div className="flex items-start space-x-3 space-y-0">
+                    <RadioGroupItem
+                      value="after_completion"
+                      id="after_completion"
+                      className="mt-1"
+                    />
+                    <div className="space-y-1 leading-none">
+                      <Label
+                        htmlFor="after_completion"
+                        className="font-medium cursor-pointer"
+                      >
+                        After Completion
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Students see all feedback only after completing the
+                        entire quiz
+                      </p>
+                    </div>
+                  </div>
 
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="allowRetakes"
-                {...register("settings.allowRetakes")}
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="allowRetakes" className="font-normal">
-                Allow students to retake the quiz
-              </Label>
-            </div>
+                  <div className="flex items-start space-x-3 space-y-0">
+                    <RadioGroupItem
+                      value="delayed_random"
+                      id="delayed_random"
+                      className="mt-1"
+                    />
+                    <div className="space-y-1 leading-none">
+                      <Label
+                        htmlFor="delayed_random"
+                        className="font-medium cursor-pointer"
+                      >
+                        Delayed Random Feedback
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Feedback is delivered at a random time between the
+                        specified hours after completion
+                      </p>
+                    </div>
+                  </div>
 
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="allowReview"
-                {...register("settings.allowReview")}
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="allowReview" className="font-normal">
-                Allow students to review their answers
-              </Label>
-            </div>
+                  <div className="flex items-start space-x-3 space-y-0">
+                    <RadioGroupItem
+                      value="manual_tutor_review"
+                      id="manual_tutor_review"
+                      className="mt-1"
+                    />
+                    <div className="space-y-1 leading-none">
+                      <Label
+                        htmlFor="manual_tutor_review"
+                        className="font-medium cursor-pointer"
+                      >
+                        Manual Tutor Review
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Quiz is sent to assigned tutor for review and
+                        personalized feedback
+                      </p>
+                    </div>
+                  </div>
+                </RadioGroup>
+              )}
+            />
+            {errors.settings?.feedbackMode && (
+              <p className="text-sm text-destructive mt-1">
+                {errors.settings.feedbackMode.message}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
