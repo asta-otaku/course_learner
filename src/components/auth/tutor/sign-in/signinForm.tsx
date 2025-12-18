@@ -13,6 +13,7 @@ import { signinSchema } from "@/lib/schema";
 import { z } from "zod";
 import { usePostLogin } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
+import { getAndClearIntendedUrl } from "@/lib/services/axiosInstance";
 
 function SigninForm() {
   const {
@@ -39,12 +40,21 @@ function SigninForm() {
       // Set flag to initialize socket
       localStorage.setItem("initializeSocket", "true");
       toast.success(res.data.message);
-      // Redirect to /dashboard if userRole is parent, otherwise use the userRole path
-      const redirectPath =
-        res.data.data.userRole === "parent"
-          ? "/dashboard"
-          : `/${res.data.data.userRole}`;
-      push(redirectPath);
+      
+      // Check for intended URL first
+      const intendedUrl = getAndClearIntendedUrl();
+      
+      if (intendedUrl) {
+        // Redirect to the intended URL
+        push(intendedUrl);
+      } else {
+        // Redirect to default path based on role
+        const redirectPath =
+          res.data.data.userRole === "parent"
+            ? "/dashboard"
+            : `/${res.data.data.userRole}`;
+        push(redirectPath);
+      }
     }
   };
   return (

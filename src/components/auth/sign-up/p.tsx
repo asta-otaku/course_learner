@@ -18,8 +18,8 @@ function SignUp() {
               idx < currentStep
                 ? "bg-primaryBlue"
                 : currentStep === idx
-                ? "bg-primaryBlue"
-                : "bg-borderGray"
+                  ? "bg-primaryBlue"
+                  : "bg-borderGray"
             }`}
           ></div>
         ))}

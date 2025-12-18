@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated } from "@/lib/services/axiosInstance";
+import { isAuthenticated, getAndClearIntendedUrl } from "@/lib/services/axiosInstance";
 import { ChildProfile } from "../sign-up/profileSetup";
 import SigninForm from "./signinForm";
 import ProfileSelection from "./profileSelection";
@@ -30,7 +30,9 @@ export default function Signin() {
   // Check if user is already signed in and redirect to dashboard
   useEffect(() => {
     if (typeof window !== "undefined" && isAuthenticated()) {
-      router.push("/dashboard");
+      // Check for intended URL first
+      const intendedUrl = getAndClearIntendedUrl();
+      router.push(intendedUrl || "/dashboard");
     }
   }, [router]);
 

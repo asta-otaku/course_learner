@@ -435,11 +435,19 @@ function Page() {
 
                 <div className="py-2 border-b border-gray-200">
                   <label className="text-xs font-medium">Year</label>
-                  <input
+                  <select
                     {...register("year")}
-                    type="text"
-                    className="text-sm text-textSubtitle font-medium bg-transparent border-none focus:outline-none focus:ring-0 py-2 w-full"
-                  />
+                    className="text-sm text-textSubtitle font-medium bg-transparent border-none focus:outline-none focus:ring-0 py-2 w-full cursor-pointer"
+                  >
+                    <option value="" disabled>
+                      Select Year
+                    </option>
+                    {Array.from({ length: 6 }, (_, i) => i + 1).map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                  </select>
                   {errors.year && (
                     <span className="text-red-500 text-xs">
                       {errors.year.message}

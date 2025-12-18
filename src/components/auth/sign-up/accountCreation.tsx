@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Loader } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { accountCreationSchema } from "@/lib/schema";
 import { z } from "zod";
@@ -36,6 +36,7 @@ export default function AccountCreation({
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<AccountCreationForm>({
     resolver: zodResolver(accountCreationSchema),
@@ -205,9 +206,27 @@ export default function AccountCreation({
           {/** Referral */}
           <div className="flex flex-col gap-1">
             <label className="font-medium">How did you hear about us</label>
-            <Input
-              {...register("howDidYouHearAboutUs")}
-              className="!rounded-xl !h-11 placeholder:text-textSubtitle"
+            <Controller
+              name="howDidYouHearAboutUs"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className="!rounded-xl !h-11">
+                    <SelectValue placeholder="Select an option" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Social Media">Social Media</SelectItem>
+                    <SelectItem value="Friend/Family">Friend/Family</SelectItem>
+                    <SelectItem value="Search Engine">Search Engine</SelectItem>
+                    <SelectItem value="Advertisement">Advertisement</SelectItem>
+                    <SelectItem value="School/Teacher">
+                      School/Teacher
+                    </SelectItem>
+                    <SelectItem value="Online Review">Online Review</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             />
             {errors.howDidYouHearAboutUs && (
               <span className="text-red-500 text-xs">

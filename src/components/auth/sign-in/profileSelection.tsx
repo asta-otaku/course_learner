@@ -12,6 +12,7 @@ import Link from "next/link";
 import { usePatchChildProfile } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
+import { getAndClearIntendedUrl } from "@/lib/services/axiosInstance";
 
 function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -88,7 +89,9 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
                     }
                     // Small delay to ensure localStorage and event are processed
                     setTimeout(() => {
-                      push("/dashboard");
+                      // Check for intended URL first
+                      const intendedUrl = getAndClearIntendedUrl();
+                      push(intendedUrl || "/dashboard");
                     }, 100);
                   }
                 }}
