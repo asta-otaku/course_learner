@@ -20,7 +20,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "react-toastify";
-import { usePostSubmitQuiz } from "@/lib/api/mutations";
+import { usePostSubmitQuiz, usePostSubmitHomework } from "@/lib/api/mutations";
+import { useGetQuizQuestions } from "@/lib/api/queries";
 import {
   ChevronLeft,
   ChevronRight,
@@ -61,27 +62,13 @@ interface QuizTransition {
   content: string;
 }
 
-interface Quiz {
-  id: string;
-  title: string;
-  description?: string;
-  settings: {
-    timeLimit?: number;
-    randomizeQuestions: boolean;
-    showCorrectAnswers: boolean;
-    maxAttempts: number;
-    passingScore: number;
-    examMode?: boolean;
-  };
-  questions: QuizQuestion[];
-  transitions: QuizTransition[];
-}
-
 interface QuizPlayerProps {
-  quiz: Quiz;
+  quizId: string;
   attemptNumber?: number;
   isTestMode?: boolean;
   attemptId?: string | null;
+  isHomework?: boolean;
+  homeworkId?: string;
 }
 
 interface QuizResult {
@@ -113,9 +100,11 @@ type NavigationPosition = {
 };
 
 export function QuizPlayer({
-  quiz,
+  quizId,
   isTestMode = false,
   attemptId,
+  isHomework = false,
+  homeworkId,
 }: QuizPlayerProps) {
   const router = useRouter();
   const [currentPosition, setCurrentPosition] = useState<NavigationPosition>({
@@ -135,15 +124,41 @@ export function QuizPlayer({
     useState<SubmissionResults | null>(null);
   const [showResults, setShowResults] = useState(false);
 
-  // Submit quiz mutation
+  // Default quiz settings
+  const quizSettings = {
+    timeLimit: undefined,
+    randomizeQuestions: false,
+    showCorrectAnswers: true,
+    maxAttempts: 3,
+    passingScore: 70,
+    examMode: false,
+  };
+
+  // Fetch questions only when attemptId is available (quiz has started)
+  // Note: The hook will only fetch when quizId is truthy, but we also need attemptId
+  // So we'll check for attemptId in the component logic
+  const {
+    data: questionsResponse,
+    isLoading: questionsLoading,
+    error: questionsError,
+  } = useGetQuizQuestions(attemptId ? quizId : "");
+
+  // Submit quiz mutation (for regular quizzes)
   const { mutate: submitQuiz, isPending: isSubmittingQuiz } = usePostSubmitQuiz(
-    quiz.id,
+    quizId,
     attemptId || ""
   );
 
+  // Submit homework mutation (for homework quizzes)
+  const { mutate: submitHomework, isPending: isSubmittingHomework } =
+    usePostSubmitHomework(homeworkId || "", attemptId || "");
+
   // Get transition for a specific position (0-based, so position 1 means before question 1, etc.)
-  const getTransitionForPosition = (position: number) => {
-    return quiz.transitions.find((t) => t.position === position);
+  const getTransitionForPosition = (
+    position: number
+  ): QuizTransition | undefined => {
+    // No transitions for now, can be added later if needed
+    return undefined;
   };
 
   // Get the actual question index being shown (for display purposes)
@@ -158,11 +173,88 @@ export function QuizPlayer({
     return currentPosition.questionIndex;
   };
 
-  // Initialize questions (with randomization if enabled)
+  // Transform and initialize questions when fetched
   useEffect(() => {
-    let orderedQuestions = [...quiz.questions];
+    if (!questionsResponse?.data || !attemptId) return;
 
-    if (quiz.settings.randomizeQuestions) {
+    const rawQuestions = questionsResponse.data;
+
+    // Transform questions to QuizQuestion format
+    const transformedQuestions: QuizQuestion[] = rawQuestions
+      .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+      .map((qq: any) => ({
+        id: qq.id,
+        order: qq.orderIndex,
+        points: qq.pointsOverride || qq.question.points || 1,
+        explanation: qq.question.explanation,
+        question: {
+          id: qq.question.id,
+          title: qq.question.title,
+          content: qq.question.content,
+          type: qq.question.type,
+          image_url: qq.question.image_url,
+          // Transform answers to options for multiple choice
+          options:
+            qq.question.type === "multiple_choice" && qq.question.answers
+              ? qq.question.answers
+                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                  .map((answer: any) => ({
+                    id: answer.id,
+                    text: answer.content,
+                    isCorrect: answer.isCorrect,
+                  }))
+              : [],
+          // For true/false questions
+          ...(qq.question.type === "true_false" && {
+            options: qq.question.answers
+              ? qq.question.answers
+                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                  .map((answer: any) => ({
+                    id: answer.id,
+                    text: answer.content,
+                    isCorrect: answer.isCorrect,
+                  }))
+              : [
+                  {
+                    id: "true",
+                    text: "True",
+                    isCorrect: qq.question.metadata?.correct_answer === true,
+                  },
+                  {
+                    id: "false",
+                    text: "False",
+                    isCorrect: qq.question.metadata?.correct_answer === false,
+                  },
+                ],
+          }),
+          // For matching questions
+          ...(qq.question.type === "matching_pairs" && {
+            pairs: (qq.question.answers?.[0]?.matchingPairs || []).map(
+              (pair: any, index: number) => ({
+                id: `pair-${index}`,
+                left: pair.left,
+                right: pair.right,
+              })
+            ),
+            correctAnswer: qq.question.answers?.[0]?.matchingPairs || [],
+          }),
+          // For free text questions
+          ...(qq.question.type === "free_text" && {
+            correctAnswers:
+              qq.question.answers?.map((answer: any) => answer.content) || [],
+          }),
+          // Pass metadata for other question types that might need it
+          metadata: qq.question.metadata,
+          // Pass correct answer for other types if available
+          correctAnswer:
+            qq.question.metadata?.correct_answer ||
+            qq.question.answers?.find((a: any) => a.isCorrect)?.id,
+        },
+      }));
+
+    // Apply randomization if enabled
+    let orderedQuestions = [...transformedQuestions];
+    if (quizSettings.randomizeQuestions) {
       orderedQuestions = orderedQuestions.sort(() => Math.random() - 0.5);
     }
 
@@ -173,11 +265,13 @@ export function QuizPlayer({
     if (initialTransition) {
       setCurrentPosition({ type: "transition", questionIndex: 0 });
     }
-  }, [quiz]);
+  }, [questionsResponse, attemptId]);
 
   // Load saved progress from localStorage
   useEffect(() => {
-    const savedProgress = localStorage.getItem(`quiz-progress-${quiz.id}`);
+    if (!attemptId) return;
+
+    const savedProgress = localStorage.getItem(`quiz-progress-${quizId}`);
     if (savedProgress) {
       try {
         const progress = JSON.parse(savedProgress);
@@ -191,36 +285,37 @@ export function QuizPlayer({
             questionIndex: progress.currentQuestion,
           });
         }
-        if (progress.timeRemaining && quiz.settings.timeLimit) {
+        if (progress.timeRemaining && quizSettings.timeLimit) {
           setTimeRemaining(progress.timeRemaining);
         }
       } catch (error) {
         console.error("Error loading saved progress:", error);
       }
-    } else if (quiz.settings.timeLimit) {
-      setTimeRemaining(quiz.settings.timeLimit * 60); // Convert minutes to seconds
+    } else if (quizSettings.timeLimit) {
+      setTimeRemaining(quizSettings.timeLimit * 60); // Convert minutes to seconds
     }
 
     // In test mode or exam mode, always use time limit if specified
     if (
-      (isTestMode || quiz.settings.examMode) &&
-      quiz.settings.timeLimit &&
+      (isTestMode || quizSettings.examMode) &&
+      quizSettings.timeLimit &&
       !savedProgress
     ) {
-      setTimeRemaining(quiz.settings.timeLimit * 60);
+      setTimeRemaining(quizSettings.timeLimit * 60);
     }
-  }, [quiz]);
+  }, [quizId, attemptId, isTestMode]);
 
   // Save progress to localStorage
   const saveProgress = useCallback(() => {
+    if (!attemptId) return;
     const progress = {
       answers,
       currentPosition,
       timeRemaining,
       lastSaved: Date.now(),
     };
-    localStorage.setItem(`quiz-progress-${quiz.id}`, JSON.stringify(progress));
-  }, [quiz.id, answers, currentPosition, timeRemaining]);
+    localStorage.setItem(`quiz-progress-${quizId}`, JSON.stringify(progress));
+  }, [quizId, attemptId, answers, currentPosition, timeRemaining]);
 
   // Auto-save progress
   useEffect(() => {
@@ -291,7 +386,7 @@ export function QuizPlayer({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentPosition, answers, questions, isTestMode, quiz.settings.examMode]);
+  }, [currentPosition, answers, questions, isTestMode, quizSettings.examMode]);
 
   const handleTimeUp = async () => {
     toast.error("Time's up! Your quiz has been automatically submitted.");
@@ -407,7 +502,7 @@ export function QuizPlayer({
 
   const handleFirst = () => {
     // In exam mode, don't allow going back
-    if (quiz.settings.examMode && isTestMode) {
+    if (quizSettings.examMode && isTestMode) {
       return;
     }
 
@@ -442,7 +537,7 @@ export function QuizPlayer({
 
   const handlePrevious = () => {
     // In exam mode, don't allow going back
-    if (quiz.settings.examMode && isTestMode) {
+    if (quizSettings.examMode && isTestMode) {
       return;
     }
 
@@ -548,7 +643,7 @@ export function QuizPlayer({
 
     // In exam mode, only allow forward navigation
     if (
-      quiz.settings.examMode &&
+      quizSettings.examMode &&
       isTestMode &&
       index < getCurrentQuestionIndex()
     ) {
@@ -614,41 +709,81 @@ export function QuizPlayer({
     };
 
     // Clear saved progress before submission
-    localStorage.removeItem(`quiz-progress-${quiz.id}`);
+    localStorage.removeItem(`quiz-progress-${quizId}`);
 
-    submitQuiz(submissionData, {
-      onSuccess: (response) => {
-        // Store results and show results view
-        const resultData = response.data?.data as any;
-        if (resultData) {
-          setSubmissionResults({
-            attemptId: resultData.attemptId || attemptId || "",
-            quizId: resultData.quizId || quiz.id,
-            score: resultData.score || 0,
-            totalPoints: resultData.totalPoints || 0,
-            percentage: resultData.percentage || 0,
-            results: resultData.results || [],
-            timeSpent: resultData.timeSpent || 0,
-          });
-          setShowResults(true);
-          setCurrentPosition({ type: "question", questionIndex: 0 });
-          toast.success("Quiz submitted successfully!");
-        } else {
-          // Fallback: redirect if no results data
-          const resultAttemptId =
-            resultData?.id ||
-            resultData?.attemptId ||
-            resultData ||
-            attemptId ||
-            "";
-          router.push(`/quiz-results/${resultAttemptId}`);
-        }
-      },
-      onError: (error) => {
-        console.error("Error submitting quiz:", error);
-        toast.error("Failed to submit quiz. Please try again.");
-      },
-    });
+    // Use appropriate submission endpoint based on mode
+    if (isHomework && homeworkId) {
+      // Submit homework
+      submitHomework(submissionData, {
+        onSuccess: (response) => {
+          // Store results and show results view
+          const resultData = response.data?.data as any;
+          if (resultData) {
+            setSubmissionResults({
+              attemptId:
+                resultData.attemptId || resultData.id || attemptId || "",
+              quizId: resultData.quizId || quizId,
+              score: resultData.score || 0,
+              totalPoints: resultData.totalPoints || 0,
+              percentage: resultData.percentage || 0,
+              results: resultData.results || [],
+              timeSpent: resultData.timeSpent || 0,
+            });
+            setShowResults(true);
+            setCurrentPosition({ type: "question", questionIndex: 0 });
+            toast.success("Homework submitted successfully!");
+          } else {
+            // Fallback: redirect if no results data
+            const resultAttemptId =
+              resultData?.id ||
+              resultData?.attemptId ||
+              resultData ||
+              attemptId ||
+              "";
+            router.push(`/quiz-results/${resultAttemptId}`);
+          }
+        },
+        onError: (error) => {
+          console.error("Error submitting homework:", error);
+          toast.error("Failed to submit homework. Please try again.");
+        },
+      });
+    } else {
+      // Submit regular quiz
+      submitQuiz(submissionData, {
+        onSuccess: (response) => {
+          // Store results and show results view
+          const resultData = response.data?.data as any;
+          if (resultData) {
+            setSubmissionResults({
+              attemptId: resultData.attemptId || attemptId || "",
+              quizId: resultData.quizId || quizId,
+              score: resultData.score || 0,
+              totalPoints: resultData.totalPoints || 0,
+              percentage: resultData.percentage || 0,
+              results: resultData.results || [],
+              timeSpent: resultData.timeSpent || 0,
+            });
+            setShowResults(true);
+            setCurrentPosition({ type: "question", questionIndex: 0 });
+            toast.success("Quiz submitted successfully!");
+          } else {
+            // Fallback: redirect if no results data
+            const resultAttemptId =
+              resultData?.id ||
+              resultData?.attemptId ||
+              resultData ||
+              attemptId ||
+              "";
+            router.push(`/quiz-results/${resultAttemptId}`);
+          }
+        },
+        onError: (error) => {
+          console.error("Error submitting quiz:", error);
+          toast.error("Failed to submit quiz. Please try again.");
+        },
+      });
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -724,8 +859,69 @@ export function QuizPlayer({
       .join(" or ");
   };
 
+  // Get quiz title from questions or use default
+  const quizTitle =
+    questions.length > 0
+      ? questions[0]?.question?.title ||
+        questions[0]?.question?.content ||
+        "Quiz"
+      : "Quiz";
+
+  // Show loading state while fetching questions
+  if (questionsLoading || !attemptId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primaryBlue mx-auto mb-4"></div>
+          <p>Loading quiz...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (
+    questionsError ||
+    !questionsResponse?.data ||
+    questionsResponse.data.length === 0
+  ) {
+    return (
+      <div className="max-w-2xl mx-auto py-12">
+        <Card>
+          <CardHeader>
+            <CardTitle>Quiz Not Ready</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {questionsError
+                  ? "Failed to load quiz questions. Please try again."
+                  : "This quiz doesn't have any questions yet."}
+              </AlertDescription>
+            </Alert>
+            <Button
+              className="mt-4"
+              variant="outline"
+              onClick={() => router.push("/videos-quiz")}
+            >
+              Back to Quizzes
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (questions.length === 0) {
-    return <div>Loading quiz...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primaryBlue mx-auto mb-4"></div>
+          <p>Preparing quiz...</p>
+        </div>
+      </div>
+    );
   }
 
   const currentQuestionIndex = getCurrentQuestionIndex();
@@ -747,13 +943,8 @@ export function QuizPlayer({
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <CardTitle>Quiz Results: {quiz.title}</CardTitle>
+                      <CardTitle>Quiz Results: {quizTitle}</CardTitle>
                     </div>
-                    {quiz.description && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {quiz.description}
-                      </p>
-                    )}
                   </div>
                   <Button
                     variant="outline"
@@ -1121,16 +1312,11 @@ export function QuizPlayer({
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <CardTitle>{quiz.title}</CardTitle>
+                    <CardTitle>{quizTitle}</CardTitle>
                     {isTestMode && (
                       <Badge variant="destructive">TEST MODE</Badge>
                     )}
                   </div>
-                  {quiz.description && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {quiz.description}
-                    </p>
-                  )}
                 </div>
                 {timeRemaining !== null && (
                   <div className="flex items-center gap-2">
@@ -1182,7 +1368,11 @@ export function QuizPlayer({
                   const transition = getTransitionForPosition(
                     currentPosition.questionIndex
                   );
-                  if (!transition) return null;
+                  if (!transition) {
+                    // If no transition, go to first question
+                    setCurrentPosition({ type: "question", questionIndex: 0 });
+                    return null;
+                  }
 
                   return (
                     <div className="space-y-4">
@@ -1260,7 +1450,7 @@ export function QuizPlayer({
                       <AlertDescription>
                         <strong>Test Mode:</strong> You cannot change your
                         answers after submission.
-                        {quiz.settings.examMode && (
+                        {quizSettings.examMode && (
                           <>
                             <br />
                             <strong>Exam Mode Active:</strong> Time limits are
@@ -1431,7 +1621,7 @@ export function QuizPlayer({
                           (currentPosition.type === "question" &&
                             currentQuestionIndex === 0 &&
                             !getTransitionForPosition(0)) ||
-                          (quiz.settings.examMode && isTestMode)
+                          (quizSettings.examMode && isTestMode)
                         }
                         title="Go to first (Home)"
                       >
@@ -1446,7 +1636,7 @@ export function QuizPlayer({
                           (currentPosition.type === "question" &&
                             currentQuestionIndex === 0 &&
                             !getTransitionForPosition(0)) ||
-                          (quiz.settings.examMode && isTestMode)
+                          (quizSettings.examMode && isTestMode)
                         }
                       >
                         <ChevronLeft className="h-4 w-4 mr-2" />
@@ -1469,7 +1659,7 @@ export function QuizPlayer({
                               setShowSubmitDialog(true);
                             }
                           }}
-                          disabled={isSubmittingQuiz}
+                          disabled={isSubmittingQuiz || isSubmittingHomework}
                         >
                           {currentQ.explanation &&
                           answers[currentQ.question.id] &&

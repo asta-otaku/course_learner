@@ -25,6 +25,8 @@ import {
   TutorAnalytics,
   SupportTicket,
   ChangeRequest,
+  Homework,
+  HomeworkReview,
 } from "../types";
 
 // User Queries
@@ -939,6 +941,32 @@ export const useGetChangeRequestById = (id: string) => {
     queryKey: ["tutor-change-request", id],
     queryFn: async (): Promise<APIGetResponse<ChangeRequest>> => {
       const response = await axiosInstance.get(`/tutor-change-request/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
+  });
+};
+
+// Homework Queries
+export const useGetHomework = (childId?: string) => {
+  return useQuery({
+    queryKey: ["homeworks", childId],
+    queryFn: async (): Promise<APIGetResponse<Homework[]>> => {
+      const response = await axiosInstance.get(`/homework`, {
+        params: {
+          childId,
+        },
+      });
+      return response.data;
+    },
+  });
+};
+
+export const useGetHomeworkById = (id: string) => {
+  return useQuery({
+    queryKey: ["homework", id],
+    queryFn: async (): Promise<APIGetResponse<HomeworkReview>> => {
+      const response = await axiosInstance.get(`/homework/${id}/review`);
       return response.data;
     },
     enabled: !!id,

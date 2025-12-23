@@ -70,15 +70,17 @@ export default function LearningCard({
 
 export function ProgressCard({
   course,
+  isTutor = false,
 }: {
   course: Course & { curriculumId?: string };
+  isTutor?: boolean;
 }) {
   const href = course.curriculumId
     ? `/library/${course.curriculumId}`
     : `/dashboard/${slugify(course.course)}`;
 
   return (
-    <Link href={href}>
+    <Link href={isTutor ? `#` : href}>
       <div className="p-2 rounded-2xl bg-[#FAFAFA] border flex flex-col gap-4">
         <Image
           src={course.image}

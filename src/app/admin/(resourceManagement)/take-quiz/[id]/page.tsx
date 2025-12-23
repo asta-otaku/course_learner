@@ -1,14 +1,13 @@
 "use client";
 
-import { notFound } from "next/navigation";
 import { QuizPlayer } from "@/components/resourceManagemement/quiz/quiz-player";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { AlertCircle, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useParams, useSearchParams } from "next/navigation";
-import { useGetQuiz, useGetQuizQuestions } from "@/lib/api/queries";
+import { useGetQuiz } from "@/lib/api/queries";
 import { usePostAttemptQuiz } from "@/lib/api/mutations";
 import { useState } from "react";
 import { toast } from "react-toastify";
@@ -20,37 +19,25 @@ export default function TakeQuizPage() {
   const id = params.id as string;
   const isTestMode = searchParams.get("mode") === "test";
 
-  // Use React Query hooks to get quiz and questions
+  // Use React Query hook to get quiz metadata (for pre-quiz screen)
   const {
     data: quizResponse,
     isLoading: quizLoading,
     error: quizError,
   } = useGetQuiz(id);
 
-  const {
-    data: questionsResponse,
-    isLoading: questionsLoading,
-    error: questionsError,
-  } = useGetQuizQuestions(id);
-
   // Quiz attempt mutation
-  const {
-    mutate: startQuizAttempt,
-    isPending: isStartingQuiz,
-    data: attemptResponse,
-  } = usePostAttemptQuiz(id);
+  const { mutate: startQuizAttempt, isPending: isStartingQuiz } =
+    usePostAttemptQuiz(id);
 
   // State to track if quiz has been started
   const [quizStarted, setQuizStarted] = useState(false);
   const [attemptId, setAttemptId] = useState<string | null>(null);
 
-  // Set attempt count to 5 as requested
-  const attemptCount = 5;
-
   // Handler for starting quiz
   const handleStartQuiz = () => {
     startQuizAttempt(
-      { questionId: "" }, // Empty questionId for starting attempt
+      {}, // Empty object for admin (no childId needed)
       {
         onSuccess: (response) => {
           if (response.data?.data) {
@@ -61,6 +48,9 @@ export default function TakeQuizPage() {
             setAttemptId(attemptIdFromResponse);
             setQuizStarted(true);
             toast.success("Quiz started successfully!");
+          } else {
+            console.error("Attempt ID not found in response");
+            toast.error("Failed to start quiz. Please try again.");
           }
         },
         onError: (error) => {
@@ -71,35 +61,23 @@ export default function TakeQuizPage() {
     );
   };
 
-  if (quizLoading || questionsLoading) {
+  // Show loading state while fetching quiz metadata
+  if (quizLoading) {
     return <LoadingSkeleton />;
   }
 
-  if (
-    quizError ||
-    !quizResponse?.data ||
-    questionsError ||
-    !questionsResponse?.data
-  ) {
-    notFound();
-  }
-
-  const quiz = quizResponse.data;
-  const questions = questionsResponse.data;
-
-  // Check if quiz has questions
-  if (!questions || questions.length === 0) {
+  // Show error state
+  if (quizError || !quizResponse?.data) {
     return (
       <div className="max-w-2xl mx-auto py-12">
         <Card>
           <CardHeader>
-            <CardTitle>Quiz Not Ready</CardTitle>
+            <CardTitle>Error Loading Quiz</CardTitle>
           </CardHeader>
           <CardContent>
             <Alert>
-              <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                This quiz doesn't have any questions yet.
+                Failed to load quiz. Please try again.
               </AlertDescription>
             </Alert>
             <Button className="mt-4" variant="outline" asChild>
@@ -113,6 +91,8 @@ export default function TakeQuizPage() {
       </div>
     );
   }
+
+  const quiz = quizResponse.data;
 
   // Show start quiz screen if not started yet
   if (!quizStarted) {
@@ -131,20 +111,16 @@ export default function TakeQuizPage() {
             <div className="space-y-2">
               <h3 className="font-medium">Quiz Information:</h3>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• {questions.length} questions</li>
                 {quiz.timeLimit && (
                   <li>• Time limit: {quiz.timeLimit} minutes</li>
                 )}
-                <li>
-                  • Attempt {attemptCount + 1} of {quiz.maxAttempts || 3}
-                </li>
+                <li>• Max attempts: {quiz.maxAttempts || 3}</li>
                 <li>• Passing score: {quiz.passingScore || 70}%</li>
               </ul>
             </div>
 
             {isTestMode && (
               <Alert>
-                <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   <strong>Test Mode:</strong> You cannot change your answers
                   after submission. Correct answers will only be shown after
@@ -174,102 +150,9 @@ export default function TakeQuizPage() {
     );
   }
 
-  // Transform the quiz data for the player
-  const playerQuiz = {
-    id: quiz.id!,
-    title: quiz.title,
-    description: quiz.description ?? "",
-    settings: {
-      timeLimit: quiz.timeLimit || undefined,
-      randomizeQuestions: quiz.randomizeQuestions ?? false,
-      showCorrectAnswers: quiz.showCorrectAnswers ?? true,
-      maxAttempts: quiz.maxAttempts ?? 3,
-      passingScore:
-        typeof quiz.passingScore === "string"
-          ? parseInt(quiz.passingScore)
-          : (quiz.passingScore ?? 70),
-      examMode: false,
-    },
-    transitions: [],
-    questions: questions
-      .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-      .map((qq: any) => ({
-        id: qq.id,
-        order: qq.orderIndex,
-        points: qq.pointsOverride || qq.question.points || 1,
-        explanation: qq.question.explanation,
-        question: {
-          id: qq.question.id,
-          title: qq.question.title,
-          content: qq.question.content,
-          type: qq.question.type,
-          // Transform answers to options for multiple choice
-          options:
-            qq.question.type === "multiple_choice" && qq.question.answers
-              ? qq.question.answers
-                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                  .map((answer: any) => ({
-                    id: answer.id,
-                    text: answer.content,
-                    isCorrect: answer.isCorrect,
-                  }))
-              : [],
-          // For true/false questions
-          ...(qq.question.type === "true_false" && {
-            options: qq.question.answers
-              ? qq.question.answers
-                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                  .map((answer: any) => ({
-                    id: answer.id,
-                    text: answer.content,
-                    isCorrect: answer.isCorrect,
-                  }))
-              : [
-                  {
-                    id: "true",
-                    text: "True",
-                    isCorrect: qq.question.metadata?.correct_answer === true,
-                  },
-                  {
-                    id: "false",
-                    text: "False",
-                    isCorrect: qq.question.metadata?.correct_answer === false,
-                  },
-                ],
-          }),
-          // For matching questions
-          ...(qq.question.type === "matching_pairs" && {
-            pairs: (qq.question.answers?.[0]?.matchingPairs || []).map(
-              (pair: any, index: number) => ({
-                id: `pair-${index}`,
-                left: pair.left,
-                right: pair.right,
-              })
-            ),
-            correctAnswer: qq.question.answers?.[0]?.matchingPairs || [],
-          }),
-          // For free text questions
-          ...(qq.question.type === "free_text" && {
-            correctAnswers:
-              qq.question.answers?.map((answer: any) => answer.content) || [],
-          }),
-          // Pass metadata for other question types that might need it
-          metadata: qq.question.metadata,
-          // Pass correct answer for other types if available
-          correctAnswer:
-            qq.question.metadata?.correct_answer ||
-            qq.question.answers?.find((a: any) => a.isCorrect)?.id,
-        },
-      })),
-  };
-
+  // Once quiz is started, pass control to QuizPlayer
   return (
-    <QuizPlayer
-      quiz={playerQuiz}
-      attemptNumber={attemptCount + 1}
-      isTestMode={isTestMode}
-      attemptId={attemptId}
-    />
+    <QuizPlayer quizId={id} isTestMode={isTestMode} attemptId={attemptId} />
   );
 }
 

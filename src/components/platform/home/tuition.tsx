@@ -1,36 +1,105 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Image from "next/image";
 import profileIcon from "@/assets/profileIcon.svg";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import BackArrow from "@/assets/svgs/arrowback";
-import DoubleQuote from "@/assets/svgs/doubleQuote";
-import { generateHomeworkWithDates } from "@/lib/utils";
-import { isBefore } from "date-fns";
-import HomeworkCard from "./homeworkCard";
 import { useRouter } from "next/navigation";
 import { usePostCreateChat } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { TutorChangeRequestDialog } from "./tutor-change-request-dialog";
+import { useGetLibrary, useGetChildLessons } from "@/lib/api/queries";
+import LearningCard, { ProgressCard } from "./learningCard";
+import algebra from "@/assets/algebra.png";
+import measurement from "@/assets/measurement.png";
+import ratio from "@/assets/ratio.png";
+
+const availableImages = [algebra, measurement, ratio];
 
 function TuitionHome() {
   const { activeProfile, changeProfile, isLoaded, profiles } =
     useSelectedProfile();
   const [showChangeRequestDialog, setShowChangeRequestDialog] = useState(false);
-
-  const homeworks = generateHomeworkWithDates();
-
-  const upcoming = homeworks.filter(
-    (hw) => !isBefore(new Date(hw.due), new Date())
-  );
-  const overdue = homeworks.filter((hw) =>
-    isBefore(new Date(hw.due), new Date())
-  );
   const { push } = useRouter();
   const { mutateAsync: createChat } = usePostCreateChat();
+
+  const { data: library } = useGetLibrary(activeProfile?.id || "");
+
+  // Get curricula from library data
+  const curricula = useMemo(() => {
+    return library?.data || [];
+  }, [library?.data]);
+
+  // Fetch lessons for the first 4 curricula
+  const { data: lessons1 } = useGetChildLessons(
+    activeProfile?.id || "",
+    curricula[0]?.id || ""
+  );
+  const { data: lessons2 } = useGetChildLessons(
+    activeProfile?.id || "",
+    curricula[1]?.id || ""
+  );
+  const { data: lessons3 } = useGetChildLessons(
+    activeProfile?.id || "",
+    curricula[2]?.id || ""
+  );
+  const { data: lessons4 } = useGetChildLessons(
+    activeProfile?.id || "",
+    curricula[3]?.id || ""
+  );
+
+  // Collect all lessons from the first 4 curricula
+  const allLessons = useMemo(() => {
+    const lessons: any[] = [];
+    [lessons1, lessons2, lessons3, lessons4].forEach((lessonData, index) => {
+      const curriculum = curricula[index];
+      if (lessonData?.data && curriculum) {
+        lessonData.data.forEach((lesson: any) => {
+          lessons.push({
+            ...lesson,
+            curriculumId: curriculum.id,
+            curriculumTitle: curriculum.title,
+            curriculumImage: availableImages[index % availableImages.length],
+          });
+        });
+      }
+    });
+    return lessons;
+  }, [lessons1, lessons2, lessons3, lessons4, curricula]);
+
+  // Transform library curricula to Course format
+  const curriculaAsCourses = useMemo(() => {
+    return curricula.map((curriculum, index) => ({
+      image: availableImages[index % availableImages.length],
+      course: curriculum.title,
+      topics: [
+        {
+          title: "Start Learning",
+          number_of_quizzes: curriculum.progress.totalQuizzes,
+        },
+      ],
+      progress: curriculum.progress.completionPercentage,
+      duration: curriculum.durationWeeks * 7,
+      total_section: curriculum.lessonsCount,
+      completed_section: curriculum.progress.completedLessons,
+      curriculumId: curriculum.id,
+    }));
+  }, [curricula]);
+
+  // Separate lessons into in progress and not started
+  const inProgressLessons = useMemo(() => {
+    return allLessons.filter(
+      (lesson) =>
+        lesson.completionPercentage > 0 && lesson.completionPercentage < 100
+    );
+  }, [allLessons]);
+
+  const notStartedLessons = useMemo(() => {
+    return allLessons.filter((lesson) => lesson.completionPercentage === 0);
+  }, [allLessons]);
 
   const handleMessage = async () => {
     if (
@@ -91,47 +160,73 @@ function TuitionHome() {
 
       {/* Main Content */}
       <div className="my-8 flex flex-col md:flex-row gap-3 w-full min-h-[40vh]">
-        {/* Tasks Panel */}
+        {/* Lessons Panel */}
         <div className="md:w-3/5 border border-[#00000033] rounded-3xl bg-white p-6 max-h-[80vh] overflow-auto scrollbar-hide">
           <h2 className="font-semibold text-base md:text-lg mb-4">
-            Tasks (Homework)
+            Your Lessons
           </h2>
-          <Tabs defaultValue="upcoming" className="w-full">
+          <Tabs defaultValue="inprogress" className="w-full">
             <TabsList className="bg-transparent rounded-none border-b border-gray-300 p-1 w-full flex justify-start">
               <TabsTrigger
-                value="upcoming"
+                value="inprogress"
                 className="data-[state=active]:text-primaryBlue data-[state=active]:border-b-2 data-[state=active]:border-primaryBlue text-sm py-2 px-0 text-black font-medium rounded-none !shadow-none !bg-transparent"
               >
-                Upcoming
+                In Progress
               </TabsTrigger>
               <TabsTrigger
-                value="overdue"
+                value="notstarted"
                 className="data-[state=active]:text-primaryBlue data-[state=active]:border-b-2 data-[state=active]:border-primaryBlue text-sm py-2 px-4 text-black font-medium rounded-none !shadow-none !bg-transparent"
               >
-                Overdue
+                Not Started
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="upcoming" className="space-y-3 mt-4">
-              {upcoming.length ? (
-                upcoming.map((hw, idx) => (
-                  <HomeworkCard key={idx} homework={hw} />
+            <TabsContent value="inprogress" className="space-y-3 mt-4">
+              {inProgressLessons.length ? (
+                inProgressLessons.map((lesson, idx) => (
+                  <LearningCard
+                    key={lesson.id || idx}
+                    course={{
+                      course: lesson.curriculumTitle,
+                      image: lesson.curriculumImage,
+                      topics: [],
+                      progress: lesson.completionPercentage,
+                      duration: 0,
+                      total_section: 0,
+                      completed_section: 0,
+                      curriculumId: lesson.curriculumId,
+                    }}
+                    lesson={lesson}
+                  />
                 ))
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  No upcoming homework.
+                  No lessons in progress.
                 </p>
               )}
             </TabsContent>
 
-            <TabsContent value="overdue" className="space-y-3 mt-4">
-              {overdue.length ? (
-                overdue.map((hw, idx) => (
-                  <HomeworkCard key={idx} homework={hw} />
+            <TabsContent value="notstarted" className="space-y-3 mt-4">
+              {notStartedLessons.length ? (
+                notStartedLessons.map((lesson, idx) => (
+                  <LearningCard
+                    key={lesson.id || idx}
+                    course={{
+                      course: lesson.curriculumTitle,
+                      image: lesson.curriculumImage,
+                      topics: [],
+                      progress: lesson.completionPercentage,
+                      duration: 0,
+                      total_section: 0,
+                      completed_section: 0,
+                      curriculumId: lesson.curriculumId,
+                    }}
+                    lesson={lesson}
+                  />
                 ))
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  No overdue homework.
+                  All lessons have been started!
                 </p>
               )}
             </TabsContent>
@@ -140,21 +235,6 @@ function TuitionHome() {
 
         {/* Right Column */}
         <div className="md:w-2/5 flex flex-col gap-2">
-          {/* Baseline Test */}
-          <div className="border border-[#00000033] rounded-2xl bg-white px-6 pt-4 pb-2">
-            <p className="text-base font-semibold flex items-center gap-3">
-              <DoubleQuote /> Baseline Test
-            </p>
-            <p className="text-sm font-medium mt-6 mb-3">QUIZ</p>
-            <p className="text-xs text-textSubtitle mb-8">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Et odio
-              euismod tempor incididunt ut labore et dolore magna aliqua.
-            </p>
-            <Button variant="link" className="text-xs text-primaryBlue px-0">
-              Start <BackArrow color="#286CFF" flipped />
-            </Button>
-          </div>
-
           {/* Tutor Info */}
           {activeProfile?.tutorId && (
             <div className="border border-[#00000033] rounded-2xl bg-white p-6 text-center">
@@ -201,6 +281,30 @@ function TuitionHome() {
                   </Button>
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Progress Section */}
+      <div className="my-8">
+        <h2 className="text-textGray font-medium text-base md:text-lg mb-2">
+          Your Progress
+        </h2>
+        <p className="text-xs text-textSubtitle mb-4">
+          Track your progress across all curricula
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {curriculaAsCourses.length > 0 ? (
+            curriculaAsCourses.map((course, index) => (
+              <ProgressCard
+                key={course.curriculumId || index}
+                course={course}
+              />
+            ))
+          ) : (
+            <div className="text-center py-8 text-textSubtitle col-span-full">
+              No progress data available
             </div>
           )}
         </div>

@@ -851,5 +851,33 @@ export interface ChangeRequest {
   createdAt: string;
   reviewedAt: string;
 }
+
+export interface Homework {
+  id: string;
+  dateAssigned: string;
+  dueDate: string;
+  status: string;
+  studentId: string;
+  studentName: string;
+  tutorId: string;
+  tutorName: string;
+  dateSubmitted: string | null;
+  dateReviewed: string | null;
+  message: string;
+}
+
+export interface HomeworkReview {
+  attemptId: string;
+  quizId: string;
+  childId: string;
+  attemptNumber: number;
+  status: string;
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  results: any[];
+  timeSpent: number;
+}
+
 // Export socket types
 export * from "./types/socket";

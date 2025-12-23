@@ -30,6 +30,8 @@ import {
   QuizAttempt,
   SupportTicket,
   ChangeRequest,
+  Homework,
+  HomeworkReview,
 } from "../types";
 
 // Helper function to handle error messages
@@ -1036,6 +1038,23 @@ export const usePostSubmitQuiz = (id: string, attemptId: string) => {
   });
 };
 
+export const usePatchAddQuizFeedback = (questionAttemptId: string) => {
+  return useMutation({
+    mutationKey: ["patch-add-quiz-feedback", questionAttemptId],
+    mutationFn: (data: { feedback: string }): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.patch(
+        `/quizzes/attempt/${questionAttemptId}/feedback`,
+        data
+      ),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
 // Curriculum Mutations
 export const usePostCurriculum = () => {
   const queryClient = useQueryClient();
@@ -1590,6 +1609,79 @@ export const usePatchUpdateTutorChangeRequest = (id: string) => {
     onSuccess: (data: ApiResponse<ChangeRequest>) => {
       queryClient.invalidateQueries({
         queryKey: ["tutor-change-requests"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Homework Mutations
+export const usePostHomework = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-homework"],
+    mutationFn: (data: {
+      studentId: string;
+      quizId: string;
+      dueAt: string;
+    }): Promise<ApiResponse<Homework>> => axiosInstance.post("/homework", data),
+    onSuccess: (data: ApiResponse<Homework>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["homeworks"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostStartHomework = () => {
+  return useMutation({
+    mutationKey: ["post-start-homework"],
+    mutationFn: (data: {
+      homeworkId: string;
+      studentId: string;
+    }): Promise<ApiResponse<Homework>> =>
+      axiosInstance.post("/homework/start", data),
+    onSuccess: (data: ApiResponse<Homework>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostSubmitHomework = (id: string, attemptId: string) => {
+  return useMutation({
+    mutationKey: ["post-submit-homework", id, attemptId],
+    mutationFn: (data: {
+      answers: Record<string, string | Record<string, string>>;
+    }): Promise<ApiResponse<Homework>> =>
+      axiosInstance.post(`/homework/${id}/attempt/${attemptId}/submit`, data),
+    onSuccess: (data: ApiResponse<Homework>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchMarkHomeworkAsReviewed = (id: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-mark-homework-as-reviewed", id],
+    mutationFn: (): Promise<ApiResponse<Homework>> =>
+      axiosInstance.patch(`/homework/${id}/review`, {}),
+    onSuccess: (data: ApiResponse<Homework>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["homeworks"],
       });
       return data;
     },
