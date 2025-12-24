@@ -37,6 +37,8 @@ import {
 import { cn } from "@/lib/utils";
 import { MatchingQuestion } from "./matching-question";
 import { FreeTextInput } from "./free-text-input";
+import { QuestionImage } from "@/components/ui/question-image";
+import type { QuestionImageMetadata } from "@/lib/image-utils";
 
 interface QuizQuestion {
   id: string;
@@ -49,7 +51,16 @@ interface QuizQuestion {
     title: string;
     content: string;
     type: string;
-    image_url?: string;
+    image?: string;
+    image_url?: string; // Legacy support
+    imageSettings?: {
+      width?: string;
+      height?: string;
+      alignment?: "left" | "center" | "right";
+      size_mode?: "auto" | "custom" | "percentage";
+      max_height?: string;
+      object_fit?: "contain" | "cover" | "fill" | "scale-down";
+    };
     options?: Array<{ id: string; text: string }>;
     pairs?: Array<{ id: string; left: string; right: string }>;
     correctAnswer?: string | Record<string, string>;
@@ -192,7 +203,10 @@ export function QuizPlayer({
           title: qq.question.title,
           content: qq.question.content,
           type: qq.question.type,
-          image_url: qq.question.image_url,
+          // Support both new (image) and legacy (image_url) formats
+          image: qq.question.image || qq.question.image_url,
+          image_url: qq.question.image_url || qq.question.image, // Legacy support
+          imageSettings: qq.question.imageSettings,
           // Transform answers to options for multiple choice
           options:
             qq.question.type === "multiple_choice" && qq.question.answers
@@ -1048,15 +1062,23 @@ export function QuizPlayer({
                     <p className="text-base whitespace-pre-wrap">
                       {currentQ.question.content}
                     </p>
-                    {currentQ.question.image_url && (
-                      <div className="mt-4">
-                        <img
-                          src={currentQ.question.image_url}
-                          alt="Question illustration"
-                          className="max-w-full h-auto rounded-lg border shadow-sm"
-                          style={{ maxHeight: "400px", objectFit: "contain" }}
-                        />
-                      </div>
+                    {(currentQ.question.image ||
+                      currentQ.question.image_url) && (
+                      <QuestionImage
+                        src={
+                          currentQ.question.image ||
+                          currentQ.question.image_url ||
+                          ""
+                        }
+                        alt="Question illustration"
+                        metadata={
+                          currentQ.question.imageSettings
+                            ? {
+                                image_settings: currentQ.question.imageSettings,
+                              }
+                            : undefined
+                        }
+                      />
                     )}
                   </div>
 
@@ -1431,15 +1453,23 @@ export function QuizPlayer({
                     <p className="text-base whitespace-pre-wrap">
                       {currentQ.question.content}
                     </p>
-                    {currentQ.question.image_url && (
-                      <div className="mt-4">
-                        <img
-                          src={currentQ.question.image_url}
-                          alt="Question illustration"
-                          className="max-w-full h-auto rounded-lg border shadow-sm"
-                          style={{ maxHeight: "400px", objectFit: "contain" }}
-                        />
-                      </div>
+                    {(currentQ.question.image ||
+                      currentQ.question.image_url) && (
+                      <QuestionImage
+                        src={
+                          currentQ.question.image ||
+                          currentQ.question.image_url ||
+                          ""
+                        }
+                        alt="Question illustration"
+                        metadata={
+                          currentQ.question.imageSettings
+                            ? {
+                                image_settings: currentQ.question.imageSettings,
+                              }
+                            : undefined
+                        }
+                      />
                     )}
                   </div>
 

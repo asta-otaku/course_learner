@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 
 export interface ImageSettings {
-  size_mode?: 'auto' | 'custom';
+  size_mode?: 'auto' | 'custom' | 'percentage';
   alignment?: 'left' | 'center' | 'right';
   object_fit?: 'contain' | 'cover' | 'fill' | 'scale-down';
   max_height?: string;

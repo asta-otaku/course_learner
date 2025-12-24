@@ -107,16 +107,16 @@ export function QuestionPreview({
               </div>
 
               {/* Question Image */}
-              {question.image_url && (
+              {((question as any).image || question.image_url) && (
                 <QuestionImage
-                  src={question.image_url}
+                  src={(question as any).image || question.image_url || ""}
                   metadata={
-                    (question as any).image_settings ||
-                    (question as any).imageSettings
+                    (question as any).imageSettings ||
+                    (question as any).image_settings
                       ? {
                           image_settings:
-                            (question as any).image_settings ||
-                            (question as any).imageSettings,
+                            (question as any).imageSettings ||
+                            (question as any).image_settings,
                         }
                       : (question.metadata as any)
                   }
