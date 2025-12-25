@@ -1027,6 +1027,7 @@ export const usePostSubmitQuiz = (id: string, attemptId: string) => {
     mutationKey: ["post-submit-quiz", id, attemptId],
     mutationFn: (data: {
       answers: Record<string, string | Record<string, string>>;
+      timeSpent?: number;
     }): Promise<ApiResponse<Quiz>> =>
       axiosInstance.post(`/quizzes/${id}/attempt/${attemptId}/submit`, data),
     onSuccess: (data: ApiResponse<Quiz>) => {
@@ -1662,6 +1663,7 @@ export const usePostSubmitHomework = (id: string, attemptId: string) => {
     mutationKey: ["post-submit-homework", id, attemptId],
     mutationFn: (data: {
       answers: Record<string, string | Record<string, string>>;
+      timeSpent?: number;
     }): Promise<ApiResponse<Homework>> =>
       axiosInstance.post(`/homework/${id}/attempt/${attemptId}/submit`, data),
     onSuccess: (data: ApiResponse<Homework>) => {

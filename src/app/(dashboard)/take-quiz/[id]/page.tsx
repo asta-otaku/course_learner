@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useParams, useSearchParams } from "next/navigation";
 import { usePostAttemptQuiz, usePostStartHomework } from "@/lib/api/mutations";
+import { useGetQuiz } from "@/lib/api/queries";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { useProfile } from "@/context/profileContext";
@@ -18,6 +19,13 @@ export default function TakeQuizPage() {
   const id = params.id as string;
   const isTestMode = searchParams.get("mode") === "test";
   const isHomework = searchParams.get("isHomework") === "true";
+
+  // Fetch quiz data to get timeLimit
+  // For homework, we'll need to get the quizId first, but for regular quizzes we can fetch immediately
+  const finalQuizIdForFetch = isHomework ? null : id; // Will be set after homework starts
+  const { data: quizResponse } = useGetQuiz(finalQuizIdForFetch || "");
+  const quiz = quizResponse?.data;
+  const timeLimit = quiz?.timeLimit;
 
   // Quiz attempt mutation (for regular quizzes)
   const { mutate: startQuizAttempt, isPending: isStartingQuiz } =
@@ -31,6 +39,9 @@ export default function TakeQuizPage() {
   const [quizStarted, setQuizStarted] = useState(false);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [quizId, setQuizId] = useState<string | null>(null);
+  const [homeworkTimeLimit, setHomeworkTimeLimit] = useState<
+    number | undefined
+  >(undefined);
 
   // Handler for starting quiz
   const handleStartQuiz = () => {
@@ -50,6 +61,8 @@ export default function TakeQuizPage() {
             if (homeworkData?.id && homeworkData?.quizId) {
               setAttemptId(homeworkData.id);
               setQuizId(homeworkData.quizId);
+              // Fetch quiz data for homework to get timeLimit
+              // We'll fetch it in QuizPlayer using the quizId
               setQuizStarted(true);
               toast.success("Homework started successfully!");
             } else {
@@ -157,6 +170,9 @@ export default function TakeQuizPage() {
   // Once quiz is started, pass control to QuizPlayer
   // For homework, use quizId from response; for regular quizzes, use id from params
   const finalQuizId = isHomework && quizId ? quizId : id;
+  // For homework, we need to fetch the quiz data in QuizPlayer since we don't have it here yet
+  // For regular quizzes, we can pass the timeLimit directly
+  const finalTimeLimit = isHomework ? undefined : timeLimit;
 
   return (
     <QuizPlayer
@@ -165,6 +181,7 @@ export default function TakeQuizPage() {
       attemptId={attemptId}
       isHomework={isHomework}
       homeworkId={isHomework ? id : undefined}
+      timeLimit={finalTimeLimit}
     />
   );
 }

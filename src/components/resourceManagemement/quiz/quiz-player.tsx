@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "react-toastify";
 import { usePostSubmitQuiz, usePostSubmitHomework } from "@/lib/api/mutations";
-import { useGetQuizQuestions } from "@/lib/api/queries";
+import { useGetQuizQuestions, useGetQuiz } from "@/lib/api/queries";
 import {
   ChevronLeft,
   ChevronRight,
@@ -80,6 +80,7 @@ interface QuizPlayerProps {
   attemptId?: string | null;
   isHomework?: boolean;
   homeworkId?: string;
+  timeLimit?: number; // Time limit in minutes (passed from parent for regular quizzes)
 }
 
 interface QuizResult {
@@ -116,6 +117,7 @@ export function QuizPlayer({
   attemptId,
   isHomework = false,
   homeworkId,
+  timeLimit: propTimeLimit,
 }: QuizPlayerProps) {
   const router = useRouter();
   const [currentPosition, setCurrentPosition] = useState<NavigationPosition>({
@@ -126,6 +128,8 @@ export function QuizPlayer({
     Record<string, string | Record<string, string>>
   >({});
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [timeSpent, setTimeSpent] = useState<number>(0); // Time spent in minutes
+  const [quizStartTime, setQuizStartTime] = useState<number | null>(null);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(
@@ -134,10 +138,20 @@ export function QuizPlayer({
   const [submissionResults, setSubmissionResults] =
     useState<SubmissionResults | null>(null);
   const [showResults, setShowResults] = useState(false);
+  const [shouldAutoSubmit, setShouldAutoSubmit] = useState(false);
+
+  // Fetch quiz data for homework to get timeLimit
+  const { data: quizResponse } = useGetQuiz(isHomework && quizId ? quizId : "");
+  const quiz = quizResponse?.data;
+  const quizTimeLimit = propTimeLimit ?? quiz?.timeLimit;
+
+  // Determine the actual time limit to use (only if > 0)
+  const actualTimeLimit =
+    quizTimeLimit && quizTimeLimit > 0 ? quizTimeLimit : undefined;
 
   // Default quiz settings
   const quizSettings = {
-    timeLimit: undefined,
+    timeLimit: actualTimeLimit,
     randomizeQuestions: false,
     showCorrectAnswers: true,
     maxAttempts: 3,
@@ -281,11 +295,14 @@ export function QuizPlayer({
     }
   }, [questionsResponse, attemptId]);
 
-  // Load saved progress from localStorage
+  // Initialize timer when quiz starts
   useEffect(() => {
-    if (!attemptId) return;
+    if (!attemptId || !actualTimeLimit) return;
 
     const savedProgress = localStorage.getItem(`quiz-progress-${quizId}`);
+    let initialTimeRemaining: number | null = null;
+    let savedStartTime: number | null = null;
+
     if (savedProgress) {
       try {
         const progress = JSON.parse(savedProgress);
@@ -299,60 +316,87 @@ export function QuizPlayer({
             questionIndex: progress.currentQuestion,
           });
         }
-        if (progress.timeRemaining && quizSettings.timeLimit) {
-          setTimeRemaining(progress.timeRemaining);
+        if (progress.timeRemaining !== undefined && progress.quizStartTime) {
+          // Calculate elapsed time and remaining time
+          const elapsed = (Date.now() - progress.quizStartTime) / 1000; // in seconds
+          initialTimeRemaining = Math.max(0, progress.timeRemaining - elapsed);
+          savedStartTime = progress.quizStartTime;
+          // Calculate time spent in minutes
+          const elapsedMinutes = elapsed / 60;
+          setTimeSpent(Math.floor(elapsedMinutes));
         }
       } catch (error) {
         console.error("Error loading saved progress:", error);
       }
-    } else if (quizSettings.timeLimit) {
-      setTimeRemaining(quizSettings.timeLimit * 60); // Convert minutes to seconds
     }
 
-    // In test mode or exam mode, always use time limit if specified
-    if (
-      (isTestMode || quizSettings.examMode) &&
-      quizSettings.timeLimit &&
-      !savedProgress
-    ) {
-      setTimeRemaining(quizSettings.timeLimit * 60);
+    // If no saved progress or timer expired, start fresh
+    if (initialTimeRemaining === null || initialTimeRemaining <= 0) {
+      initialTimeRemaining = actualTimeLimit * 60; // Convert minutes to seconds
+      savedStartTime = Date.now();
     }
-  }, [quizId, attemptId, isTestMode]);
+
+    setTimeRemaining(initialTimeRemaining);
+    setQuizStartTime(savedStartTime);
+  }, [quizId, attemptId, actualTimeLimit]);
 
   // Save progress to localStorage
   const saveProgress = useCallback(() => {
-    if (!attemptId) return;
+    if (!attemptId || !quizStartTime) return;
     const progress = {
       answers,
       currentPosition,
       timeRemaining,
+      quizStartTime,
       lastSaved: Date.now(),
     };
     localStorage.setItem(`quiz-progress-${quizId}`, JSON.stringify(progress));
-  }, [quizId, attemptId, answers, currentPosition, timeRemaining]);
+  }, [
+    quizId,
+    attemptId,
+    answers,
+    currentPosition,
+    timeRemaining,
+    quizStartTime,
+  ]);
 
   // Auto-save progress
   useEffect(() => {
     saveProgress();
   }, [answers, currentPosition, saveProgress]);
 
-  // Timer countdown
+  // Timer countdown and time tracking
   useEffect(() => {
-    if (timeRemaining === null || timeRemaining <= 0) return;
+    if (!quizStartTime || !actualTimeLimit || showResults) return;
+
+    let hasSubmitted = false; // Flag to prevent multiple submissions
 
     const timer = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(timer);
-          handleTimeUp();
-          return 0;
-        }
-        return prev - 1;
-      });
+      // Calculate elapsed time in seconds
+      const elapsed = (Date.now() - quizStartTime) / 1000;
+
+      // Update time spent in minutes (rounded down)
+      setTimeSpent(Math.floor(elapsed / 60));
+
+      // Calculate remaining time
+      const totalTimeInSeconds = actualTimeLimit * 60;
+      const remaining = Math.max(0, totalTimeInSeconds - elapsed);
+
+      setTimeRemaining(remaining);
+
+      // Auto-submit when time runs out
+      if (remaining <= 0 && !hasSubmitted && !showResults) {
+        hasSubmitted = true;
+        clearInterval(timer);
+        setTimeRemaining(0);
+        toast.error("Time's up! Your quiz has been automatically submitted.");
+        setShowSubmitDialog(false);
+        setShouldAutoSubmit(true);
+      }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeRemaining]);
+  }, [quizStartTime, actualTimeLimit, showResults]);
 
   // Prevent navigation with unsaved answers
   useEffect(() => {
@@ -402,11 +446,14 @@ export function QuizPlayer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentPosition, answers, questions, isTestMode, quizSettings.examMode]);
 
-  const handleTimeUp = async () => {
-    toast.error("Time's up! Your quiz has been automatically submitted.");
-    setShowSubmitDialog(false);
-    await handleSubmit();
-  };
+  // Auto-submit when timer expires
+  useEffect(() => {
+    if (shouldAutoSubmit && attemptId && !showResults) {
+      setShouldAutoSubmit(false);
+      handleSubmit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAutoSubmit, attemptId, showResults]);
 
   const handleAnswerChange = (
     questionId: string,
@@ -718,8 +765,10 @@ export function QuizPlayer({
 
     const submissionData: {
       answers: Record<string, string | Record<string, string>>;
+      timeSpent?: number; // Time spent in minutes
     } = {
       answers: submissionAnswers,
+      timeSpent: timeSpent, // Include time spent in minutes
     };
 
     // Clear saved progress before submission
@@ -802,8 +851,13 @@ export function QuizPlayer({
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60);
     return `${minutes}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const formatTimeFromMinutes = (minutes: number) => {
+    const totalSeconds = Math.floor(minutes * 60);
+    return formatTime(totalSeconds);
   };
 
   const getQuestionStatus = (questionId: string) => {
@@ -975,8 +1029,8 @@ export function QuizPlayer({
                     <div>
                       <p className="text-sm text-blue-600 font-medium">Score</p>
                       <p className="text-2xl font-bold text-blue-900">
-                        {submissionResults.score}/
-                        {submissionResults.totalPoints}
+                        {submissionResults.score.toFixed(2)}/
+                        {submissionResults.totalPoints.toFixed(2)}
                       </p>
                     </div>
                   </div>
@@ -987,7 +1041,7 @@ export function QuizPlayer({
                         Percentage
                       </p>
                       <p className="text-2xl font-bold text-green-900">
-                        {submissionResults.percentage}%
+                        {submissionResults.percentage.toFixed(2)}%
                       </p>
                     </div>
                   </div>
@@ -998,7 +1052,7 @@ export function QuizPlayer({
                         Time Spent
                       </p>
                       <p className="text-2xl font-bold text-purple-900">
-                        {formatTime(submissionResults.timeSpent)}
+                        {formatTimeFromMinutes(submissionResults.timeSpent)}
                       </p>
                     </div>
                   </div>
@@ -1341,14 +1395,34 @@ export function QuizPlayer({
                   </div>
                 </div>
                 {timeRemaining !== null && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span className="font-mono">
-                      Time remaining: {formatTime(timeRemaining)}
-                    </span>
-                    {timeRemaining <= 300 && (
-                      <Badge variant="destructive">5 minutes remaining!</Badge>
+                  <div
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-2 rounded-lg border-2 font-mono transition-colors",
+                      timeRemaining <= 300
+                        ? "bg-red-50 border-red-300 text-red-700"
+                        : timeRemaining <= 600
+                          ? "bg-orange-50 border-orange-300 text-orange-700"
+                          : "bg-blue-50 border-blue-300 text-blue-700"
                     )}
+                  >
+                    <Clock
+                      className={cn(
+                        "h-5 w-5",
+                        timeRemaining <= 300
+                          ? "text-red-600"
+                          : timeRemaining <= 600
+                            ? "text-orange-600"
+                            : "text-blue-600"
+                      )}
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium opacity-75">
+                        Time Remaining
+                      </span>
+                      <span className="text-xl font-bold">
+                        {formatTime(timeRemaining)}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
