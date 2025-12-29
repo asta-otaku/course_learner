@@ -20,9 +20,7 @@ export default function TakeQuizPage() {
   const isTestMode = searchParams.get("mode") === "test";
   const isHomework = searchParams.get("isHomework") === "true";
 
-  // Fetch quiz data to get timeLimit
-  // For homework, we'll need to get the quizId first, but for regular quizzes we can fetch immediately
-  const finalQuizIdForFetch = isHomework ? null : id; // Will be set after homework starts
+  const finalQuizIdForFetch = isHomework ? null : id;
   const { data: quizResponse } = useGetQuiz(finalQuizIdForFetch || "");
   const quiz = quizResponse?.data;
   const timeLimit = quiz?.timeLimit;
@@ -39,9 +37,6 @@ export default function TakeQuizPage() {
   const [quizStarted, setQuizStarted] = useState(false);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [quizId, setQuizId] = useState<string | null>(null);
-  const [homeworkTimeLimit, setHomeworkTimeLimit] = useState<
-    number | undefined
-  >(undefined);
 
   // Handler for starting quiz
   const handleStartQuiz = () => {
@@ -54,15 +49,10 @@ export default function TakeQuizPage() {
         },
         {
           onSuccess: (response) => {
-            // The response structure is ApiResponse<Homework>
-            // Extract attemptId and quizId from response.data
-            // Note: The actual response includes quizId even though the type doesn't
             const homeworkData = response.data?.data as any;
             if (homeworkData?.id && homeworkData?.quizId) {
               setAttemptId(homeworkData.id);
               setQuizId(homeworkData.quizId);
-              // Fetch quiz data for homework to get timeLimit
-              // We'll fetch it in QuizPlayer using the quizId
               setQuizStarted(true);
               toast.success("Homework started successfully!");
             } else {
@@ -82,8 +72,6 @@ export default function TakeQuizPage() {
         { childId: activeProfile?.id || "" },
         {
           onSuccess: (response) => {
-            // The response structure is ApiResponse<QuizAttempt>
-            // Extract attemptId from response.data.id
             const attemptData = response.data?.data;
             if (attemptData?.id) {
               setAttemptId(attemptData.id);

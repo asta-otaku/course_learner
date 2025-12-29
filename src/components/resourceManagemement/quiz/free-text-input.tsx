@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 interface FreeTextInputProps {
   questionId: string;
@@ -19,8 +19,8 @@ export function FreeTextInput({
   onChange,
   disabled = false,
   maxLength = 2000,
-  minHeight = '120px',
-  placeholder = 'Type your answer here...'
+  minHeight = "60px",
+  placeholder = "Type your answer here...",
 }: FreeTextInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
@@ -49,10 +49,10 @@ export function FreeTextInput({
         aria-label="Free text answer"
         aria-describedby={`char-count-${questionId}`}
       />
-      
+
       <div className="flex justify-between items-center text-sm">
         <span className="text-gray-500">
-          {disabled ? 'Answer submitted' : 'Enter your answer above'}
+          {disabled ? "Answer submitted" : "Enter your answer above"}
         </span>
         <span
           id={`char-count-${questionId}`}

@@ -688,6 +688,30 @@ export function FolderTree({
   // Use the flattened structure from the API response
   const rootFolders = folders.filter((f) => !getParentId(f));
 
+  // Build parent path by traversing up the tree
+  const buildParentPath = useCallback((folderId: string): string[] => {
+    const parentIds: string[] = [];
+    let currentFolder = folders.find((f) => f.id === folderId);
+    
+    // If folder has a path property, use it
+    if (currentFolder?.path) {
+      return currentFolder.path.split("/").filter(Boolean).slice(0, -1);
+    }
+    
+    // Otherwise, build path by traversing parents
+    while (currentFolder) {
+      const parentId = getParentId(currentFolder);
+      if (parentId) {
+        parentIds.unshift(parentId);
+        currentFolder = folders.find((f) => f.id === parentId);
+      } else {
+        break;
+      }
+    }
+    
+    return parentIds;
+  }, [folders]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -713,14 +737,17 @@ export function FolderTree({
 
   // Auto-expand parent folders when a folder is selected (but not the folder itself)
   useEffect(() => {
-    if (selectedFolderId) {
-      const folder = folders.find((f) => f.id === selectedFolderId);
-      if (folder && folder.path) {
-        const parentIds = folder.path.split("/").filter(Boolean).slice(0, -1);
-        setExpandedFolders((prev) => new Set([...prev, ...parentIds]));
+    if (selectedFolderId && folders.length > 0) {
+      const parentIds = buildParentPath(selectedFolderId);
+      if (parentIds.length > 0) {
+        setExpandedFolders((prev) => {
+          const next = new Set(prev);
+          parentIds.forEach((id) => next.add(id));
+          return next;
+        });
       }
     }
-  }, [selectedFolderId, folders]);
+  }, [selectedFolderId, folders, buildParentPath]);
 
   // Don't auto-expand folders on load - start collapsed
   // Removed the auto-expand effect for folders with children

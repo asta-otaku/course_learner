@@ -14,6 +14,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   CheckCircle,
   XCircle,
   Trophy,
@@ -61,6 +71,7 @@ export default function TutorHomeworkReviewPage() {
     {}
   );
   const [editingFeedback, setEditingFeedback] = useState<string | null>(null);
+  const [showMarkReviewedDialog, setShowMarkReviewedDialog] = useState(false);
 
   const { data: reviewResponse, isLoading, error } = useGetHomeworkById(id);
   const review = reviewResponse?.data;
@@ -266,23 +277,7 @@ export default function TutorHomeworkReviewPage() {
                 <div className="flex items-center gap-2">
                   {review?.status !== "reviewed" && (
                     <Button
-                      onClick={() => {
-                        markAsReviewed(undefined, {
-                          onSuccess: () => {
-                            // Invalidate the current homework query to refresh the status
-                            queryClient.invalidateQueries({
-                              queryKey: ["homework", id],
-                            });
-                            toast.success("Homework marked as reviewed!");
-                          },
-                          onError: (error) => {
-                            console.error("Error marking as reviewed:", error);
-                            toast.error(
-                              "Failed to mark as reviewed. Please try again."
-                            );
-                          },
-                        });
-                      }}
+                      onClick={() => setShowMarkReviewedDialog(true)}
                       disabled={isMarkingAsReviewed}
                     >
                       {isMarkingAsReviewed ? (
@@ -684,6 +679,61 @@ export default function TutorHomeworkReviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Mark as Reviewed Confirmation Dialog */}
+      <AlertDialog
+        open={showMarkReviewedDialog}
+        onOpenChange={setShowMarkReviewedDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark as Reviewed?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark this homework as reviewed? This
+              action will update the homework status and the student will be
+              notified.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMarkingAsReviewed}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                markAsReviewed(undefined, {
+                  onSuccess: () => {
+                    // Invalidate the current homework query to refresh the status
+                    queryClient.invalidateQueries({
+                      queryKey: ["homework", id],
+                    });
+                    toast.success("Homework marked as reviewed!");
+                    // Route back to homework list after a short delay
+                    setTimeout(() => {
+                      router.push("/tutor/homework");
+                    }, 500);
+                  },
+                  onError: (error) => {
+                    console.error("Error marking as reviewed:", error);
+                    toast.error(
+                      "Failed to mark as reviewed. Please try again."
+                    );
+                  },
+                });
+              }}
+              disabled={isMarkingAsReviewed}
+            >
+              {isMarkingAsReviewed ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Marking...
+                </>
+              ) : (
+                "Mark as Reviewed"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

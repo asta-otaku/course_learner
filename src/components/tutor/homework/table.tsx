@@ -204,7 +204,12 @@ function HomeWorkTable({
                         Review <BackArrow flipped color="#286cff" />
                       </button>
                     ) : (
-                      <button className="text-primaryBlue text-xs font-medium flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          router.push(`/tutor/homework/${row.id}/review`);
+                        }}
+                        className="text-primaryBlue text-xs font-medium flex items-center gap-1"
+                      >
                         View <BackArrow flipped color="#286cff" />
                       </button>
                     )}

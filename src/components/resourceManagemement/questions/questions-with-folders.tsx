@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, FolderPlus, Upload } from "lucide-react";
-import Link from "next/link";
 import { FolderTree } from "./folder-tree";
 
 import { columns } from "@/app/admin/(resourceManagement)/questions/columns";
@@ -62,7 +61,6 @@ export function QuestionsWithFolders({
   selectedFolderId: externalSelectedFolderId,
   onFolderSelect: externalOnFolderSelect,
 }: QuestionsWithFoldersProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   // Use React Query hooks

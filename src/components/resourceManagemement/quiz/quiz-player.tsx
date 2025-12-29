@@ -299,71 +299,14 @@ export function QuizPlayer({
   useEffect(() => {
     if (!attemptId || !actualTimeLimit) return;
 
-    const savedProgress = localStorage.getItem(`quiz-progress-${quizId}`);
-    let initialTimeRemaining: number | null = null;
-    let savedStartTime: number | null = null;
-
-    if (savedProgress) {
-      try {
-        const progress = JSON.parse(savedProgress);
-        setAnswers(progress.answers || {});
-        if (progress.currentPosition) {
-          setCurrentPosition(progress.currentPosition);
-        } else if (progress.currentQuestion !== undefined) {
-          // Legacy support
-          setCurrentPosition({
-            type: "question",
-            questionIndex: progress.currentQuestion,
-          });
-        }
-        if (progress.timeRemaining !== undefined && progress.quizStartTime) {
-          // Calculate elapsed time and remaining time
-          const elapsed = (Date.now() - progress.quizStartTime) / 1000; // in seconds
-          initialTimeRemaining = Math.max(0, progress.timeRemaining - elapsed);
-          savedStartTime = progress.quizStartTime;
-          // Calculate time spent in minutes
-          const elapsedMinutes = elapsed / 60;
-          setTimeSpent(Math.floor(elapsedMinutes));
-        }
-      } catch (error) {
-        console.error("Error loading saved progress:", error);
-      }
-    }
-
-    // If no saved progress or timer expired, start fresh
-    if (initialTimeRemaining === null || initialTimeRemaining <= 0) {
-      initialTimeRemaining = actualTimeLimit * 60; // Convert minutes to seconds
-      savedStartTime = Date.now();
-    }
+    // Always start fresh with a new attempt
+    const initialTimeRemaining = actualTimeLimit * 60; // Convert minutes to seconds
+    const startTime = Date.now();
 
     setTimeRemaining(initialTimeRemaining);
-    setQuizStartTime(savedStartTime);
+    setQuizStartTime(startTime);
+    setTimeSpent(0);
   }, [quizId, attemptId, actualTimeLimit]);
-
-  // Save progress to localStorage
-  const saveProgress = useCallback(() => {
-    if (!attemptId || !quizStartTime) return;
-    const progress = {
-      answers,
-      currentPosition,
-      timeRemaining,
-      quizStartTime,
-      lastSaved: Date.now(),
-    };
-    localStorage.setItem(`quiz-progress-${quizId}`, JSON.stringify(progress));
-  }, [
-    quizId,
-    attemptId,
-    answers,
-    currentPosition,
-    timeRemaining,
-    quizStartTime,
-  ]);
-
-  // Auto-save progress
-  useEffect(() => {
-    saveProgress();
-  }, [answers, currentPosition, saveProgress]);
 
   // Timer countdown and time tracking
   useEffect(() => {
@@ -714,23 +657,7 @@ export function QuizPlayer({
     // Navigate directly to the question (not explanation or transition)
     setCurrentPosition({ type: "question", questionIndex: index });
   };
-
-  const validateSubmission = () => {
-    const unansweredQuestions = questions.filter(
-      (q) => !answers[q.question.id]
-    );
-    const unansweredCount = unansweredQuestions.length;
-
-    // Remove the validation that prevents submission with unanswered questions
-    // Users should be able to submit even with unanswered questions
-    return true;
-  };
-
   const handleSubmit = async () => {
-    if (!validateSubmission()) {
-      return;
-    }
-
     if (!attemptId) {
       toast.error("No attempt ID found. Please restart the quiz.");
       return;
@@ -770,9 +697,6 @@ export function QuizPlayer({
       answers: submissionAnswers,
       timeSpent: timeSpent, // Include time spent in minutes
     };
-
-    // Clear saved progress before submission
-    localStorage.removeItem(`quiz-progress-${quizId}`);
 
     // Use appropriate submission endpoint based on mode
     if (isHomework && homeworkId) {
@@ -858,18 +782,6 @@ export function QuizPlayer({
   const formatTimeFromMinutes = (minutes: number) => {
     const totalSeconds = Math.floor(minutes * 60);
     return formatTime(totalSeconds);
-  };
-
-  const getQuestionStatus = (questionId: string) => {
-    const answer = answers[questionId];
-    if (!answer) return "unanswered";
-
-    // For matching questions, check if at least one match is made
-    if (typeof answer === "object" && !Array.isArray(answer)) {
-      return Object.keys(answer).length > 0 ? "answered" : "unanswered";
-    }
-
-    return "answered";
   };
 
   const answeredCount = Object.entries(answers).filter(([_, answer]) => {
@@ -1679,8 +1591,8 @@ export function QuizPlayer({
                         }
                         minHeight={
                           currentQ.question.type === "short_answer"
-                            ? "100px"
-                            : "200px"
+                            ? "50px"
+                            : "100px"
                         }
                         placeholder={
                           currentQ.question.type === "coding"

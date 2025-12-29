@@ -100,9 +100,6 @@ function TutorIndex({
                   <th className="py-4 px-6 font-medium">
                     Outstanding Homework
                   </th>
-                  <th className="py-4 px-6 font-medium">
-                    Average Response Time
-                  </th>
                   <th className="py-4 px-6 font-medium">Availability</th>
                 </tr>
               </thead>
@@ -122,11 +119,7 @@ function TutorIndex({
                       <td className="py-4 px-6">
                         <div className="font-medium">{tutor.homeworkCount}</div>
                       </td>
-                      <td className="py-4 px-6">
-                        <div className="font-medium">
-                          {tutor.averageResponseTime}
-                        </div>
-                      </td>
+
                       <td className="py-4 px-6">
                         <Popover
                           open={isPopoverOpen[tutor.id]}

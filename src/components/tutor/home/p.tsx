@@ -204,7 +204,7 @@ function TutorDashboard() {
   const totalStudents = analytics?.totalStudents || 0;
   const upcomingSessions = analytics?.confirmedSessions || 0;
   const submittedHomework = 0; // Not available in analytics, keeping as 0 for now
-  const averageResponseTime = "7 Hours"; // Not available in analytics, keeping as mock
+  // const averageResponseTime = "7 Hours"; // Not available in analytics, keeping as mock
 
   return (
     <div>
@@ -354,7 +354,7 @@ function TutorDashboard() {
         </div>
       </div>
       {/* Average Response Time Card */}
-      <div className="bg-white rounded-2xl p-6 flex justify-between items-center">
+      {/* <div className="bg-white rounded-2xl p-6 flex justify-between items-center">
         <p className="text-sm md:text-base font-medium text-textSubtitle mb-6">
           Average <br />
           Response Time
@@ -362,7 +362,7 @@ function TutorDashboard() {
         <h2 className="text-2xl md:text-4xl font-medium">
           {averageResponseTime}
         </h2>
-      </div>
+      </div> */}
     </div>
   );
 }
