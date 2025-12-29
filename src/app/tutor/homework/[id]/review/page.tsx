@@ -105,6 +105,7 @@ export default function TutorHomeworkReviewPage() {
           type: qq.question.type,
           image_url: qq.question.image_url,
           explanation: qq.question.explanation,
+          metadata: qq.question.metadata,
           options:
             qq.question.type === "multiple_choice" && qq.question.answers
               ? qq.question.answers
@@ -536,7 +537,28 @@ export default function TutorHomeworkReviewPage() {
                     </div>
                   )}
 
-                  {/* Tutor Feedback Section */}
+                  {/* Question Metadata Feedback */}
+                  {currentResult &&
+                    currentQ.question.metadata &&
+                    (currentResult.isCorrect
+                      ? currentQ.question.metadata.correctFeedback
+                      : currentQ.question.metadata.incorrectFeedback) && (
+                      <div>
+                        <p className="text-base font-medium mb-2">Feedback:</p>
+                        <Alert className="border-blue-200 bg-blue-50">
+                          <AlertCircle className="h-4 w-4 text-blue-600" />
+                          <AlertDescription>
+                            <p className="text-blue-800 whitespace-pre-wrap">
+                              {currentResult.isCorrect
+                                ? currentQ.question.metadata.correctFeedback
+                                : currentQ.question.metadata.incorrectFeedback}
+                            </p>
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+                    )}
+
+                  {/* Tutor Additional Feedback Section */}
                   {currentResult && (
                     <FeedbackSection
                       questionId={currentQ.question.id}
@@ -820,7 +842,7 @@ function FeedbackSection({
       <div className="flex items-center justify-between mb-2">
         <Label className="text-base font-medium flex items-center gap-2">
           <MessageSquare className="h-4 w-4" />
-          Tutor Feedback:
+          Tutor Additional Feedback:
         </Label>
         {!isEditing && (
           <Button

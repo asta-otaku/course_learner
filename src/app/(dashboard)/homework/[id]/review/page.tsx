@@ -75,6 +75,7 @@ export default function HomeworkReviewPage() {
           type: qq.question.type,
           image_url: qq.question.image_url,
           explanation: qq.question.explanation,
+          metadata: qq.question.metadata,
           options:
             qq.question.type === "multiple_choice" && qq.question.answers
               ? qq.question.answers
@@ -459,11 +460,32 @@ export default function HomeworkReviewPage() {
                     </div>
                   )}
 
-                  {/* Tutor Feedback */}
+                  {/* Question Metadata Feedback */}
+                  {currentResult &&
+                    currentQ.question.metadata &&
+                    (currentResult.isCorrect
+                      ? currentQ.question.metadata.correctFeedback
+                      : currentQ.question.metadata.incorrectFeedback) && (
+                      <div>
+                        <p className="text-base font-medium mb-2">Feedback:</p>
+                        <Alert className="border-blue-200 bg-blue-50">
+                          <AlertCircle className="h-4 w-4 text-blue-600" />
+                          <AlertDescription>
+                            <p className="text-blue-800 whitespace-pre-wrap">
+                              {currentResult.isCorrect
+                                ? currentQ.question.metadata.correctFeedback
+                                : currentQ.question.metadata.incorrectFeedback}
+                            </p>
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+                    )}
+
+                  {/* Tutor Additional Feedback */}
                   {currentResult?.feedback && (
                     <div>
                       <p className="text-base font-medium mb-2">
-                        Tutor Feedback:
+                        Tutor Additional Feedback:
                       </p>
                       <Alert className="border-yellow-200 bg-yellow-50">
                         <AlertCircle className="h-4 w-4 text-yellow-600" />

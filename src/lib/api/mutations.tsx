@@ -1576,8 +1576,8 @@ export const usePostTutorChangeRequest = () => {
       childProfileId: string;
       currentTutorId: string;
       currentTutorName: string;
-      requestedTutorId: string;
-      requestedTutorName: string;
+      requestedTutorId: string | null;
+      requestedTutorName: string | null;
       reason: string | null;
     }): Promise<ApiResponse<ChangeRequest>> =>
       axiosInstance.post("/tutor-change-request", data),

@@ -94,6 +94,7 @@ interface QuizResult {
   isCorrect: boolean;
   pointsEarned: number;
   pointsPossible: number;
+  feedback?: string;
 }
 
 interface SubmissionResults {
@@ -1180,6 +1181,37 @@ export function QuizPlayer({
                           </p>
                         )}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Feedback */}
+                  {currentResult?.feedback && (
+                    <div>
+                      <p className="text-base font-medium mb-2">Feedback:</p>
+                      <Alert className="border-yellow-200 bg-yellow-50">
+                        <AlertCircle className="h-4 w-4 text-yellow-600" />
+                        <AlertDescription>
+                          <p className="text-yellow-800 whitespace-pre-wrap">
+                            {(() => {
+                              try {
+                                const parsed = JSON.parse(
+                                  currentResult.feedback
+                                );
+                                if (
+                                  parsed &&
+                                  typeof parsed === "object" &&
+                                  parsed.feedback
+                                ) {
+                                  return parsed.feedback;
+                                }
+                              } catch {
+                                // Not JSON, use as is
+                              }
+                              return currentResult.feedback;
+                            })()}
+                          </p>
+                        </AlertDescription>
+                      </Alert>
                     </div>
                   )}
 

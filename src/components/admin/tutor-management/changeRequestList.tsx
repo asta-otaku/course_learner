@@ -112,7 +112,7 @@ const ChangeRequestCard = ({
             {request.childName || "Student"} requested that{" "}
             {request.currentTutorName || "current tutor"} be replaced with{" "}
             <span className="font-medium text-gray-900">
-              {request.requestedTutorName}
+              {request.requestedTutorName || "a new tutor"}
             </span>
           </p>
           {request.reason && (
