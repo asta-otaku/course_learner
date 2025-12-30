@@ -1219,6 +1219,9 @@ export const usePatchLessonQuizzes = (lessonId: string) => {
       queryClient.invalidateQueries({
         queryKey: ["lesson", lessonId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["quizzes-for-lesson", lessonId],
+      });
       return data;
     },
     onError: (error: AxiosError) => {

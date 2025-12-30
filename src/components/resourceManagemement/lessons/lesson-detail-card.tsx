@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "@/components/ui/use-toast";
-import { useDeleteQuiz } from "@/lib/api/mutations";
+import { usePatchLessonQuizzes } from "@/lib/api/mutations";
 import {
   Card,
   CardContent,
@@ -133,8 +133,13 @@ export function LessonDetailCard({
 }: LessonDetailCardProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(isExpanded);
-  const [isDeletingQuiz, setIsDeletingQuiz] = useState<string | null>(null);
+  const [isRemovingQuiz, setIsRemovingQuiz] = useState<string | null>(null);
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [showRemoveQuizDialog, setShowRemoveQuizDialog] = useState(false);
+  const [selectedQuizToRemove, setSelectedQuizToRemove] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
   const [selectedCurriculumId, setSelectedCurriculumId] = useState<string>("");
   const { data: quizzesResponse, isLoading: quizzesLoading } =
     useGetQuizzesForLesson(lesson.id);
@@ -146,8 +151,9 @@ export function LessonDetailCard({
     usePostDuplicateLessonToCurriculum(lesson.id);
   const { data: curriculaResponse } = useGetCurricula();
 
-  // Use the delete quiz mutation hook
-  const { mutate: deleteQuiz, isPending: isDeleting } = useDeleteQuiz();
+  // Use the patch lesson quizzes mutation hook to remove quizzes from lesson
+  const { mutate: patchLessonQuizzes, isPending: isPatchingQuizzes } =
+    usePatchLessonQuizzes(lesson.id);
 
   const handleToggle = () => {
     setIsOpen(!isOpen);
@@ -161,32 +167,43 @@ export function LessonDetailCard({
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
-  const handleDeleteQuiz = (quizId: string, quizTitle: string) => {
-    if (!confirm(`Are you sure you want to delete "${quizTitle}"?`)) {
-      return;
-    }
+  const handleRemoveQuiz = (quizId: string, quizTitle: string) => {
+    setSelectedQuizToRemove({ id: quizId, title: quizTitle });
+    setShowRemoveQuizDialog(true);
+  };
 
-    setIsDeletingQuiz(quizId);
-    deleteQuiz(
-      { quizIds: [quizId] },
+  const confirmRemoveQuiz = () => {
+    if (!selectedQuizToRemove) return;
+
+    setIsRemovingQuiz(selectedQuizToRemove.id);
+    // Get all quiz IDs except the one being removed
+    const remainingQuizIds = quizzes
+      .filter((quiz) => quiz.id && quiz.id !== selectedQuizToRemove.id)
+      .map((quiz) => quiz.id)
+      .filter((id): id is string => id !== undefined);
+
+    patchLessonQuizzes(
+      { quizIds: remainingQuizIds },
       {
         onSuccess: () => {
           toast({
-            title: "Quiz deleted",
-            description: `"${quizTitle}" has been deleted successfully.`,
+            title: "Quiz removed",
+            description: `"${selectedQuizToRemove.title}" has been removed from this lesson.`,
           });
+          setShowRemoveQuizDialog(false);
+          setSelectedQuizToRemove(null);
           router.refresh();
         },
         onError: (error) => {
           toast({
-            title: "Error deleting quiz",
+            title: "Error removing quiz",
             description: "An unexpected error occurred",
             variant: "destructive",
           });
-          console.error("Delete quiz error:", error);
+          console.error("Remove quiz error:", error);
         },
         onSettled: () => {
-          setIsDeletingQuiz(null);
+          setIsRemovingQuiz(null);
         },
       }
     );
@@ -592,17 +609,17 @@ export function LessonDetailCard({
                               <DropdownMenuItem
                                 className="text-red-600 focus:text-red-600"
                                 onClick={() =>
-                                  handleDeleteQuiz(
+                                  handleRemoveQuiz(
                                     quiz.id || "",
                                     quiz.title || "Untitled Quiz"
                                   )
                                 }
-                                disabled={isDeletingQuiz === quiz.id}
+                                disabled={isRemovingQuiz === quiz.id}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
-                                {isDeletingQuiz === quiz.id
-                                  ? "Deleting..."
-                                  : "Delete Quiz"}
+                                {isRemovingQuiz === quiz.id
+                                  ? "Removing..."
+                                  : "Remove from Lesson"}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -616,6 +633,47 @@ export function LessonDetailCard({
           </CardContent>
         </CollapsibleContent>
       </Collapsible>
+
+      {/* Remove Quiz Alert Dialog */}
+      <AlertDialog
+        open={showRemoveQuizDialog}
+        onOpenChange={(open) => {
+          setShowRemoveQuizDialog(open);
+          if (!open) {
+            setSelectedQuizToRemove(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Quiz from Lesson?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove "{selectedQuizToRemove?.title}"
+              from this lesson? The quiz will no longer be associated with this
+              lesson, but it will not be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowRemoveQuizDialog(false);
+                setSelectedQuizToRemove(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRemoveQuiz}
+              disabled={isPatchingQuizzes || isRemovingQuiz !== null}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isPatchingQuizzes || isRemovingQuiz !== null
+                ? "Removing..."
+                : "Remove from Lesson"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

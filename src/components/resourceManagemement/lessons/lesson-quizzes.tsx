@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AddQuizDialog } from "./add-quiz-dialog";
-import { useDeleteQuiz } from "@/lib/api/mutations";
+import { usePatchLessonQuizzes } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import {
   Plus,
@@ -77,37 +77,44 @@ export function LessonQuizzes({
 }: LessonQuizzesProps) {
   const router = useRouter();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
 
-  // Delete quiz mutation
-  const { mutate: deleteQuiz, isPending: isDeleting } = useDeleteQuiz();
+  // Patch lesson quizzes mutation to remove quiz from lesson
+  const { mutate: patchLessonQuizzes, isPending: isPatchingQuizzes } =
+    usePatchLessonQuizzes(lessonId);
 
-  const handleDeleteQuiz = (quiz: Quiz) => {
+  const handleRemoveQuiz = (quiz: Quiz) => {
     setSelectedQuiz(quiz);
-    setShowDeleteDialog(true);
+    setShowRemoveDialog(true);
   };
 
-  const confirmDeleteQuiz = () => {
-    if (selectedQuiz) {
-      deleteQuiz(
-        { quizIds: [selectedQuiz.id] },
-        {
-          onSuccess: () => {
-            toast.success(
-              `"${selectedQuiz.title}" has been deleted successfully.`
-            );
-            setSelectedQuiz(null);
-            setShowDeleteDialog(false);
-            router.refresh();
-          },
-          onError: (error) => {
-            toast.error("Failed to delete quiz");
-            console.error("Delete quiz error:", error);
-          },
-        }
-      );
-    }
+  const confirmRemoveQuiz = () => {
+    if (!selectedQuiz) return;
+
+    // Get all quiz IDs except the one being removed
+    const remainingQuizIds = quizzes
+      .filter((q) => q.id && q.id !== selectedQuiz.id)
+      .map((q) => q.id)
+      .filter((id): id is string => id !== undefined);
+
+    patchLessonQuizzes(
+      { quizIds: remainingQuizIds },
+      {
+        onSuccess: () => {
+          toast.success(
+            `"${selectedQuiz.title}" has been removed from this lesson.`
+          );
+          setSelectedQuiz(null);
+          setShowRemoveDialog(false);
+          router.refresh();
+        },
+        onError: (error) => {
+          toast.error("Failed to remove quiz from lesson");
+          console.error("Remove quiz error:", error);
+        },
+      }
+    );
   };
 
   const handleStartQuiz = (quizId: string) => {
@@ -284,7 +291,7 @@ export function LessonQuizzes({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  disabled={isDeleting}
+                                  disabled={isPatchingQuizzes}
                                 >
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
@@ -320,11 +327,11 @@ export function LessonQuizzes({
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
-                                  onClick={() => handleDeleteQuiz(quiz)}
+                                  onClick={() => handleRemoveQuiz(quiz)}
                                   className="text-red-600 focus:text-red-600"
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Quiz
+                                  Remove from Lesson
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -370,27 +377,40 @@ export function LessonQuizzes({
         }}
       />
 
-      {/* Delete Quiz Alert Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      {/* Remove Quiz Alert Dialog */}
+      <AlertDialog
+        open={showRemoveDialog}
+        onOpenChange={(open) => {
+          setShowRemoveDialog(open);
+          if (!open) {
+            setSelectedQuiz(null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Remove Quiz from Lesson?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the quiz "{selectedQuiz?.title}".
-              This action cannot be undone and will remove all associated
-              questions and student attempts.
+              Are you sure you want to remove "{selectedQuiz?.title}" from this
+              lesson? The quiz will no longer be associated with this lesson,
+              but it will not be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowRemoveDialog(false);
+                setSelectedQuiz(null);
+              }}
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDeleteQuiz}
-              disabled={isDeleting}
+              onClick={confirmRemoveQuiz}
+              disabled={isPatchingQuizzes}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? "Deleting..." : "Delete Quiz"}
+              {isPatchingQuizzes ? "Removing..." : "Remove from Lesson"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
