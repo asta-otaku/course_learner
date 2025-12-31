@@ -12,6 +12,7 @@ import { signinSchema } from "@/lib/schema";
 import { z } from "zod";
 import { usePostLogin } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
+import { useRouter } from "next/navigation";
 
 function SigninForm({
   setStep,
@@ -32,13 +33,19 @@ function SigninForm({
   const { mutateAsync: postLogin, isPending } = usePostLogin();
   const [passwordVisible, setPasswordVisible] = useState(false);
   const toggleVisibility = () => setPasswordVisible((v) => !v);
+  const { push } = useRouter();
   const onSubmit = async (data: z.infer<typeof signinSchema>) => {
     const res = await postLogin(data);
     if (res.status === 200) {
-      // Store the user data in localStorage
-      localStorage.setItem("user", JSON.stringify(res.data));
-      setStep(1);
-      toast.success(res.data.message);
+      if (res.data.data.userRole !== "parent") {
+        localStorage.setItem(res.data.data.userRole, JSON.stringify(res.data));
+        push(`/${res.data.data.userRole}`);
+        toast.success(res.data.message);
+      } else {
+        localStorage.setItem("user", JSON.stringify(res.data));
+        setStep(1);
+        toast.success(res.data.message);
+      }
     }
   };
 

@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { createQuizSchema, type CreateQuizInput } from "@/lib/validations/quiz";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,8 +23,14 @@ import { usePatchLessonQuizzes, usePostQuiz } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Search,
   Plus,
@@ -58,18 +67,30 @@ export function AddQuizDialog({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
 
-  // New quiz form state
-  const [newQuizTitle, setNewQuizTitle] = useState("");
-  const [newQuizDescription, setNewQuizDescription] = useState("");
-
-  // Quiz settings state
-  const [timeLimit, setTimeLimit] = useState<number>(30);
-  const [passingScore, setPassingScore] = useState<string>("70");
-  const [randomizeQuestions, setRandomizeQuestions] = useState<boolean>(false);
-  const [showCorrectAnswers, setShowCorrectAnswers] = useState<boolean>(true);
-  const [showFeedback, setShowFeedback] = useState<boolean>(true);
-  const [allowRetakes, setAllowRetakes] = useState<boolean>(true);
-  const [allowReview, setAllowReview] = useState<boolean>(true);
+  // React Hook Form for new quiz
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors },
+  } = useForm<CreateQuizInput>({
+    resolver: zodResolver(createQuizSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      tags: [],
+      lessonId: lessonId,
+      settings: {
+        timeLimit: 0,
+        randomizeQuestions: false,
+        passingScore: 80,
+        feedbackMode: "immediate",
+        availableFrom: "",
+        availableUntil: "",
+      },
+    },
+  });
 
   // Use the useGetQuizzes hook instead of server action
   const { data: quizzesData, isLoading: loading } = useGetQuizzes({
@@ -86,7 +107,8 @@ export function AddQuizDialog({
     usePatchLessonQuizzes(lessonId);
 
   // Mutation for creating new quiz
-  const { mutate: createQuiz, isPending: isCreating } = usePostQuiz();
+  const createQuizMutation = usePostQuiz();
+  const isCreating = createQuizMutation.isPending;
 
   const isQuizAlreadyAdded = (quizId: string | undefined) => {
     return quizId ? existingQuizIds.includes(quizId) : false;
@@ -122,31 +144,54 @@ export function AddQuizDialog({
     );
   };
 
-  const handleCreateNewQuiz = () => {
-    if (!newQuizTitle.trim()) {
-      toast.error("Please enter a quiz title");
-      return;
-    }
+  const handleCreateNewQuiz = async (data: CreateQuizInput) => {
+    try {
+      // Build the payload conforming to QuizUpdateData
+      const payload: any = {
+        title: data.title,
+        description: data.description,
+        lessonId: lessonId,
+      };
 
-    const quizData = {
-      title: newQuizTitle.trim(),
-      description: newQuizDescription.trim(),
-      lessonId: lessonId,
-      settings: {
-        timeLimit: timeLimit,
-        randomizeQuestions: randomizeQuestions,
-        showCorrectAnswers: showCorrectAnswers,
-        passingScore: parseInt(passingScore) || 70,
-        showFeedback: showFeedback,
-        allowRetakes: allowRetakes,
-        allowReview: allowReview,
-      },
-    };
+      // Add tags if provided
+      if (data.tags && data.tags.length > 0) {
+        payload.tags = data.tags;
+      }
 
-    createQuiz(quizData, {
-      onSuccess: (response) => {
+      // Add settings if any are provided
+      if (data.settings) {
+        const settings: any = {};
+
+        if (data.settings.timeLimit !== undefined) {
+          settings.timeLimit = data.settings.timeLimit;
+        }
+        if (data.settings.randomizeQuestions !== undefined) {
+          settings.randomizeQuestions = data.settings.randomizeQuestions;
+        }
+        if (data.settings.passingScore !== undefined) {
+          settings.passingScore = data.settings.passingScore;
+        }
+        if (data.settings.feedbackMode) {
+          settings.feedbackMode = data.settings.feedbackMode;
+        }
+        if (data.settings.availableFrom?.trim()) {
+          settings.availableFrom = data.settings.availableFrom;
+        }
+        if (data.settings.availableUntil?.trim()) {
+          settings.availableUntil = data.settings.availableUntil;
+        }
+
+        // Only include settings if at least one setting is defined
+        if (Object.keys(settings).length > 0) {
+          payload.settings = settings;
+        }
+      }
+
+      const result = await createQuizMutation.mutateAsync(payload);
+
+      if (result.status === 200 || result.status === 201) {
         // Extract quiz ID from nested response structure
-        const quizId = response?.data?.data?.id || (response.data as any)?.id;
+        const quizId = result?.data?.data?.id || (result.data as any)?.id;
 
         if (quizId) {
           // Add the newly created quiz to the lesson
@@ -155,7 +200,10 @@ export function AddQuizDialog({
             { quizIds: updatedQuizIds },
             {
               onSuccess: () => {
-                toast.success(response?.data?.message);
+                toast.success(
+                  result?.data?.message || "Quiz created successfully"
+                );
+                reset();
                 onOpenChange(false);
                 if (onSuccess) onSuccess();
                 router.refresh();
@@ -168,14 +216,13 @@ export function AddQuizDialog({
           );
         } else {
           toast.error("Failed to get quiz ID from response");
-          console.error("Response structure:", response);
+          console.error("Response structure:", result);
         }
-      },
-      onError: (error) => {
-        toast.error("Failed to create quiz. Please try again.");
-        console.error("Create quiz error:", error);
-      },
-    });
+      }
+    } catch (error) {
+      console.error("Error creating quiz:", error);
+      toast.error("Failed to create quiz. Please try again.");
+    }
   };
 
   const getStatusColor = (status: string | undefined) => {
@@ -383,152 +430,251 @@ export function AddQuizDialog({
             </TabsContent>
 
             <TabsContent value="create" className="flex-1 overflow-y-auto mt-4">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="quiz-title">Quiz Title *</Label>
-                  <Input
-                    id="quiz-title"
-                    placeholder="Enter quiz title"
-                    value={newQuizTitle}
-                    onChange={(e) => setNewQuizTitle(e.target.value)}
-                  />
+              <form
+                onSubmit={handleSubmit(handleCreateNewQuiz)}
+                className="space-y-6"
+              >
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Basic Information</CardTitle>
+                    <CardDescription>
+                      Provide the essential details for your quiz. You'll add
+                      questions in the next step.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="title">Quiz Title *</Label>
+                      <Input
+                        id="title"
+                        {...register("title")}
+                        placeholder="Enter quiz title"
+                        className={errors.title ? "border-destructive" : ""}
+                      />
+                      {errors.title && (
+                        <p className="text-sm text-destructive mt-1">
+                          {errors.title.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="description">Description *</Label>
+                      <Textarea
+                        id="description"
+                        {...register("description")}
+                        placeholder="Describe what this quiz covers"
+                        rows={3}
+                        className={
+                          errors.description ? "border-destructive" : ""
+                        }
+                      />
+                      {errors.description && (
+                        <p className="text-sm text-destructive mt-1">
+                          {errors.description.message}
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Quiz Settings</CardTitle>
+                    <CardDescription>
+                      Configure how the quiz will behave
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div>
+                      <Label htmlFor="timeLimit">Time Limit (minutes)</Label>
+                      <Input
+                        id="timeLimit"
+                        type="number"
+                        {...register("settings.timeLimit", {
+                          valueAsNumber: true,
+                        })}
+                        placeholder="0"
+                        min={0}
+                        max={180}
+                        className={
+                          errors.settings?.timeLimit ? "border-destructive" : ""
+                        }
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Leave as 0 for no time limit
+                      </p>
+                      {errors.settings?.timeLimit && (
+                        <p className="text-sm text-destructive mt-1">
+                          {errors.settings.timeLimit.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="passingScore">Passing Score (%)</Label>
+                      <Input
+                        id="passingScore"
+                        type="number"
+                        {...register("settings.passingScore", {
+                          valueAsNumber: true,
+                        })}
+                        min={0}
+                        max={100}
+                        className={
+                          errors.settings?.passingScore
+                            ? "border-destructive"
+                            : ""
+                        }
+                      />
+                      {errors.settings?.passingScore && (
+                        <p className="text-sm text-destructive mt-1">
+                          {errors.settings.passingScore.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="randomizeQuestions"
+                        {...register("settings.randomizeQuestions")}
+                        className="rounded border-gray-300"
+                      />
+                      <Label
+                        htmlFor="randomizeQuestions"
+                        className="font-normal"
+                      >
+                        Randomize question order for each attempt
+                      </Label>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-base">Feedback Mode</Label>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Choose when and how students receive feedback on their
+                          answers
+                        </p>
+                      </div>
+
+                      <Controller
+                        name="settings.feedbackMode"
+                        control={control}
+                        render={({ field }) => (
+                          <RadioGroup
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            className="space-y-4"
+                          >
+                            <div className="flex items-start space-x-3 space-y-0">
+                              <RadioGroupItem
+                                value="immediate"
+                                id="immediate"
+                                className="mt-1"
+                              />
+                              <div className="space-y-1 leading-none">
+                                <Label
+                                  htmlFor="immediate"
+                                  className="font-medium cursor-pointer"
+                                >
+                                  Immediate Feedback
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                  Students see correct answers immediately after
+                                  answering each question
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start space-x-3 space-y-0">
+                              <RadioGroupItem
+                                value="after_completion"
+                                id="after_completion"
+                                className="mt-1"
+                              />
+                              <div className="space-y-1 leading-none">
+                                <Label
+                                  htmlFor="after_completion"
+                                  className="font-medium cursor-pointer"
+                                >
+                                  After Completion
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                  Students see all feedback only after
+                                  completing the entire quiz
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start space-x-3 space-y-0">
+                              <RadioGroupItem
+                                value="delayed_random"
+                                id="delayed_random"
+                                className="mt-1"
+                              />
+                              <div className="space-y-1 leading-none">
+                                <Label
+                                  htmlFor="delayed_random"
+                                  className="font-medium cursor-pointer"
+                                >
+                                  Delayed Random Feedback
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                  Feedback is delivered at a random time between
+                                  the specified hours after completion
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start space-x-3 space-y-0">
+                              <RadioGroupItem
+                                value="manual_tutor_review"
+                                id="manual_tutor_review"
+                                className="mt-1"
+                              />
+                              <div className="space-y-1 leading-none">
+                                <Label
+                                  htmlFor="manual_tutor_review"
+                                  className="font-medium cursor-pointer"
+                                >
+                                  Manual Tutor Review
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                  Quiz is sent to assigned tutor for review and
+                                  personalized feedback
+                                </p>
+                              </div>
+                            </div>
+                          </RadioGroup>
+                        )}
+                      />
+                      {errors.settings?.feedbackMode && (
+                        <p className="text-sm text-destructive mt-1">
+                          {errors.settings.feedbackMode.message}
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    disabled={isCreating}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isCreating}>
+                    {isCreating && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Create Quiz
+                  </Button>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="quiz-description">Description</Label>
-                  <Textarea
-                    id="quiz-description"
-                    placeholder="Enter quiz description"
-                    value={newQuizDescription}
-                    onChange={(e) => setNewQuizDescription(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-
-                <Separator className="my-6" />
-
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium">Quiz Settings</h4>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="time-limit">Time Limit (minutes)</Label>
-                    <Input
-                      id="time-limit"
-                      type="number"
-                      min="1"
-                      value={timeLimit}
-                      onChange={(e) => setTimeLimit(Number(e.target.value))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="passing-score">Passing Score (%)</Label>
-                    <Input
-                      id="passing-score"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={passingScore}
-                      onChange={(e) => setPassingScore(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="randomize-questions">
-                          Randomize Questions
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Questions will be presented in random order
-                        </p>
-                      </div>
-                      <Switch
-                        id="randomize-questions"
-                        checked={randomizeQuestions}
-                        onCheckedChange={setRandomizeQuestions}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="show-correct-answers">
-                          Show Correct Answers
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Display correct answers after quiz completion
-                        </p>
-                      </div>
-                      <Switch
-                        id="show-correct-answers"
-                        checked={showCorrectAnswers}
-                        onCheckedChange={setShowCorrectAnswers}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="show-feedback">Show Feedback</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Provide feedback on answers
-                        </p>
-                      </div>
-                      <Switch
-                        id="show-feedback"
-                        checked={showFeedback}
-                        onCheckedChange={setShowFeedback}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="allow-retakes">Allow Retakes</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Students can retake the quiz
-                        </p>
-                      </div>
-                      <Switch
-                        id="allow-retakes"
-                        checked={allowRetakes}
-                        onCheckedChange={setAllowRetakes}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="allow-review">Allow Review</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Students can review their answers
-                        </p>
-                      </div>
-                      <Switch
-                        id="allow-review"
-                        checked={allowReview}
-                        onCheckedChange={setAllowReview}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 mt-6">
-                <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={isCreating}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreateNewQuiz}
-                  disabled={isCreating || !newQuizTitle.trim()}
-                >
-                  {isCreating && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Create Quiz
-                </Button>
-              </div>
+              </form>
             </TabsContent>
           </Tabs>
         </DialogContent>
