@@ -378,6 +378,7 @@ export default function QuizPage() {
                 allowReview: quiz.allowReview !== false,
                 availableFrom: quiz.availableFrom,
                 availableUntil: quiz.availableUntil,
+                feedbackMode: quiz.feedbackMode || "immediate",
               }}
             />
           ) : (

@@ -57,6 +57,7 @@ export interface Quiz {
   questions?: QuizQuestion[];
   questionsCount?: number; // Number of questions in the quiz
   status?: "draft" | "published" | "archived";
+  feedbackMode?: "immediate" | "after_completion" | "delayed_random" | "manual_tutor_review";
   createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
