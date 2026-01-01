@@ -92,6 +92,16 @@ export function AddQuizDialog({
     },
   });
 
+  // Reset form and state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      reset();
+      setActiveTab("existing");
+      setSearchTerm("");
+      setSelectedQuiz(null);
+    }
+  }, [open, reset]);
+
   // Use the useGetQuizzes hook instead of server action
   const { data: quizzesData, isLoading: loading } = useGetQuizzes({
     search: searchTerm,

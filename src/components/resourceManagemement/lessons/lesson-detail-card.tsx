@@ -40,6 +40,7 @@ import {
   Plus,
   Trash2,
   MoreVertical,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/database.types";
@@ -122,6 +123,7 @@ interface LessonDetailCardProps {
   curriculumId: string;
   isExpanded?: boolean;
   onToggle?: () => void;
+  onAddQuiz?: () => void;
 }
 
 export function LessonDetailCard({
@@ -130,6 +132,7 @@ export function LessonDetailCard({
   curriculumId,
   isExpanded = false,
   onToggle,
+  onAddQuiz,
 }: LessonDetailCardProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(isExpanded);
@@ -376,12 +379,6 @@ export function LessonDetailCard({
             {/* Action Buttons */}
             <div className="flex items-center justify-between pt-2 border-t">
               <div className="flex items-center gap-2">
-                <Button asChild size="sm">
-                  <Link href={`/admin/lessons/${lesson.id}`}>
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Lesson
-                  </Link>
-                </Button>
                 {lesson.videoUrl && (
                   <Button asChild size="sm" variant="outline">
                     <Link href={`/admin/lessons/${lesson.id}#video`}>
@@ -529,11 +526,16 @@ export function LessonDetailCard({
               </div>
 
               {canEdit && (
-                <Button asChild size="sm" variant="ghost">
-                  <Link href={`/admin/lessons/${lesson.id}`}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Quiz
-                  </Link>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddQuiz?.();
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Quiz
                 </Button>
               )}
             </div>
@@ -548,19 +550,25 @@ export function LessonDetailCard({
                   {quizzes.map((quiz, index) => (
                     <div
                       key={quiz.id}
-                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
+                      onClick={(e) => {
+                        // Only navigate if click is directly on the card, not on interactive elements
+                        if (
+                          e.target === e.currentTarget ||
+                          ((e.target as HTMLElement).closest("button") ===
+                            null &&
+                            (e.target as HTMLElement).closest("a") === null)
+                        ) {
+                          router.push(`/admin/quizzes/${quiz.id}/edit`);
+                        }
+                      }}
+                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1">
                         <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-sm font-medium">
                           {index + 1}
                         </div>
-                        <div>
-                          <Link
-                            href={`/admin/quizzes/${quiz.id}`}
-                            className="font-medium hover:underline"
-                          >
-                            {quiz.title}
-                          </Link>
+                        <div className="flex-1">
+                          <p className="font-medium">{quiz.title}</p>
                           {quiz.description && (
                             <p className="text-sm text-muted-foreground line-clamp-1">
                               {quiz.description}
@@ -569,7 +577,10 @@ export function LessonDetailCard({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4">
+                      <div
+                        className="flex items-center gap-4"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
                           {quiz.timeLimit && <span>{quiz.timeLimit} min</span>}
                           {quiz.passingScore && (
@@ -600,9 +611,11 @@ export function LessonDetailCard({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem asChild>
-                                <Link href={`/admin/quizzes/${quiz.id}/edit`}>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit Quiz
+                                <Link
+                                  href={`/admin/quizzes/${quiz.id}?tab=settings`}
+                                >
+                                  <Settings className="h-4 w-4 mr-2" />
+                                  Edit Quiz Settings
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />

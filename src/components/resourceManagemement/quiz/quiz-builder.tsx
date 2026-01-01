@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   closestCenter,
@@ -65,6 +66,7 @@ interface QuizBuilderProps {
 }
 
 export function QuizBuilder({ quiz: initialQuiz }: QuizBuilderProps) {
+  const router = useRouter();
   const [quiz, setQuiz] = useState<Quiz>(initialQuiz);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
     "idle"
@@ -164,8 +166,10 @@ export function QuizBuilder({ quiz: initialQuiz }: QuizBuilderProps) {
       // Trigger question bank refresh
       setQuestionBankRefreshTrigger((prev) => prev + 1);
 
-      // Reset to idle after 3 seconds
-      setTimeout(() => setSaveStatus("idle"), 3000);
+      // Navigate back after a short delay to show success message
+      setTimeout(() => {
+        router.back();
+      }, 1000);
     } catch (error) {
       setSaveStatus("idle");
     }

@@ -21,6 +21,7 @@ import {
 import { LessonForm } from "../lessons/lesson-form";
 import { AddQuizDialog } from "../lessons/add-quiz-dialog";
 import { ExpandableLessonList } from "./expandable-lesson-list";
+import { useGetQuizzesForLesson } from "@/lib/api/queries";
 import type { Database } from "@/lib/database.types";
 
 type LessonRow = Database["public"]["Tables"]["lessons"]["Row"];
@@ -73,6 +74,15 @@ export function LessonManager({
   const [selectedLesson, setSelectedLesson] =
     useState<LessonWithQuizzes | null>(null);
 
+  // Fetch quizzes for the selected lesson to get existing quiz IDs
+  const { data: quizzesResponse } = useGetQuizzesForLesson(
+    selectedLesson?.id || ""
+  );
+  const existingQuizIds =
+    quizzesResponse?.data
+      ?.map((quiz) => quiz.id)
+      .filter((id): id is string => id !== undefined) || [];
+
   const handleCreateLesson = () => {
     setIsCreateDialogOpen(true);
   };
@@ -95,6 +105,11 @@ export function LessonManager({
     router.refresh();
   };
 
+  const handleAddQuiz = (lesson: LessonWithQuizzes) => {
+    setSelectedLesson(lesson);
+    setIsQuizDialogOpen(true);
+  };
+
   const handleDialogClose = () => {
     setIsCreateDialogOpen(false);
     setIsEditDialogOpen(false);
@@ -110,6 +125,7 @@ export function LessonManager({
         curriculumId={curriculumId}
         canEdit={canEdit}
         onCreateLesson={canEdit ? handleCreateLesson : undefined}
+        onAddQuiz={canEdit ? handleAddQuiz : undefined}
       />
 
       {/* Edit Lesson Dialog */}
@@ -171,6 +187,7 @@ export function LessonManager({
           open={isQuizDialogOpen}
           onOpenChange={setIsQuizDialogOpen}
           onSuccess={handleQuizSuccess}
+          existingQuizIds={existingQuizIds}
         />
       )}
     </div>

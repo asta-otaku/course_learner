@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -25,7 +26,11 @@ interface QuizSettings {
   showFeedback?: boolean;
   allowRetakes?: boolean;
   allowReview?: boolean;
-  feedbackMode: "immediate" | "after_completion" | "delayed_random" | "manual_tutor_review";
+  feedbackMode:
+    | "immediate"
+    | "after_completion"
+    | "delayed_random"
+    | "manual_tutor_review";
   availableFrom?: string;
   availableUntil?: string;
 }
@@ -39,6 +44,8 @@ export function QuizSettingsEditor({
   quizId,
   settings: initialSettings,
 }: QuizSettingsEditorProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [settings, setSettings] = useState<QuizSettings>(initialSettings);
   const [saving, setSaving] = useState(false);
   const putQuizMutation = usePutQuiz(quizId);
@@ -59,6 +66,14 @@ export function QuizSettingsEditor({
 
       if (result.data) {
         toast.success("Quiz settings have been updated successfully");
+
+        // Navigate back if tab parameter exists in URL
+        const hasTabParam = searchParams.has("tab");
+        if (hasTabParam) {
+          setTimeout(() => {
+            router.back();
+          }, 1000);
+        }
       } else {
         toast.error("Failed to save settings. Please try again.");
       }
@@ -136,7 +151,10 @@ export function QuizSettingsEditor({
               }
               className="rounded border-gray-300"
             />
-            <Label htmlFor="randomizeQuestions" className="font-normal cursor-pointer">
+            <Label
+              htmlFor="randomizeQuestions"
+              className="font-normal cursor-pointer"
+            >
               Randomize question order for each attempt
             </Label>
           </div>
@@ -149,7 +167,7 @@ export function QuizSettingsEditor({
                 Choose when and how students receive feedback on their answers
               </p>
             </div>
-            
+
             <RadioGroup
               value={settings.feedbackMode}
               onValueChange={(value: any) =>
@@ -161,49 +179,81 @@ export function QuizSettingsEditor({
               className="space-y-4"
             >
               <div className="flex items-start space-x-3 space-y-0">
-                <RadioGroupItem value="immediate" id="immediate" className="mt-1" />
+                <RadioGroupItem
+                  value="immediate"
+                  id="immediate"
+                  className="mt-1"
+                />
                 <div className="space-y-1 leading-none">
-                  <Label htmlFor="immediate" className="font-medium cursor-pointer">
+                  <Label
+                    htmlFor="immediate"
+                    className="font-medium cursor-pointer"
+                  >
                     Immediate Feedback
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Students see correct answers immediately after answering each question
+                    Students see correct answers immediately after answering
+                    each question
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start space-x-3 space-y-0">
-                <RadioGroupItem value="after_completion" id="after_completion" className="mt-1" />
+                <RadioGroupItem
+                  value="after_completion"
+                  id="after_completion"
+                  className="mt-1"
+                />
                 <div className="space-y-1 leading-none">
-                  <Label htmlFor="after_completion" className="font-medium cursor-pointer">
+                  <Label
+                    htmlFor="after_completion"
+                    className="font-medium cursor-pointer"
+                  >
                     After Completion
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Students see all feedback only after completing the entire quiz
+                    Students see all feedback only after completing the entire
+                    quiz
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start space-x-3 space-y-0">
-                <RadioGroupItem value="delayed_random" id="delayed_random" className="mt-1" />
+                <RadioGroupItem
+                  value="delayed_random"
+                  id="delayed_random"
+                  className="mt-1"
+                />
                 <div className="space-y-1 leading-none">
-                  <Label htmlFor="delayed_random" className="font-medium cursor-pointer">
+                  <Label
+                    htmlFor="delayed_random"
+                    className="font-medium cursor-pointer"
+                  >
                     Delayed Random Feedback
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Feedback is delivered at a random time between the specified hours after completion
+                    Feedback is delivered at a random time between the specified
+                    hours after completion
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start space-x-3 space-y-0">
-                <RadioGroupItem value="manual_tutor_review" id="manual_tutor_review" className="mt-1" />
+                <RadioGroupItem
+                  value="manual_tutor_review"
+                  id="manual_tutor_review"
+                  className="mt-1"
+                />
                 <div className="space-y-1 leading-none">
-                  <Label htmlFor="manual_tutor_review" className="font-medium cursor-pointer">
+                  <Label
+                    htmlFor="manual_tutor_review"
+                    className="font-medium cursor-pointer"
+                  >
                     Manual Tutor Review
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Quiz is sent to assigned tutor for review and personalized feedback
+                    Quiz is sent to assigned tutor for review and personalized
+                    feedback
                   </p>
                 </div>
               </div>

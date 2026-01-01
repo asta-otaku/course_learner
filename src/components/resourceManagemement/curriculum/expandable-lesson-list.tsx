@@ -72,6 +72,7 @@ interface ExpandableLessonListProps {
   curriculumId: string;
   canEdit?: boolean;
   onCreateLesson?: () => void;
+  onAddQuiz?: (lesson: LessonWithQuizzes) => void;
 }
 
 // Sortable lesson card wrapper
@@ -81,12 +82,14 @@ function SortableLessonCard({
   curriculumId,
   isExpanded,
   onToggle,
+  onAddQuiz,
 }: {
   lesson: LessonWithQuizzes;
   canEdit: boolean;
   curriculumId: string;
   isExpanded: boolean;
   onToggle: () => void;
+  onAddQuiz?: (lesson: LessonWithQuizzes) => void;
 }) {
   const {
     attributes,
@@ -143,6 +146,7 @@ function SortableLessonCard({
             curriculumId={curriculumId}
             isExpanded={isExpanded}
             onToggle={onToggle}
+            onAddQuiz={onAddQuiz ? () => onAddQuiz(lesson) : undefined}
           />
         </div>
       </div>
@@ -155,6 +159,7 @@ export function ExpandableLessonList({
   curriculumId,
   canEdit = false,
   onCreateLesson,
+  onAddQuiz,
 }: ExpandableLessonListProps) {
   const [expandedLessons, setExpandedLessons] = useState<Set<string>>(
     new Set()
@@ -297,6 +302,7 @@ export function ExpandableLessonList({
                   curriculumId={curriculumId}
                   isExpanded={expandedLessons.has(lessonData.id)}
                   onToggle={() => handleToggleExpand(lessonData.id)}
+                  onAddQuiz={onAddQuiz}
                 />
               ))}
             </SortableContext>
@@ -309,6 +315,7 @@ export function ExpandableLessonList({
                     curriculumId={curriculumId}
                     isExpanded={false}
                     onToggle={() => {}}
+                    onAddQuiz={onAddQuiz}
                   />
                 </div>
               ) : null}
@@ -323,6 +330,7 @@ export function ExpandableLessonList({
               curriculumId={curriculumId}
               isExpanded={expandedLessons.has(lessonData.id)}
               onToggle={() => handleToggleExpand(lessonData.id)}
+              onAddQuiz={onAddQuiz}
             />
           ))
         )}

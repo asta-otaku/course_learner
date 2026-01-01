@@ -19,16 +19,48 @@ import {
   Calendar,
   Eye,
 } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useGetQuiz, useGetQuizQuestions } from "@/lib/api/queries";
 import { formatDistanceToNow } from "date-fns";
+import { useMemo, useState, useEffect } from "react";
 
 // Force dynamic rendering
 export const dynamic = "force-dynamic";
 
 export default function QuizPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const id = params.id as string;
+
+  // Get the tab from URL query parameter, default to "overview"
+  const currentTab = useMemo(() => {
+    const tab = searchParams.get("tab");
+    // Validate tab value - only allow valid tab names
+    const validTabs = ["overview", "questions", "attempts", "settings"];
+    return tab && validTabs.includes(tab) ? tab : "overview";
+  }, [searchParams]);
+
+  const [activeTab, setActiveTab] = useState(currentTab);
+
+  // Sync activeTab with URL when it changes
+  useEffect(() => {
+    setActiveTab(currentTab);
+  }, [currentTab]);
+
+  // Handle tab change and update URL
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "overview") {
+      params.delete("tab");
+    } else {
+      params.set("tab", value);
+    }
+    router.push(
+      `/admin/quizzes/${id}${params.toString() ? `?${params.toString()}` : ""}`
+    );
+  };
 
   // Use React Query hooks to get quiz and questions
   const {
@@ -127,7 +159,11 @@ export default function QuizPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="space-y-4"
+      >
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="questions">Questions</TabsTrigger>
