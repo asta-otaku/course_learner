@@ -697,6 +697,7 @@ export interface Curriculum {
 export interface Lesson {
   id: string;
   title: string;
+  sectionId: string;
   description: string;
   content: string;
   orderIndex: number;
@@ -878,6 +879,17 @@ export interface HomeworkReview {
   percentage: number;
   results: any[];
   timeSpent: number;
+}
+
+export interface Section {
+  id: string;
+  title: string;
+  lessonsCount: number;
+  lessons: {
+    id: string;
+    title: string;
+    orderIndex: number;
+  }[]
 }
 
 // Export socket types

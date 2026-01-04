@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import BackArrow from "@/assets/svgs/arrowback";
 import { useProfile } from "@/context/profileContext";
 import {
-  useGetLibrary,
-  useGetChildLessons,
+  useGetSectionById,
   useGetLessonById,
   useGetQuizzesForLesson,
 } from "@/lib/api/queries";
@@ -20,16 +19,22 @@ export default function LessonPage() {
   const curriculumId = params.curriculumId as string;
   const lessonId = params.lessonId as string;
 
-  const { data: library } = useGetLibrary(activeProfile?.id || "");
-  const { data: lessons } = useGetChildLessons(
-    activeProfile?.id || "",
-    curriculumId
+  const { data: sectionData } = useGetSectionById(
+    curriculumId,
+    activeProfile?.offerType || ""
   );
   const { data: lessonDetail, isLoading } = useGetLessonById(lessonId);
   const { data: lessonQuizzes } = useGetQuizzesForLesson(lessonId);
 
-  const curriculum = library?.data?.find((c) => c.id === curriculumId);
-  const curriculumLessons = lessons?.data || [];
+  const section = sectionData?.data;
+
+  // Get lessons and sort by orderIndex
+  const curriculumLessons = useMemo(() => {
+    const lessons = section?.lessons || [];
+    return [...lessons].sort(
+      (a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)
+    );
+  }, [section?.lessons]);
 
   // Get lesson data from useGetLessonById
   const lessonData = lessonDetail?.data;
@@ -45,12 +50,10 @@ export default function LessonPage() {
   // Track refs to multiple videos and throttle updates
   const videoRefs = useRef<Array<HTMLVideoElement | null>>([]);
   const lastSentRef = useRef<number>(0);
-  const curriculumProgress = (library?.data || []).find(
-    (c: any) => c.id === curriculumId
-  )?.progress as
-    | { watchedVideoDuration?: number; isCompleted?: boolean }
-    | undefined;
-  const isCompleted = Boolean(curriculumProgress?.isCompleted);
+
+  // Note: Progress tracking may need to be handled differently without library data
+  // For now, we'll assume lessons don't have completion status from section endpoint
+  const isCompleted = false;
 
   const maybeSendProgress = (
     video: HTMLVideoElement | null,
@@ -69,7 +72,7 @@ export default function LessonPage() {
     return <div className="p-8">Loading...</div>;
   }
 
-  if (!curriculum || !lessonData) {
+  if (!section || !lessonData) {
     return <div className="p-8">Lesson not found</div>;
   }
 
@@ -81,10 +84,8 @@ export default function LessonPage() {
     title?: string;
     fileName?: string;
   }>;
-  const resumePositionSec = Math.max(
-    0,
-    Math.floor((curriculumProgress?.watchedVideoDuration as number) || 0)
-  );
+  // Note: Resume position may need to come from lesson data or a different endpoint
+  const resumePositionSec = 0;
 
   return (
     <div className="p-4 md:p-8 lg:p-12 space-y-6">
@@ -96,7 +97,7 @@ export default function LessonPage() {
         >
           <BackArrow />
           <h1 className="text-sm md:text-base font-bold text-textGray uppercase">
-            {curriculum.title}
+            {section.title}
           </h1>
         </Link>
 

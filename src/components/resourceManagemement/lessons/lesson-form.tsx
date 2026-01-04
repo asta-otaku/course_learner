@@ -16,6 +16,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { X, Plus, Save, Loader2, Video, CheckCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -23,7 +30,7 @@ import {
   usePostUploader,
   usePutLesson,
 } from "@/lib/api/mutations";
-import { useGetTagSearch } from "@/lib/api/queries";
+import { useGetTagSearch, useGetSections } from "@/lib/api/queries";
 import { toast } from "react-toastify";
 import { cn } from "@/lib/utils";
 import type { Lesson } from "@/lib/types";
@@ -93,6 +100,9 @@ export function LessonForm({
   const { data: tagSuggestions, isLoading: isSearchingTags } =
     useGetTagSearch(debouncedTagSearch);
 
+  // Sections query
+  const { data: sectionsData, isLoading: isLoadingSections } = useGetSections();
+
   // Filter suggestions to exclude already added tags
   const filteredSuggestions = useMemo(() => {
     if (!tagSuggestions?.data) return [];
@@ -101,9 +111,15 @@ export function LessonForm({
     );
   }, [tagSuggestions?.data, tags]);
 
+  // Get sections list
+  const sections = useMemo(() => {
+    return sectionsData?.data || [];
+  }, [sectionsData?.data]);
+
   const form = useForm<Partial<Lesson>>({
     defaultValues: {
       title: lesson?.title || "",
+      sectionId: lesson?.sectionId || "",
       orderIndex: lesson?.orderIndex || 0,
       objectives: lesson?.objectives || [],
       tags: lesson?.tags || [],
@@ -440,6 +456,7 @@ export function LessonForm({
       // Prepare lesson data with video metadata
       const lessonData: any = {
         ...data,
+        sectionId: data.sectionId || "",
         objectives,
         tags,
         // Map duration seconds → minutes as per schema
@@ -533,6 +550,36 @@ export function LessonForm({
                 <FormControl>
                   <Input placeholder="Enter lesson title..." {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Section Field */}
+          <FormField
+            control={form.control}
+            name="sectionId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Section</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value}
+                  disabled={isLoadingSections}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a section..." />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {sections.map((section) => (
+                      <SelectItem key={section.id} value={section.id}>
+                        {section.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

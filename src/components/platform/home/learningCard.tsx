@@ -14,7 +14,7 @@ export default function LearningCard({
   lesson?: any;
 }) {
   const href = lesson?.id
-    ? `/library/${lesson.curriculumId}/${lesson.id}`
+    ? `/library/${lesson.sectionId || lesson.curriculumId}/${lesson.id}`
     : course.curriculumId
       ? `/library/${course.curriculumId}`
       : `/dashboard/${slugify(course.course)}/${slugify(getCurrentTopic(course).title)}`;
@@ -126,11 +126,11 @@ export function ProgressCard({
         </div>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h6 className="text-textSubtitle text-xs">Total Section</h6>
+            <h6 className="text-textSubtitle text-xs">Total Lesson</h6>
             <p className="text-xs font-medium">{course.total_section}</p>
           </div>
           <div className="flex items-center justify-between">
-            <h6 className="text-textSubtitle text-xs">Completed Section</h6>
+            <h6 className="text-textSubtitle text-xs">Completed Lesson</h6>
             <p className="text-xs font-medium">{course.completed_section}</p>
           </div>
         </div>

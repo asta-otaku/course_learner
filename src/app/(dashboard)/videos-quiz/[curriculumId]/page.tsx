@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import Image from "next/image";
 import { Layers } from "lucide-react";
 import { notFound, useParams, useRouter } from "next/navigation";
@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import BackArrow from "@/assets/svgs/arrowback";
 import { useProfile } from "@/context/profileContext";
-import { useGetLibrary, useGetChildLessons } from "@/lib/api/queries";
+import { useGetSectionById } from "@/lib/api/queries";
 import algebra from "@/assets/algebra.png";
 import measurement from "@/assets/measurement.png";
 import ratio from "@/assets/ratio.png";
@@ -31,14 +31,20 @@ export default function CurriculumLessonsPage() {
   const { activeProfile } = useProfile();
   const curriculumId = params.curriculumId as string;
 
-  const { data: library } = useGetLibrary(activeProfile?.id || "");
-  const { data: lessons } = useGetChildLessons(
-    activeProfile?.id || "",
-    curriculumId
+  const { data: sectionData } = useGetSectionById(
+    curriculumId,
+    activeProfile?.offerType || ""
   );
 
-  const curriculum = library?.data?.find((c) => c.id === curriculumId);
-  const curriculumLessons = lessons?.data || [];
+  const section = sectionData?.data;
+
+  // Get lessons and sort by orderIndex
+  const curriculumLessons = useMemo(() => {
+    const lessons = section?.lessons || [];
+    return [...lessons].sort(
+      (a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)
+    );
+  }, [section?.lessons]);
 
   const [currentStartIndex, setCurrentStartIndex] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
@@ -118,7 +124,9 @@ export default function CurriculumLessonsPage() {
                     {lesson.title}
                   </h3>
                   <p className="text-textSubtitle text-xs md:text-sm">
-                    {lesson.description || curriculum?.description}
+                    {lesson.description ||
+                      section?.title ||
+                      "No description available"}
                   </p>
                   <Button
                     onClick={() =>
@@ -140,8 +148,8 @@ export default function CurriculumLessonsPage() {
     });
   };
 
-  if (!curriculum) {
-    notFound();
+  if (!section) {
+    return <div className="p-8 text-center">Loading section...</div>;
   }
 
   return (
@@ -166,14 +174,14 @@ export default function CurriculumLessonsPage() {
               </span>
             </div>
             <h1 className="text-lg md:text-xl lg:text-2xl font-bold max-w-[420px]">
-              {curriculum.title.toUpperCase()}
+              {section.title.toUpperCase()}
             </h1>
             <p className="text-gray-600 leading-relaxed">
-              {curriculum.description || "No description available"}
+              No description available
             </p>
             <Image
               src={availableImages[0]}
-              alt={curriculum.title}
+              alt={section.title}
               width={120}
               height={120}
               className="object-contain absolute top-12 right-4"

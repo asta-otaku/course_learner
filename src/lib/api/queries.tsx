@@ -27,6 +27,7 @@ import {
   ChangeRequest,
   Homework,
   HomeworkReview,
+  Section,
 } from "../types";
 
 // User Queries
@@ -625,6 +626,7 @@ export const useGetCurricula = (
     isPublic?: boolean;
     page?: number;
     limit?: number;
+    offerType?: string;
   } = {}
 ) => {
   return useQuery({
@@ -656,6 +658,9 @@ export const useGetCurricula = (
       }
       if (params.isPublic !== undefined) {
         searchParams.append("isPublic", params.isPublic.toString());
+      }
+      if (params.offerType) {
+        searchParams.append("offerType", params.offerType);
       }
       if (params.page !== undefined) {
         searchParams.append("page", params.page.toString());
@@ -827,13 +832,18 @@ export const useGetLibrary = (childId: string) => {
   });
 };
 
-export const useGetChildLessons = (childId: string, curriculumId: string) => {
+export const useGetChildLessons = (
+  childId: string,
+  curriculumId: string,
+  sectionId?: string
+) => {
   return useQuery({
-    queryKey: ["child-lessons", childId, curriculumId],
+    queryKey: ["child-lessons", childId, curriculumId, sectionId],
     queryFn: async (): Promise<APIGetResponse<ChildLesson[]>> => {
-      const response = await axiosInstance.get(
-        `/library/${childId}/curriculums/${curriculumId}/lessons`
-      );
+      const url = sectionId
+        ? `/library/${childId}/curriculums/${curriculumId}/lessons?sectionId=${sectionId}`
+        : `/library/${childId}/curriculums/${curriculumId}/lessons`;
+      const response = await axiosInstance.get(url);
       return response.data;
     },
     enabled: !!childId && !!curriculumId,
@@ -970,5 +980,29 @@ export const useGetHomeworkById = (id: string) => {
       return response.data;
     },
     enabled: !!id,
+  });
+};
+
+// Section Queries
+export const useGetSections = () => {
+  return useQuery({
+    queryKey: ["sections"],
+    queryFn: async (): Promise<APIGetResponse<Section[]>> => {
+      const response = await axiosInstance.get("/sections");
+      return response.data;
+    },
+  });
+};
+
+export const useGetSectionById = (id: string, offerType?: string) => {
+  return useQuery({
+    queryKey: ["section", id],
+    queryFn: async (): Promise<APIGetResponse<Section>> => {
+      const response = await axiosInstance.get(
+        `/sections/${id}?offerType=${offerType}`
+      );
+      return response.data;
+    },
+    enabled: !!id && !!offerType,
   });
 };

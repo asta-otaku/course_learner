@@ -8,7 +8,15 @@ import {
   useGetChildLessons,
   useGetLessonById,
   useGetQuizzesForLesson,
+  useGetCurricula,
 } from "@/lib/api/queries";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { usePatchVideoLessonProgress } from "@/lib/api/mutations";
 import LessonList from "./lessonList";
 import LessonContent from "./lessonContent";
@@ -23,17 +31,47 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
   const params = useParams();
   const { activeProfile, isLoaded } = useProfile();
   const [selectedCurriculum, setSelectedCurriculum] = useState("");
+  const [selectedSection, setSelectedSection] = useState("");
   const [selectedLesson, setSelectedLesson] = useState("");
   const [user, setUser] = React.useState<any>({});
 
-  // Get curriculumId and lessonId from params or props
-  const urlCurriculumId = (params?.curriculumId as string) || curriculumId;
+  // Get curriculumId (which is actually sectionId) and lessonId from params or props
+  const urlSectionId = (params?.curriculumId as string) || curriculumId;
   const urlLessonId = (params?.lessonId as string) || lessonId;
 
+  // Fetch curricula by offerType (wait for user data to be loaded)
+  const { data: curriculaData } = useGetCurricula({
+    offerType: user?.data?.offerType || activeProfile?.offerType || "",
+  });
+
+  // Get curricula list for dropdown
+  const curriculaList = useMemo(() => {
+    return curriculaData?.curricula || [];
+  }, [curriculaData?.curricula]);
+
+  // Get default curriculum (first one)
+  const defaultCurriculumId = useMemo(() => {
+    if (curriculaList.length > 0) {
+      const firstCurriculum = curriculaList[0] as any;
+      return firstCurriculum.id || "";
+    }
+    return "";
+  }, [curriculaList]);
+
+  // Update selected curriculum when default changes
+  useEffect(() => {
+    if (defaultCurriculumId && !selectedCurriculum) {
+      setSelectedCurriculum(defaultCurriculumId);
+    }
+  }, [defaultCurriculumId, selectedCurriculum]);
+
   const { data: library } = useGetLibrary(activeProfile?.id || "");
+
+  // Fetch lessons with curriculumId (from dropdown) and sectionId (from pathname)
   const { data: lessons } = useGetChildLessons(
     activeProfile?.id || "",
-    selectedCurriculum
+    selectedCurriculum,
+    urlSectionId
   );
   const { data: lessonDetail, isLoading: lessonLoading } = useGetLessonById(
     selectedLesson || ""
@@ -56,8 +94,8 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
     }
   }, []);
 
-  // Get curricula from library data
-  const curricula = useMemo(() => {
+  // Get sections from library data (these are sections, not curricula)
+  const sections = useMemo(() => {
     return library?.data || [];
   }, [library?.data]);
 
@@ -68,28 +106,29 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
 
   // Get current lesson details
   const currentLesson = useMemo(() => {
-    if (!selectedLesson || !selectedCurriculum) return null;
+    if (!selectedLesson) return null;
     return selectedCurriculumLessons.find(
       (lesson) => lesson.id === selectedLesson
     );
-  }, [selectedLesson, selectedCurriculum, selectedCurriculumLessons]);
+  }, [selectedLesson, selectedCurriculumLessons]);
 
   // Get lesson data from useGetLessonById
   const lessonData = lessonDetail?.data;
   const quizzes = lessonQuizzes?.data || [];
 
-  // Get curriculum progress
-  const curriculumProgress = useMemo(() => {
-    return (library?.data || []).find((c: any) => c.id === selectedCurriculum)
+  // Get section progress (using sectionId from pathname)
+  const sectionProgress = useMemo(() => {
+    const sectionId = selectedSection || urlSectionId;
+    return (library?.data || []).find((c: any) => c.id === sectionId)
       ?.progress as
       | { watchedVideoDuration?: number; isCompleted?: boolean }
       | undefined;
-  }, [library?.data, selectedCurriculum]);
+  }, [library?.data, selectedSection, urlSectionId]);
 
-  const isCompleted = Boolean(curriculumProgress?.isCompleted);
+  const isCompleted = Boolean(sectionProgress?.isCompleted);
   const resumePositionSec = Math.max(
     0,
-    Math.floor((curriculumProgress?.watchedVideoDuration as number) || 0)
+    Math.floor((sectionProgress?.watchedVideoDuration as number) || 0)
   );
 
   // Extract videos from lesson data
@@ -125,29 +164,27 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
 
   const handleBackToLessons = () => {
     setSelectedLesson("");
-    router.push(`/library/${selectedCurriculum}`);
+    const sectionId = selectedSection || urlSectionId;
+    if (sectionId) {
+      router.push(`/library/${sectionId}`);
+    }
   };
 
   // Handle URL parameters and initialize selections
   useEffect(() => {
-    if (curricula.length > 0) {
-      // If we have curriculumId in URL, use it
-      if (urlCurriculumId) {
-        setSelectedCurriculum(urlCurriculumId);
-
-        // If we have lessonId in URL, use it
-        if (urlLessonId) {
-          setSelectedLesson(urlLessonId);
-        } else {
-          setSelectedLesson("");
-        }
-      } else if (!selectedCurriculum) {
-        // No curriculum in URL and no selection yet, select first curriculum
-        setSelectedCurriculum(curricula[0].id);
-        setSelectedLesson("");
-      }
+    // Set sectionId from URL (what we previously called curriculumId)
+    if (urlSectionId) {
+      setSelectedSection(urlSectionId);
     }
-  }, [curricula, urlCurriculumId, urlLessonId, selectedCurriculum]);
+
+    // Set lessonId from URL
+    if (urlLessonId) {
+      setSelectedLesson(urlLessonId);
+    } else if (urlSectionId) {
+      // If we have sectionId but no lessonId, clear lesson selection
+      setSelectedLesson("");
+    }
+  }, [urlSectionId, urlLessonId]);
 
   // Early returns after all hooks
   if (!isLoaded) {
@@ -168,7 +205,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
     );
   }
 
-  if (!selectedCurriculum || curricula.length === 0) {
+  if (!selectedCurriculum || curriculaList.length === 0) {
     return <div className="p-8 text-center">Loading curricula...</div>;
   }
 
@@ -185,31 +222,65 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
         </div>
       )}
 
-      {/* Curriculum Selector Dropdown */}
-      <div className="mb-6 mt-8">
-        <select
-          value={selectedCurriculum}
-          onChange={(e) => {
-            const newCurriculumId = e.target.value;
-            setSelectedCurriculum(newCurriculumId);
-            setSelectedLesson(""); // Reset lesson when curriculum changes
-            router.push(`/library/${newCurriculumId}`);
-          }}
-          className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[200px] w-fit"
-        >
-          <option value="" className="text-textGray">
-            Select a Curriculum
-          </option>
-          {curricula.map((curriculum, idx) => (
-            <option
-              key={idx}
-              value={curriculum.id}
-              className="text-textGray w-fit"
-            >
-              {curriculum.title}
+      {/* Curriculum and Section Selectors */}
+      <div className="mb-6 mt-8 flex flex-col md:flex-row gap-4 items-start md:items-center">
+        {/* Curriculum Selector Dropdown */}
+        <div className="w-full md:w-auto min-w-[200px]">
+          <Select
+            value={selectedCurriculum}
+            onValueChange={(newCurriculumId) => {
+              setSelectedCurriculum(newCurriculumId);
+              setSelectedLesson(""); // Reset lesson when curriculum changes
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a Curriculum" />
+            </SelectTrigger>
+            <SelectContent>
+              {curriculaList.length > 0 ? (
+                curriculaList.map((curriculum: any, index: number) => {
+                  const curriculumId = curriculum.id || `curriculum-${index}`;
+                  return (
+                    <SelectItem key={curriculumId} value={curriculumId}>
+                      {curriculum.title}
+                    </SelectItem>
+                  );
+                })
+              ) : (
+                <SelectItem value="no-curricula" disabled>
+                  No curricula available
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Section Selector Dropdown (opposite side) */}
+        <div className="w-full md:w-auto min-w-[200px] md:ml-auto">
+          <select
+            value={selectedSection || urlSectionId || ""}
+            onChange={(e) => {
+              const newSectionId = e.target.value;
+              setSelectedSection(newSectionId);
+              setSelectedLesson(""); // Reset lesson when section changes
+              router.push(`/library/${newSectionId}`);
+            }}
+            className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[200px] w-full md:w-fit"
+          >
+            <option value="" className="text-textGray">
+              Select a Section
             </option>
-          ))}
-        </select>
+            {sections.map((section: any, idx) => (
+              <option
+                key={idx}
+                value={section.id}
+                className="text-textGray w-fit"
+              >
+                {section.title}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="flex gap-6">
@@ -217,7 +288,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
         <LessonList
           lessons={selectedCurriculumLessons}
           selectedLesson={selectedLesson}
-          selectedCurriculum={selectedCurriculum}
+          selectedCurriculum={selectedSection || urlSectionId || ""}
           onSelectLesson={handleSelectLesson}
         />
 
@@ -230,7 +301,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
           <div className="space-y-6 max-w-2xl w-full">
             <LessonContent
               selectedLesson={selectedLesson}
-              selectedCurriculum={selectedCurriculum}
+              selectedCurriculum={selectedSection || urlSectionId || ""}
               lessonLoading={lessonLoading}
               lessonData={lessonData || null}
               currentLesson={currentLesson || null}

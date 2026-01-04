@@ -6,7 +6,6 @@ import {
   useGetChildProfileById,
   useGetCurrentUser,
   useGetLibrary,
-  useGetChildLessons,
 } from "@/lib/api/queries";
 import { Badge } from "@/components/ui/badge";
 import BackArrow from "@/assets/svgs/arrowback";
@@ -47,12 +46,6 @@ export default function StudentPage({ id }: { id: string }) {
   const curricula = useMemo(() => {
     return library?.data || [];
   }, [library?.data]);
-
-  // Fetch lessons for the first 4 curricula to display in "Progress" tab
-  const { data: lessons1 } = useGetChildLessons(id, curricula[0]?.id || "");
-  const { data: lessons2 } = useGetChildLessons(id, curricula[1]?.id || "");
-  const { data: lessons3 } = useGetChildLessons(id, curricula[2]?.id || "");
-  const { data: lessons4 } = useGetChildLessons(id, curricula[3]?.id || "");
 
   // Transform library curricula to Course format
   const curriculaAsCourses = useMemo(() => {
