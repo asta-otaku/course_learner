@@ -753,6 +753,7 @@ export interface ChildLesson {
   totalQuizzes: number;
   completionPercentage: number;
   lessonCompleted: boolean;
+  sectionId: string;
 }
 
 export interface Chat {

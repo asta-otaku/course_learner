@@ -2,8 +2,6 @@
 
 import React from "react";
 import BackArrow from "@/assets/svgs/arrowback";
-import { useRouter } from "next/navigation";
-import LessonProgress from "./lessonProgress";
 import LessonVideoPlayer from "./lessonVideoPlayer";
 import LessonQuizzes from "./lessonQuizzes";
 
@@ -36,11 +34,14 @@ interface LessonContentProps {
   selectedLesson: string;
   selectedCurriculum: string;
   lessonLoading: boolean;
-  lessonData: {
-    title: string;
-    description?: string;
-    videos?: Video[];
-  } | null | undefined;
+  lessonData:
+    | {
+        title: string;
+        description?: string;
+        videos?: Video[];
+      }
+    | null
+    | undefined;
   currentLesson: Lesson | null | undefined;
   videos: Video[];
   quizzes: Quiz[];
@@ -50,6 +51,7 @@ interface LessonContentProps {
   onProgress: (video: HTMLVideoElement | null, force?: boolean) => void;
   onVideoEnd: (watchedPosition: number) => void;
   onBack: () => void;
+  showTitleAndDescription?: boolean;
 }
 
 export default function LessonContent({
@@ -66,6 +68,7 @@ export default function LessonContent({
   onProgress,
   onVideoEnd,
   onBack,
+  showTitleAndDescription = true,
 }: LessonContentProps) {
   if (!selectedLesson) {
     return (
@@ -104,15 +107,14 @@ export default function LessonContent({
       </button>
 
       {/* Lesson Title and Description */}
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold">{lessonData.title}</h2>
-        <p className="text-textSubtitle">
-          {lessonData.description || "No description available"}
-        </p>
-      </div>
-
-      {/* Lesson Progress */}
-      <LessonProgress lesson={currentLesson} />
+      {showTitleAndDescription && (
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold">{lessonData.title}</h2>
+          <p className="text-textSubtitle">
+            {lessonData.description || "No description available"}
+          </p>
+        </div>
+      )}
 
       {/* Video Player(s) */}
       <LessonVideoPlayer
@@ -137,4 +139,3 @@ export default function LessonContent({
     </div>
   );
 }
-

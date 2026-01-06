@@ -983,6 +983,17 @@ export const useGetHomeworkById = (id: string) => {
   });
 };
 
+export const useGetQuizAttemptById = (attemptId: string) => {
+  return useQuery({
+    queryKey: ["quiz-attempt", attemptId],
+    queryFn: async (): Promise<APIGetResponse<HomeworkReview>> => {
+      const response = await axiosInstance.get(`/quiz-attempts/${attemptId}/review`);
+      return response.data;
+    },
+    enabled: !!attemptId,
+  });
+};
+
 // Section Queries
 export const useGetSections = () => {
   return useQuery({

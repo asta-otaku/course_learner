@@ -40,23 +40,6 @@ export default function LearningCard({
         <h2 className="text-textGray font-semibold text-base md:text-lg lg:text-xl line-clamp-2">
           {displayTitle}
         </h2>
-        <div className="space-y-1">
-          <div className="md:flex items-center gap-2 hidden">
-            <span className="text-[10px] text-textSubtitle font-medium">
-              {displayProgress}% completed
-            </span>
-            <span className="w-1 h-1 rounded-full bg-textSubtitle" />
-            <span className="flex items-center gap-1 text-textSubtitle text-[10px]">
-              <Clock className="text-textSubtitle w-3" />
-              {convertDuration(displayProgress, course.duration)}
-            </span>
-          </div>
-          <Progress
-            color="bg-bgGreen"
-            value={displayProgress}
-            className="bg-bgWhiteGray"
-          />
-        </div>
         <Link
           href={href}
           className="flex items-center gap-1 text-primaryBlue font-medium text-sm"
@@ -76,7 +59,7 @@ export function ProgressCard({
   isTutor?: boolean;
 }) {
   const href = course.curriculumId
-    ? `/library/${course.curriculumId}`
+    ? `/dashboard/${course.curriculumId}`
     : `/dashboard/${slugify(course.course)}`;
 
   return (
@@ -91,10 +74,9 @@ export function ProgressCard({
         />
         <div className="flex justify-between items-center">
           <div className="space-y-1">
-            <h3 className="uppercase text-textGray font-medium">
+            <h3 className="uppercase text-textGray font-medium line-clamp-2 h-[60px]">
               {course.course}
             </h3>
-            <p className="text-textSubtitle text-xs">Place and Value</p>
           </div>
           <div className="relative w-8 h-8">
             <svg className="w-full h-full">

@@ -316,33 +316,42 @@ export const TagDetail = ({
     });
   };
 
-  const renderActionCell = (lesson: Lesson) => (
-    <>
-      <Popover
-        open={actionPopover === lesson.id}
-        onOpenChange={(open) => setActionPopover(open ? lesson.id : null)}
-      >
-        <PopoverTrigger asChild>
-          <button className="p-2 rounded-full hover:bg-gray-100">
-            <MoreHorizontal />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent align="end" className="w-60 p-2 rounded-xl shadow">
-          <div className="flex flex-col">
-            <Link
-              href={`/library/${(lesson as any).curriculumId || lesson.id}/${lesson.id}`}
-              className="py-2 px-4 hover:bg-gray-100 rounded text-left flex items-center gap-2"
-            >
-              {isTutorMode ? (
-                <>
-                  <PlayIcon />
-                  <span className="text-sm">Watch Video</span>
-                </>
-              ) : (
+  const renderActionCell = (lesson: Lesson) => {
+    const lessonUrl = `/library/${lesson.id}?tag=${tag}`;
+
+    if (!isTutorMode) {
+      // Non-tutor mode: direct link without popover
+      return (
+        <Link
+          href={lessonUrl}
+          className="py-2 px-4 hover:bg-gray-100 rounded text-right justify-center flex items-center gap-2 text-sm"
+        >
+          Watch Video
+        </Link>
+      );
+    }
+
+    // Tutor mode: show popover with three dots
+    return (
+      <>
+        <Popover
+          open={actionPopover === lesson.id}
+          onOpenChange={(open) => setActionPopover(open ? lesson.id : null)}
+        >
+          <PopoverTrigger asChild>
+            <button className="p-2 rounded-full hover:bg-gray-100">
+              <MoreHorizontal />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-60 p-2 rounded-xl shadow">
+            <div className="flex flex-col">
+              <Link
+                href={lessonUrl}
+                className="py-2 px-4 hover:bg-gray-100 rounded text-left flex items-center gap-2"
+              >
+                <PlayIcon />
                 <span className="text-sm">Watch Video</span>
-              )}
-            </Link>
-            {isTutorMode && (
+              </Link>
               <button
                 className="py-2 px-4 hover:bg-gray-100 rounded text-left flex items-center gap-2"
                 onClick={() => {
@@ -353,94 +362,99 @@ export const TagDetail = ({
                 <RecommendIcon />
                 <span className="text-sm">Recommend</span>
               </button>
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
-      {/* Recommendation Dialog */}
-      {isTutorMode && (
-        <Dialog
-          open={recommendDialog === lesson.id}
-          onOpenChange={(open) => {
-            if (!open) setRecommendDialog(null);
-          }}
-        >
-          <DialogContent className="max-w-lg !rounded-3xl">
-            <DialogHeader>
-              <DialogTitle className="font-medium text-lg">
-                Recommend To
-              </DialogTitle>
-              <DialogDescription className="text-sm text-textSubtitle">
-                Select one or more students to recommend this lesson to.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="mb-4">
-              <div className="relative">
-                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textSubtitle" />
-                <Input
-                  placeholder="Search"
-                  value={studentSearch}
-                  onChange={(e) => setStudentSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 focus:outline-none shadow-none bg-white rounded-xl text-sm"
-                />
-              </div>
             </div>
-            <div className="max-h-60 overflow-y-auto space-y-2 mb-4">
-              {filteredStudents.length === 0 && (
-                <div className="text-textSubtitle text-center py-4">
-                  No students found
-                </div>
-              )}
-              {filteredStudents.map((student) => (
-                <div
-                  key={student.value}
-                  className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-lg border-b border-gray-100 last:border-b-0"
-                >
-                  <Checkbox
-                    id={`${lesson.id}-${student.value}`}
-                    checked={(selectedStudents[lesson.id] || []).includes(
-                      student.value
-                    )}
-                    onClick={() =>
-                      handleStudentToggle(student.value, lesson.id)
-                    }
-                    className="cursor-pointer rounded-full ring-2 ring-offset-[3px] ring-black w-2 h-2"
+          </PopoverContent>
+        </Popover>
+        {/* Recommendation Dialog */}
+        {isTutorMode && (
+          <Dialog
+            open={recommendDialog === lesson.id}
+            onOpenChange={(open) => {
+              if (!open) setRecommendDialog(null);
+            }}
+          >
+            <DialogContent className="max-w-lg !rounded-3xl">
+              <DialogHeader>
+                <DialogTitle className="font-medium text-lg">
+                  Recommend To
+                </DialogTitle>
+                <DialogDescription className="text-sm text-textSubtitle">
+                  Select one or more students to recommend this lesson to.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mb-4">
+                <div className="relative">
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textSubtitle" />
+                  <Input
+                    placeholder="Search"
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 focus:outline-none shadow-none bg-white rounded-xl text-sm"
                   />
-                  <div
-                    className="flex-1 cursor-pointer"
-                    onClick={() =>
-                      handleStudentToggle(student.value, lesson.id)
-                    }
-                  >
-                    <div className="font-medium text-sm">{student.label}</div>
-                    <div className="text-xs text-gray-400">{student.year}</div>
-                  </div>
                 </div>
-              ))}
-            </div>
-            <DialogFooter>
-              <Button
-                className="w-full bg-primaryBlue text-white rounded-full py-5 text-sm font-medium"
-                onClick={() => {
-                  // Handle recommend action for selected students
-                  setRecommendDialog(null);
-                  setSelectedStudents((prev) => ({ ...prev, [lesson.id]: [] }));
-                }}
-                disabled={
-                  !(
-                    selectedStudents[lesson.id] &&
-                    selectedStudents[lesson.id].length > 0
-                  )
-                }
-              >
-                Recommend
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-    </>
-  );
+              </div>
+              <div className="max-h-60 overflow-y-auto space-y-2 mb-4">
+                {filteredStudents.length === 0 && (
+                  <div className="text-textSubtitle text-center py-4">
+                    No students found
+                  </div>
+                )}
+                {filteredStudents.map((student) => (
+                  <div
+                    key={student.value}
+                    className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-lg border-b border-gray-100 last:border-b-0"
+                  >
+                    <Checkbox
+                      id={`${lesson.id}-${student.value}`}
+                      checked={(selectedStudents[lesson.id] || []).includes(
+                        student.value
+                      )}
+                      onClick={() =>
+                        handleStudentToggle(student.value, lesson.id)
+                      }
+                      className="cursor-pointer rounded-full ring-2 ring-offset-[3px] ring-black w-2 h-2"
+                    />
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() =>
+                        handleStudentToggle(student.value, lesson.id)
+                      }
+                    >
+                      <div className="font-medium text-sm">{student.label}</div>
+                      <div className="text-xs text-gray-400">
+                        {student.year}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button
+                  className="w-full bg-primaryBlue text-white rounded-full py-5 text-sm font-medium"
+                  onClick={() => {
+                    // Handle recommend action for selected students
+                    setRecommendDialog(null);
+                    setSelectedStudents((prev) => ({
+                      ...prev,
+                      [lesson.id]: [],
+                    }));
+                  }}
+                  disabled={
+                    !(
+                      selectedStudents[lesson.id] &&
+                      selectedStudents[lesson.id].length > 0
+                    )
+                  }
+                >
+                  Recommend
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+      </>
+    );
+  };
 
   return (
     <div className="w-full max-w-6xl mx-auto mt-8">
@@ -476,7 +490,7 @@ export const TagDetail = ({
                     {tag}
                   </td>
                 )}
-                <td className="py-4 px-3 border-l text-textGray font-medium">
+                <td className="py-4 px-3 border-l text-textGray font-medium w-1/2">
                   {lesson.title}
                 </td>
                 <td className="py-4 px-3 border-l">

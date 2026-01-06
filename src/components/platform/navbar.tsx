@@ -50,7 +50,7 @@ export default function Navbar() {
   const platformRoutes = [
     { name: "Dashboard", path: "/dashboard" },
     { name: "Library", path: "/library" },
-    { name: "Videos & Quiz", path: "/videos-quiz" },
+    // { name: "Videos & Quiz", path: "/videos-quiz" },
     { name: "Glossary", path: "/glossary" },
   ];
 

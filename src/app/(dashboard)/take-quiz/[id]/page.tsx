@@ -3,9 +3,8 @@
 import { QuizPlayer } from "@/components/resourceManagemement/quiz/quiz-player";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { usePostAttemptQuiz, usePostStartHomework } from "@/lib/api/mutations";
 import { useGetQuiz } from "@/lib/api/queries";
 import { useState } from "react";
@@ -19,7 +18,7 @@ export default function TakeQuizPage() {
   const id = params.id as string;
   const isTestMode = searchParams.get("mode") === "test";
   const isHomework = searchParams.get("isHomework") === "true";
-
+  const router = useRouter();
   const finalQuizIdForFetch = isHomework ? null : id;
   const { data: quizResponse } = useGetQuiz(finalQuizIdForFetch || "");
   const quiz = quizResponse?.data;
@@ -104,12 +103,9 @@ export default function TakeQuizPage() {
         <div className="max-w-3xl w-full mx-auto">
           <Card className="shadow-lg">
             <CardHeader className="text-center border-b pb-6">
-              <CardTitle className="text-3xl font-bold text-gray-900 mb-2">
+              <CardTitle className="text-2xl font-semibold text-gray-900 mb-2">
                 {quiz?.title || "Quiz"}
               </CardTitle>
-              {quiz?.description && (
-                <p className="text-gray-600 mt-2">{quiz.description}</p>
-              )}
             </CardHeader>
             <CardContent className="pt-6">
               {/* Quiz Details */}
@@ -149,14 +145,14 @@ export default function TakeQuizPage() {
                   )}
                 </div>
 
-                {/* Instructions */}
-                {quiz?.instructions && (
+                {/* Quiz Description */}
+                {quiz?.description && (
                   <div className="p-4 bg-yellow-50 rounded-lg">
                     <h3 className="font-semibold text-gray-900 mb-2">
-                      Instructions
+                      Quiz Description
                     </h3>
                     <p className="text-gray-700 whitespace-pre-wrap">
-                      {quiz.instructions}
+                      {quiz.description}
                     </p>
                   </div>
                 )}
@@ -178,11 +174,13 @@ export default function TakeQuizPage() {
 
               {/* Action Buttons */}
               <div className="flex gap-4 justify-center">
-                <Button variant="outline" asChild className="min-w-[120px]">
-                  <Link href="/videos-quiz">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Go Back
-                  </Link>
+                <Button
+                  onClick={() => router.back()}
+                  variant="outline"
+                  className="min-w-[120px]"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Go Back
                 </Button>
                 <Button
                   onClick={handleStartQuiz}

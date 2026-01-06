@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { TopicCard, TagDetail } from "./TopicComponents";
 import LibraryComponent from "@/components/platform/library/p";
 import { useProfile } from "@/context/profileContext";
@@ -11,10 +11,12 @@ import { Loader2 } from "lucide-react";
 import type { Lesson } from "@/lib/types";
 import { axiosInstance } from "@/lib/services/axiosInstance";
 import { APIGetResponse } from "@/lib/types";
+import { useSearchParams } from "next/navigation";
 
 const Glossary = () => {
   const { activeProfile, isLoaded } = useProfile();
   const [user, setUser] = React.useState<any>({});
+  const searchParams = useSearchParams();
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -81,6 +83,20 @@ const Glossary = () => {
   const getLessonsCount = (tag: string) => {
     return lessonsByTag[tag]?.length || 0;
   };
+
+  // Read tag from URL query parameter and set initial letter
+  useEffect(() => {
+    const tagParam = searchParams.get("tag");
+    if (tagParam && tagParam.length > 0) {
+      const firstLetter = tagParam.charAt(0).toUpperCase();
+      setSelectedLetter(firstLetter);
+      // Check if the tag exists in the tags list
+      if (tags.includes(tagParam)) {
+        setSelectedTag(tagParam);
+        setStep(1);
+      }
+    }
+  }, [searchParams, tags]);
 
   // Loading state
   if (!isLoaded || isLoadingTags) {

@@ -7,7 +7,9 @@ interface Lesson {
   id: string;
   title: string;
   totalQuizzes: number;
+  quizzesCount?: number;
   completionPercentage: number;
+  sectionId: string;
 }
 
 interface LessonListProps {
@@ -36,7 +38,7 @@ export default function LessonList({
           key={idx}
           onClick={() => {
             onSelectLesson(lesson.id);
-            router.push(`/library/${selectedCurriculum}/${lesson.id}`);
+            router.push(`/library/${lesson.sectionId}/${lesson.id}`);
           }}
           className={`border-b last-of-type:border-none border-dashed p-4 hover:bg-[#EEEEEE]/20 w-full text-left ${
             lesson.id === selectedLesson ? "bg-[#EEEEEE]" : "bg-white"
@@ -52,8 +54,8 @@ export default function LessonList({
             {lesson.title}
           </span>
           <p className="text-textSubtitle text-sm font-inter mt-2">
-            {lesson.totalQuizzes} Quiz
-            {lesson.totalQuizzes !== 1 ? "zes" : ""}
+            {lesson.quizzesCount} Quiz
+            {lesson.quizzesCount !== 1 ? "zes" : ""}
             {lesson.completionPercentage > 0 && (
               <span className="ml-2 text-primaryBlue">
                 {lesson.completionPercentage}% Complete
@@ -65,4 +67,3 @@ export default function LessonList({
     </div>
   );
 }
-

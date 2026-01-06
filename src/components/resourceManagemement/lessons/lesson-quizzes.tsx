@@ -100,21 +100,21 @@ export function LessonQuizzes({
 
     patchLessonQuizzes(
       { quizIds: remainingQuizIds },
-      {
-        onSuccess: () => {
-          toast.success(
+        {
+          onSuccess: () => {
+            toast.success(
             `"${selectedQuiz.title}" has been removed from this lesson.`
-          );
-          setSelectedQuiz(null);
+            );
+            setSelectedQuiz(null);
           setShowRemoveDialog(false);
-          router.refresh();
-        },
-        onError: (error) => {
+            router.refresh();
+          },
+          onError: (error) => {
           toast.error("Failed to remove quiz from lesson");
           console.error("Remove quiz error:", error);
-        },
-      }
-    );
+          },
+        }
+      );
   };
 
   const handleStartQuiz = (quizId: string) => {

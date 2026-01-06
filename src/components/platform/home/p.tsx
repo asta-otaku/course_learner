@@ -32,6 +32,8 @@ function Home() {
     isLoaded,
     profiles,
     isChangingProfile,
+    selectedCurriculumId: profileSelectedCurriculumId,
+    setSelectedCurriculumId: setProfileSelectedCurriculumId,
   } = useSelectedProfile();
 
   const { data: library } = useGetLibrary(activeProfile?.id || "");
@@ -51,7 +53,7 @@ function Home() {
     return curriculaData?.curricula || [];
   }, [curriculaData?.curricula]);
 
-  // Get default curriculum (first one) and selected curriculum
+  // Get default curriculum (first one)
   const defaultCurriculumId = useMemo(() => {
     if (curriculaList.length > 0) {
       const firstCurriculum = curriculaList[0] as any;
@@ -60,15 +62,26 @@ function Home() {
     return "";
   }, [curriculaList]);
 
-  const [selectedCurriculumId, setSelectedCurriculumId] =
-    useState<string>(defaultCurriculumId);
-
-  // Update selected curriculum when default changes
-  useEffect(() => {
-    if (defaultCurriculumId && !selectedCurriculumId) {
-      setSelectedCurriculumId(defaultCurriculumId);
+  // Determine the actual selected curriculum ID
+  const selectedCurriculumId = useMemo(() => {
+    // If profile has a stored curriculum ID, use it
+    if (profileSelectedCurriculumId) {
+      return profileSelectedCurriculumId;
     }
-  }, [defaultCurriculumId, selectedCurriculumId]);
+    // Otherwise, use default (first curriculum)
+    return defaultCurriculumId;
+  }, [profileSelectedCurriculumId, defaultCurriculumId]);
+
+  // Update profile's selectedCurriculumId when default changes (if not already set)
+  useEffect(() => {
+    if (defaultCurriculumId && !profileSelectedCurriculumId) {
+      setProfileSelectedCurriculumId(defaultCurriculumId);
+    }
+  }, [
+    defaultCurriculumId,
+    profileSelectedCurriculumId,
+    setProfileSelectedCurriculumId,
+  ]);
 
   // Fetch lessons for the selected curriculum
   const { data: lessonsData } = useGetChildLessons(
@@ -177,7 +190,9 @@ function Home() {
             <div className="w-full md:w-auto min-w-[200px]">
               <Select
                 value={selectedCurriculumId}
-                onValueChange={setSelectedCurriculumId}
+                onValueChange={(value) => {
+                  setProfileSelectedCurriculumId(value);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a curriculum..." />

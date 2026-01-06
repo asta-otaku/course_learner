@@ -9,11 +9,18 @@ const PROFILES_KEY = "childProfiles";
 const PROFILE_CHANGE_EVENT = "activeProfileChange";
 const PROFILES_UPDATE_EVENT = "childProfilesUpdate";
 
+// Helper function to get localStorage key for selectedCurriculumId
+const getSelectedCurriculumKey = (profileId: string | null) => {
+  return profileId ? `selectedCurriculumId_${profileId}` : null;
+};
+
 export function useSelectedProfile() {
   const [activeProfile, setActiveProfile] = useState<ChildProfile | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [profiles, setProfiles] = useState<ChildProfile[]>([]);
   const [isChangingProfile, setIsChangingProfile] = useState(false);
+  const [selectedCurriculumId, setSelectedCurriculumIdState] =
+    useState<string>("");
 
   // Filter out inactive profiles - only show profiles where isActive is explicitly true
   const activeProfiles = useMemo(() => {
@@ -155,6 +162,23 @@ export function useSelectedProfile() {
     }
   };
 
+  // Load selectedCurriculumId from localStorage when profile changes
+  useEffect(() => {
+    if (activeProfile?.id && typeof window !== "undefined") {
+      const key = getSelectedCurriculumKey(activeProfile.id);
+      if (key) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          setSelectedCurriculumIdState(stored);
+        } else {
+          setSelectedCurriculumIdState("");
+        }
+      }
+    } else {
+      setSelectedCurriculumIdState("");
+    }
+  }, [activeProfile?.id]);
+
   // Initialize from localStorage
   useEffect(() => {
     loadProfiles();
@@ -239,11 +263,24 @@ export function useSelectedProfile() {
     }
   };
 
+  // Function to set selectedCurriculumId and persist it
+  const setSelectedCurriculumId = (curriculumId: string) => {
+    setSelectedCurriculumIdState(curriculumId);
+    if (activeProfile?.id && typeof window !== "undefined") {
+      const key = getSelectedCurriculumKey(activeProfile.id);
+      if (key) {
+        localStorage.setItem(key, curriculumId);
+      }
+    }
+  };
+
   return {
     activeProfile,
     changeProfile,
     isLoaded,
     profiles: activeProfiles, // Return only active profiles
     isChangingProfile,
+    selectedCurriculumId,
+    setSelectedCurriculumId,
   };
 }

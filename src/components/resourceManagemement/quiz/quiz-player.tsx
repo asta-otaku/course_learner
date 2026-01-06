@@ -884,9 +884,9 @@ export function QuizPlayer({
             <Button
               className="mt-4"
               variant="outline"
-              onClick={() => router.push("/videos-quiz")}
+              onClick={() => router.back()}
             >
-              Back to Quizzes
+              Back to Lessons
             </Button>
           </CardContent>
         </Card>
@@ -927,11 +927,8 @@ export function QuizPlayer({
                       <CardTitle>Quiz Results: {quizTitle}</CardTitle>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push("/videos-quiz")}
-                  >
-                    Back to Quizzes
+                  <Button variant="outline" onClick={() => router.back()}>
+                    Back to Lessons
                   </Button>
                 </div>
               </CardHeader>

@@ -4,7 +4,6 @@ import React, { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import profileIcon from "@/assets/profileIcon.svg";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import BackArrow from "@/assets/svgs/arrowback";
 import { useRouter } from "next/navigation";
@@ -31,8 +30,14 @@ import ratio from "@/assets/ratio.png";
 const availableImages = [algebra, measurement, ratio];
 
 function TuitionHome() {
-  const { activeProfile, changeProfile, isLoaded, profiles } =
-    useSelectedProfile();
+  const {
+    activeProfile,
+    changeProfile,
+    isLoaded,
+    profiles,
+    selectedCurriculumId: profileSelectedCurriculumId,
+    setSelectedCurriculumId: setProfileSelectedCurriculumId,
+  } = useSelectedProfile();
   const [showChangeRequestDialog, setShowChangeRequestDialog] = useState(false);
   const { push } = useRouter();
   const { mutateAsync: createChat } = usePostCreateChat();
@@ -54,7 +59,7 @@ function TuitionHome() {
     return curriculaData?.curricula || [];
   }, [curriculaData?.curricula]);
 
-  // Get default curriculum (first one) and selected curriculum
+  // Get default curriculum (first one)
   const defaultCurriculumId = useMemo(() => {
     if (curriculaList.length > 0) {
       const firstCurriculum = curriculaList[0] as any;
@@ -63,15 +68,26 @@ function TuitionHome() {
     return "";
   }, [curriculaList]);
 
-  const [selectedCurriculumId, setSelectedCurriculumId] =
-    useState<string>(defaultCurriculumId);
-
-  // Update selected curriculum when default changes
-  useEffect(() => {
-    if (defaultCurriculumId && !selectedCurriculumId) {
-      setSelectedCurriculumId(defaultCurriculumId);
+  // Determine the actual selected curriculum ID
+  const selectedCurriculumId = useMemo(() => {
+    // If profile has a stored curriculum ID, use it
+    if (profileSelectedCurriculumId) {
+      return profileSelectedCurriculumId;
     }
-  }, [defaultCurriculumId, selectedCurriculumId]);
+    // Otherwise, use default (first curriculum)
+    return defaultCurriculumId;
+  }, [profileSelectedCurriculumId, defaultCurriculumId]);
+
+  // Update profile's selectedCurriculumId when default changes (if not already set)
+  useEffect(() => {
+    if (defaultCurriculumId && !profileSelectedCurriculumId) {
+      setProfileSelectedCurriculumId(defaultCurriculumId);
+    }
+  }, [
+    defaultCurriculumId,
+    profileSelectedCurriculumId,
+    setProfileSelectedCurriculumId,
+  ]);
 
   // Fetch lessons for the selected curriculum
   const { data: lessonsData } = useGetChildLessons(
@@ -121,18 +137,6 @@ function TuitionHome() {
       curriculumId: section.id, // Using section.id as curriculumId
     }));
   }, [sections]);
-
-  // Separate lessons into in progress and not started
-  const inProgressLessons = useMemo(() => {
-    return allLessons.filter(
-      (lesson) =>
-        lesson.completionPercentage > 0 && lesson.completionPercentage < 100
-    );
-  }, [allLessons]);
-
-  const notStartedLessons = useMemo(() => {
-    return allLessons.filter((lesson) => lesson.completionPercentage === 0);
-  }, [allLessons]);
 
   const handleMessage = async () => {
     if (
@@ -200,7 +204,9 @@ function TuitionHome() {
             <div className="w-full md:w-auto min-w-[200px]">
               <Select
                 value={selectedCurriculumId}
-                onValueChange={setSelectedCurriculumId}
+                onValueChange={(value) => {
+                  setProfileSelectedCurriculumId(value);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a curriculum..." />
@@ -225,72 +231,30 @@ function TuitionHome() {
               </Select>
             </div>
           </div>
-          <Tabs defaultValue="inprogress" className="w-full">
-            <TabsList className="bg-transparent rounded-none border-b border-gray-300 p-1 w-full flex justify-start">
-              <TabsTrigger
-                value="inprogress"
-                className="data-[state=active]:text-primaryBlue data-[state=active]:border-b-2 data-[state=active]:border-primaryBlue text-sm py-2 px-0 text-black font-medium rounded-none !shadow-none !bg-transparent"
-              >
-                In Progress
-              </TabsTrigger>
-              <TabsTrigger
-                value="notstarted"
-                className="data-[state=active]:text-primaryBlue data-[state=active]:border-b-2 data-[state=active]:border-primaryBlue text-sm py-2 px-4 text-black font-medium rounded-none !shadow-none !bg-transparent"
-              >
-                Not Started
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="inprogress" className="space-y-3 mt-4">
-              {inProgressLessons.length ? (
-                inProgressLessons.map((lesson, idx) => (
-                  <LearningCard
-                    key={lesson.id || idx}
-                    course={{
-                      course: lesson.curriculumTitle,
-                      image: lesson.curriculumImage,
-                      topics: [],
-                      progress: lesson.completionPercentage,
-                      duration: 0,
-                      total_section: 0,
-                      completed_section: 0,
-                      curriculumId: lesson.curriculumId,
-                    }}
-                    lesson={lesson}
-                  />
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  No lessons in progress.
-                </p>
-              )}
-            </TabsContent>
-
-            <TabsContent value="notstarted" className="space-y-3 mt-4">
-              {notStartedLessons.length ? (
-                notStartedLessons.map((lesson, idx) => (
-                  <LearningCard
-                    key={lesson.id || idx}
-                    course={{
-                      course: lesson.curriculumTitle,
-                      image: lesson.curriculumImage,
-                      topics: [],
-                      progress: lesson.completionPercentage,
-                      duration: 0,
-                      total_section: 0,
-                      completed_section: 0,
-                      curriculumId: lesson.curriculumId,
-                    }}
-                    lesson={lesson}
-                  />
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  All lessons have been started!
-                </p>
-              )}
-            </TabsContent>
-          </Tabs>
+          <div className="space-y-3 mt-4">
+            {allLessons.length > 0 ? (
+              allLessons.map((lesson, idx) => (
+                <LearningCard
+                  key={lesson.id || idx}
+                  course={{
+                    course: lesson.curriculumTitle,
+                    image: lesson.curriculumImage,
+                    topics: [],
+                    progress: lesson.completionPercentage,
+                    duration: 0,
+                    total_section: 0,
+                    completed_section: 0,
+                    curriculumId: lesson.curriculumId,
+                  }}
+                  lesson={lesson}
+                />
+              ))
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No lessons available.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Right Column */}
