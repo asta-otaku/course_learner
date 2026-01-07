@@ -333,7 +333,9 @@ function DashboardSectionPage() {
                                   </div>
                                   <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium">
-                                      {parseFloat(attempt.percetage).toFixed(0)}
+                                      {parseFloat(attempt.percentage).toFixed(
+                                        0
+                                      )}
                                       %
                                     </span>
                                     <Link

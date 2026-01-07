@@ -192,7 +192,7 @@ const Glossary = () => {
             1: selectedTag && (
               <TagDetail
                 tag={selectedTag}
-                lessons={lessonsByTag[selectedTag] || []}
+                lessons={(lessonsByTag[selectedTag] as any) || []}
                 onClose={() => {
                   setSelectedTag(null);
                   setStep(0);
@@ -288,7 +288,7 @@ const Glossary = () => {
             selectedTag && (
               <TagDetail
                 tag={selectedTag}
-                lessons={lessonsByTag[selectedTag] || []}
+                lessons={(lessonsByTag[selectedTag] as any) || []}
                 onClose={() => {
                   setSelectedTag(null);
                   setStep(0);

@@ -275,7 +275,13 @@ export const TagDetail = ({
   onClose,
 }: {
   tag: string;
-  lessons: Lesson[];
+  lessons: {
+    id: string;
+    lessonContent: {
+      title: string;
+      description: string;
+    };
+  }[];
   onClose: () => void;
 }) => {
   const pathname = usePathname();
@@ -316,7 +322,13 @@ export const TagDetail = ({
     });
   };
 
-  const renderActionCell = (lesson: Lesson) => {
+  const renderActionCell = (lesson: {
+    id: string;
+    lessonContent: {
+      title: string;
+      description: string;
+    };
+  }) => {
     const lessonUrl = `/library/${lesson.id}?tag=${tag}`;
 
     if (!isTutorMode) {
@@ -491,7 +503,7 @@ export const TagDetail = ({
                   </td>
                 )}
                 <td className="py-4 px-3 border-l text-textGray font-medium w-1/2">
-                  {lesson.title}
+                  {lesson.lessonContent.title}
                 </td>
                 <td className="py-4 px-3 border-l">
                   {renderActionCell(lesson)}
