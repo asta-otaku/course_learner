@@ -401,6 +401,8 @@ export default function QuizPage() {
             <QuizSettingsEditor
               quizId={quiz.id || ""}
               settings={{
+                title: quiz.title,
+                description: quiz.description,
                 timeLimit: quiz.timeLimit,
                 randomizeQuestions: quiz.randomizeQuestions || false,
                 showCorrectAnswers: quiz.showCorrectAnswers !== false,

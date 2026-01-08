@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "react-toastify";
@@ -18,6 +19,8 @@ import { usePutQuiz } from "@/lib/api/mutations";
 import { Save } from "lucide-react";
 
 interface QuizSettings {
+  title?: string;
+  description?: string;
   timeLimit?: number;
   randomizeQuestions: boolean;
   showCorrectAnswers?: boolean;
@@ -54,6 +57,8 @@ export function QuizSettingsEditor({
     setSaving(true);
     try {
       const result = await putQuizMutation.mutateAsync({
+        title: settings.title || undefined,
+        description: settings.description || undefined,
         settings: {
           timeLimit: settings.timeLimit || undefined,
           randomizeQuestions: settings.randomizeQuestions,
@@ -65,7 +70,9 @@ export function QuizSettingsEditor({
       });
 
       if (result.data) {
-        toast.success("Quiz settings have been updated successfully");
+        toast.success(
+          "Quiz information and settings have been updated successfully"
+        );
 
         // Navigate back if tab parameter exists in URL
         const hasTabParam = searchParams.has("tab");
@@ -86,6 +93,49 @@ export function QuizSettingsEditor({
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Basic Information</CardTitle>
+          <CardDescription>
+            Update the quiz title and description
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Quiz Title */}
+          <div className="space-y-2">
+            <Label htmlFor="title">Quiz Title</Label>
+            <Input
+              id="title"
+              value={settings.title || ""}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  title: e.target.value,
+                })
+              }
+              placeholder="Enter quiz title"
+            />
+          </div>
+
+          {/* Quiz Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={settings.description || ""}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  description: e.target.value,
+                })
+              }
+              placeholder="Describe what this quiz covers"
+              rows={3}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Quiz Settings</CardTitle>
