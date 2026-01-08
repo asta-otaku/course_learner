@@ -160,7 +160,7 @@ export function AddQuizDialog({
       const payload: any = {
         title: data.title,
         description: data.description,
-        lessonId: lessonId,
+        curriculumLessonId: lessonId,
       };
 
       // Add tags if provided
