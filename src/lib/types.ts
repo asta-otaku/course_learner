@@ -1,7 +1,7 @@
 import { StaticImageData } from "next/image";
 
 export interface Course {
-  image: StaticImageData;
+  imageUrl: string;
   course: string;
   topics: {
     title: string;
@@ -886,6 +886,7 @@ export interface Section {
   id: string;
   title: string;
   lessonsCount: number;
+  imageUrl: string;
   lessons: {
     id: string;
     title: string;

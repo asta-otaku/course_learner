@@ -2,7 +2,11 @@
 
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import {
+  isUserTypeAuthenticated,
+  getAndClearIntendedUrl,
+} from "@/lib/services/axiosInstance";
 import ForgetPassword from "../../forgot-password/ForgetPassword";
 import OTP from "../../forgot-password/OTP";
 import type { OTPProps } from "../../forgot-password/OTP";
@@ -16,12 +20,27 @@ function ForgotPassword() {
   const [otp, setOtp] = useState("");
   const pathname = usePathname();
   const isAdmin = pathname.includes("admin");
-  const { push } = useRouter();
+  const isTutor = pathname.includes("tutor");
+  const router = useRouter();
   const {
     mutate: postForgotPassword,
     isPending,
     isSuccess,
   } = usePostForgotPassword();
+
+  // Check if user is already signed in and redirect appropriately
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Check for intended URL first
+    const intendedUrl = getAndClearIntendedUrl();
+
+    if (isAdmin && isUserTypeAuthenticated("admin")) {
+      router.push(intendedUrl || "/admin");
+    } else if (isTutor && isUserTypeAuthenticated("tutor")) {
+      router.push(intendedUrl || "/tutor");
+    }
+  }, [router, pathname, isAdmin, isTutor]);
   return (
     <div className="w-screen h-screen bg-bgWhiteGray flex justify-center items-center flex-col px-4 relative">
       {step === 0 && (

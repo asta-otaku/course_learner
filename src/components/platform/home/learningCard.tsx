@@ -1,8 +1,6 @@
 import BackArrow from "@/assets/svgs/arrowback";
-import { Progress } from "@/components/ui/progress";
 import { Course } from "@/lib/types";
-import { convertDuration, getCurrentTopic, slugify } from "@/lib/utils";
-import { Clock } from "lucide-react";
+import { getCurrentTopic, slugify } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -21,16 +19,15 @@ export default function LearningCard({
 
   const displayTitle = lesson?.title || getCurrentTopic(course).title;
   const displayCourse = lesson?.curriculumTitle || course.course;
-  const displayImage = lesson?.curriculumImage || course.image;
-  const displayProgress = lesson?.completionPercentage || course.progress;
+  const displayImage = lesson?.curriculumImageUrl || course.imageUrl;
 
   return (
     <div className="max-w-2xl p-2 rounded-2xl bg-[#FAFAFA] border flex items-center gap-3 md:gap-5">
       <Image
         src={displayImage}
         alt="Course Image"
-        width={0}
-        height={0}
+        width={100}
+        height={100}
         className="max-w-[180px] h-[150px] w-full rounded-2xl"
       />
       <div className="flex w-full flex-col gap-2 md:gap-4">
@@ -66,10 +63,10 @@ export function ProgressCard({
     <Link href={isTutor ? `#` : href}>
       <div className="p-2 rounded-2xl bg-[#FAFAFA] border flex flex-col gap-4">
         <Image
-          src={course.image}
+          src={course.imageUrl}
           alt="Course Image"
-          width={0}
-          height={0}
+          width={100}
+          height={100}
           className="h-[181px] w-full rounded-2xl"
         />
         <div className="flex justify-between items-center">

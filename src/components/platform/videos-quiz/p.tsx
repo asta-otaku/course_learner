@@ -6,11 +6,6 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import React, { useMemo } from "react";
 import { useGetSections } from "@/lib/api/queries";
-import algebra from "@/assets/algebra.png";
-import measurement from "@/assets/measurement.png";
-import ratio from "@/assets/ratio.png";
-
-const availableImages = [algebra, measurement, ratio];
 
 function VideoQuizComponent() {
   const { push } = useRouter();
@@ -45,11 +40,11 @@ function VideoQuizComponent() {
             className="bg-white rounded-3xl py-6 px-7 space-y-4 max-w-[355px]"
           >
             <Image
-              src={availableImages[index % availableImages.length]}
+              src={section.imageUrl}
               className="rounded-2xl w-16"
               alt={section.title}
-              width={0}
-              height={0}
+              width={100}
+              height={100}
             />
             <div className="space-y-2">
               <h2 className="text-textGray font-semibold text-xl line-clamp-2 h-[60px]">

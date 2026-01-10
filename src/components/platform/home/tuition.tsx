@@ -23,11 +23,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import LearningCard, { ProgressCard } from "./learningCard";
-import algebra from "@/assets/algebra.png";
-import measurement from "@/assets/measurement.png";
-import ratio from "@/assets/ratio.png";
-
-const availableImages = [algebra, measurement, ratio];
 
 function TuitionHome() {
   const {
@@ -48,6 +43,17 @@ function TuitionHome() {
   const sections = useMemo(() => {
     return library?.data || [];
   }, [library?.data]);
+
+  // Create a mapping from sectionId to section imageUrl
+  const sectionImageMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    sections.forEach((section: any) => {
+      if (section.id && section.imageUrl) {
+        map[section.id] = section.imageUrl;
+      }
+    });
+    return map;
+  }, [sections]);
 
   // Fetch curricula by offerType
   const { data: curriculaData } = useGetCurricula({
@@ -108,34 +114,50 @@ function TuitionHome() {
     const lessons: any[] = [];
     if (lessonsData?.data && selectedCurriculum) {
       lessonsData.data.forEach((lesson: any) => {
+        // Get section image from library data based on lesson's sectionId
+        const sectionImageUrl = lesson.sectionId
+          ? sectionImageMap[lesson.sectionId]
+          : null;
         lessons.push({
           ...lesson,
           curriculumId: selectedCurriculumId,
           curriculumTitle: selectedCurriculum.title,
-          curriculumImage: availableImages[0 % availableImages.length],
+          curriculumImageUrl: sectionImageUrl || selectedCurriculum.imageUrl,
         });
       });
     }
     return lessons;
-  }, [lessonsData?.data, selectedCurriculum, selectedCurriculumId]);
+  }, [
+    lessonsData?.data,
+    selectedCurriculum,
+    selectedCurriculumId,
+    sectionImageMap,
+  ]);
 
-  // Transform library sections to Course format
+  // Transform library sections to Course format, sorted by orderIndex
   const curriculaAsCourses = useMemo(() => {
-    return sections.map((section: any, index) => ({
-      image: availableImages[index % availableImages.length],
-      course: section.title,
-      topics: [
-        {
-          title: "Start Learning",
-          number_of_quizzes: section.progress?.totalQuizzes || 0,
-        },
-      ],
-      progress: section.progress?.completionPercentage || 0,
-      duration: 0, // Sections don't have durationWeeks
-      total_section: section.progress?.totalLessons || 0,
-      completed_section: section.progress?.completedLessons || 0,
-      curriculumId: section.id, // Using section.id as curriculumId
-    }));
+    return sections
+      .slice()
+      .sort((a: any, b: any) => {
+        const orderA = a.orderIndex ?? 0;
+        const orderB = b.orderIndex ?? 0;
+        return orderA - orderB;
+      })
+      .map((section: any) => ({
+        imageUrl: section.imageUrl,
+        course: section.title,
+        topics: [
+          {
+            title: "Start Learning",
+            number_of_quizzes: section.progress?.totalQuizzes || 0,
+          },
+        ],
+        progress: section.progress?.completionPercentage || 0,
+        duration: 0, // Sections don't have durationWeeks
+        total_section: section.progress?.totalLessons || 0,
+        completed_section: section.progress?.completedLessons || 0,
+        curriculumId: section.id, // Using section.id as curriculumId
+      }));
   }, [sections]);
 
   const handleMessage = async () => {
@@ -238,7 +260,7 @@ function TuitionHome() {
                   key={lesson.id || idx}
                   course={{
                     course: lesson.curriculumTitle,
-                    image: lesson.curriculumImage,
+                    imageUrl: lesson.curriculumImageUrl,
                     topics: [],
                     progress: lesson.completionPercentage,
                     duration: 0,

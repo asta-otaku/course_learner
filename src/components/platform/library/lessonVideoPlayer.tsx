@@ -47,7 +47,7 @@ export default function LessonVideoPlayer({
             }}
             src={v?.playbackUrl || ""}
             controls
-            controlsList="nodownload nofullscreen noremoteplayback"
+            controlsList="nodownload noremoteplayback"
             disablePictureInPicture
             className="w-full h-full object-cover rounded-lg pointer-events-auto"
             preload="auto"
