@@ -3,7 +3,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { usePostTwilioAccessToken } from "@/lib/api/mutations";
-import { Video, Mic, MicOff, VideoOff, PhoneOff, Loader2 } from "lucide-react";
+import {
+  Video,
+  Mic,
+  MicOff,
+  VideoOff,
+  PhoneOff,
+  Loader2,
+  MonitorUp,
+  MonitorX,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Script from "next/script";
 
@@ -26,6 +35,8 @@ export default function VideoMeetingPage() {
   const [localAudioEnabled, setLocalAudioEnabled] = useState(true);
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
   const [isSecureContext, setIsSecureContext] = useState(true);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [screenTrack, setScreenTrack] = useState<any>(null);
 
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
@@ -56,9 +67,7 @@ export default function VideoMeetingPage() {
     }
   }, [twilioLoaded, roomName]);
 
-  // EXACT PATTERN FROM TWILIO DOCS (with local/remote distinction)
   const handleConnectedParticipant = (participant: any, isLocal = false) => {
-    // Create a div for this participant's tracks
     const participantDiv = document.createElement("div");
     participantDiv.setAttribute("id", participant.identity);
     participantDiv.setAttribute(
@@ -68,25 +77,25 @@ export default function VideoMeetingPage() {
 
     if (isLocal) {
       participantDiv.className =
-        "absolute bottom-24 md:bottom-28 right-4 w-48 md:w-64 rounded-lg overflow-hidden bg-gray-900 aspect-video shadow-2xl border-2 border-gray-700 z-10";
+        "w-full h-full rounded-lg overflow-hidden bg-gray-900 order-2 " +
+        "md:absolute md:bottom-32 md:right-4 md:w-64 lg:w-72 xl:w-80 2xl:w-96 md:h-auto md:aspect-video " +
+        "md:shadow-2xl md:border-2 md:border-gray-700 md:z-10 md:order-none";
     } else {
       participantDiv.className =
-        "w-full h-full rounded-lg overflow-hidden bg-gray-900 aspect-video";
+        "w-full h-full rounded-lg overflow-hidden bg-gray-900 order-1 md:order-none";
     }
 
     if (videoContainerRef.current) {
       videoContainerRef.current.appendChild(participantDiv);
     } else {
       console.error(`❌ videoContainerRef.current is null!`);
-      return; // Exit early if container not ready
+      return;
     }
 
-    // Define handleTrackPublication inside so it can access participantDiv via closure
     const handleTrackPublication = (trackPublication: any) => {
       function displayTrack(track: any) {
         const attachedElement = track.attach();
 
-        // Style video elements
         if (track.kind === "video") {
           attachedElement.className = "w-full h-full object-cover rounded-lg";
         }
@@ -98,21 +107,14 @@ export default function VideoMeetingPage() {
         displayTrack(trackPublication.track);
       }
 
-      // Listen for any new subscriptions to this track publication
       trackPublication.on("subscribed", displayTrack);
     };
 
-    // Iterate through the participant's published tracks and
-    // call `handleTrackPublication` on them
     participant.tracks.forEach(handleTrackPublication);
-
-    // Listen for any new track publications
     participant.on("trackPublished", handleTrackPublication);
   };
 
-  // EXACT PATTERN FROM TWILIO DOCS
   const handleDisconnectedParticipant = (participant: any) => {
-    // Remove this participant's div from the page
     const participantDiv = document.getElementById(participant.identity);
     if (participantDiv) {
       participantDiv.remove();
@@ -140,7 +142,6 @@ export default function VideoMeetingPage() {
     setError(null);
 
     try {
-      // Clear container
       if (videoContainerRef.current) {
         videoContainerRef.current.innerHTML = "";
       }
@@ -151,43 +152,36 @@ export default function VideoMeetingPage() {
 
       const token = response.data.data;
 
-      // Join the video room with the Access Token and the given room name
       const connectedRoom = await window.Twilio.Video.connect(token, {
         room: roomName,
       });
 
       setRoom(connectedRoom);
 
-      // Render the local and remote participants' video and audio tracks
-      handleConnectedParticipant(connectedRoom.localParticipant, true); // true = local participant
-      connectedRoom.participants.forEach(
-        (participant: any) => handleConnectedParticipant(participant, false) // false = remote participant
+      handleConnectedParticipant(connectedRoom.localParticipant, true);
+      connectedRoom.participants.forEach((participant: any) =>
+        handleConnectedParticipant(participant, false)
       );
-      connectedRoom.on(
-        "participantConnected",
-        (participant: any) => handleConnectedParticipant(participant, false) // New remote participants
+      connectedRoom.on("participantConnected", (participant: any) =>
+        handleConnectedParticipant(participant, false)
       );
 
-      // Listen for participants leaving
       connectedRoom.on(
         "participantDisconnected",
         handleDisconnectedParticipant
       );
 
-      // Handle room disconnection
       connectedRoom.on("disconnected", (room: any, error: any) => {
         if (error) {
           setError(`Disconnected: ${error.message}`);
         }
         setRoom(null);
 
-        // Clear video container
         if (videoContainerRef.current) {
           videoContainerRef.current.innerHTML = "";
         }
       });
 
-      // Handle page unload
       window.addEventListener("pagehide", () => connectedRoom.disconnect());
       window.addEventListener("beforeunload", () => connectedRoom.disconnect());
     } catch (err: any) {
@@ -224,7 +218,52 @@ export default function VideoMeetingPage() {
     }
   };
 
+  const startScreenShare = async () => {
+    if (!room) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+      });
+
+      const track = stream.getTracks()[0];
+      const screenVideoTrack = new window.Twilio.Video.LocalVideoTrack(track);
+
+      room.localParticipant.publishTrack(screenVideoTrack);
+      setScreenTrack(screenVideoTrack);
+      setIsScreenSharing(true);
+
+      track.onended = () => {
+        stopScreenShare();
+      };
+    } catch (err: any) {
+      console.error("Error starting screen share:", err);
+      setError("Failed to start screen sharing");
+    }
+  };
+
+  const stopScreenShare = () => {
+    if (screenTrack && room) {
+      room.localParticipant.unpublishTrack(screenTrack);
+      screenTrack.stop();
+      setScreenTrack(null);
+      setIsScreenSharing(false);
+    }
+  };
+
+  const toggleScreenShare = () => {
+    if (isScreenSharing) {
+      stopScreenShare();
+    } else {
+      startScreenShare();
+    }
+  };
+
   const leaveRoom = () => {
+    if (screenTrack) {
+      stopScreenShare();
+    }
+
     if (room) {
       room.disconnect();
       setRoom(null);
@@ -241,11 +280,14 @@ export default function VideoMeetingPage() {
 
   useEffect(() => {
     return () => {
+      if (screenTrack) {
+        screenTrack.stop();
+      }
       if (room) {
         room.disconnect();
       }
     };
-  }, [room]);
+  }, [room, screenTrack]);
 
   return (
     <>
@@ -255,10 +297,9 @@ export default function VideoMeetingPage() {
         strategy="afterInteractive"
       />
 
-      <div className="min-h-screen bg-gray-950 text-white flex flex-col">
-        {/* Header */}
+      <div className="h-screen bg-gray-950 text-white flex flex-col overflow-hidden">
         <div className="bg-gray-900 border-b border-gray-800 px-4 md:px-6 py-4 flex-shrink-0">
-          <div className="w-full max-w-screen-2xl mx-auto flex items-center justify-between">
+          <div className="w-full flex items-center justify-between">
             <div className="min-w-0 flex-1">
               <h1 className="text-lg md:text-xl font-semibold">
                 Video Conference
@@ -286,9 +327,7 @@ export default function VideoMeetingPage() {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="w-full max-w-7xl mx-auto px-4 md:px-6 py-6 pb-28 flex-1">
-          {/* HTTPS Warning */}
+        <div className="w-full px-4 md:px-6 py-4 flex-1 overflow-hidden">
           {!isSecureContext && (
             <div className="mb-6 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-6">
               <div className="flex items-start gap-3">
@@ -312,7 +351,6 @@ export default function VideoMeetingPage() {
             </div>
           )}
 
-          {/* Error State */}
           {error && (
             <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-lg p-6">
               <div className="flex items-start gap-3">
@@ -336,7 +374,6 @@ export default function VideoMeetingPage() {
             </div>
           )}
 
-          {/* Loading States */}
           {!twilioLoaded && (
             <div className="flex items-center justify-center py-20">
               <div className="text-center">
@@ -355,15 +392,14 @@ export default function VideoMeetingPage() {
             </div>
           )}
 
-          {/* Video Container - ALWAYS RENDERED so ref is never null */}
-          <div className="w-full">
-            {/* Relative container for PIP layout: remote video fills space, local video in corner */}
+          <div className="w-full h-full flex items-center justify-center">
             <div
               ref={videoContainerRef}
-              className="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden"
+              className="w-full h-full max-h-full bg-gray-900 rounded-lg overflow-hidden
+                         flex flex-col gap-2
+                         md:relative md:flex-none md:aspect-video"
             />
 
-            {/* No participants message */}
             {room && videoContainerRef.current?.children.length === 0 && (
               <div className="text-center py-16 bg-gray-900/50 rounded-lg border border-gray-800">
                 <Video className="w-16 h-16 mx-auto mb-4 text-gray-600" />
@@ -378,7 +414,6 @@ export default function VideoMeetingPage() {
           </div>
         </div>
 
-        {/* Controls Bar */}
         {room && (
           <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 px-4 md:px-6 py-4 md:py-5 z-50">
             <div className="w-full max-w-6xl mx-auto flex items-center justify-center gap-3 md:gap-4">
@@ -413,6 +448,23 @@ export default function VideoMeetingPage() {
                   <Video className="w-5 h-5 md:w-6 md:h-6" />
                 ) : (
                   <VideoOff className="w-5 h-5 md:w-6 md:h-6" />
+                )}
+              </Button>
+
+              <Button
+                onClick={toggleScreenShare}
+                size="lg"
+                className={`rounded-full w-12 h-12 md:w-14 md:h-14 ${
+                  isScreenSharing
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "bg-gray-700 hover:bg-gray-600"
+                }`}
+                title={isScreenSharing ? "Stop sharing" : "Share screen"}
+              >
+                {isScreenSharing ? (
+                  <MonitorX className="w-5 h-5 md:w-6 md:h-6" />
+                ) : (
+                  <MonitorUp className="w-5 h-5 md:w-6 md:h-6" />
                 )}
               </Button>
 
