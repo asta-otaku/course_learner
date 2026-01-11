@@ -3,16 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { usePostTwilioAccessToken } from "@/lib/api/mutations";
-import {
-  Video,
-  Mic,
-  MicOff,
-  VideoOff,
-  PhoneOff,
-  Loader2,
-  MonitorUp,
-  MonitorX,
-} from "lucide-react";
+import { Video, Mic, MicOff, VideoOff, PhoneOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Script from "next/script";
 
@@ -35,8 +26,6 @@ export default function VideoMeetingPage() {
   const [localAudioEnabled, setLocalAudioEnabled] = useState(true);
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
   const [isSecureContext, setIsSecureContext] = useState(true);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [screenTrack, setScreenTrack] = useState<any>(null);
 
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
@@ -77,13 +66,31 @@ export default function VideoMeetingPage() {
 
     if (isLocal) {
       participantDiv.className =
-        "w-full h-full rounded-lg overflow-hidden bg-gray-900 order-2 " +
+        "w-full h-full rounded-lg overflow-hidden bg-gray-900 order-2 relative " +
         "md:absolute md:bottom-32 md:right-4 md:w-64 lg:w-72 xl:w-80 2xl:w-96 md:h-auto md:aspect-video " +
         "md:shadow-2xl md:border-2 md:border-gray-700 md:z-10 md:order-none";
     } else {
       participantDiv.className =
-        "w-full h-full rounded-lg overflow-hidden bg-gray-900 order-1 md:order-none";
+        "w-full h-full rounded-lg overflow-hidden bg-gray-900 order-1 md:order-none relative";
     }
+
+    const placeholder = document.createElement("div");
+    placeholder.className =
+      "absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900";
+    placeholder.innerHTML = `
+      <div class="text-center">
+        <div class="w-16 h-16 md:w-24 md:h-24 rounded-full bg-blue-600 flex items-center justify-center mx-auto mb-3">
+          <span class="text-2xl md:text-4xl font-bold text-white">${participant.identity
+            .substring(0, 2)
+            .toUpperCase()}</span>
+        </div>
+        <p class="text-sm md:text-base text-gray-300 font-medium">${
+          isLocal ? "You" : "Participant"
+        }</p>
+      </div>
+    `;
+    placeholder.style.display = "none";
+    participantDiv.appendChild(placeholder);
 
     if (videoContainerRef.current) {
       videoContainerRef.current.appendChild(participantDiv);
@@ -92,15 +99,50 @@ export default function VideoMeetingPage() {
       return;
     }
 
+    const updatePlaceholderVisibility = () => {
+      const videos = Array.from(participantDiv.querySelectorAll("video"));
+      const hasVisibleVideo = videos.some(
+        (video: any) =>
+          video.srcObject &&
+          video.style.display !== "none" &&
+          video.readyState >= 2
+      );
+      placeholder.style.display = hasVisibleVideo ? "none" : "flex";
+    };
+
     const handleTrackPublication = (trackPublication: any) => {
       function displayTrack(track: any) {
         const attachedElement = track.attach();
 
         if (track.kind === "video") {
-          attachedElement.className = "w-full h-full object-cover rounded-lg";
+          attachedElement.className = "w-full h-full object-contain rounded-lg";
+          attachedElement.style.backgroundColor = "#000";
+          attachedElement.autoplay = true;
+          attachedElement.playsInline = true;
+          attachedElement.muted = true;
         }
 
-        participantDiv.appendChild(attachedElement);
+        participantDiv.insertBefore(attachedElement, placeholder);
+        updatePlaceholderVisibility();
+
+        attachedElement.addEventListener(
+          "loadeddata",
+          updatePlaceholderVisibility
+        );
+        attachedElement.addEventListener(
+          "playing",
+          updatePlaceholderVisibility
+        );
+      }
+
+      function removeTrack(track: any) {
+        const elements = participantDiv.querySelectorAll("video, audio");
+        elements.forEach((el: any) => {
+          if (el.srcObject?.getTracks().includes(track.mediaStreamTrack)) {
+            el.remove();
+          }
+        });
+        updatePlaceholderVisibility();
       }
 
       if (trackPublication.track) {
@@ -108,10 +150,22 @@ export default function VideoMeetingPage() {
       }
 
       trackPublication.on("subscribed", displayTrack);
+      trackPublication.on("unsubscribed", removeTrack);
+      trackPublication.on("disabled", updatePlaceholderVisibility);
+      trackPublication.on("enabled", updatePlaceholderVisibility);
     };
 
     participant.tracks.forEach(handleTrackPublication);
     participant.on("trackPublished", handleTrackPublication);
+    participant.on("trackUnpublished", (publication: any) => {
+      if (publication.track) {
+        const elements = participantDiv.querySelectorAll("video, audio");
+        elements.forEach((el: any) => el.remove());
+      }
+      updatePlaceholderVisibility();
+    });
+
+    updatePlaceholderVisibility();
   };
 
   const handleDisconnectedParticipant = (participant: any) => {
@@ -207,63 +261,44 @@ export default function VideoMeetingPage() {
 
   const toggleVideo = () => {
     if (room && room.localParticipant) {
+      const participantDiv = document.getElementById(
+        room.localParticipant.identity
+      );
+
       room.localParticipant.videoTracks.forEach((publication: any) => {
-        if (localVideoEnabled) {
-          publication.track.disable();
-        } else {
-          publication.track.enable();
+        if (!publication.trackName?.includes("screen")) {
+          if (localVideoEnabled) {
+            publication.track.disable();
+          } else {
+            publication.track.enable();
+          }
         }
       });
+
       setLocalVideoEnabled(!localVideoEnabled);
-    }
-  };
 
-  const startScreenShare = async () => {
-    if (!room) return;
+      if (participantDiv) {
+        setTimeout(() => {
+          const videos = participantDiv.querySelectorAll("video");
+          videos.forEach((video: any) => {
+            video.style.display = localVideoEnabled ? "none" : "block";
+          });
 
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-      });
-
-      const track = stream.getTracks()[0];
-      const screenVideoTrack = new window.Twilio.Video.LocalVideoTrack(track);
-
-      room.localParticipant.publishTrack(screenVideoTrack);
-      setScreenTrack(screenVideoTrack);
-      setIsScreenSharing(true);
-
-      track.onended = () => {
-        stopScreenShare();
-      };
-    } catch (err: any) {
-      console.error("Error starting screen share:", err);
-      setError("Failed to start screen sharing");
-    }
-  };
-
-  const stopScreenShare = () => {
-    if (screenTrack && room) {
-      room.localParticipant.unpublishTrack(screenTrack);
-      screenTrack.stop();
-      setScreenTrack(null);
-      setIsScreenSharing(false);
-    }
-  };
-
-  const toggleScreenShare = () => {
-    if (isScreenSharing) {
-      stopScreenShare();
-    } else {
-      startScreenShare();
+          const placeholder = participantDiv.querySelector(
+            ".absolute.inset-0"
+          ) as HTMLElement;
+          if (placeholder) {
+            const hasVisibleVideo = Array.from(videos).some(
+              (v: any) => v.style.display !== "none" && v.readyState >= 2
+            );
+            placeholder.style.display = hasVisibleVideo ? "none" : "flex";
+          }
+        }, 100);
+      }
     }
   };
 
   const leaveRoom = () => {
-    if (screenTrack) {
-      stopScreenShare();
-    }
-
     if (room) {
       room.disconnect();
       setRoom(null);
@@ -280,14 +315,11 @@ export default function VideoMeetingPage() {
 
   useEffect(() => {
     return () => {
-      if (screenTrack) {
-        screenTrack.stop();
-      }
       if (room) {
         room.disconnect();
       }
     };
-  }, [room, screenTrack]);
+  }, [room]);
 
   return (
     <>
@@ -448,23 +480,6 @@ export default function VideoMeetingPage() {
                   <Video className="w-5 h-5 md:w-6 md:h-6" />
                 ) : (
                   <VideoOff className="w-5 h-5 md:w-6 md:h-6" />
-                )}
-              </Button>
-
-              <Button
-                onClick={toggleScreenShare}
-                size="lg"
-                className={`rounded-full w-12 h-12 md:w-14 md:h-14 ${
-                  isScreenSharing
-                    ? "bg-blue-600 hover:bg-blue-700"
-                    : "bg-gray-700 hover:bg-gray-600"
-                }`}
-                title={isScreenSharing ? "Stop sharing" : "Share screen"}
-              >
-                {isScreenSharing ? (
-                  <MonitorX className="w-5 h-5 md:w-6 md:h-6" />
-                ) : (
-                  <MonitorUp className="w-5 h-5 md:w-6 md:h-6" />
                 )}
               </Button>
 
