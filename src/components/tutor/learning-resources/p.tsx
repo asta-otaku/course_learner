@@ -1,161 +1,65 @@
 "use client";
 
-import BackArrow from "@/assets/svgs/arrowback";
-import {
-  TopicCard,
-  TopicDetail,
-} from "@/components/platform/glossary/TopicComponents";
-import LibraryComponent from "@/components/platform/library/p";
-import { courses } from "@/lib/utils";
-import { ChevronRight } from "lucide-react";
-import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { BadgeAlert } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import React, { useMemo } from "react";
+import { useGetSections } from "@/lib/api/queries";
 
 function LearningResource() {
-  const [step, setStep] = useState(0);
-  const [selectedLetter, setSelectedLetter] = useState("A");
-  const [selectedTopic, setSelectedTopic] = useState<{
-    title: string;
-    course: string;
-    number_of_quizzes: number;
-  } | null>(null);
+  const { push } = useRouter();
 
-  const groupedTopics = courses
-    .flatMap((course) =>
-      course.topics.map((topic) => ({
-        ...topic,
-        course: course.course,
-        image: course.image.src,
-      }))
-    )
-    .reduce((acc, topic) => {
-      const firstLetter = topic.title[0].toUpperCase();
-      if (!acc[firstLetter]) {
-        acc[firstLetter] = [];
-      }
-      acc[firstLetter].push(topic);
-      return acc;
-    }, {} as Record<string, Array<{ title: string; course: string; number_of_quizzes: number; image: string }>>);
+  const { data: sections } = useGetSections();
+
+  // Get sections data
+  const sectionsData = useMemo(() => {
+    return sections?.data || [];
+  }, [sections?.data]);
 
   return (
-    <div>
-      {
-        {
-          0: (
-            <div className="py-6">
-              <h1 className="font-medium text-lg md:text-xl">
-                Learning Resources
-              </h1>
-              <div className="my-6 md:my-12 lg:my-16 xl:my-20 flex flex-col w-full items-center gap-4">
-                <div
-                  onClick={() => setStep(1)}
-                  className="border border-gray-200 bg-white max-w-2xl w-full rounded-3xl p-6 flex items-center justify-between hover:shadow-lg transition-all duration-300 cursor-pointer"
-                >
-                  <div className="space-y-2 max-w-lg">
-                    <h1 className="font-medium text-lg md:text-xl">Glossary</h1>
-                    <p className="text-sm text-gray-500">
-                      Access a comprehensive collection of key terms and
-                      concepts to enhance your understanding of important topics
-                      in your learning journey
-                    </p>
-                  </div>
-                  <ChevronRight className="w-6 h-6 text-[#141B34]" />
-                </div>
-                <div
-                  onClick={() => setStep(2)}
-                  className="border border-gray-200 bg-white max-w-2xl w-full rounded-3xl p-6 flex items-center justify-between hover:shadow-lg transition-all duration-300 cursor-pointer"
-                >
-                  <div className="space-y-2 max-w-lg">
-                    <h1 className="font-medium text-lg md:text-xl">Library</h1>
-                    <p className="text-sm text-gray-500">
-                      Explore our curated library of educational resources,
-                      including study materials, reference guides, and
-                      supplementary content to support your learning goals
-                    </p>
-                  </div>
-                  <ChevronRight className="w-6 h-6 text-[#141B34]" />
-                </div>
-              </div>
-            </div>
-          ),
-          1: (
-            <div className="py-6">
-              <button
-                onClick={() => setStep(0)}
-                className="text-sm text-primaryBlue flex items-center gap-1 mb-2"
-              >
-                <BackArrow />
-              </button>
-              <h1 className="font-medium text-lg md:text-xl">Glossary</h1>
-              <div className="flex md:justify-center gap-6 my-8 overflow-x-auto scrollbar-hide py-6">
-                {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => (
-                  <button
-                    key={letter}
-                    className={`text-sm flex-shrink-0 ${
-                      letter === selectedLetter
-                        ? "font-bold text-primaryBlue"
-                        : "text-textGray"
-                    }`}
-                    onClick={() => setSelectedLetter(letter)}
-                  >
-                    {letter}
-                  </button>
-                ))}
-              </div>
-
-              <div className="space-y-4 relative max-w-xl w-full mx-auto">
-                {selectedLetter && (
-                  <h2 className="absolute -left-[10%] top-[7%] font-medium text-xl md:text-2xl lg:text-3xl">
-                    {selectedLetter}
-                  </h2>
-                )}
-                {(groupedTopics[selectedLetter] || []).length > 0 ? (
-                  (groupedTopics[selectedLetter] || []).map((topic, idx) => (
-                    <TopicCard
-                      key={idx}
-                      topic={topic}
-                      onClick={() => {
-                        setSelectedTopic(topic);
-                        setStep(3);
-                      }}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-textSubtitle">
-                    No topics found for letter {selectedLetter}
-                  </div>
-                )}
-              </div>
-            </div>
-          ),
-          2: (
-            <div className="py-6">
-              <button
-                onClick={() => setStep(0)}
-                className="text-sm text-primaryBlue flex items-center gap-1 mb-2"
-              >
-                <BackArrow />
-              </button>
-              <h1 className="font-medium text-lg md:text-xl">Library</h1>
-              <p className="text-sm text-textSubtitle">
-                This tab contains videos and worksheets for the entire 11+ Maths
-                syllabus. We have numbered each section of the syllabus for easy
-                navigation.
-              </p>
-
-              <LibraryComponent />
-            </div>
-          ),
-          3: selectedTopic && (
-            <TopicDetail
-              topic={selectedTopic}
-              onClose={() => {
-                setSelectedTopic(null);
-                setStep(1);
-              }}
+    <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
+      <h1 className="text-textGray font-medium md:text-lg lg:text-xl capitalize my-6">
+        Learning Resources
+      </h1>
+      <div className="bg-[#ECF2FF] rounded-2xl p-3 md:p-4 xl:p-6 flex items-center gap-4">
+        <BadgeAlert className="text-primaryBlue min-w-6" />
+        <p className="text-primaryBlue text-xs md:text-sm">
+          This tab contains videos and worksheets for the entire{" "}
+          {sectionsData.length} sections. We have numbered each section of the
+          sections. This is the order we would like you to follow! If you don't
+          want to follow the recommended order, we strongly recommend you cover
+          the {sectionsData.length} sections first, as this provides the
+          foundation for every other section
+        </p>
+      </div>
+      <div className="my-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-6">
+        {sectionsData.map((section, index) => (
+          <div
+            key={section.id}
+            className="bg-white rounded-3xl py-6 px-7 space-y-4 max-w-[355px]"
+          >
+            <Image
+              src={section.imageUrl}
+              className="rounded-2xl w-16"
+              alt={section.title}
+              width={100}
+              height={100}
             />
-          ),
-        }[step]
-      }
+            <div className="space-y-2">
+              <h2 className="text-textGray font-semibold text-xl line-clamp-2 h-[60px]">
+                {section.title}
+              </h2>
+            </div>
+            <Button
+              onClick={() => push(`/tutor/learning-resources/${section.id}`)}
+              className="w-full flex gap-2 my-3 py-5 rounded-[999px] font-medium text-sm bg-demo-gradient text-white shadow-demoShadow"
+            >
+              Proceed
+            </Button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

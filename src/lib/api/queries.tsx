@@ -987,7 +987,9 @@ export const useGetQuizAttemptById = (attemptId: string) => {
   return useQuery({
     queryKey: ["quiz-attempt", attemptId],
     queryFn: async (): Promise<APIGetResponse<HomeworkReview>> => {
-      const response = await axiosInstance.get(`/quiz-attempts/${attemptId}/review`);
+      const response = await axiosInstance.get(
+        `/quiz-attempts/${attemptId}/review`
+      );
       return response.data;
     },
     enabled: !!attemptId,
@@ -1007,13 +1009,14 @@ export const useGetSections = () => {
 
 export const useGetSectionById = (id: string, offerType?: string) => {
   return useQuery({
-    queryKey: ["section", id],
+    queryKey: ["section", id, offerType],
     queryFn: async (): Promise<APIGetResponse<Section>> => {
-      const response = await axiosInstance.get(
-        `/sections/${id}?offerType=${offerType}`
-      );
+      const url = offerType
+        ? `/sections/${id}?offerType=${offerType}`
+        : `/sections/${id}`;
+      const response = await axiosInstance.get(url);
       return response.data;
     },
-    enabled: !!id && !!offerType,
+    enabled: !!id,
   });
 };
