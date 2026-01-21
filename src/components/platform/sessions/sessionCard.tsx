@@ -15,6 +15,7 @@ const SessionSection = ({
   onCancel,
   onConfirm,
   onComplete,
+  onBook,
 }: {
   title: string;
   description: string;
@@ -22,6 +23,7 @@ const SessionSection = ({
   onCancel: (id: string) => void;
   onConfirm?: (session: Session) => void;
   onComplete?: (session: Session) => void;
+  onBook?: (session: Session) => void;
 }) => {
   if (sessions.length === 0) return null;
 
@@ -39,6 +41,7 @@ const SessionSection = ({
           onCancel={onCancel}
           onConfirm={onConfirm}
           onComplete={onComplete}
+          onBook={onBook}
         />
       ))}
     </div>
@@ -51,11 +54,13 @@ const SessionCard = ({
   onCancel,
   onConfirm,
   onComplete,
+  onBook,
 }: {
   session: Session;
   onCancel: (id: string) => void;
   onConfirm?: (session: Session) => void;
   onComplete?: (session: Session) => void;
+  onBook?: (session: Session) => void;
 }) => {
   const displayDate = formatDisplayDate(session.date);
   const isConfirmedOrBooked =
@@ -109,6 +114,17 @@ const SessionCard = ({
           )}
         </div>
         <div className="flex flex-wrap gap-2 w-full md:w-fit justify-center md:justify-normal">
+          {/* Book button for available sessions */}
+          {session.status === "available" && onBook && (
+            <Button
+              variant="outline"
+              onClick={() => onBook(session)}
+              className="bg-primaryBlue text-white rounded-full text-xs hover:bg-primaryBlue/90"
+            >
+              Book Session
+            </Button>
+          )}
+
           {/* Join Meeting button for confirmed/booked sessions */}
           {isConfirmedOrBooked && (
             <>
@@ -153,7 +169,9 @@ const SessionCard = ({
             </Button>
           )}
 
-          {session.status !== "cancelled" && session.status !== "completed" && (
+          {session.status !== "cancelled" && 
+           session.status !== "completed" && 
+           session.status !== "available" && (
             <Button
               variant="outline"
               className="rounded-full text-xs text-red-600 hover:bg-red-50 border-red-200"

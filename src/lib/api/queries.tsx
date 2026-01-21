@@ -296,6 +296,7 @@ export const useGetBookedSessions = (
       const response = await axiosInstance.get(url);
       return response.data;
     },
+    enabled: !!childId,
   });
 };
 
@@ -331,6 +332,7 @@ export const useGetAvailableSessions = (
       const response = await axiosInstance.get(url);
       return response.data;
     },
+    enabled: !!childId,
   });
 };
 
