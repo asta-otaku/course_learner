@@ -29,9 +29,10 @@ export default function VideoMeetingPage() {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isLocalScreenSharing, setIsLocalScreenSharing] = useState(false);
   const [screenSharerName, setScreenSharerName] = useState<string>("");
+  const [screenTrack, setScreenTrack] = useState<any>(null);
 
   const videoContainerRef = useRef<HTMLDivElement>(null);
-  const screenContainerRef = useRef<HTMLDivElement>(null);
+  const screenVideoRef = useRef<HTMLDivElement>(null);
   const screenTrackRef = useRef<any>(null);
 
   const accessTokenMutation = usePostTwilioAccessToken();
@@ -60,6 +61,34 @@ export default function VideoMeetingPage() {
       joinRoom();
     }
   }, [twilioLoaded, roomName]);
+
+  // Handle screen share track attachment/detachment using React lifecycle
+  useEffect(() => {
+    if (screenTrack && screenVideoRef.current) {
+      console.log("📦 Attaching screen track to video element...");
+      const videoElement = screenTrack.attach();
+      videoElement.className = "w-full h-full object-contain bg-black";
+      videoElement.autoplay = true;
+      videoElement.playsInline = true;
+      videoElement.muted = true;
+
+      // Replace the ref's content with the attached video
+      if (screenVideoRef.current.firstChild) {
+        screenVideoRef.current.removeChild(screenVideoRef.current.firstChild);
+      }
+      screenVideoRef.current.appendChild(videoElement);
+
+      console.log("✅ Screen track attached via useEffect");
+
+      // Cleanup function
+      return () => {
+        console.log("🧹 Cleaning up screen track from useEffect");
+        if (screenVideoRef.current?.firstChild) {
+          screenVideoRef.current.removeChild(screenVideoRef.current.firstChild);
+        }
+      };
+    }
+  }, [screenTrack]);
 
   const handleConnectedParticipant = (participant: any, isLocal = false) => {
     const participantDiv = document.createElement("div");
@@ -121,7 +150,6 @@ export default function VideoMeetingPage() {
         // Check if this is a screen share track
         if (track.name === 'myscreenshare' || track.name === 'screen-share') {
           console.log("🖥️ Screen share track detected from", isLocal ? "local" : "remote");
-          setIsScreenSharing(true);
 
           // Track who is sharing
           if (isLocal) {
@@ -132,36 +160,10 @@ export default function VideoMeetingPage() {
             setScreenSharerName(participant.identity || "Remote participant");
           }
 
-          // Use setTimeout to ensure the container is rendered after state update
-          setTimeout(() => {
-            if (screenContainerRef.current) {
-              console.log("📦 Screen container found, attaching track...");
-              screenContainerRef.current.innerHTML = ''; // Clear previous
-              const attachedElement = track.attach();
-              attachedElement.className = "w-full h-full object-contain bg-black";
-              attachedElement.autoplay = true;
-              attachedElement.playsInline = true;
-              attachedElement.muted = true;
+          // Store track in state - React will handle rendering
+          setScreenTrack(track);
+          setIsScreenSharing(true);
 
-              screenContainerRef.current.appendChild(attachedElement);
-              console.log("✅ Screen track attached to display area", attachedElement);
-
-              // Log video element state
-              attachedElement.addEventListener('loadedmetadata', () => {
-                console.log("📹 Screen video loaded:", attachedElement.videoWidth, "x", attachedElement.videoHeight);
-              });
-
-              attachedElement.addEventListener('playing', () => {
-                console.log("▶️ Screen video is playing");
-              });
-
-              attachedElement.addEventListener('error', (e: any) => {
-                console.error("❌ Screen video error:", e);
-              });
-            } else {
-              console.error("❌ screenContainerRef.current is null after timeout!");
-            }
-          }, 100);
           return; // Don't add to participant div
         }
 
@@ -195,12 +197,10 @@ export default function VideoMeetingPage() {
         // Handle screen share track removal
         if (track.name === 'myscreenshare' || track.name === 'screen-share') {
           console.log("❌ Screen share track removed");
+          setScreenTrack(null);
           setIsScreenSharing(false);
           setIsLocalScreenSharing(false);
           setScreenSharerName("");
-          if (screenContainerRef.current) {
-            screenContainerRef.current.innerHTML = '';
-          }
           return;
         }
 
@@ -247,12 +247,10 @@ export default function VideoMeetingPage() {
       console.log(`📢 Track unpublished: ${publication.kind}`);
       if (publication.track) {
         if (publication.track.name === 'myscreenshare' || publication.track.name === 'screen-share') {
+          setScreenTrack(null);
           setIsScreenSharing(false);
           setIsLocalScreenSharing(false);
           setScreenSharerName("");
-          if (screenContainerRef.current) {
-            screenContainerRef.current.innerHTML = '';
-          }
         } else {
           const elements = participantDiv.querySelectorAll("video, audio");
           elements.forEach((el: any) => el.remove());
@@ -416,31 +414,35 @@ export default function VideoMeetingPage() {
 
       screenTrackRef.current = screenTrack;
 
-      // Display locally first
+      // Store track in state - useEffect will handle display
+      setScreenTrack(screenTrack);
       setIsScreenSharing(true);
-      setTimeout(() => {
-        if (screenContainerRef.current) {
-          screenContainerRef.current.innerHTML = '';
-          const videoElement = screenTrack.attach();
-          videoElement.className = 'w-full h-full object-contain bg-black';
-          videoElement.autoplay = true;
-          videoElement.playsInline = true;
-          videoElement.muted = true;
-          screenContainerRef.current.appendChild(videoElement);
-          console.log("✅ Local screen attached");
-        }
-      }, 100);
+      setIsLocalScreenSharing(true);
+      setScreenSharerName("You");
 
       // Publish to room so others can see
       await room.localParticipant.publishTrack(screenTrack);
-      setIsLocalScreenSharing(true);
-      setScreenSharerName("You");
       console.log("✅ Screen sharing published to room");
 
       // Handle when user stops sharing via browser UI
       screenTrack.once("stopped", () => {
         console.log("🛑 Screen sharing stopped via browser");
-        stopScreenShare();
+        // Clean up state
+        screenTrackRef.current = null;
+        setScreenTrack(null);
+        setIsScreenSharing(false);
+        setIsLocalScreenSharing(false);
+        setScreenSharerName("");
+
+        // Unpublish from room
+        if (room && room.localParticipant) {
+          const screenPubs: any = Array.from(room.localParticipant.videoTracks.values()).find(
+            (pub: any) => pub.trackName === 'myscreenshare'
+          );
+          if (screenPubs && screenPubs.track) {
+            room.localParticipant.unpublishTrack(screenPubs.track);
+          }
+        }
       });
 
     } catch (err: any) {
@@ -454,16 +456,18 @@ export default function VideoMeetingPage() {
 
   const stopScreenShare = () => {
     if (screenTrackRef.current && room) {
-      room.localParticipant.unpublishTrack(screenTrackRef.current);
-      screenTrackRef.current.stop();
+      try {
+        room.localParticipant.unpublishTrack(screenTrackRef.current);
+        screenTrackRef.current.stop();
+      } catch (e) {
+        console.log("Error unpublishing track:", e);
+      }
+
       screenTrackRef.current = null;
+      setScreenTrack(null);
       setIsScreenSharing(false);
       setIsLocalScreenSharing(false);
       setScreenSharerName("");
-
-      if (screenContainerRef.current) {
-        screenContainerRef.current.innerHTML = '';
-      }
 
       console.log("✅ Screen sharing stopped");
     }
@@ -612,12 +616,12 @@ export default function VideoMeetingPage() {
                 </span>
                 <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse ml-auto"></span>
               </div>
-              <div
-                ref={screenContainerRef}
-                className="bg-black rounded-lg overflow-hidden w-full aspect-video border-2 border-blue-500/30 relative"
-              >
-                {/* Screen tracks will be attached here */}
-                {!screenContainerRef.current?.children.length && (
+              <div className="bg-black rounded-lg overflow-hidden w-full aspect-video border-2 border-blue-500/30 relative">
+                {/* React-managed video element for screen share */}
+                <div ref={screenVideoRef} className="w-full h-full">
+                  {/* Track will be attached here via useEffect */}
+                </div>
+                {!screenTrack && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
                       <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-blue-400" />
