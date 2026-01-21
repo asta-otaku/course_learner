@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { usePostTwilioAccessToken } from "@/lib/api/mutations";
-import { Video, Mic, MicOff, VideoOff, PhoneOff, Loader2, Monitor, MonitorOff } from "lucide-react";
+import { Video, Mic, MicOff, VideoOff, PhoneOff, Loader2, Monitor, MonitorOff, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Script from "next/script";
 
@@ -33,6 +33,7 @@ export default function VideoMeetingPage() {
 
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const screenVideoRef = useRef<HTMLDivElement>(null);
+  const screenContainerRef = useRef<HTMLDivElement>(null);
   const screenTrackRef = useRef<any>(null);
 
   const accessTokenMutation = usePostTwilioAccessToken();
@@ -473,6 +474,22 @@ export default function VideoMeetingPage() {
     }
   };
 
+  const toggleFullscreen = async () => {
+    if (!screenContainerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await screenContainerRef.current.requestFullscreen();
+        console.log("📺 Entered fullscreen mode");
+      } else {
+        await document.exitFullscreen();
+        console.log("📺 Exited fullscreen mode");
+      }
+    } catch (err) {
+      console.error("❌ Fullscreen error:", err);
+    }
+  };
+
   const leaveRoom = () => {
     if (screenTrackRef.current) {
       stopScreenShare();
@@ -616,11 +633,26 @@ export default function VideoMeetingPage() {
                 </span>
                 <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse ml-auto"></span>
               </div>
-              <div className="bg-black rounded-lg overflow-hidden w-full aspect-video border-2 border-blue-500/30 relative">
+              <div
+                ref={screenContainerRef}
+                onClick={toggleFullscreen}
+                className="bg-black rounded-lg overflow-hidden w-full aspect-video border-2 border-blue-500/30 relative cursor-pointer group transition-all hover:border-blue-400"
+                title="Click to view fullscreen"
+              >
                 {/* React-managed video element for screen share */}
                 <div ref={screenVideoRef} className="w-full h-full">
                   {/* Track will be attached here via useEffect */}
                 </div>
+
+                {/* Fullscreen indicator - shows on hover */}
+                {screenTrack && (
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none bg-black/20">
+                    <div className="bg-black/70 rounded-full p-4">
+                      <Maximize2 className="w-8 h-8 text-white" />
+                    </div>
+                  </div>
+                )}
+
                 {!screenTrack && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
