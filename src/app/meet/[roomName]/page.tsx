@@ -25,13 +25,12 @@ export default function VideoMeetingPage() {
   const [error, setError] = useState<string | null>(null);
   const [localAudioEnabled, setLocalAudioEnabled] = useState(true);
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
+  const [isSecureContext, setIsSecureContext] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [participants, setParticipants] = useState<string[]>([]);
 
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLDivElement>(null);
-  const screenTrackRef = useRef<any>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   const screenContainerRef = useRef<HTMLDivElement>(null);
+  const screenTrackRef = useRef<any>(null);
 
   const accessTokenMutation = usePostTwilioAccessToken();
 
@@ -42,111 +41,174 @@ export default function VideoMeetingPage() {
       if (role === "admin" || role === "tutor" || role === "user") {
         setUserRole(role);
       }
+
+      const isSecure =
+        window.location.protocol === "https:" ||
+        window.location.hostname === "localhost";
+      setIsSecureContext(isSecure);
     }
   }, []);
 
   const handleTwilioScriptLoad = () => {
-    console.log("✅ Twilio SDK loaded");
     setTwilioLoaded(true);
   };
 
   useEffect(() => {
     if (twilioLoaded && !room && !isConnecting && roomName) {
-      console.log("🚀 Auto-joining room:", roomName);
       joinRoom();
     }
   }, [twilioLoaded, roomName]);
 
-  const attachTracks = (tracks: any[], container: HTMLElement) => {
-    tracks.forEach((track) => {
-      if (track) {
-        console.log("📎 Attaching track:", track.kind, track.name);
-
-        // Check if this is a screen share track
-        if (track.name === 'myscreenshare' || track.name === 'screen-share') {
-          console.log("🖥️ Screen share track detected, displaying in dedicated area");
-          setIsScreenSharing(true);
-          if (screenContainerRef.current) {
-            screenContainerRef.current.innerHTML = ''; // Clear previous
-            const element = track.attach();
-            element.className = 'w-full h-full object-contain bg-black';
-            element.autoplay = true;
-            element.playsInline = true;
-            screenContainerRef.current.appendChild(element);
-            console.log("✅ Screen track attached to display", element);
-          }
-        } else {
-          // Regular video/audio tracks
-          const element = track.attach();
-          if (track.kind === 'video') {
-            element.className = 'w-full h-full object-cover rounded-lg';
-            element.autoplay = true;
-            element.playsInline = true;
-          }
-          container.appendChild(element);
-          console.log("✅ Regular track attached:", track.kind);
-        }
-      }
-    });
-  };
-
-  const detachTracks = (tracks: any[]) => {
-    tracks.forEach((track) => {
-      if (track) {
-        track.detach().forEach((el: any) => el.remove());
-      }
-    });
-  };
-
-  const handleParticipantConnected = (participant: any) => {
-    console.log("👤 Participant connected:", participant.identity);
-    setParticipants((prev) => [...prev, participant.identity]);
-
+  const handleConnectedParticipant = (participant: any, isLocal = false) => {
     const participantDiv = document.createElement("div");
-    participantDiv.id = participant.sid;
-    participantDiv.className = "relative bg-gray-800 rounded-lg overflow-hidden aspect-video";
+    participantDiv.setAttribute("id", participant.identity);
+    participantDiv.setAttribute(
+      "data-participant-type",
+      isLocal ? "local" : "remote"
+    );
 
-    const nameLabel = document.createElement("div");
-    nameLabel.className = "absolute bottom-2 left-2 bg-black/70 text-white px-3 py-1 rounded-full text-sm z-10";
-    nameLabel.textContent = participant.identity;
-    participantDiv.appendChild(nameLabel);
-
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.appendChild(participantDiv);
+    if (isLocal) {
+      participantDiv.className =
+        "w-full h-full rounded-lg overflow-hidden bg-gray-900 order-2 relative " +
+        "md:absolute md:bottom-32 md:right-4 md:w-64 lg:w-72 xl:w-80 2xl:w-96 md:h-auto md:aspect-video " +
+        "md:shadow-2xl md:border-2 md:border-gray-700 md:z-10 md:order-none";
+    } else {
+      participantDiv.className =
+        "w-full h-full rounded-lg overflow-hidden bg-gray-900 order-1 md:order-none relative";
     }
 
-    // Attach existing tracks
-    participant.tracks.forEach((publication: any) => {
-      if (publication.isSubscribed) {
-        attachTracks([publication.track], participantDiv);
+    const placeholder = document.createElement("div");
+    placeholder.className =
+      "absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900";
+    placeholder.innerHTML = `
+      <div class="text-center">
+        <div class="w-16 h-16 md:w-24 md:h-24 rounded-full bg-blue-600 flex items-center justify-center mx-auto mb-3">
+          <span class="text-2xl md:text-4xl font-bold text-white">${participant.identity
+        .substring(0, 2)
+        .toUpperCase()}</span>
+        </div>
+        <p class="text-sm md:text-base text-gray-300 font-medium">${isLocal ? "You" : "Participant"
+      }</p>
+      </div>
+    `;
+    placeholder.style.display = "none";
+    participantDiv.appendChild(placeholder);
+
+    if (videoContainerRef.current) {
+      videoContainerRef.current.appendChild(participantDiv);
+    } else {
+      console.error(`❌ videoContainerRef.current is null!`);
+      return;
+    }
+
+    const updatePlaceholderVisibility = () => {
+      const videos = Array.from(participantDiv.querySelectorAll("video"));
+      const hasVisibleVideo = videos.some(
+        (video: any) =>
+          video.srcObject &&
+          video.style.display !== "none" &&
+          video.readyState >= 2
+      );
+      placeholder.style.display = hasVisibleVideo ? "none" : "flex";
+    };
+
+    const handleTrackPublication = (trackPublication: any) => {
+      function displayTrack(track: any) {
+        // Check if this is a screen share track
+        if (track.name === 'myscreenshare' || track.name === 'screen-share') {
+          console.log("🖥️ Screen share track detected from", isLocal ? "local" : "remote");
+          setIsScreenSharing(true);
+
+          if (screenContainerRef.current) {
+            screenContainerRef.current.innerHTML = ''; // Clear previous
+            const attachedElement = track.attach();
+            attachedElement.className = "w-full h-full object-contain bg-black";
+            attachedElement.autoplay = true;
+            attachedElement.playsInline = true;
+            attachedElement.muted = true;
+            screenContainerRef.current.appendChild(attachedElement);
+            console.log("✅ Screen track attached to display area");
+          }
+          return; // Don't add to participant div
+        }
+
+        // Regular video/audio tracks
+        const attachedElement = track.attach();
+
+        if (track.kind === "video") {
+          attachedElement.className = "w-full h-full object-contain rounded-lg";
+          attachedElement.style.backgroundColor = "#000";
+          attachedElement.autoplay = true;
+          attachedElement.playsInline = true;
+          attachedElement.muted = true;
+        }
+
+        participantDiv.insertBefore(attachedElement, placeholder);
+        updatePlaceholderVisibility();
+
+        attachedElement.addEventListener(
+          "loadeddata",
+          updatePlaceholderVisibility
+        );
+        attachedElement.addEventListener(
+          "playing",
+          updatePlaceholderVisibility
+        );
       }
-    });
 
-    // Listen for new tracks
-    participant.on("trackSubscribed", (track: any) => {
-      console.log("📺 Track subscribed:", track.kind, "name:", track.name);
-      attachTracks([track], participantDiv);
-    });
+      function removeTrack(track: any) {
+        // Handle screen share track removal
+        if (track.name === 'myscreenshare' || track.name === 'screen-share') {
+          console.log("❌ Screen share track removed");
+          setIsScreenSharing(false);
+          if (screenContainerRef.current) {
+            screenContainerRef.current.innerHTML = '';
+          }
+          return;
+        }
 
-    participant.on("trackUnsubscribed", (track: any) => {
-      console.log("❌ Track unsubscribed:", track.kind, "name:", track.name);
+        // Regular track removal
+        const elements = participantDiv.querySelectorAll("video, audio");
+        elements.forEach((el: any) => {
+          if (el.srcObject?.getTracks().includes(track.mediaStreamTrack)) {
+            el.remove();
+          }
+        });
+        updatePlaceholderVisibility();
+      }
 
-      // If it's a screen share being unsubscribed, hide the screen share area
-      if (track.name === 'myscreenshare' || track.name === 'screen-share') {
-        setIsScreenSharing(false);
-        if (screenContainerRef.current) {
-          screenContainerRef.current.innerHTML = '';
+      if (trackPublication.track) {
+        displayTrack(trackPublication.track);
+      }
+
+      trackPublication.on("subscribed", displayTrack);
+      trackPublication.on("unsubscribed", removeTrack);
+      trackPublication.on("disabled", updatePlaceholderVisibility);
+      trackPublication.on("enabled", updatePlaceholderVisibility);
+    };
+
+    participant.tracks.forEach(handleTrackPublication);
+    participant.on("trackPublished", handleTrackPublication);
+    participant.on("trackUnpublished", (publication: any) => {
+      if (publication.track) {
+        if (publication.track.name === 'myscreenshare' || publication.track.name === 'screen-share') {
+          setIsScreenSharing(false);
+          if (screenContainerRef.current) {
+            screenContainerRef.current.innerHTML = '';
+          }
+        } else {
+          const elements = participantDiv.querySelectorAll("video, audio");
+          elements.forEach((el: any) => el.remove());
         }
       }
-
-      detachTracks([track]);
+      updatePlaceholderVisibility();
     });
+
+    updatePlaceholderVisibility();
   };
 
-  const handleParticipantDisconnected = (participant: any) => {
-    console.log("👋 Participant disconnected:", participant.identity);
-    setParticipants((prev) => prev.filter((id) => id !== participant.identity));
-    const participantDiv = document.getElementById(participant.sid);
+  const handleDisconnectedParticipant = (participant: any) => {
+    const participantDiv = document.getElementById(participant.identity);
     if (participantDiv) {
       participantDiv.remove();
     }
@@ -158,60 +220,65 @@ export default function VideoMeetingPage() {
       return;
     }
 
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol !== "https:" &&
+      window.location.hostname !== "localhost"
+    ) {
+      setError(
+        "Video calls require a secure connection (HTTPS). Please use HTTPS to access this page."
+      );
+      return;
+    }
+
     setIsConnecting(true);
     setError(null);
 
     try {
-      console.log("🔑 Getting access token...");
+      if (videoContainerRef.current) {
+        videoContainerRef.current.innerHTML = "";
+      }
+
       const response = await accessTokenMutation.mutateAsync({
         roomName: roomName,
       });
 
       const token = response.data.data;
-      console.log("✅ Token received");
 
-      console.log("🎥 Creating local video track...");
-      const localTracks = await window.Twilio.Video.createLocalTracks({
-        audio: true,
-        video: { width: 640, height: 480 },
-      });
-      console.log("✅ Local tracks created:", localTracks.length);
-
-      console.log("🔗 Connecting to room...");
       const connectedRoom = await window.Twilio.Video.connect(token, {
-        name: roomName,
-        tracks: localTracks,
+        room: roomName,
       });
 
-      console.log("✅ Connected to room:", connectedRoom.name);
       setRoom(connectedRoom);
 
-      // Attach local video
-      const localVideoTrack: any = Array.from(connectedRoom.localParticipant.videoTracks.values())[0];
-      if (localVideoTrack && localVideoRef.current) {
-        const videoElement = localVideoTrack.track.attach();
-        videoElement.className = 'w-full h-full object-cover';
-        videoElement.autoplay = true;
-        videoElement.playsInline = true;
-        localVideoRef.current.appendChild(videoElement);
-        console.log("✅ Local video attached");
-      }
+      handleConnectedParticipant(connectedRoom.localParticipant, true);
+      connectedRoom.participants.forEach((participant: any) =>
+        handleConnectedParticipant(participant, false)
+      );
+      connectedRoom.on("participantConnected", (participant: any) =>
+        handleConnectedParticipant(participant, false)
+      );
 
-      // Handle existing participants
-      connectedRoom.participants.forEach(handleParticipantConnected);
+      connectedRoom.on(
+        "participantDisconnected",
+        handleDisconnectedParticipant
+      );
 
-      // Handle new participants
-      connectedRoom.on("participantConnected", handleParticipantConnected);
-      connectedRoom.on("participantDisconnected", handleParticipantDisconnected);
-
-      connectedRoom.on("disconnected", () => {
-        console.log("❌ Disconnected from room");
+      connectedRoom.on("disconnected", (room: any, error: any) => {
+        if (error) {
+          setError(`Disconnected: ${error.message}`);
+        }
         setRoom(null);
-        setParticipants([]);
+
+        if (videoContainerRef.current) {
+          videoContainerRef.current.innerHTML = "";
+        }
       });
 
+      window.addEventListener("pagehide", () => connectedRoom.disconnect());
+      window.addEventListener("beforeunload", () => connectedRoom.disconnect());
     } catch (err: any) {
-      console.error("❌ Error joining room:", err);
+      console.error("Error joining room:", err);
       setError(err.message || "Failed to join room");
     } finally {
       setIsConnecting(false);
@@ -228,12 +295,15 @@ export default function VideoMeetingPage() {
         }
       });
       setLocalAudioEnabled(!localAudioEnabled);
-      console.log("🎤 Audio:", !localAudioEnabled ? "ON" : "OFF");
     }
   };
 
   const toggleVideo = () => {
     if (room && room.localParticipant) {
+      const participantDiv = document.getElementById(
+        room.localParticipant.identity
+      );
+
       room.localParticipant.videoTracks.forEach((publication: any) => {
         if (!publication.trackName?.includes("screen")) {
           if (localVideoEnabled) {
@@ -243,8 +313,27 @@ export default function VideoMeetingPage() {
           }
         }
       });
+
       setLocalVideoEnabled(!localVideoEnabled);
-      console.log("📹 Video:", !localVideoEnabled ? "ON" : "OFF");
+
+      if (participantDiv) {
+        setTimeout(() => {
+          const videos = participantDiv.querySelectorAll("video");
+          videos.forEach((video: any) => {
+            video.style.display = localVideoEnabled ? "none" : "block";
+          });
+
+          const placeholder = participantDiv.querySelector(
+            ".absolute.inset-0"
+          ) as HTMLElement;
+          if (placeholder) {
+            const hasVisibleVideo = Array.from(videos).some(
+              (v: any) => v.style.display !== "none" && v.readyState >= 2
+            );
+            placeholder.style.display = hasVisibleVideo ? "none" : "flex";
+          }
+        }, 100);
+      }
     }
   };
 
@@ -257,42 +346,36 @@ export default function VideoMeetingPage() {
     try {
       console.log("🖥️ Starting screen share...");
 
-      // Get screen stream using getDisplayMedia (Twilio docs approach)
+      // Get screen stream
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: 15 }
       });
 
-      // Create LocalVideoTrack from the screen stream
+      // Create Twilio LocalVideoTrack from screen stream
       const screenTrack = new window.Twilio.Video.LocalVideoTrack(
         stream.getTracks()[0],
         { name: 'myscreenshare' }
       );
 
-      // Set state first to show the container
-      setIsScreenSharing(true);
+      screenTrackRef.current = screenTrack;
 
-      // Small delay to ensure container is rendered
+      // Display locally first
+      setIsScreenSharing(true);
       setTimeout(() => {
         if (screenContainerRef.current) {
-          screenContainerRef.current.innerHTML = ''; // Clear previous
+          screenContainerRef.current.innerHTML = '';
           const videoElement = screenTrack.attach();
           videoElement.className = 'w-full h-full object-contain bg-black';
           videoElement.autoplay = true;
           videoElement.playsInline = true;
           videoElement.muted = true;
           screenContainerRef.current.appendChild(videoElement);
-          console.log("✅ Local screen attached to display", videoElement);
-
-          // Log video element state
-          videoElement.addEventListener('loadedmetadata', () => {
-            console.log("📹 Screen video loaded:", videoElement.videoWidth, "x", videoElement.videoHeight);
-          });
+          console.log("✅ Local screen attached");
         }
       }, 100);
 
       // Publish to room so others can see
       await room.localParticipant.publishTrack(screenTrack);
-      screenTrackRef.current = screenTrack;
       console.log("✅ Screen sharing published to room");
 
       // Handle when user stops sharing via browser UI
@@ -306,18 +389,17 @@ export default function VideoMeetingPage() {
       if (err.name !== "NotAllowedError" && err.name !== "AbortError") {
         setError("Failed to share screen. Please try again.");
       }
+      setIsScreenSharing(false);
     }
   };
 
   const stopScreenShare = () => {
     if (screenTrackRef.current && room) {
-      // Unpublish from room (following Twilio docs)
       room.localParticipant.unpublishTrack(screenTrackRef.current);
       screenTrackRef.current.stop();
       screenTrackRef.current = null;
       setIsScreenSharing(false);
 
-      // Clear the display
       if (screenContainerRef.current) {
         screenContainerRef.current.innerHTML = '';
       }
@@ -327,7 +409,6 @@ export default function VideoMeetingPage() {
   };
 
   const leaveRoom = () => {
-    console.log("👋 Leaving room...");
     if (screenTrackRef.current) {
       stopScreenShare();
     }
@@ -366,7 +447,6 @@ export default function VideoMeetingPage() {
       />
 
       <div className="h-screen bg-gray-950 text-white flex flex-col overflow-hidden">
-        {/* Header */}
         <div className="bg-gray-900 border-b border-gray-800 px-4 md:px-6 py-4 flex-shrink-0">
           <div className="w-full flex items-center justify-between">
             <div className="min-w-0 flex-1">
@@ -389,16 +469,39 @@ export default function VideoMeetingPage() {
                 <span className="flex items-center gap-2 px-2 md:px-3 py-1 md:py-1.5 bg-green-500/20 text-green-400 rounded-full text-xs md:text-sm">
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
                   <span className="hidden sm:inline">Connected</span>
+                  <span className="sm:hidden">●</span>
                 </span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-auto p-4">
+        <div className="w-full px-4 md:px-6 py-4 flex-1 overflow-hidden">
+          {!isSecureContext && (
+            <div className="mb-6 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-6">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                  <span className="text-yellow-400 text-xl">🔒</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-yellow-400 font-medium mb-2">
+                    Secure Connection Required
+                  </h3>
+                  <p className="text-yellow-300 text-sm mb-2">
+                    Video calls require a secure HTTPS connection, especially on
+                    mobile devices.
+                  </p>
+                  <p className="text-yellow-300 text-sm">
+                    Please access this page using <strong>https://</strong>{" "}
+                    instead of http://
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {error && (
-            <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-lg p-6 max-w-2xl mx-auto">
+            <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-lg p-6">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
                   <span className="text-red-400 text-xl">⚠️</span>
@@ -421,7 +524,7 @@ export default function VideoMeetingPage() {
           )}
 
           {!twilioLoaded && (
-            <div className="flex items-center justify-center h-96">
+            <div className="flex items-center justify-center py-20">
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-500" />
                 <p className="text-gray-400">Loading video SDK...</p>
@@ -430,7 +533,7 @@ export default function VideoMeetingPage() {
           )}
 
           {isConnecting && (
-            <div className="flex items-center justify-center h-96">
+            <div className="flex items-center justify-center py-20">
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-500" />
                 <p className="text-gray-400">Connecting to room...</p>
@@ -438,134 +541,103 @@ export default function VideoMeetingPage() {
             </div>
           )}
 
-          {room && (
-            <div className="max-w-7xl mx-auto">
-              {/* Screen Share Display Area - Shows when anyone is sharing */}
-              {isScreenSharing && (
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-2 px-2">
-                    <div className="flex items-center gap-2">
-                      <Monitor className="w-5 h-5 text-blue-400" />
-                      <span className="text-blue-400 font-medium text-sm">Screen Share</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></span>
-                      <span className="text-blue-400 text-xs">Active</span>
-                    </div>
-                  </div>
-                  <div
-                    ref={screenContainerRef}
-                    className="bg-black rounded-lg overflow-hidden w-full aspect-video border-2 border-blue-500/30"
-                  >
-                    {/* Screen tracks will be attached here */}
-                  </div>
-                </div>
-              )}
-
-              {/* Video Participants Section - Always Visible */}
-              <div>
-                <div className="flex items-center gap-2 mb-3 px-2">
-                  <Video className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-400 text-sm font-medium">
-                    Participants ({participants.length + 1})
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Local Video - Always visible */}
-                  <div className="relative bg-gray-800 rounded-lg overflow-hidden aspect-video">
-                    <div ref={localVideoRef as any} className="w-full h-full">
-                      {/* Local video will be attached here */}
-                    </div>
-                    <div className="absolute bottom-2 left-2 bg-black/70 text-white px-3 py-1 rounded-full text-sm z-10">
-                      You {!localVideoEnabled && "(Video Off)"}
-                    </div>
-                    {!localVideoEnabled && (
-                      <div className="absolute inset-0 bg-gray-900 flex items-center justify-center z-5">
-                        <VideoOff className="w-16 h-16 text-gray-600" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Remote Videos Container - Always visible */}
-                  <div ref={remoteVideoRef} className="contents">
-                    {/* Remote participant videos will be added here */}
-                  </div>
-
-                  {/* Placeholder when waiting for participants */}
-                  {participants.length === 0 && (
-                    <div className="bg-gray-800 rounded-lg aspect-video flex items-center justify-center border border-gray-700">
-                      <div className="text-center">
-                        <Video className="w-12 h-12 mx-auto mb-2 text-gray-600" />
-                        <p className="text-gray-400 text-sm">Waiting for others...</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+          {/* Screen Share Display - Appears above videos when active */}
+          {isScreenSharing && (
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-2 px-2">
+                <Monitor className="w-5 h-5 text-blue-400" />
+                <span className="text-blue-400 font-medium text-sm">Screen Share</span>
+                <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse ml-auto"></span>
+              </div>
+              <div
+                ref={screenContainerRef}
+                className="bg-black rounded-lg overflow-hidden w-full aspect-video border-2 border-blue-500/30"
+              >
+                {/* Screen tracks will be attached here */}
               </div>
             </div>
           )}
+
+          <div className="w-full h-full flex items-center justify-center">
+            <div
+              ref={videoContainerRef}
+              className="w-full h-full max-h-full bg-gray-900 rounded-lg overflow-hidden
+                         flex flex-col gap-2
+                         md:relative md:flex-none md:aspect-video"
+            />
+
+            {room && videoContainerRef.current?.children.length === 0 && (
+              <div className="text-center py-16 bg-gray-900/50 rounded-lg border border-gray-800">
+                <Video className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+                <p className="text-gray-400 text-lg">
+                  Waiting for others to join...
+                </p>
+                <p className="text-gray-500 text-sm mt-2">
+                  Share the meeting link with participants
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Controls */}
         {room && (
-          <div className="bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 px-4 py-4">
-            <div className="max-w-md mx-auto flex items-center justify-center gap-3">
+          <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 px-4 md:px-6 py-4 md:py-5 z-50">
+            <div className="w-full max-w-6xl mx-auto flex items-center justify-center gap-3 md:gap-4">
               <Button
                 onClick={toggleAudio}
                 size="lg"
-                className={`rounded-full w-14 h-14 ${localAudioEnabled
+                className={`rounded-full w-12 h-12 md:w-14 md:h-14 ${localAudioEnabled
                   ? "bg-gray-700 hover:bg-gray-600"
                   : "bg-red-600 hover:bg-red-700"
                   }`}
                 title={localAudioEnabled ? "Mute" : "Unmute"}
               >
                 {localAudioEnabled ? (
-                  <Mic className="w-6 h-6" />
+                  <Mic className="w-5 h-5 md:w-6 md:h-6" />
                 ) : (
-                  <MicOff className="w-6 h-6" />
+                  <MicOff className="w-5 h-5 md:w-6 md:h-6" />
                 )}
               </Button>
 
               <Button
                 onClick={toggleVideo}
                 size="lg"
-                className={`rounded-full w-14 h-14 ${localVideoEnabled
+                className={`rounded-full w-12 h-12 md:w-14 md:h-14 ${localVideoEnabled
                   ? "bg-gray-700 hover:bg-gray-600"
                   : "bg-red-600 hover:bg-red-700"
                   }`}
                 title={localVideoEnabled ? "Turn off camera" : "Turn on camera"}
               >
                 {localVideoEnabled ? (
-                  <Video className="w-6 h-6" />
+                  <Video className="w-5 h-5 md:w-6 md:h-6" />
                 ) : (
-                  <VideoOff className="w-6 h-6" />
+                  <VideoOff className="w-5 h-5 md:w-6 md:h-6" />
                 )}
               </Button>
 
               <Button
                 onClick={isScreenSharing ? stopScreenShare : shareScreen}
                 size="lg"
-                className={`rounded-full w-14 h-14 ${isScreenSharing
+                className={`rounded-full w-12 h-12 md:w-14 md:h-14 ${isScreenSharing
                   ? "bg-blue-600 hover:bg-blue-700"
                   : "bg-gray-700 hover:bg-gray-600"
                   }`}
                 title={isScreenSharing ? "Stop sharing" : "Share screen"}
               >
                 {isScreenSharing ? (
-                  <MonitorOff className="w-6 h-6" />
+                  <MonitorOff className="w-5 h-5 md:w-6 md:h-6" />
                 ) : (
-                  <Monitor className="w-6 h-6" />
+                  <Monitor className="w-5 h-5 md:w-6 md:h-6" />
                 )}
               </Button>
 
               <Button
                 onClick={leaveRoom}
                 size="lg"
-                className="rounded-full w-14 h-14 bg-red-600 hover:bg-red-700"
+                className="rounded-full w-12 h-12 md:w-14 md:h-14 bg-red-600 hover:bg-red-700"
                 title="Leave meeting"
               >
-                <PhoneOff className="w-6 h-6" />
+                <PhoneOff className="w-5 h-5 md:w-6 md:h-6" />
               </Button>
             </div>
           </div>
