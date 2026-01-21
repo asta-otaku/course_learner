@@ -27,6 +27,8 @@ export default function VideoMeetingPage() {
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
   const [isSecureContext, setIsSecureContext] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isLocalScreenSharing, setIsLocalScreenSharing] = useState(false);
+  const [screenSharerName, setScreenSharerName] = useState<string>("");
 
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const screenContainerRef = useRef<HTMLDivElement>(null);
@@ -114,21 +116,52 @@ export default function VideoMeetingPage() {
 
     const handleTrackPublication = (trackPublication: any) => {
       function displayTrack(track: any) {
+        console.log(`📺 Displaying track: ${track.kind} (${track.name}) from ${isLocal ? 'local' : 'remote'}`);
+
         // Check if this is a screen share track
         if (track.name === 'myscreenshare' || track.name === 'screen-share') {
           console.log("🖥️ Screen share track detected from", isLocal ? "local" : "remote");
           setIsScreenSharing(true);
 
-          if (screenContainerRef.current) {
-            screenContainerRef.current.innerHTML = ''; // Clear previous
-            const attachedElement = track.attach();
-            attachedElement.className = "w-full h-full object-contain bg-black";
-            attachedElement.autoplay = true;
-            attachedElement.playsInline = true;
-            attachedElement.muted = true;
-            screenContainerRef.current.appendChild(attachedElement);
-            console.log("✅ Screen track attached to display area");
+          // Track who is sharing
+          if (isLocal) {
+            setIsLocalScreenSharing(true);
+            setScreenSharerName("You");
+          } else {
+            setIsLocalScreenSharing(false);
+            setScreenSharerName(participant.identity || "Remote participant");
           }
+
+          // Use setTimeout to ensure the container is rendered after state update
+          setTimeout(() => {
+            if (screenContainerRef.current) {
+              console.log("📦 Screen container found, attaching track...");
+              screenContainerRef.current.innerHTML = ''; // Clear previous
+              const attachedElement = track.attach();
+              attachedElement.className = "w-full h-full object-contain bg-black";
+              attachedElement.autoplay = true;
+              attachedElement.playsInline = true;
+              attachedElement.muted = true;
+
+              screenContainerRef.current.appendChild(attachedElement);
+              console.log("✅ Screen track attached to display area", attachedElement);
+
+              // Log video element state
+              attachedElement.addEventListener('loadedmetadata', () => {
+                console.log("📹 Screen video loaded:", attachedElement.videoWidth, "x", attachedElement.videoHeight);
+              });
+
+              attachedElement.addEventListener('playing', () => {
+                console.log("▶️ Screen video is playing");
+              });
+
+              attachedElement.addEventListener('error', (e: any) => {
+                console.error("❌ Screen video error:", e);
+              });
+            } else {
+              console.error("❌ screenContainerRef.current is null after timeout!");
+            }
+          }, 100);
           return; // Don't add to participant div
         }
 
@@ -157,10 +190,14 @@ export default function VideoMeetingPage() {
       }
 
       function removeTrack(track: any) {
+        console.log(`❌ Removing track: ${track.kind} (${track.name})`);
+
         // Handle screen share track removal
         if (track.name === 'myscreenshare' || track.name === 'screen-share') {
           console.log("❌ Screen share track removed");
           setIsScreenSharing(false);
+          setIsLocalScreenSharing(false);
+          setScreenSharerName("");
           if (screenContainerRef.current) {
             screenContainerRef.current.innerHTML = '';
           }
@@ -177,22 +214,42 @@ export default function VideoMeetingPage() {
         updatePlaceholderVisibility();
       }
 
+      // For remote participants, track might not be subscribed yet
       if (trackPublication.track) {
+        console.log(`✅ Track already available: ${trackPublication.track.kind}`);
         displayTrack(trackPublication.track);
+      } else {
+        console.log(`⏳ Waiting for track subscription...`);
       }
 
-      trackPublication.on("subscribed", displayTrack);
+      // Listen for when the track gets subscribed (important for remote participants!)
+      trackPublication.on("subscribed", (track: any) => {
+        console.log(`✅ Track subscribed: ${track.kind} (${track.name})`);
+        displayTrack(track);
+      });
+
       trackPublication.on("unsubscribed", removeTrack);
       trackPublication.on("disabled", updatePlaceholderVisibility);
       trackPublication.on("enabled", updatePlaceholderVisibility);
     };
 
+    // Handle existing tracks
     participant.tracks.forEach(handleTrackPublication);
-    participant.on("trackPublished", handleTrackPublication);
+
+    // Listen for new tracks being published (critical for screen sharing!)
+    participant.on("trackPublished", (trackPublication: any) => {
+      console.log(`📢 Track published: ${trackPublication.kind}`);
+      handleTrackPublication(trackPublication);
+    });
+
+    // Handle track unpublishing
     participant.on("trackUnpublished", (publication: any) => {
+      console.log(`📢 Track unpublished: ${publication.kind}`);
       if (publication.track) {
         if (publication.track.name === 'myscreenshare' || publication.track.name === 'screen-share') {
           setIsScreenSharing(false);
+          setIsLocalScreenSharing(false);
+          setScreenSharerName("");
           if (screenContainerRef.current) {
             screenContainerRef.current.innerHTML = '';
           }
@@ -376,6 +433,8 @@ export default function VideoMeetingPage() {
 
       // Publish to room so others can see
       await room.localParticipant.publishTrack(screenTrack);
+      setIsLocalScreenSharing(true);
+      setScreenSharerName("You");
       console.log("✅ Screen sharing published to room");
 
       // Handle when user stops sharing via browser UI
@@ -399,6 +458,8 @@ export default function VideoMeetingPage() {
       screenTrackRef.current.stop();
       screenTrackRef.current = null;
       setIsScreenSharing(false);
+      setIsLocalScreenSharing(false);
+      setScreenSharerName("");
 
       if (screenContainerRef.current) {
         screenContainerRef.current.innerHTML = '';
@@ -546,14 +607,24 @@ export default function VideoMeetingPage() {
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-2 px-2">
                 <Monitor className="w-5 h-5 text-blue-400" />
-                <span className="text-blue-400 font-medium text-sm">Screen Share</span>
+                <span className="text-blue-400 font-medium text-sm">
+                  {screenSharerName} {isLocalScreenSharing ? "are" : "is"} sharing screen
+                </span>
                 <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse ml-auto"></span>
               </div>
               <div
                 ref={screenContainerRef}
-                className="bg-black rounded-lg overflow-hidden w-full aspect-video border-2 border-blue-500/30"
+                className="bg-black rounded-lg overflow-hidden w-full aspect-video border-2 border-blue-500/30 relative"
               >
                 {/* Screen tracks will be attached here */}
+                {!screenContainerRef.current?.children.length && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-blue-400" />
+                      <p className="text-gray-400 text-sm">Loading screen share...</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -616,15 +687,21 @@ export default function VideoMeetingPage() {
               </Button>
 
               <Button
-                onClick={isScreenSharing ? stopScreenShare : shareScreen}
+                onClick={isLocalScreenSharing ? stopScreenShare : shareScreen}
                 size="lg"
-                className={`rounded-full w-12 h-12 md:w-14 md:h-14 ${isScreenSharing
+                className={`rounded-full w-12 h-12 md:w-14 md:h-14 ${isLocalScreenSharing
                   ? "bg-blue-600 hover:bg-blue-700"
                   : "bg-gray-700 hover:bg-gray-600"
                   }`}
-                title={isScreenSharing ? "Stop sharing" : "Share screen"}
+                title={
+                  isLocalScreenSharing
+                    ? "Stop sharing"
+                    : isScreenSharing
+                      ? "Take over screen sharing"
+                      : "Share screen"
+                }
               >
-                {isScreenSharing ? (
+                {isLocalScreenSharing ? (
                   <MonitorOff className="w-5 h-5 md:w-6 md:h-6" />
                 ) : (
                   <Monitor className="w-5 h-5 md:w-6 md:h-6" />
