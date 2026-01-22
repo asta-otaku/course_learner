@@ -12,7 +12,7 @@ import { toast } from "react-toastify";
 import { TutorChangeRequestDialog } from "./tutor-change-request-dialog";
 import {
   useGetLibrary,
-  useGetChildLessons,
+  useGetChildLastAccessedLessons,
   useGetCurricula,
 } from "@/lib/api/queries";
 import {
@@ -95,11 +95,10 @@ function TuitionHome() {
     setProfileSelectedCurriculumId,
   ]);
 
-  // Fetch lessons for the selected curriculum
-  const { data: lessonsData } = useGetChildLessons(
+  // Fetch last accessed lessons for the selected curriculum
+  const { data: lessonsData } = useGetChildLastAccessedLessons(
     activeProfile?.id || "",
-    selectedCurriculumId,
-    undefined // No sectionId needed
+    selectedCurriculumId
   );
 
   // Get selected curriculum details

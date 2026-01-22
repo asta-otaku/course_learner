@@ -852,6 +852,18 @@ export const useGetChildLessons = (
   });
 };
 
+export const useGetChildLastAccessedLessons = (childId: string,
+  curriculumId: string) => {
+  return useQuery({
+    queryKey: ["child-last-accessed-lessons", childId, curriculumId],
+    queryFn: async (): Promise<APIGetResponse<ChildLesson[]>> => {
+      const response = await axiosInstance.get(`/library/${childId}/curriculums/${curriculumId}/continue-lessons`);
+      return response.data;
+    },
+    enabled: !!childId && !!curriculumId,
+  });
+}
+
 // Analytics Queries
 export const useGetAnalytics = () => {
   return useQuery({
