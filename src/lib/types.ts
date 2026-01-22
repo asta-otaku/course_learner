@@ -569,7 +569,7 @@ export interface TimeSlot {
 
 export interface DayAvailability {
   [day: string]: TimeSlot[];
-} 
+}
 
 export interface ParentDetails {
   id: string
@@ -662,11 +662,11 @@ export interface QuestionAnswer {
 export interface QuestionQueryOptions {
   search?: string;
   type?:
-    | "multiple_choice"
-    | "true_false"
-    | "fill_in_the_gap"
-    | "matching_pairs"
-    | "free_text";
+  | "multiple_choice"
+  | "true_false"
+  | "fill_in_the_gap"
+  | "matching_pairs"
+  | "free_text";
   difficulty?: number;
   difficultyMin?: number;
   difficultyMax?: number;
@@ -731,6 +731,7 @@ export interface CurriculumProgress {
 
 export interface LibraryCurriculum {
   id: string;
+  imageUrl: string;
   title: string;
   description: string;
   durationWeeks: number;
