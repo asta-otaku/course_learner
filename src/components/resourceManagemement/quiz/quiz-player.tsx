@@ -20,7 +20,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "react-toastify";
-import { usePostSubmitQuiz, usePostSubmitHomework } from "@/lib/api/mutations";
+import {
+  usePostSubmitQuiz,
+  usePostSubmitHomework,
+  usePostSubmitQuizQuestionDynamic,
+} from "@/lib/api/mutations";
 import { useGetQuizQuestions, useGetQuiz } from "@/lib/api/queries";
 import {
   ChevronLeft,
@@ -112,6 +116,15 @@ type NavigationPosition = {
   questionIndex: number; // For question and explanation, this is the question index. For transition, it's the position.
 };
 
+function shuffleArray<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 export function QuizPlayer({
   quizId,
   isTestMode = false,
@@ -140,11 +153,15 @@ export function QuizPlayer({
     useState<SubmissionResults | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [shouldAutoSubmit, setShouldAutoSubmit] = useState(false);
+  const [immediateQuestionResults, setImmediateQuestionResults] = useState<
+    Record<string, QuizResult>
+  >({});
 
-  // Fetch quiz data for homework to get timeLimit
-  const { data: quizResponse } = useGetQuiz(isHomework && quizId ? quizId : "");
+  // Fetch quiz data for timeLimit and feedbackMode (needed for both regular and homework)
+  const { data: quizResponse } = useGetQuiz(quizId || "");
   const quiz = quizResponse?.data;
   const quizTimeLimit = propTimeLimit ?? quiz?.timeLimit;
+  const isImmediateFeedback = quiz?.feedbackMode === "immediate";
 
   // Determine the actual time limit to use (only if > 0)
   const actualTimeLimit =
@@ -179,12 +196,57 @@ export function QuizPlayer({
   const { mutate: submitHomework, isPending: isSubmittingHomework } =
     usePostSubmitHomework(homeworkId || "", attemptId || "");
 
+  // Submit single question (for immediate feedback mode only)
+  const {
+    mutate: submitQuestion,
+    isPending: isSubmittingQuestion,
+  } = usePostSubmitQuizQuestionDynamic(quizId, attemptId || "");
+
   // Get transition for a specific position (0-based, so position 1 means before question 1, etc.)
   const getTransitionForPosition = (
     position: number
   ): QuizTransition | undefined => {
     // No transitions for now, can be added later if needed
     return undefined;
+  };
+
+  // Serialize answer for the submit-question API (immediate feedback mode)
+  const serializeAnswerForApi = (
+    question: QuizQuestion,
+    answer: string | Record<string, string>
+  ): string => {
+    if (typeof answer === "string") {
+      if (question.question.type === "true_false") {
+        const option = question.question.options?.find((o) => o.id === answer);
+        return option ? option.text.toLowerCase() : answer;
+      }
+      return answer;
+    }
+    return JSON.stringify(answer);
+  };
+
+  // Parse submit-question API response into QuizResult for display
+  const parseQuestionSubmitResponse = (
+    questionId: string,
+    response: any
+  ): QuizResult | null => {
+    const data = response?.data?.data ?? response?.data;
+    if (!data) return null;
+    const result = data.result ?? data;
+    return {
+      questionId,
+      userAnswerContent: result.userAnswerContent ?? result.userAnswerContent,
+      userAnswerId: result.userAnswerId ?? result.userAnswerId,
+      correctAnswers: Array.isArray(result.correctAnswers)
+        ? result.correctAnswers
+        : result.correctAnswers
+          ? [{ id: "", content: result.correctAnswers }]
+          : [],
+      isCorrect: Boolean(result.isCorrect),
+      pointsEarned: Number(result.pointsEarned ?? 0),
+      pointsPossible: Number(result.pointsPossible ?? 1),
+      feedback: result.feedback,
+    };
   };
 
   // Get the actual question index being shown (for display purposes)
@@ -281,8 +343,20 @@ export function QuizPlayer({
         },
       }));
 
+    // Always shuffle multiple choice / true-false options so correct answer isn't always in same position
+    const withShuffledOptions = transformedQuestions.map((q) => ({
+      ...q,
+      question: {
+        ...q.question,
+        options:
+          q.question.options && q.question.options.length > 0
+            ? shuffleArray(q.question.options)
+            : q.question.options,
+      },
+    }));
+
     // Apply randomization if enabled
-    let orderedQuestions = [...transformedQuestions];
+    let orderedQuestions = [...withShuffledOptions];
     if (quizSettings.randomizeQuestions) {
       orderedQuestions = orderedQuestions.sort(() => Math.random() - 0.5);
     }
@@ -403,6 +477,9 @@ export function QuizPlayer({
     questionId: string,
     answer: string | Record<string, string>
   ) => {
+    if (isImmediateFeedback && immediateQuestionResults[questionId]) {
+      return; // Already submitted, no editing
+    }
     setAnswers((prev) => {
       const newAnswers = {
         ...prev,
@@ -410,6 +487,41 @@ export function QuizPlayer({
       };
       return newAnswers;
     });
+
+    // Immediate feedback: submit MC/true_false as soon as user selects
+    if (
+      isImmediateFeedback &&
+      attemptId &&
+      !immediateQuestionResults[questionId]
+    ) {
+      const q = questions.find((qu) => qu.question.id === questionId);
+      if (
+        q &&
+        (q.question.type === "multiple_choice" || q.question.type === "true_false")
+      ) {
+        const payload = serializeAnswerForApi(q, answer);
+        submitQuestion(
+          { questionId, answer: payload },
+          {
+            onSuccess: (res) => {
+              const result = parseQuestionSubmitResponse(questionId, res);
+              if (result) {
+                setImmediateQuestionResults((prev) => ({
+                  ...prev,
+                  [questionId]: result,
+                }));
+                toast.success(
+                  result.isCorrect ? "Correct!" : "Submitted. Check feedback below."
+                );
+              }
+            },
+            onError: () => {
+              toast.error("Failed to submit answer. Please try again.");
+            },
+          }
+        );
+      }
+    }
   };
 
   const handleNext = () => {
@@ -428,8 +540,20 @@ export function QuizPlayer({
     if (currentPosition.type === "question") {
       const currentQ = questions[currentQuestionIndex];
 
-      // Check if this question has an explanation and user has answered it
-      if (currentQ.explanation && answers[currentQ.question.id]) {
+      // Immediate feedback mode: must have submitted current question before next
+      if (
+        isImmediateFeedback &&
+        !immediateQuestionResults[currentQ.question.id]
+      ) {
+        return;
+      }
+
+      // In immediate mode we skip the explanation step (feedback already shown)
+      if (
+        !isImmediateFeedback &&
+        currentQ.explanation &&
+        answers[currentQ.question.id]
+      ) {
         setCurrentPosition({
           type: "explanation",
           questionIndex: currentQuestionIndex,
@@ -439,6 +563,9 @@ export function QuizPlayer({
 
       // Check if we're at the last question
       if (currentQuestionIndex >= questions.length - 1) {
+        if (isImmediateFeedback && allQuestionsSubmittedInImmediateMode) {
+          setShowSubmitDialog(true);
+        }
         return; // Can't go further
       }
 
@@ -525,14 +652,17 @@ export function QuizPlayer({
     const lastQuestionIndex = questions.length - 1;
     const lastQuestion = questions[lastQuestionIndex];
 
-    // If last question has an explanation and user has answered it, go to explanation
-    if (lastQuestion.explanation && answers[lastQuestion.question.id]) {
+    // In immediate feedback we skip explanation step; otherwise go to explanation if available
+    if (
+      !isImmediateFeedback &&
+      lastQuestion.explanation &&
+      answers[lastQuestion.question.id]
+    ) {
       setCurrentPosition({
         type: "explanation",
         questionIndex: lastQuestionIndex,
       });
     } else {
-      // Otherwise go to last question
       setCurrentPosition({
         type: "question",
         questionIndex: lastQuestionIndex,
@@ -637,6 +767,11 @@ export function QuizPlayer({
   };
 
   const handleQuestionNavigation = (index: number) => {
+    // Immediate feedback: no skipping — only allow up to current question
+    if (isImmediateFeedback && index > getCurrentQuestionIndex()) {
+      return;
+    }
+
     // In test mode, only allow navigation to unanswered questions or current/future questions
     if (
       isTestMode &&
@@ -794,8 +929,11 @@ export function QuizPlayer({
   }).length;
   const progress = (answeredCount / questions.length) * 100;
 
-  // Get result for a specific question
+  // Get result for a specific question (from full submission or immediate per-question submit)
   const getQuestionResult = (questionId: string): QuizResult | undefined => {
+    if (isImmediateFeedback && immediateQuestionResults[questionId]) {
+      return immediateQuestionResults[questionId];
+    }
     if (!submissionResults) return undefined;
     return submissionResults.results.find((r) => r.questionId === questionId);
   };
@@ -907,9 +1045,15 @@ export function QuizPlayer({
 
   const currentQuestionIndex = getCurrentQuestionIndex();
   const currentQ = questions[currentQuestionIndex] || questions[0]; // Fallback for edge cases
-  const currentResult = showResults
-    ? getQuestionResult(currentQ.question.id)
-    : undefined;
+  const currentResult = getQuestionResult(currentQ.question.id);
+  const isCurrentQuestionSubmitted =
+    isImmediateFeedback && Boolean(immediateQuestionResults[currentQ.question.id]);
+  const showCorrectnessForCurrent =
+    Boolean(currentResult) && (showResults || isCurrentQuestionSubmitted);
+  const allQuestionsSubmittedInImmediateMode =
+    isImmediateFeedback &&
+    questions.length > 0 &&
+    questions.every((q) => immediateQuestionResults[q.question.id]);
 
   // Results Summary View
   if (showResults && submissionResults) {
@@ -1333,6 +1477,9 @@ export function QuizPlayer({
                     {isTestMode && (
                       <Badge variant="destructive">TEST MODE</Badge>
                     )}
+                    {isImmediateFeedback && (
+                      <Badge variant="secondary">Immediate feedback</Badge>
+                    )}
                   </div>
                 </div>
                 {timeRemaining !== null && (
@@ -1488,8 +1635,21 @@ export function QuizPlayer({
                     )}
                   </div>
 
+                  {/* Immediate feedback notice */}
+                  {isImmediateFeedback && (
+                    <Alert className="mb-4 border-amber-200 bg-amber-50">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <AlertDescription>
+                        <strong>Immediate feedback:</strong> Answer each
+                        question in order. You cannot skip or change your answer
+                        after submitting. At the end, click &quot;Finish quiz&quot;
+                        to see your total score.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {/* Test Mode Notice */}
-                  {isTestMode && (
+                  {isTestMode && !isImmediateFeedback && (
                     <Alert className="mb-4">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
@@ -1521,17 +1681,19 @@ export function QuizPlayer({
                       onValueChange={(value) =>
                         handleAnswerChange(currentQ.question.id, value)
                       }
-                      disabled={showResults}
+                      disabled={
+                        showResults || isCurrentQuestionSubmitted
+                      }
                     >
                       <div className="space-y-3">
                         {currentQ.question.options?.map((option) => {
                           const isSelected =
                             answers[currentQ.question.id] === option.id;
                           const isCorrect =
-                            currentResult?.correctAnswers.some(
+                            currentResult?.correctAnswers?.some(
                               (ans) => ans.id === option.id
                             ) || false;
-                          const showCorrectness = showResults && currentResult;
+                          const showCorrectness = showCorrectnessForCurrent;
 
                           return (
                             <div
@@ -1555,7 +1717,7 @@ export function QuizPlayer({
                               <RadioGroupItem
                                 value={option.id}
                                 id={option.id}
-                                disabled={showResults}
+                                disabled={showResults || isCurrentQuestionSubmitted}
                               />
                               <Label
                                 htmlFor={option.id}
@@ -1582,20 +1744,76 @@ export function QuizPlayer({
                   {/* Matching Questions */}
                   {currentQ.question.type === "matching_pairs" &&
                     currentQ.question.pairs && (
-                      <MatchingQuestion
-                        questionId={currentQ.question.id}
-                        pairs={currentQ.question.pairs}
-                        value={
-                          (answers[currentQ.question.id] as Record<
-                            string,
-                            string
-                          >) || {}
-                        }
-                        onChange={(matches) =>
-                          handleAnswerChange(currentQ.question.id, matches)
-                        }
-                        disabled={showResults}
-                      />
+                      <>
+                        <MatchingQuestion
+                          questionId={currentQ.question.id}
+                          pairs={currentQ.question.pairs}
+                          value={
+                            (answers[currentQ.question.id] as Record<
+                              string,
+                              string
+                            >) || {}
+                          }
+                          onChange={(matches) =>
+                            handleAnswerChange(currentQ.question.id, matches)
+                          }
+                          disabled={
+                            showResults || isCurrentQuestionSubmitted
+                          }
+                        />
+                        {isImmediateFeedback &&
+                          !isCurrentQuestionSubmitted &&
+                          Object.keys(
+                            (answers[currentQ.question.id] as Record<
+                              string,
+                              string
+                            >) || {}
+                          ).length > 0 && (
+                          <Button
+                            onClick={() => {
+                              const ans = answers[currentQ.question.id];
+                              if (ans == null) return;
+                              const payload = serializeAnswerForApi(
+                                currentQ,
+                                ans
+                              );
+                              submitQuestion(
+                                {
+                                  questionId: currentQ.question.id,
+                                  answer: payload,
+                                },
+                                {
+                                  onSuccess: (res) => {
+                                    const result = parseQuestionSubmitResponse(
+                                      currentQ.question.id,
+                                      res
+                                    );
+                                    if (result) {
+                                      setImmediateQuestionResults((prev) => ({
+                                        ...prev,
+                                        [currentQ.question.id]: result,
+                                      }));
+                                      toast.success(
+                                        result.isCorrect
+                                          ? "Correct!"
+                                          : "Submitted. Check feedback below."
+                                      );
+                                    }
+                                  },
+                                  onError: () => {
+                                    toast.error(
+                                      "Failed to submit answer. Please try again."
+                                    );
+                                  },
+                                }
+                              );
+                            }}
+                            disabled={isSubmittingQuestion}
+                          >
+                            {isSubmittingQuestion ? "Submitting..." : "Submit answer"}
+                          </Button>
+                        )}
+                      </>
                     )}
 
                   {/* Free Text, Short Answer, Long Answer, and Coding Questions */}
@@ -1612,6 +1830,7 @@ export function QuizPlayer({
                         }
                         disabled={
                           showResults ||
+                          isCurrentQuestionSubmitted ||
                           (isTestMode &&
                             answeredQuestions.has(currentQuestionIndex))
                         }
@@ -1631,23 +1850,143 @@ export function QuizPlayer({
                               : "Enter your answer here..."
                         }
                       />
-                      {showResults && currentResult && (
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium text-green-700">
+                      {isImmediateFeedback &&
+                        !isCurrentQuestionSubmitted &&
+                        (answers[currentQ.question.id] as string)?.trim() && (
+                        <Button
+                          onClick={() => {
+                            const ans = answers[currentQ.question.id];
+                            if (ans == null || typeof ans !== "string") return;
+                            submitQuestion(
+                              {
+                                questionId: currentQ.question.id,
+                                answer: ans,
+                              },
+                              {
+                                onSuccess: (res) => {
+                                  const result = parseQuestionSubmitResponse(
+                                    currentQ.question.id,
+                                    res
+                                  );
+                                  if (result) {
+                                    setImmediateQuestionResults((prev) => ({
+                                      ...prev,
+                                      [currentQ.question.id]: result,
+                                    }));
+                                    toast.success(
+                                      result.isCorrect
+                                        ? "Correct!"
+                                        : "Submitted. Check feedback below."
+                                    );
+                                  }
+                                },
+                                onError: () => {
+                                  toast.error(
+                                    "Failed to submit answer. Please try again."
+                                  );
+                                },
+                              }
+                            );
+                          }}
+                          disabled={isSubmittingQuestion}
+                        >
+                          {isSubmittingQuestion
+                            ? "Submitting..."
+                            : "Submit answer"}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Immediate feedback: show result, correct answer (if wrong), and feedback for all question types */}
+                  {(showResults || showCorrectnessForCurrent) &&
+                    currentResult && (
+                    <div className="space-y-4 mt-6 pt-6 border-t">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={
+                            currentResult.isCorrect ? "default" : "destructive"
+                          }
+                          className="flex items-center gap-2"
+                        >
+                          {currentResult.isCorrect ? (
+                            <>
+                              <CheckCircle className="h-4 w-4" />
+                              Correct
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-4 w-4" />
+                              Incorrect
+                            </>
+                          )}
+                          <span className="ml-1">
+                            {currentResult.pointsEarned}/
+                            {currentResult.pointsPossible} points
+                          </span>
+                        </Badge>
+                      </div>
+                      {!currentResult.isCorrect &&
+                        currentResult.correctAnswers?.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium text-green-700 mb-2">
                             Correct Answer
                             {currentResult.correctAnswers.length > 1 ? "s" : ""}
                             :
                           </p>
                           <div className="p-3 bg-green-50 rounded-lg border border-green-300">
-                            {currentResult.correctAnswers.map((ans, idx) => (
-                              <p
-                                key={idx}
-                                className="text-sm text-green-900 whitespace-pre-wrap"
-                              >
-                                {ans.content.toString()}
+                            {currentQ.question.type === "matching_pairs" &&
+                            typeof currentResult.correctAnswers[0]?.content ===
+                              "object" ? (
+                              <div className="space-y-2">
+                                {Object.entries(
+                                  currentResult.correctAnswers[0]
+                                    .content as Record<string, string>
+                                ).map(([left, right]) => (
+                                  <div
+                                    key={left}
+                                    className="p-2 bg-white rounded border border-green-200"
+                                  >
+                                    <span className="font-medium">{left}</span> →{" "}
+                                    <span>{right}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-green-900 whitespace-pre-wrap">
+                                {getCorrectAnswerText(currentQ, currentResult)}
                               </p>
-                            ))}
+                            )}
                           </div>
+                        </div>
+                      )}
+                      {currentResult.feedback && (
+                        <div>
+                          <p className="text-sm font-medium mb-2">Feedback:</p>
+                          <Alert className="border-amber-200 bg-amber-50">
+                            <AlertCircle className="h-4 w-4 text-amber-600" />
+                            <AlertDescription>
+                              <p className="text-amber-800 whitespace-pre-wrap">
+                                {(() => {
+                                  try {
+                                    const parsed = JSON.parse(
+                                      currentResult.feedback
+                                    );
+                                    if (
+                                      parsed &&
+                                      typeof parsed === "object" &&
+                                      parsed.feedback
+                                    ) {
+                                      return parsed.feedback;
+                                    }
+                                  } catch {
+                                    // Not JSON, use as is
+                                  }
+                                  return currentResult.feedback;
+                                })()}
+                              </p>
+                            </AlertDescription>
+                          </Alert>
                         </div>
                       )}
                     </div>
@@ -1693,8 +2032,13 @@ export function QuizPlayer({
                       {currentQuestionIndex === questions.length - 1 ? (
                         <Button
                           onClick={() => {
+                            if (isImmediateFeedback && allQuestionsSubmittedInImmediateMode) {
+                              setShowSubmitDialog(true);
+                              return;
+                            }
                             // Check if last question has an explanation and user has answered it
                             if (
+                              !isImmediateFeedback &&
                               currentQ.explanation &&
                               answers[currentQ.question.id] &&
                               currentPosition.type === "question"
@@ -1706,11 +2050,13 @@ export function QuizPlayer({
                           }}
                           disabled={isSubmittingQuiz || isSubmittingHomework}
                         >
-                          {currentQ.explanation &&
-                          answers[currentQ.question.id] &&
-                          currentPosition.type === "question"
-                            ? "Next"
-                            : "Submit Quiz"}
+                          {isImmediateFeedback && allQuestionsSubmittedInImmediateMode
+                            ? "Finish quiz"
+                            : currentQ.explanation &&
+                                answers[currentQ.question.id] &&
+                                currentPosition.type === "question"
+                              ? "Next"
+                              : "Submit Quiz"}
                         </Button>
                       ) : (
                         <Button onClick={handleNext}>
@@ -1723,6 +2069,8 @@ export function QuizPlayer({
                         size="icon"
                         onClick={handleLast}
                         disabled={
+                          (isImmediateFeedback &&
+                            !allQuestionsSubmittedInImmediateMode) ||
                           ((currentPosition as any).type === "explanation" &&
                             currentQuestionIndex === questions.length - 1) ||
                           (currentPosition.type === "question" &&
@@ -1780,9 +2128,10 @@ export function QuizPlayer({
                   currentPosition.type === "explanation" &&
                   currentPosition.questionIndex === index;
                 const isDisabled =
-                  isTestMode &&
-                  answeredQuestions.has(index) &&
-                  index < currentQuestionIndex;
+                  (isTestMode &&
+                    answeredQuestions.has(index) &&
+                    index < currentQuestionIndex) ||
+                  (isImmediateFeedback && index > currentQuestionIndex);
                 const result = showResults
                   ? getQuestionResult(q.question.id)
                   : undefined;
@@ -1863,8 +2212,8 @@ export function QuizPlayer({
                       ) : null}
                     </button>
 
-                    {/* Explanation (if exists and question is answered) */}
-                    {hasExplanation && isAnswered && (
+                    {/* Explanation (if exists and question is answered; hidden in immediate feedback mode) */}
+                    {!isImmediateFeedback && hasExplanation && isAnswered && (
                       <button
                         onClick={() =>
                           setCurrentPosition({
@@ -1990,7 +2339,7 @@ export function QuizPlayer({
               onClick={() => {
                 handleSubmit();
               }}
-              disabled={isSubmittingQuiz}
+              disabled={isSubmittingQuiz || isSubmittingHomework}
             >
               Yes, submit
             </AlertDialogAction>

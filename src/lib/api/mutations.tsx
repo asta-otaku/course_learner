@@ -1039,6 +1039,27 @@ export const usePostSubmitQuiz = (id: string, attemptId: string) => {
   });
 };
 
+
+export const usePostSubmitQuizQuestionDynamic = (id: string, attemptId: string) => {
+  return useMutation({
+    mutationKey: ["post-submit-quiz-question-dynamic", id, attemptId],
+    mutationFn: ({
+      questionId,
+      answer,
+    }: {
+      questionId: string;
+      answer: string;
+    }): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.post(
+        `/quizzes/${id}/attempt/${attemptId}/question/${questionId}/submit`,
+        { answer }
+      ),
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
 export const usePatchAddQuizFeedback = (questionAttemptId: string) => {
   return useMutation({
     mutationKey: ["patch-add-quiz-feedback", questionAttemptId],
