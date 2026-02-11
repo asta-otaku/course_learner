@@ -151,8 +151,8 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
                 Year
               </option>
               {years.map((y) => (
-                <option key={y} value={y}>
-                  {y}
+                <option key={y} value={`Year ${y}`}>
+                  Year {y}
                 </option>
               ))}
             </select>

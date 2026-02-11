@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createQuizSchema, type CreateQuizInput } from "@/lib/validations/quiz";
-import { usePostQuiz } from "@/lib/api/mutations";
+import { usePostQuiz, usePostBaselineTest } from "@/lib/api/mutations";
+import type { BaselinelineTestCreateData } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,17 +20,33 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, AlertCircle } from "lucide-react";
 import { toast } from "react-toastify";
+
+const YEAR_GROUPS = ["Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6"] as const;
 
 interface CreateQuizFormProps {}
 
 export function CreateQuizForm({}: CreateQuizFormProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const isBaselineTest = searchParams.get("isBaselineTest") === "true";
 
-  // Use the React Query mutation
+  const [error, setError] = useState<string | null>(null);
+  const [yearGroup, setYearGroup] = useState("");
+
   const createQuizMutation = usePostQuiz();
+  const createBaselineTestMutation = usePostBaselineTest();
+  const activeMutation = isBaselineTest
+    ? createBaselineTestMutation
+    : createQuizMutation;
 
   const {
     register,
@@ -39,7 +56,7 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
   } = useForm<CreateQuizInput>({
     resolver: zodResolver(createQuizSchema),
     defaultValues: {
-      title: "",
+      title: isBaselineTest ? "Baseline Test" : "",
       description: "",
       tags: [],
       settings: {
@@ -56,22 +73,65 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
   const onSubmit = async (data: CreateQuizInput) => {
     setError(null);
 
+    if (isBaselineTest) {
+      const trimmedYearGroup = yearGroup.trim();
+      if (!trimmedYearGroup) {
+        setError("Year group is required for baseline tests.");
+        return;
+      }
+      try {
+        const settings: Record<string, unknown> = {};
+        if (data.settings) {
+          if (data.settings.timeLimit !== undefined)
+            settings.timeLimit = data.settings.timeLimit;
+          if (data.settings.randomizeQuestions !== undefined)
+            settings.randomizeQuestions = data.settings.randomizeQuestions;
+          if (data.settings.feedbackMode)
+            settings.feedbackMode = data.settings.feedbackMode;
+          if (data.settings.availableFrom?.trim())
+            settings.availableFrom = data.settings.availableFrom;
+          if (data.settings.availableUntil?.trim())
+            settings.availableUntil = data.settings.availableUntil;
+        }
+        const payload: BaselinelineTestCreateData = {
+          yearGroup: trimmedYearGroup,
+          ...(data.description && { description: data.description }),
+          ...(data.settings?.passingScore !== undefined && {
+            masteryThreshold: data.settings.passingScore,
+          }),
+          ...(Object.keys(settings).length > 0 && {
+            quizSettings: settings as unknown as BaselinelineTestCreateData["quizSettings"],
+          }),
+        };
+        const result = await createBaselineTestMutation.mutateAsync(payload);
+        if (result.status === 200 || result.status === 201) {
+          toast.success(result.data.message);
+          const quizId = (result.data?.data as { quizId?: string })?.quizId;
+          if (quizId) {
+            router.push(`/admin/quizzes/${quizId}/edit`);
+          } else {
+            router.push("/admin/quizzes");
+          }
+        }
+      } catch (err) {
+        console.error("Error creating baseline test:", err);
+        setError("An unexpected error occurred");
+      }
+      return;
+    }
+
     try {
-      // Build the payload conforming to QuizUpdateData
       const payload: any = {
         title: data.title,
         description: data.description,
       };
 
-      // Add tags if provided
       if (data.tags && data.tags.length > 0) {
         payload.tags = data.tags;
       }
 
-      // Add settings if any are provided
       if (data.settings) {
         const settings: any = {};
-
         if (data.settings.timeLimit !== undefined) {
           settings.timeLimit = data.settings.timeLimit;
         }
@@ -90,8 +150,6 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
         if (data.settings.availableUntil?.trim()) {
           settings.availableUntil = data.settings.availableUntil;
         }
-
-        // Only include settings if at least one setting is defined
         if (Object.keys(settings).length > 0) {
           payload.settings = settings;
         }
@@ -103,8 +161,8 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
         toast.success(result.data.message);
         router.push(`/admin/quizzes/${result.data?.data?.id}/edit`);
       }
-    } catch (error) {
-      console.error("Error creating quiz:", error);
+    } catch (err) {
+      console.error("Error creating quiz:", err);
       setError("An unexpected error occurred");
     }
   };
@@ -113,27 +171,59 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
+          <CardTitle>
+            {isBaselineTest ? "Baseline Test Details" : "Basic Information"}
+          </CardTitle>
           <CardDescription>
-            Provide the essential details for your quiz. You'll add questions in
-            the next step.
+            {isBaselineTest
+              ? "Provide the year group and description. You'll add questions in the next step."
+              : "Provide the essential details for your quiz. You'll add questions in the next step."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="title">Quiz Title *</Label>
-            <Input
-              id="title"
-              {...register("title")}
-              placeholder="Enter quiz title"
-              className={errors.title ? "border-destructive" : ""}
-            />
-            {errors.title && (
-              <p className="text-sm text-destructive mt-1">
-                {errors.title.message}
+          {isBaselineTest && (
+            <div>
+              <Label htmlFor="yearGroup">Year Group *</Label>
+              <Select
+                value={yearGroup}
+                onValueChange={setYearGroup}
+              >
+                <SelectTrigger
+                  id="yearGroup"
+                  className={error && !yearGroup ? "border-destructive" : ""}
+                >
+                  <SelectValue placeholder="Select year group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {YEAR_GROUPS.map((yg) => (
+                    <SelectItem key={yg} value={yg}>
+                      {yg}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground mt-1">
+                The year group this baseline test is for
               </p>
-            )}
-          </div>
+            </div>
+          )}
+
+          {!isBaselineTest && (
+            <div>
+              <Label htmlFor="title">Quiz Title *</Label>
+              <Input
+                id="title"
+                {...register("title")}
+                placeholder="Enter quiz title"
+                className={errors.title ? "border-destructive" : ""}
+              />
+              {errors.title && (
+                <p className="text-sm text-destructive mt-1">
+                  {errors.title.message}
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <Label htmlFor="description">Description *</Label>
@@ -330,11 +420,11 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
         <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancel
         </Button>
-        <Button type="submit" disabled={createQuizMutation.isPending}>
-          {createQuizMutation.isPending && (
+        <Button type="submit" disabled={activeMutation.isPending}>
+          {activeMutation.isPending && (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           )}
-          Create Quiz
+          {isBaselineTest ? "Create Baseline Test" : "Create Quiz"}
         </Button>
       </div>
     </form>

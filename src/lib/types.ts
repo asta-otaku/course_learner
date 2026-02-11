@@ -20,6 +20,7 @@ export interface QuizSettings {
   maxAttempts: number;
   passingScore: number;
   showFeedback: boolean;
+  feedbackMode?: "immediate" | "after_completion" | "delayed_random" | "manual_tutor_review";
   allowRetakes: boolean;
   allowReview: boolean;
   availableFrom: string;
@@ -105,6 +106,86 @@ export interface QuizUpdateData {
   status?: "draft" | "published" | "archived";
   questions?: QuizQuestionOperation[];
 }
+
+export interface QuizPlayerQuestionImageSettings {
+  width?: string;
+  height?: string;
+  alignment?: "left" | "center" | "right";
+  size_mode?: "auto" | "custom" | "percentage";
+  max_height?: string;
+  object_fit?: "contain" | "cover" | "fill" | "scale-down";
+}
+
+export interface QuizPlayerQuestionItem {
+  id: string;
+  title: string;
+  content: string;
+  type: string;
+  image?: string;
+  image_url?: string;
+  imageSettings?: QuizPlayerQuestionImageSettings;
+  options?: Array<{ id: string; text: string }>;
+  pairs?: Array<{ id: string; left: string; right: string }>;
+  correctAnswer?: string | Record<string, string>;
+}
+
+/** Transformed question shape used by QuizPlayer (one item in the questions list). */
+export interface QuizPlayerQuestion {
+  id: string;
+  order: number;
+  explanation?: string;
+  correct_feedback?: string;
+  incorrect_feedback?: string;
+  question: QuizPlayerQuestionItem;
+}
+
+export interface QuizTransition {
+  id: string;
+  position: number;
+  content: string;
+}
+
+export interface QuizPlayerProps {
+  quizId: string;
+  quizAttemptId?: string | null;
+  attemptNumber?: number;
+  isTestMode?: boolean;
+  attemptId?: string | null;
+  isHomework?: boolean;
+  homeworkId?: string;
+  isBaselineTest?: boolean;
+  baselineTestId?: string;
+  timeLimit?: number;
+}
+
+export interface QuizQuestionResult {
+  questionId: string;
+  userAnswerContent?: string;
+  userAnswerId?: string;
+  correctAnswers: Array<{
+    id: string;
+    content: string | Record<string, string>;
+  }>;
+  isCorrect: boolean;
+  pointsEarned: number;
+  pointsPossible: number;
+  feedback?: string;
+}
+
+export interface QuizSubmissionResults {
+  attemptId: string;
+  quizId: string;
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  results: QuizQuestionResult[];
+  timeSpent: number;
+}
+
+export type QuizNavigationPosition = {
+  type: "transition" | "question" | "explanation";
+  questionIndex: number;
+};
 
 export interface VideoTopic {
   title: string;
@@ -893,6 +974,20 @@ export interface Section {
     title: string;
     orderIndex: number;
   }[]
+}
+
+export interface BaselineTest {
+  id: string;
+  quizId: string;
+  title: string;
+  yearGroup: string
+}
+
+export interface BaselinelineTestCreateData {
+  yearGroup: string;
+  description?: string;
+  masteryThreshold?: number;
+  quizSettings?: QuizSettings;
 }
 
 // Export socket types

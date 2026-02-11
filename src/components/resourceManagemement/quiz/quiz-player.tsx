@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,121 +9,47 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { toast } from "react-toastify";
 import {
   usePostSubmitQuiz,
   usePostSubmitHomework,
   usePostSubmitQuizQuestionDynamic,
+  usePostSubmitBaselineTest,
 } from "@/lib/api/mutations";
 import { useGetQuizQuestions, useGetQuiz } from "@/lib/api/queries";
 import {
   ChevronLeft,
   ChevronRight,
-  Clock,
   AlertCircle,
   CheckCircle,
-  Circle,
   ChevronFirst,
   ChevronLast,
   XCircle,
-  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MatchingQuestion } from "./matching-question";
 import { FreeTextInput } from "./free-text-input";
 import { QuestionImage } from "@/components/ui/question-image";
-import type { QuestionImageMetadata } from "@/lib/image-utils";
-
-interface QuizQuestion {
-  id: string;
-  order: number;
-  explanation?: string;
-  correct_feedback?: string;
-  incorrect_feedback?: string;
-  question: {
-    id: string;
-    title: string;
-    content: string;
-    type: string;
-    image?: string;
-    image_url?: string; // Legacy support
-    imageSettings?: {
-      width?: string;
-      height?: string;
-      alignment?: "left" | "center" | "right";
-      size_mode?: "auto" | "custom" | "percentage";
-      max_height?: string;
-      object_fit?: "contain" | "cover" | "fill" | "scale-down";
-    };
-    options?: Array<{ id: string; text: string }>;
-    pairs?: Array<{ id: string; left: string; right: string }>;
-    correctAnswer?: string | Record<string, string>;
-  };
-}
-
-interface QuizTransition {
-  id: string;
-  position: number;
-  content: string;
-}
-
-interface QuizPlayerProps {
-  quizId: string;
-  attemptNumber?: number;
-  isTestMode?: boolean;
-  attemptId?: string | null;
-  isHomework?: boolean;
-  homeworkId?: string;
-  timeLimit?: number; // Time limit in minutes (passed from parent for regular quizzes)
-}
-
-interface QuizResult {
-  questionId: string;
-  userAnswerContent?: string;
-  userAnswerId?: string;
-  correctAnswers: Array<{
-    id: string;
-    content: string | Record<string, string>;
-  }>;
-  isCorrect: boolean;
-  pointsEarned: number;
-  pointsPossible: number;
-  feedback?: string;
-}
-
-interface SubmissionResults {
-  attemptId: string;
-  quizId: string;
-  score: number;
-  totalPoints: number;
-  percentage: number;
-  results: QuizResult[];
-  timeSpent: number;
-}
-
-type NavigationPosition = {
-  type: "transition" | "question" | "explanation";
-  questionIndex: number; // For question and explanation, this is the question index. For transition, it's the position.
-};
-
-function shuffleArray<T>(arr: T[]): T[] {
-  const out = [...arr];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
+import { QuizPlayerTimer } from "./quiz-player-timer";
+import { QuizPlayerResultsStats } from "./quiz-player-results-stats";
+import { QuizPlayerSubmitDialog } from "./quiz-player-submit-dialog";
+import type {
+  QuizPlayerProps,
+  QuizPlayerQuestion,
+  QuizTransition,
+  QuizQuestionResult,
+  QuizSubmissionResults,
+  QuizNavigationPosition,
+} from "@/lib/types";
+import {
+  DEFAULT_QUIZ_PLAYER_SETTINGS,
+  shuffleArray,
+  buildQuizSubmissionResults,
+  parseQuizFeedbackText,
+  serializeQuizAnswerForApi,
+  parseQuizQuestionSubmitResponse,
+  getCorrectAnswerText,
+} from "@/lib/utils";
 
 export function QuizPlayer({
   quizId,
@@ -131,10 +57,13 @@ export function QuizPlayer({
   attemptId,
   isHomework = false,
   homeworkId,
+  isBaselineTest = false,
+  baselineTestId,
   timeLimit: propTimeLimit,
+  quizAttemptId,
 }: QuizPlayerProps) {
   const router = useRouter();
-  const [currentPosition, setCurrentPosition] = useState<NavigationPosition>({
+  const [currentPosition, setCurrentPosition] = useState<QuizNavigationPosition>({
     type: "question",
     questionIndex: 0,
   });
@@ -145,16 +74,16 @@ export function QuizPlayer({
   const [timeSpent, setTimeSpent] = useState<number>(0); // Time spent in minutes
   const [quizStartTime, setQuizStartTime] = useState<number | null>(null);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
-  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [questions, setQuestions] = useState<QuizPlayerQuestion[]>([]);
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(
     new Set()
   );
   const [submissionResults, setSubmissionResults] =
-    useState<SubmissionResults | null>(null);
+    useState<QuizSubmissionResults | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [shouldAutoSubmit, setShouldAutoSubmit] = useState(false);
   const [immediateQuestionResults, setImmediateQuestionResults] = useState<
-    Record<string, QuizResult>
+    Record<string, QuizQuestionResult>
   >({});
 
   // Fetch quiz data for timeLimit and feedbackMode (needed for both regular and homework)
@@ -167,14 +96,9 @@ export function QuizPlayer({
   const actualTimeLimit =
     quizTimeLimit && quizTimeLimit > 0 ? quizTimeLimit : undefined;
 
-  // Default quiz settings
   const quizSettings = {
+    ...DEFAULT_QUIZ_PLAYER_SETTINGS,
     timeLimit: actualTimeLimit,
-    randomizeQuestions: false,
-    showCorrectAnswers: true,
-    maxAttempts: 3,
-    passingScore: 70,
-    examMode: false,
   };
 
   // Fetch questions only when attemptId is available (quiz has started)
@@ -196,60 +120,25 @@ export function QuizPlayer({
   const { mutate: submitHomework, isPending: isSubmittingHomework } =
     usePostSubmitHomework(homeworkId || "", attemptId || "");
 
+  const { mutate: submitBaselineTest, isPending: isSubmittingBaselineTest } =
+    usePostSubmitBaselineTest(baselineTestId || "", attemptId || "");
+
+  // For baseline (immediate feedback), per-question submit uses quizAttemptId; final submit uses attemptId (baselineAttemptId)
+  const attemptIdForQuestionSubmit =
+    isBaselineTest && quizAttemptId ? quizAttemptId : (attemptId || "");
+
   // Submit single question (for immediate feedback mode only)
   const {
     mutate: submitQuestion,
     isPending: isSubmittingQuestion,
-  } = usePostSubmitQuizQuestionDynamic(quizId, attemptId || "");
+  } = usePostSubmitQuizQuestionDynamic(quizId, attemptIdForQuestionSubmit);
 
-  // Get transition for a specific position (0-based, so position 1 means before question 1, etc.)
   const getTransitionForPosition = (
     position: number
   ): QuizTransition | undefined => {
-    // No transitions for now, can be added later if needed
     return undefined;
   };
 
-  // Serialize answer for the submit-question API (immediate feedback mode)
-  const serializeAnswerForApi = (
-    question: QuizQuestion,
-    answer: string | Record<string, string>
-  ): string => {
-    if (typeof answer === "string") {
-      if (question.question.type === "true_false") {
-        const option = question.question.options?.find((o) => o.id === answer);
-        return option ? option.text.toLowerCase() : answer;
-      }
-      return answer;
-    }
-    return JSON.stringify(answer);
-  };
-
-  // Parse submit-question API response into QuizResult for display
-  const parseQuestionSubmitResponse = (
-    questionId: string,
-    response: any
-  ): QuizResult | null => {
-    const data = response?.data?.data ?? response?.data;
-    if (!data) return null;
-    const result = data.result ?? data;
-    return {
-      questionId,
-      userAnswerContent: result.userAnswerContent ?? result.userAnswerContent,
-      userAnswerId: result.userAnswerId ?? result.userAnswerId,
-      correctAnswers: Array.isArray(result.correctAnswers)
-        ? result.correctAnswers
-        : result.correctAnswers
-          ? [{ id: "", content: result.correctAnswers }]
-          : [],
-      isCorrect: Boolean(result.isCorrect),
-      pointsEarned: Number(result.pointsEarned ?? 0),
-      pointsPossible: Number(result.pointsPossible ?? 1),
-      feedback: result.feedback,
-    };
-  };
-
-  // Get the actual question index being shown (for display purposes)
   const getCurrentQuestionIndex = () => {
     if (
       currentPosition.type === "question" ||
@@ -257,7 +146,6 @@ export function QuizPlayer({
     ) {
       return currentPosition.questionIndex;
     }
-    // For transitions, show the next question index if it's before a question
     return currentPosition.questionIndex;
   };
 
@@ -267,8 +155,8 @@ export function QuizPlayer({
 
     const rawQuestions = questionsResponse.data;
 
-    // Transform questions to QuizQuestion format
-    const transformedQuestions: QuizQuestion[] = rawQuestions
+    // Transform questions to QuizPlayerQuestion format
+    const transformedQuestions: QuizPlayerQuestion[] = rawQuestions
       .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
       .map((qq: any) => ({
         id: qq.id,
@@ -288,35 +176,35 @@ export function QuizPlayer({
           options:
             qq.question.type === "multiple_choice" && qq.question.answers
               ? qq.question.answers
-                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                  .map((answer: any) => ({
-                    id: answer.id,
-                    text: answer.content,
-                    isCorrect: answer.isCorrect,
-                  }))
+                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                .map((answer: any) => ({
+                  id: answer.id,
+                  text: answer.content,
+                  isCorrect: answer.isCorrect,
+                }))
               : [],
           // For true/false questions
           ...(qq.question.type === "true_false" && {
             options: qq.question.answers
               ? qq.question.answers
-                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                  .map((answer: any) => ({
-                    id: answer.id,
-                    text: answer.content,
-                    isCorrect: answer.isCorrect,
-                  }))
+                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                .map((answer: any) => ({
+                  id: answer.id,
+                  text: answer.content,
+                  isCorrect: answer.isCorrect,
+                }))
               : [
-                  {
-                    id: "true",
-                    text: "True",
-                    isCorrect: qq.question.metadata?.correct_answer === true,
-                  },
-                  {
-                    id: "false",
-                    text: "False",
-                    isCorrect: qq.question.metadata?.correct_answer === false,
-                  },
-                ],
+                {
+                  id: "true",
+                  text: "True",
+                  isCorrect: qq.question.metadata?.correct_answer === true,
+                },
+                {
+                  id: "false",
+                  text: "False",
+                  isCorrect: qq.question.metadata?.correct_answer === false,
+                },
+              ],
           }),
           // For matching questions
           ...(qq.question.type === "matching_pairs" && {
@@ -499,12 +387,12 @@ export function QuizPlayer({
         q &&
         (q.question.type === "multiple_choice" || q.question.type === "true_false")
       ) {
-        const payload = serializeAnswerForApi(q, answer);
+        const payload = serializeQuizAnswerForApi(q, answer);
         submitQuestion(
           { questionId, answer: payload },
           {
             onSuccess: (res) => {
-              const result = parseQuestionSubmitResponse(questionId, res);
+              const result = parseQuizQuestionSubmitResponse(questionId, res);
               if (result) {
                 setImmediateQuestionResults((prev) => ({
                   ...prev,
@@ -834,90 +722,56 @@ export function QuizPlayer({
       timeSpent: timeSpent, // Include time spent in minutes
     };
 
-    // Use appropriate submission endpoint based on mode
-    if (isHomework && homeworkId) {
-      // Submit homework
-      submitHomework(submissionData, {
-        onSuccess: (response) => {
-          // Store results and show results view
-          const resultData = response.data?.data as any;
-          if (resultData) {
-            setSubmissionResults({
-              attemptId:
-                resultData.attemptId || resultData.id || attemptId || "",
-              quizId: resultData.quizId || quizId,
-              score: resultData.score || 0,
-              totalPoints: resultData.totalPoints || 0,
-              percentage: resultData.percentage || 0,
-              results: resultData.results || [],
-              timeSpent: resultData.timeSpent || 0,
-            });
-            setShowResults(true);
-            setCurrentPosition({ type: "question", questionIndex: 0 });
-            toast.success("Homework submitted successfully!");
-          } else {
-            // Fallback: redirect if no results data
-            const resultAttemptId =
-              resultData?.id ||
-              resultData?.attemptId ||
-              resultData ||
-              attemptId ||
-              "";
-            router.push(`/quiz-results/${resultAttemptId}`);
-          }
+    const handleSubmissionSuccess = (resultData: any) => {
+      if (resultData) {
+        setSubmissionResults(
+          buildQuizSubmissionResults(resultData, attemptId || "", quizId)
+        );
+        setShowResults(true);
+        setCurrentPosition({ type: "question", questionIndex: 0 });
+        toast.success(successMessage);
+      } else {
+        router.push(
+          `/quiz-results/${resultData?.id || resultData?.attemptId || attemptId || ""}`
+        );
+      }
+    };
+
+    const successMessage =
+      isBaselineTest && baselineTestId
+        ? "Baseline test submitted successfully!"
+        : isHomework && homeworkId
+          ? "Homework submitted successfully!"
+          : "Quiz submitted successfully!";
+
+    if (isBaselineTest && baselineTestId) {
+      submitBaselineTest(submissionData, {
+        onSuccess: (response) =>
+          handleSubmissionSuccess(response.data?.data as any),
+        onError: (error) => {
+          console.error("Error submitting baseline test:", error);
+          toast.error("Failed to submit baseline test. Please try again.");
         },
+      });
+    } else if (isHomework && homeworkId) {
+      submitHomework(submissionData, {
+        onSuccess: (response) =>
+          handleSubmissionSuccess(response.data?.data as any),
         onError: (error) => {
           console.error("Error submitting homework:", error);
           toast.error("Failed to submit homework. Please try again.");
         },
       });
     } else {
-      // Submit regular quiz
       submitQuiz(submissionData, {
-        onSuccess: (response) => {
-          // Store results and show results view
-          const resultData = response.data?.data as any;
-          if (resultData) {
-            setSubmissionResults({
-              attemptId: resultData.attemptId || attemptId || "",
-              quizId: resultData.quizId || quizId,
-              score: resultData.score || 0,
-              totalPoints: resultData.totalPoints || 0,
-              percentage: resultData.percentage || 0,
-              results: resultData.results || [],
-              timeSpent: resultData.timeSpent || 0,
-            });
-            setShowResults(true);
-            setCurrentPosition({ type: "question", questionIndex: 0 });
-            toast.success("Quiz submitted successfully!");
-          } else {
-            // Fallback: redirect if no results data
-            const resultAttemptId =
-              resultData?.id ||
-              resultData?.attemptId ||
-              resultData ||
-              attemptId ||
-              "";
-            router.push(`/quiz-results/${resultAttemptId}`);
-          }
-        },
+        onSuccess: (response) =>
+          handleSubmissionSuccess(response.data?.data as any),
         onError: (error) => {
           console.error("Error submitting quiz:", error);
           toast.error("Failed to submit quiz. Please try again.");
         },
       });
     }
-  };
-
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${minutes}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const formatTimeFromMinutes = (minutes: number) => {
-    const totalSeconds = Math.floor(minutes * 60);
-    return formatTime(totalSeconds);
   };
 
   const answeredCount = Object.entries(answers).filter(([_, answer]) => {
@@ -929,8 +783,7 @@ export function QuizPlayer({
   }).length;
   const progress = (answeredCount / questions.length) * 100;
 
-  // Get result for a specific question (from full submission or immediate per-question submit)
-  const getQuestionResult = (questionId: string): QuizResult | undefined => {
+  const getQuestionResult = (questionId: string): QuizQuestionResult | undefined => {
     if (isImmediateFeedback && immediateQuestionResults[questionId]) {
       return immediateQuestionResults[questionId];
     }
@@ -938,52 +791,11 @@ export function QuizPlayer({
     return submissionResults.results.find((r) => r.questionId === questionId);
   };
 
-  // Get correct answer text for display
-  const getCorrectAnswerText = (
-    question: QuizQuestion,
-    result: QuizResult
-  ): string => {
-    if (result.correctAnswers.length === 0) return "No correct answer";
-
-    // For matching questions, format the object
-    if (
-      question.question.type === "matching_pairs" &&
-      typeof result.correctAnswers[0].content === "object"
-    ) {
-      const matches = result.correctAnswers[0].content as Record<
-        string,
-        string
-      >;
-      return Object.entries(matches)
-        .map(([left, right]) => `${left} → ${right}`)
-        .join("\n");
-    }
-
-    // For multiple choice/true-false, find the option text
-    if (
-      (question.question.type === "multiple_choice" ||
-        question.question.type === "true_false") &&
-      question.question.options
-    ) {
-      const correctAnswer = result.correctAnswers[0];
-      const option = question.question.options.find(
-        (opt) => opt.id === correctAnswer.id
-      );
-      return option?.text || correctAnswer.content.toString();
-    }
-
-    // For free text, return the content
-    return result.correctAnswers
-      .map((ans) => ans.content.toString())
-      .join(" or ");
-  };
-
-  // Get quiz title from questions or use default
   const quizTitle =
     questions.length > 0
       ? questions[0]?.question?.title ||
-        questions[0]?.question?.content ||
-        "Quiz"
+      questions[0]?.question?.content ||
+      "Quiz"
       : "Quiz";
 
   // Show loading state while fetching questions
@@ -1077,55 +889,7 @@ export function QuizPlayer({
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <Trophy className="h-8 w-8 text-blue-600" />
-                    <div>
-                      <p className="text-sm text-blue-600 font-medium">Score</p>
-                      <p className="text-2xl font-bold text-blue-900">
-                        {submissionResults.score.toFixed(2)}/
-                        {submissionResults.totalPoints.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
-                    <CheckCircle className="h-8 w-8 text-green-600" />
-                    <div>
-                      <p className="text-sm text-green-600 font-medium">
-                        Percentage
-                      </p>
-                      <p className="text-2xl font-bold text-green-900">
-                        {submissionResults.percentage.toFixed(2)}%
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <Clock className="h-8 w-8 text-purple-600" />
-                    <div>
-                      <p className="text-sm text-purple-600 font-medium">
-                        Time Spent
-                      </p>
-                      <p className="text-2xl font-bold text-purple-900">
-                        {formatTimeFromMinutes(submissionResults.timeSpent)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                    <AlertCircle className="h-8 w-8 text-orange-600" />
-                    <div>
-                      <p className="text-sm text-orange-600 font-medium">
-                        Correct Answers
-                      </p>
-                      <p className="text-2xl font-bold text-orange-900">
-                        {
-                          submissionResults.results.filter((r) => r.isCorrect)
-                            .length
-                        }
-                        /{submissionResults.results.length}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <QuizPlayerResultsStats submissionResults={submissionResults} />
               </CardContent>
             </Card>
 
@@ -1172,22 +936,22 @@ export function QuizPlayer({
                     </p>
                     {(currentQ.question.image ||
                       currentQ.question.image_url) && (
-                      <QuestionImage
-                        src={
-                          currentQ.question.image ||
-                          currentQ.question.image_url ||
-                          ""
-                        }
-                        alt="Question illustration"
-                        metadata={
-                          currentQ.question.imageSettings
-                            ? {
+                        <QuestionImage
+                          src={
+                            currentQ.question.image ||
+                            currentQ.question.image_url ||
+                            ""
+                          }
+                          alt="Question illustration"
+                          metadata={
+                            currentQ.question.imageSettings
+                              ? {
                                 image_settings: currentQ.question.imageSettings,
                               }
-                            : undefined
-                        }
-                      />
-                    )}
+                              : undefined
+                          }
+                        />
+                      )}
                   </div>
 
                   {/* User's Answer */}
@@ -1195,7 +959,7 @@ export function QuizPlayer({
                     <div>
                       <p className="text-base font-medium mb-2">Your Answer:</p>
                       {currentQ.question.type === "matching_pairs" &&
-                      currentResult.userAnswerContent ? (
+                        currentResult.userAnswerContent ? (
                         <div className="p-4 bg-gray-50 rounded-lg border">
                           {(() => {
                             try {
@@ -1206,7 +970,7 @@ export function QuizPlayer({
                                 typeof currentResult.correctAnswers[0]
                                   .content === "object"
                                   ? (currentResult.correctAnswers[0]
-                                      .content as Record<string, string>)
+                                    .content as Record<string, string>)
                                   : {};
 
                               return (
@@ -1276,13 +1040,13 @@ export function QuizPlayer({
                         >
                           <p className="text-base">
                             {currentQ.question.type === "multiple_choice" ||
-                            currentQ.question.type === "true_false"
+                              currentQ.question.type === "true_false"
                               ? currentQ.question.options?.find(
-                                  (opt) =>
-                                    opt.id ===
-                                    (currentResult.userAnswerId ||
-                                      currentResult.userAnswerContent)
-                                )?.text || currentResult.userAnswerContent
+                                (opt) =>
+                                  opt.id ===
+                                  (currentResult.userAnswerId ||
+                                    currentResult.userAnswerContent)
+                              )?.text || currentResult.userAnswerContent
                               : currentResult.userAnswerContent || "No answer"}
                           </p>
                         </div>
@@ -1298,7 +1062,7 @@ export function QuizPlayer({
                       </p>
                       <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
                         {currentQ.question.type === "matching_pairs" &&
-                        typeof currentResult.correctAnswers[0].content ===
+                          typeof currentResult.correctAnswers[0].content ===
                           "object" ? (
                           <div className="space-y-2">
                             {Object.entries(
@@ -1333,23 +1097,7 @@ export function QuizPlayer({
                         <AlertCircle className="h-4 w-4 text-yellow-600" />
                         <AlertDescription>
                           <p className="text-yellow-800 whitespace-pre-wrap">
-                            {(() => {
-                              try {
-                                const parsed = JSON.parse(
-                                  currentResult.feedback
-                                );
-                                if (
-                                  parsed &&
-                                  typeof parsed === "object" &&
-                                  parsed.feedback
-                                ) {
-                                  return parsed.feedback;
-                                }
-                              } catch {
-                                // Not JSON, use as is
-                              }
-                              return currentResult.feedback;
-                            })()}
+                            {parseQuizFeedbackText(currentResult.feedback)}
                           </p>
                         </AlertDescription>
                       </Alert>
@@ -1483,35 +1231,7 @@ export function QuizPlayer({
                   </div>
                 </div>
                 {timeRemaining !== null && (
-                  <div
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-2 rounded-lg border-2 font-mono transition-colors",
-                      timeRemaining <= 300
-                        ? "bg-red-50 border-red-300 text-red-700"
-                        : timeRemaining <= 600
-                          ? "bg-orange-50 border-orange-300 text-orange-700"
-                          : "bg-blue-50 border-blue-300 text-blue-700"
-                    )}
-                  >
-                    <Clock
-                      className={cn(
-                        "h-5 w-5",
-                        timeRemaining <= 300
-                          ? "text-red-600"
-                          : timeRemaining <= 600
-                            ? "text-orange-600"
-                            : "text-blue-600"
-                      )}
-                    />
-                    <div className="flex flex-col">
-                      <span className="text-xs font-medium opacity-75">
-                        Time Remaining
-                      </span>
-                      <span className="text-xl font-bold">
-                        {formatTime(timeRemaining)}
-                      </span>
-                    </div>
-                  </div>
+                  <QuizPlayerTimer timeRemaining={timeRemaining} />
                 )}
               </div>
             </CardHeader>
@@ -1617,22 +1337,22 @@ export function QuizPlayer({
                     </p>
                     {(currentQ.question.image ||
                       currentQ.question.image_url) && (
-                      <QuestionImage
-                        src={
-                          currentQ.question.image ||
-                          currentQ.question.image_url ||
-                          ""
-                        }
-                        alt="Question illustration"
-                        metadata={
-                          currentQ.question.imageSettings
-                            ? {
+                        <QuestionImage
+                          src={
+                            currentQ.question.image ||
+                            currentQ.question.image_url ||
+                            ""
+                          }
+                          alt="Question illustration"
+                          metadata={
+                            currentQ.question.imageSettings
+                              ? {
                                 image_settings: currentQ.question.imageSettings,
                               }
-                            : undefined
-                        }
-                      />
-                    )}
+                              : undefined
+                          }
+                        />
+                      )}
                   </div>
 
                   {/* Immediate feedback notice */}
@@ -1672,74 +1392,74 @@ export function QuizPlayer({
                   {/* Answer Options */}
                   {(currentQ.question.type === "multiple_choice" ||
                     currentQ.question.type === "true_false") && (
-                    <RadioGroup
-                      value={
-                        typeof answers[currentQ.question.id] === "string"
-                          ? (answers[currentQ.question.id] as string)
-                          : ""
-                      }
-                      onValueChange={(value) =>
-                        handleAnswerChange(currentQ.question.id, value)
-                      }
-                      disabled={
-                        showResults || isCurrentQuestionSubmitted
-                      }
-                    >
-                      <div className="space-y-3">
-                        {currentQ.question.options?.map((option) => {
-                          const isSelected =
-                            answers[currentQ.question.id] === option.id;
-                          const isCorrect =
-                            currentResult?.correctAnswers?.some(
-                              (ans) => ans.id === option.id
-                            ) || false;
-                          const showCorrectness = showCorrectnessForCurrent;
+                      <RadioGroup
+                        value={
+                          typeof answers[currentQ.question.id] === "string"
+                            ? (answers[currentQ.question.id] as string)
+                            : ""
+                        }
+                        onValueChange={(value) =>
+                          handleAnswerChange(currentQ.question.id, value)
+                        }
+                        disabled={
+                          showResults || isCurrentQuestionSubmitted
+                        }
+                      >
+                        <div className="space-y-3">
+                          {currentQ.question.options?.map((option) => {
+                            const isSelected =
+                              answers[currentQ.question.id] === option.id;
+                            const isCorrect =
+                              currentResult?.correctAnswers?.some(
+                                (ans) => ans.id === option.id
+                              ) || false;
+                            const showCorrectness = showCorrectnessForCurrent;
 
-                          return (
-                            <div
-                              key={option.id}
-                              className={cn(
-                                "flex items-center space-x-2 p-3 rounded-lg border transition-colors",
-                                !showResults && "hover:bg-muted/50",
-                                showCorrectness &&
+                            return (
+                              <div
+                                key={option.id}
+                                className={cn(
+                                  "flex items-center space-x-2 p-3 rounded-lg border transition-colors",
+                                  !showResults && "hover:bg-muted/50",
+                                  showCorrectness &&
                                   isCorrect &&
                                   "bg-green-50 border-green-300",
-                                showCorrectness &&
+                                  showCorrectness &&
                                   isSelected &&
                                   !isCorrect &&
                                   "bg-red-50 border-red-300",
-                                showCorrectness &&
+                                  showCorrectness &&
                                   !isSelected &&
                                   !isCorrect &&
                                   "border-gray-200"
-                              )}
-                            >
-                              <RadioGroupItem
-                                value={option.id}
-                                id={option.id}
-                                disabled={showResults || isCurrentQuestionSubmitted}
-                              />
-                              <Label
-                                htmlFor={option.id}
-                                className={cn(
-                                  "flex-1",
-                                  !showResults && "cursor-pointer"
                                 )}
                               >
-                                {option.text}
-                              </Label>
-                              {showCorrectness && isCorrect && (
-                                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                              )}
-                              {showCorrectness && isSelected && !isCorrect && (
-                                <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </RadioGroup>
-                  )}
+                                <RadioGroupItem
+                                  value={option.id}
+                                  id={option.id}
+                                  disabled={showResults || isCurrentQuestionSubmitted}
+                                />
+                                <Label
+                                  htmlFor={option.id}
+                                  className={cn(
+                                    "flex-1",
+                                    !showResults && "cursor-pointer"
+                                  )}
+                                >
+                                  {option.text}
+                                </Label>
+                                {showCorrectness && isCorrect && (
+                                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                )}
+                                {showCorrectness && isSelected && !isCorrect && (
+                                  <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </RadioGroup>
+                    )}
 
                   {/* Matching Questions */}
                   {currentQ.question.type === "matching_pairs" &&
@@ -1769,50 +1489,50 @@ export function QuizPlayer({
                               string
                             >) || {}
                           ).length > 0 && (
-                          <Button
-                            onClick={() => {
-                              const ans = answers[currentQ.question.id];
-                              if (ans == null) return;
-                              const payload = serializeAnswerForApi(
-                                currentQ,
-                                ans
-                              );
-                              submitQuestion(
-                                {
-                                  questionId: currentQ.question.id,
-                                  answer: payload,
-                                },
-                                {
-                                  onSuccess: (res) => {
-                                    const result = parseQuestionSubmitResponse(
-                                      currentQ.question.id,
-                                      res
-                                    );
-                                    if (result) {
-                                      setImmediateQuestionResults((prev) => ({
-                                        ...prev,
-                                        [currentQ.question.id]: result,
-                                      }));
-                                      toast.success(
-                                        result.isCorrect
-                                          ? "Correct!"
-                                          : "Submitted. Check feedback below."
+                            <Button
+                              onClick={() => {
+                                const ans = answers[currentQ.question.id];
+                                if (ans == null) return;
+                                const payload = serializeQuizAnswerForApi(
+                                  currentQ,
+                                  ans
+                                );
+                                submitQuestion(
+                                  {
+                                    questionId: currentQ.question.id,
+                                    answer: payload,
+                                  },
+                                  {
+                                    onSuccess: (res) => {
+                                      const result = parseQuizQuestionSubmitResponse(
+                                        currentQ.question.id,
+                                        res
                                       );
-                                    }
-                                  },
-                                  onError: () => {
-                                    toast.error(
-                                      "Failed to submit answer. Please try again."
-                                    );
-                                  },
-                                }
-                              );
-                            }}
-                            disabled={isSubmittingQuestion}
-                          >
-                            {isSubmittingQuestion ? "Submitting..." : "Submit answer"}
-                          </Button>
-                        )}
+                                      if (result) {
+                                        setImmediateQuestionResults((prev) => ({
+                                          ...prev,
+                                          [currentQ.question.id]: result,
+                                        }));
+                                        toast.success(
+                                          result.isCorrect
+                                            ? "Correct!"
+                                            : "Submitted. Check feedback below."
+                                        );
+                                      }
+                                    },
+                                    onError: () => {
+                                      toast.error(
+                                        "Failed to submit answer. Please try again."
+                                      );
+                                    },
+                                  }
+                                );
+                              }}
+                              disabled={isSubmittingQuestion}
+                            >
+                              {isSubmittingQuestion ? "Submitting..." : "Submit answer"}
+                            </Button>
+                          )}
                       </>
                     )}
 
@@ -1821,176 +1541,160 @@ export function QuizPlayer({
                     currentQ.question.type === "short_answer" ||
                     currentQ.question.type === "long_answer" ||
                     currentQ.question.type === "coding") && (
-                    <div className="space-y-4">
-                      <FreeTextInput
-                        questionId={currentQ.question.id}
-                        value={(answers[currentQ.question.id] as string) || ""}
-                        onChange={(value) =>
-                          handleAnswerChange(currentQ.question.id, value)
-                        }
-                        disabled={
-                          showResults ||
-                          isCurrentQuestionSubmitted ||
-                          (isTestMode &&
-                            answeredQuestions.has(currentQuestionIndex))
-                        }
-                        maxLength={
-                          currentQ.question.type === "short_answer" ? 500 : 5000
-                        }
-                        minHeight={
-                          currentQ.question.type === "short_answer"
-                            ? "50px"
-                            : "100px"
-                        }
-                        placeholder={
-                          currentQ.question.type === "coding"
-                            ? "Enter your code here..."
-                            : currentQ.question.type === "short_answer"
-                              ? "Enter a brief answer..."
-                              : "Enter your answer here..."
-                        }
-                      />
-                      {isImmediateFeedback &&
-                        !isCurrentQuestionSubmitted &&
-                        (answers[currentQ.question.id] as string)?.trim() && (
-                        <Button
-                          onClick={() => {
-                            const ans = answers[currentQ.question.id];
-                            if (ans == null || typeof ans !== "string") return;
-                            submitQuestion(
-                              {
-                                questionId: currentQ.question.id,
-                                answer: ans,
-                              },
-                              {
-                                onSuccess: (res) => {
-                                  const result = parseQuestionSubmitResponse(
-                                    currentQ.question.id,
-                                    res
-                                  );
-                                  if (result) {
-                                    setImmediateQuestionResults((prev) => ({
-                                      ...prev,
-                                      [currentQ.question.id]: result,
-                                    }));
-                                    toast.success(
-                                      result.isCorrect
-                                        ? "Correct!"
-                                        : "Submitted. Check feedback below."
-                                    );
+                      <div className="space-y-4">
+                        <FreeTextInput
+                          questionId={currentQ.question.id}
+                          value={(answers[currentQ.question.id] as string) || ""}
+                          onChange={(value) =>
+                            handleAnswerChange(currentQ.question.id, value)
+                          }
+                          disabled={
+                            showResults ||
+                            isCurrentQuestionSubmitted ||
+                            (isTestMode &&
+                              answeredQuestions.has(currentQuestionIndex))
+                          }
+                          maxLength={
+                            currentQ.question.type === "short_answer" ? 500 : 5000
+                          }
+                          minHeight={
+                            currentQ.question.type === "short_answer"
+                              ? "50px"
+                              : "100px"
+                          }
+                          placeholder={
+                            currentQ.question.type === "coding"
+                              ? "Enter your code here..."
+                              : currentQ.question.type === "short_answer"
+                                ? "Enter a brief answer..."
+                                : "Enter your answer here..."
+                          }
+                        />
+                        {isImmediateFeedback &&
+                          !isCurrentQuestionSubmitted &&
+                          (answers[currentQ.question.id] as string)?.trim() && (
+                            <Button
+                              onClick={() => {
+                                const ans = answers[currentQ.question.id];
+                                if (ans == null || typeof ans !== "string") return;
+                                submitQuestion(
+                                  {
+                                    questionId: currentQ.question.id,
+                                    answer: ans,
+                                  },
+                                  {
+                                    onSuccess: (res) => {
+                                      const result = parseQuizQuestionSubmitResponse(
+                                        currentQ.question.id,
+                                        res
+                                      );
+                                      if (result) {
+                                        setImmediateQuestionResults((prev) => ({
+                                          ...prev,
+                                          [currentQ.question.id]: result,
+                                        }));
+                                        toast.success(
+                                          result.isCorrect
+                                            ? "Correct!"
+                                            : "Submitted. Check feedback below."
+                                        );
+                                      }
+                                    },
+                                    onError: () => {
+                                      toast.error(
+                                        "Failed to submit answer. Please try again."
+                                      );
+                                    },
                                   }
-                                },
-                                onError: () => {
-                                  toast.error(
-                                    "Failed to submit answer. Please try again."
-                                  );
-                                },
-                              }
-                            );
-                          }}
-                          disabled={isSubmittingQuestion}
-                        >
-                          {isSubmittingQuestion
-                            ? "Submitting..."
-                            : "Submit answer"}
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                                );
+                              }}
+                              disabled={isSubmittingQuestion}
+                            >
+                              {isSubmittingQuestion
+                                ? "Submitting..."
+                                : "Submit answer"}
+                            </Button>
+                          )}
+                      </div>
+                    )}
 
                   {/* Immediate feedback: show result, correct answer (if wrong), and feedback for all question types */}
                   {(showResults || showCorrectnessForCurrent) &&
                     currentResult && (
-                    <div className="space-y-4 mt-6 pt-6 border-t">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant={
-                            currentResult.isCorrect ? "default" : "destructive"
-                          }
-                          className="flex items-center gap-2"
-                        >
-                          {currentResult.isCorrect ? (
-                            <>
-                              <CheckCircle className="h-4 w-4" />
-                              Correct
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="h-4 w-4" />
-                              Incorrect
-                            </>
-                          )}
-                          <span className="ml-1">
-                            {currentResult.pointsEarned}/
-                            {currentResult.pointsPossible} points
-                          </span>
-                        </Badge>
-                      </div>
-                      {!currentResult.isCorrect &&
-                        currentResult.correctAnswers?.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium text-green-700 mb-2">
-                            Correct Answer
-                            {currentResult.correctAnswers.length > 1 ? "s" : ""}
-                            :
-                          </p>
-                          <div className="p-3 bg-green-50 rounded-lg border border-green-300">
-                            {currentQ.question.type === "matching_pairs" &&
-                            typeof currentResult.correctAnswers[0]?.content ===
-                              "object" ? (
-                              <div className="space-y-2">
-                                {Object.entries(
-                                  currentResult.correctAnswers[0]
-                                    .content as Record<string, string>
-                                ).map(([left, right]) => (
-                                  <div
-                                    key={left}
-                                    className="p-2 bg-white rounded border border-green-200"
-                                  >
-                                    <span className="font-medium">{left}</span> →{" "}
-                                    <span>{right}</span>
-                                  </div>
-                                ))}
-                              </div>
+                      <div className="space-y-4 mt-6 pt-6 border-t">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={
+                              currentResult.isCorrect ? "default" : "destructive"
+                            }
+                            className="flex items-center gap-2"
+                          >
+                            {currentResult.isCorrect ? (
+                              <>
+                                <CheckCircle className="h-4 w-4" />
+                                Correct
+                              </>
                             ) : (
-                              <p className="text-sm text-green-900 whitespace-pre-wrap">
-                                {getCorrectAnswerText(currentQ, currentResult)}
-                              </p>
+                              <>
+                                <XCircle className="h-4 w-4" />
+                                Incorrect
+                              </>
                             )}
-                          </div>
+                            <span className="ml-1">
+                              {currentResult.pointsEarned}/
+                              {currentResult.pointsPossible} points
+                            </span>
+                          </Badge>
                         </div>
-                      )}
-                      {currentResult.feedback && (
-                        <div>
-                          <p className="text-sm font-medium mb-2">Feedback:</p>
-                          <Alert className="border-amber-200 bg-amber-50">
-                            <AlertCircle className="h-4 w-4 text-amber-600" />
-                            <AlertDescription>
-                              <p className="text-amber-800 whitespace-pre-wrap">
-                                {(() => {
-                                  try {
-                                    const parsed = JSON.parse(
-                                      currentResult.feedback
-                                    );
-                                    if (
-                                      parsed &&
-                                      typeof parsed === "object" &&
-                                      parsed.feedback
-                                    ) {
-                                      return parsed.feedback;
-                                    }
-                                  } catch {
-                                    // Not JSON, use as is
-                                  }
-                                  return currentResult.feedback;
-                                })()}
+                        {!currentResult.isCorrect &&
+                          currentResult.correctAnswers?.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-green-700 mb-2">
+                                Correct Answer
+                                {currentResult.correctAnswers.length > 1 ? "s" : ""}
+                                :
                               </p>
-                            </AlertDescription>
-                          </Alert>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                              <div className="p-3 bg-green-50 rounded-lg border border-green-300">
+                                {currentQ.question.type === "matching_pairs" &&
+                                  typeof currentResult.correctAnswers[0]?.content ===
+                                  "object" ? (
+                                  <div className="space-y-2">
+                                    {Object.entries(
+                                      currentResult.correctAnswers[0]
+                                        .content as Record<string, string>
+                                    ).map(([left, right]) => (
+                                      <div
+                                        key={left}
+                                        className="p-2 bg-white rounded border border-green-200"
+                                      >
+                                        <span className="font-medium">{left}</span> →{" "}
+                                        <span>{right}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-green-900 whitespace-pre-wrap">
+                                    {getCorrectAnswerText(currentQ, currentResult)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        {currentResult.feedback && (
+                          <div>
+                            <p className="text-sm font-medium mb-2">Feedback:</p>
+                            <Alert className="border-amber-200 bg-amber-50">
+                              <AlertCircle className="h-4 w-4 text-amber-600" />
+                              <AlertDescription>
+                                <p className="text-amber-800 whitespace-pre-wrap">
+                                  {parseQuizFeedbackText(currentResult.feedback)}
+                                </p>
+                              </AlertDescription>
+                            </Alert>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                   {/* Navigation */}
                   <div className="flex items-center justify-between mt-8">
@@ -2048,13 +1752,13 @@ export function QuizPlayer({
                               setShowSubmitDialog(true);
                             }
                           }}
-                          disabled={isSubmittingQuiz || isSubmittingHomework}
+                          disabled={isSubmittingQuiz || isSubmittingHomework || isSubmittingBaselineTest}
                         >
                           {isImmediateFeedback && allQuestionsSubmittedInImmediateMode
                             ? "Finish quiz"
                             : currentQ.explanation &&
-                                answers[currentQ.question.id] &&
-                                currentPosition.type === "question"
+                              answers[currentQ.question.id] &&
+                              currentPosition.type === "question"
                               ? "Next"
                               : "Submit Quiz"}
                         </Button>
@@ -2306,46 +2010,17 @@ export function QuizPlayer({
         </Card>
       </div>
 
-      {/* Submit Confirmation Dialog */}
-      <AlertDialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Are you sure you want to submit?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {isTestMode ? (
-                <>
-                  You have answered {answeredCount} of {questions.length}{" "}
-                  questions.
-                  {answeredCount < questions.length && (
-                    <span className="block mt-2 font-medium">
-                      Unanswered questions will be marked as incorrect.
-                    </span>
-                  )}
-                  Once submitted, you cannot change your answers.
-                </>
-              ) : (
-                <>
-                  You have answered {answeredCount} of {questions.length}{" "}
-                  questions. Once submitted, you cannot change your answers.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                handleSubmit();
-              }}
-              disabled={isSubmittingQuiz || isSubmittingHomework}
-            >
-              Yes, submit
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <QuizPlayerSubmitDialog
+        open={showSubmitDialog}
+        onOpenChange={setShowSubmitDialog}
+        onConfirm={handleSubmit}
+        isSubmitting={
+          isSubmittingQuiz || isSubmittingHomework || isSubmittingBaselineTest
+        }
+        answeredCount={answeredCount}
+        questionsLength={questions.length}
+        isTestMode={isTestMode}
+      />
     </div>
   );
 }

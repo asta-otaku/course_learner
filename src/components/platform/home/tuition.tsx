@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import profileIcon from "@/assets/profileIcon.svg";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   useGetLibrary,
   useGetChildLastAccessedLessons,
   useGetCurricula,
+  useGetChildBaselineTest,
 } from "@/lib/api/queries";
 import {
   Select,
@@ -23,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import LearningCard, { ProgressCard } from "./learningCard";
+import DoubleQuote from "@/assets/svgs/doubleQuote";
 
 function TuitionHome() {
   const {
@@ -100,6 +103,12 @@ function TuitionHome() {
     activeProfile?.id || "",
     selectedCurriculumId
   );
+
+  // Fetch baseline test for this child (API returns a single object)
+  const { data: baselineTestResponse } = useGetChildBaselineTest(
+    activeProfile?.id || ""
+  );
+  const childBaselineTest = baselineTestResponse?.data ?? null;
 
   // Get selected curriculum details
   const selectedCurriculum = useMemo(() => {
@@ -280,6 +289,40 @@ function TuitionHome() {
 
         {/* Right Column */}
         <div className="md:w-2/5 flex flex-col gap-2">
+          {/* Baseline Test */}
+          <div className="border border-[#00000033] rounded-2xl bg-white px-6 pt-4 pb-2">
+            <p className="text-base font-semibold flex items-center gap-3">
+              <DoubleQuote /> Baseline Test
+            </p>
+            {childBaselineTest ? (
+              <>
+                <p className="text-sm font-medium mt-6 mb-3">QUIZ</p>
+                <p className="text-xs text-textSubtitle mb-2">
+                  {childBaselineTest.title}
+                </p>
+                <p className="text-xs text-muted-foreground mb-6">
+                  {childBaselineTest.yearGroup}
+                </p>
+                <Button
+                  variant="link"
+                  className="text-xs text-primaryBlue px-0"
+                  asChild
+                >
+                  <Link href={`/take-quiz/${childBaselineTest.quizId}?isBaselineTest=true&baselineTestId=${childBaselineTest.id}`}>
+                    Start <BackArrow color="#286CFF" flipped />
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium mt-6 mb-3">QUIZ</p>
+                <p className="text-xs text-textSubtitle mb-8">
+                  No baseline test assigned yet. Your tutor can assign one for
+                  your year group.
+                </p>
+              </>
+            )}
+          </div>
           {/* Tutor Info */}
           {activeProfile?.tutorId && (
             <div className="border border-[#00000033] rounded-2xl bg-white p-6 text-center">

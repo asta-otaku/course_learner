@@ -32,6 +32,8 @@ import {
   ChangeRequest,
   Homework,
   HomeworkReview,
+  BaselinelineTestCreateData,
+  BaselineTest,
 } from "../types";
 
 // Helper function to handle error messages
@@ -1709,6 +1711,58 @@ export const usePatchMarkHomeworkAsReviewed = (id: string) => {
       queryClient.invalidateQueries({
         queryKey: ["homeworks"],
       });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Baseline Test Mutations
+export const usePostBaselineTest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-baseline-test"],
+    mutationFn: (data: BaselinelineTestCreateData): Promise<ApiResponse<BaselineTest>> =>
+      axiosInstance.post("/baseline-test", data),
+    onSuccess: (data: ApiResponse<BaselineTest>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["baseline-tests"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostStartBaselineTest = (baselineTestId: string) => {
+  return useMutation({
+    mutationKey: ["post-start-baseline-test", baselineTestId],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<BaselineTest>> =>
+      axiosInstance.post(`/baseline-test/${baselineTestId}/attempts/start`, data),
+    onSuccess: (data: ApiResponse<BaselineTest>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+}
+
+export const usePostSubmitBaselineTest = (baselineTestId: string, attemptId: string) => {
+  return useMutation({
+    mutationKey: ["post-submit-baseline-test", baselineTestId, attemptId],
+    mutationFn: (data: {
+      answers: Record<string, string | Record<string, string>>;
+      timeSpent?: number;
+    }): Promise<ApiResponse<BaselineTest>> =>
+      axiosInstance.post(`/baseline-test/${baselineTestId}/attempts/${attemptId}/submit`, data),
+    onSuccess: (data: ApiResponse<BaselineTest>) => {
       return data;
     },
     onError: (error: AxiosError) => {

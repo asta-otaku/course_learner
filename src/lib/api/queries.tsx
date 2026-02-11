@@ -28,6 +28,7 @@ import {
   Homework,
   HomeworkReview,
   Section,
+  BaselineTest,
 } from "../types";
 
 // User Queries
@@ -1032,5 +1033,38 @@ export const useGetSectionById = (id: string, offerType?: string) => {
       return response.data;
     },
     enabled: !!id,
+  });
+};
+
+// Baseline Test Queries
+export const useGetBaselineTests = () => {
+  return useQuery({
+    queryKey: ["baseline-tests"],
+    queryFn: async (): Promise<APIGetResponse<BaselineTest[]>> => {
+      const response = await axiosInstance.get("/baseline-test");
+      return response.data;
+    },
+  });
+};
+
+export const useGetBaselineTestById = (id: string) => {
+  return useQuery({
+    queryKey: ["baseline-test", id],
+    queryFn: async (): Promise<APIGetResponse<BaselineTest>> => {
+      const response = await axiosInstance.get(`/baseline-test/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
+  });
+};
+
+export const useGetChildBaselineTest = (childId: string) => {
+  return useQuery({
+    queryKey: ["child-baseline-test", childId],
+    queryFn: async (): Promise<APIGetResponse<BaselineTest>> => {
+      const response = await axiosInstance.get(`/baseline-test/child/${childId}`);
+      return response.data;
+    },
+    enabled: !!childId,
   });
 };

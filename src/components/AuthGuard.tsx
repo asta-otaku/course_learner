@@ -54,12 +54,30 @@ export function AuthGuard({
   }, [router, redirectTo]);
 
   useEffect(() => {
-    checkAuth();
+    // Add a small grace period on initial mount to allow localStorage to be read
+    const initialCheckTimeout = setTimeout(() => {
+      checkAuth();
+    }, 150);
 
-    // Also check periodically in case of token changes
-    const interval = setInterval(checkAuth, 5000);
+    // Check periodically but less frequently to reduce race conditions
+    const interval = setInterval(checkAuth, 10000); // Changed from 5000 to 10000
 
-    return () => clearInterval(interval);
+    // Listen for localStorage changes (useful for multi-tab sync and after login)
+    const handleStorageChange = (e: StorageEvent) => {
+      // Check if the changed key is one of our auth keys
+      if (e.key === "user" || e.key === "admin" || e.key === "tutor") {
+        // Small delay to ensure the change is fully propagated
+        setTimeout(checkAuth, 100);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      clearTimeout(initialCheckTimeout);
+      clearInterval(interval);
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, [checkAuth]);
 
   // Show loading state while checking authentication
@@ -114,12 +132,28 @@ export function useAuthGuard(redirectTo: string = "/sign-in") {
   }, [router, redirectTo]);
 
   useEffect(() => {
-    checkAuth();
+    // Add grace period on initial mount
+    const initialCheckTimeout = setTimeout(() => {
+      checkAuth();
+    }, 150);
 
-    // Check periodically for auth state changes
-    const interval = setInterval(checkAuth, 5000);
+    // Check periodically but less frequently
+    const interval = setInterval(checkAuth, 10000); // Changed from 5000 to 10000
 
-    return () => clearInterval(interval);
+    // Listen for localStorage changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "user" || e.key === "admin" || e.key === "tutor") {
+        setTimeout(checkAuth, 100);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      clearTimeout(initialCheckTimeout);
+      clearInterval(interval);
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, [checkAuth]);
 
   return {

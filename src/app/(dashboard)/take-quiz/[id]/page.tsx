@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { usePostAttemptQuiz, usePostStartHomework } from "@/lib/api/mutations";
+import { usePostAttemptQuiz, usePostStartHomework, usePostStartBaselineTest } from "@/lib/api/mutations";
 import { useGetQuiz } from "@/lib/api/queries";
 import { useState } from "react";
 import { toast } from "react-toastify";
@@ -18,6 +18,8 @@ export default function TakeQuizPage() {
   const id = params.id as string;
   const isTestMode = searchParams.get("mode") === "test";
   const isHomework = searchParams.get("isHomework") === "true";
+  const isBaselineTest = searchParams.get("isBaselineTest") === "true";
+  const baselineTestId = searchParams.get("baselineTestId") ?? "";
   const router = useRouter();
   const finalQuizIdForFetch = isHomework ? null : id;
   const { data: quizResponse } = useGetQuiz(finalQuizIdForFetch || "");
@@ -32,13 +34,48 @@ export default function TakeQuizPage() {
   const { mutate: startHomework, isPending: isStartingHomework } =
     usePostStartHomework();
 
+  // Baseline test start mutation (for baseline tests)
+  const { mutate: startBaselineTest, isPending: isStartingBaselineTest } =
+    usePostStartBaselineTest(baselineTestId);
+
   // State to track if quiz has been started
   const [quizStarted, setQuizStarted] = useState(false);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [quizId, setQuizId] = useState<string | null>(null);
+  const [quizAttemptId, setQuizAttemptId] = useState<string | null>(null);
 
   // Handler for starting quiz
   const handleStartQuiz = () => {
+    if (isBaselineTest && baselineTestId) {
+      startBaselineTest(
+        { childProfileId: activeProfile?.id || "" },
+        {
+          onSuccess: (response) => {
+            const data = response.data?.data as any;
+            const attemptIdFromResponse =
+              data?.baselineAttemptId ??
+              data?.attemptId ??
+              data?.id ??
+              data?.attempt?.id;
+            if (attemptIdFromResponse) {
+              setAttemptId(attemptIdFromResponse);
+              setQuizAttemptId(data.quizAttemptId);
+              setQuizId(id);
+              setQuizStarted(true);
+              toast.success("Baseline test started!");
+            } else {
+              console.error("Attempt ID not found in baseline test response");
+              toast.error("Failed to start baseline test. Please try again.");
+            }
+          },
+          onError: (error) => {
+            console.error("Error starting baseline test:", error);
+            toast.error("Failed to start baseline test. Please try again.");
+          },
+        }
+      );
+      return;
+    }
     if (isHomework) {
       // Use homework start endpoint
       startHomework(
@@ -184,15 +221,24 @@ export default function TakeQuizPage() {
                 </Button>
                 <Button
                   onClick={handleStartQuiz}
-                  disabled={isStartingQuiz || isStartingHomework}
+                  disabled={
+                    isStartingQuiz ||
+                    isStartingHomework ||
+                    isStartingBaselineTest ||
+                    (isBaselineTest && !baselineTestId)
+                  }
                   className="min-w-[160px] bg-blue-600 hover:bg-blue-700"
                   size="lg"
                 >
-                  {isStartingQuiz || isStartingHomework ? (
+                  {isStartingQuiz ||
+                    isStartingHomework ||
+                    isStartingBaselineTest ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       Starting...
                     </>
+                  ) : isBaselineTest ? (
+                    "Start Baseline Test"
                   ) : isHomework ? (
                     "Start Homework"
                   ) : (
@@ -208,10 +254,8 @@ export default function TakeQuizPage() {
   }
 
   // Once quiz is started, pass control to QuizPlayer
-  // For homework, use quizId from response; for regular quizzes, use id from params
+  // For homework, use quizId from response; for baseline/regular, use id from params (quizId)
   const finalQuizId = isHomework && quizId ? quizId : id;
-  // For homework, we need to fetch the quiz data in QuizPlayer since we don't have it here yet
-  // For regular quizzes, we can pass the timeLimit directly
   const finalTimeLimit = isHomework ? undefined : timeLimit;
 
   return (
@@ -219,8 +263,11 @@ export default function TakeQuizPage() {
       quizId={finalQuizId}
       isTestMode={isTestMode}
       attemptId={attemptId}
+      quizAttemptId={quizAttemptId}
       isHomework={isHomework}
       homeworkId={isHomework ? id : undefined}
+      isBaselineTest={isBaselineTest}
+      baselineTestId={isBaselineTest ? baselineTestId : undefined}
       timeLimit={finalTimeLimit}
     />
   );
