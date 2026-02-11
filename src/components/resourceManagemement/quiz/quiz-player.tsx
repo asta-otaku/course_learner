@@ -33,6 +33,7 @@ import { QuestionImage } from "@/components/ui/question-image";
 import { QuizPlayerTimer } from "./quiz-player-timer";
 import { QuizPlayerResultsStats } from "./quiz-player-results-stats";
 import { QuizPlayerSubmitDialog } from "./quiz-player-submit-dialog";
+import { MathPreview } from "../editor/math-preview";
 import type {
   QuizPlayerProps,
   QuizPlayerQuestion,
@@ -1096,9 +1097,11 @@ export function QuizPlayer({
                       <Alert className="border-yellow-200 bg-yellow-50">
                         <AlertCircle className="h-4 w-4 text-yellow-600" />
                         <AlertDescription>
-                          <p className="text-yellow-800 whitespace-pre-wrap">
-                            {parseQuizFeedbackText(currentResult.feedback)}
-                          </p>
+                          <MathPreview
+                            content={currentResult.feedback}
+                            className="text-yellow-800"
+                            renderMarkdown={true}
+                          />
                         </AlertDescription>
                       </Alert>
                     </div>
@@ -1111,9 +1114,11 @@ export function QuizPlayer({
                       <Alert className="border-blue-200 bg-blue-50">
                         <AlertCircle className="h-4 w-4 text-blue-600" />
                         <AlertDescription>
-                          <p className="text-blue-800 whitespace-pre-wrap">
-                            {currentQ.explanation}
-                          </p>
+                          <MathPreview
+                            content={currentQ.explanation}
+                            className="text-blue-800"
+                            renderMarkdown={true}
+                          />
                         </AlertDescription>
                       </Alert>
                     </div>
