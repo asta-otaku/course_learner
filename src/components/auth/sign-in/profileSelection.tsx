@@ -106,7 +106,7 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
                     src={profile.avatar || profileImage}
                     alt={profile.name}
                     fill
-                    className="rounded-full object-contain"
+                    className="rounded-full object-cover w-full h-full"
                     onLoadingComplete={updateScrollButtons}
                   />
                   {isInactive && (
@@ -116,18 +116,16 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
 
                 {/* Text */}
                 <p
-                  className={`font-medium text-sm uppercase mt-2 ${
-                    isInactive ? "text-gray-400" : "text-primaryBlue"
-                  }`}
+                  className={`font-medium text-sm uppercase mt-2 ${isInactive ? "text-gray-400" : "text-primaryBlue"
+                    }`}
                 >
                   {profile.name}
                 </p>
                 <p
-                  className={`text-[10px] font-medium ${
-                    isInactive ? "text-gray-400" : "text-textSubtitle"
-                  }`}
+                  className={`text-[10px] font-medium ${isInactive ? "text-gray-400" : "text-textSubtitle"
+                    }`}
                 >
-                  Year {profile.year}
+                  {profile.year}
                 </p>
               </div>
             );
@@ -147,18 +145,16 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
 
         {/* edge fades */}
         <div
-          className={`pointer-events-none absolute -left-1 top-0 h-full w-64 transition-opacity ${
-            canScrollLeft ? "opacity-100" : "opacity-0"
-          }`}
+          className={`pointer-events-none absolute -left-1 top-0 h-full w-64 transition-opacity ${canScrollLeft ? "opacity-100" : "opacity-0"
+            }`}
           style={{
             background: "linear-gradient(to right, white, rgba(255,255,255,0))",
             filter: "blur(8px)",
           }}
         />
         <div
-          className={`pointer-events-none absolute -right-1 top-0 h-full w-64 transition-opacity ${
-            canScrollRight ? "opacity-100" : "opacity-0"
-          }`}
+          className={`pointer-events-none absolute -right-1 top-0 h-full w-64 transition-opacity ${canScrollRight ? "opacity-100" : "opacity-0"
+            }`}
           style={{
             background: "linear-gradient(to left, white, rgba(255,255,255,0))",
             filter: "blur(8px)",
@@ -170,22 +166,20 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
         <button
           onClick={() => scrollBy(-scrollRef.current!.clientWidth)}
           disabled={!canScrollLeft}
-          className={`rounded-full p-2 transition-opacity ${
-            canScrollLeft
-              ? "bg-primaryBlue hover:bg-primaryBlue/80"
-              : "bg-gray-300 opacity-50 cursor-not-allowed"
-          }`}
+          className={`rounded-full p-2 transition-opacity ${canScrollLeft
+            ? "bg-primaryBlue hover:bg-primaryBlue/80"
+            : "bg-gray-300 opacity-50 cursor-not-allowed"
+            }`}
         >
           <MoveLeft className="text-white w-4 h-4" />
         </button>
         <button
           onClick={() => scrollBy(scrollRef.current!.clientWidth)}
           disabled={!canScrollRight}
-          className={`rounded-full p-2 transition-opacity ${
-            canScrollRight
-              ? "bg-primaryBlue hover:bg-primaryBlue/80"
-              : "bg-gray-300 opacity-50 cursor-not-allowed"
-          }`}
+          className={`rounded-full p-2 transition-opacity ${canScrollRight
+            ? "bg-primaryBlue hover:bg-primaryBlue/80"
+            : "bg-gray-300 opacity-50 cursor-not-allowed"
+            }`}
         >
           <MoveRight className="text-white w-4 h-4" />
         </button>

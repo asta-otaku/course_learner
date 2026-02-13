@@ -30,9 +30,6 @@ import DoubleQuote from "@/assets/svgs/doubleQuote";
 function TuitionHome() {
   const {
     activeProfile,
-    changeProfile,
-    isLoaded,
-    profiles,
     selectedCurriculumId: profileSelectedCurriculumId,
     setSelectedCurriculumId: setProfileSelectedCurriculumId,
   } = useSelectedProfile();
@@ -195,32 +192,17 @@ function TuitionHome() {
       {/* Header */}
       <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
         <div className="flex items-center gap-2">
-          <Image
+          <img
             src={activeProfile?.avatar || profileIcon}
             alt="Profile Icon"
             width={32}
             height={32}
-            className="rounded-full"
+            className="rounded-full w-10 h-10 object-cover"
           />
           <div className="flex flex-col gap-1 items-start">
             <p className="uppercase font-medium text-sm text-textSubtitle ml-1">
-              Welcome,
+              Welcome, <span className="text-textGray text-lg capitalize">{activeProfile?.name}</span>
             </p>
-            {isLoaded ? (
-              <select
-                value={activeProfile?.name || ""}
-                onChange={(e) => changeProfile(e.target.value)}
-                className="bg-transparent font-medium uppercase border-none focus:outline-none"
-              >
-                {profiles.map((profile, index) => (
-                  <option key={index} value={profile.name}>
-                    {profile.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
-            )}
           </div>
         </div>
       </div>

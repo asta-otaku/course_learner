@@ -1221,27 +1221,11 @@ export function QuizPlayer({
         {/* Main Quiz Area */}
         <div className="flex-1">
           {/* Header */}
-          <Card className="mb-6">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <CardTitle>{quizTitle}</CardTitle>
-                    {isTestMode && (
-                      <Badge variant="destructive">TEST MODE</Badge>
-                    )}
-                    {isImmediateFeedback && (
-                      <Badge variant="secondary">Immediate feedback</Badge>
-                    )}
-                  </div>
-                </div>
-                {timeRemaining !== null && (
-                  <QuizPlayerTimer timeRemaining={timeRemaining} />
-                )}
-              </div>
-            </CardHeader>
-          </Card>
-
+          {timeRemaining !== null && (
+            <div className="flex justify-end mb-6">
+              <QuizPlayerTimer timeRemaining={timeRemaining} />
+            </div>
+          )}
           {/* Progress */}
           <Card className="mb-6">
             <CardContent className="py-4">
@@ -1360,19 +1344,6 @@ export function QuizPlayer({
                       )}
                   </div>
 
-                  {/* Immediate feedback notice */}
-                  {isImmediateFeedback && (
-                    <Alert className="mb-4 border-amber-200 bg-amber-50">
-                      <AlertCircle className="h-4 w-4 text-amber-600" />
-                      <AlertDescription>
-                        <strong>Immediate feedback:</strong> Answer each
-                        question in order. You cannot skip or change your answer
-                        after submitting. At the end, click &quot;Finish quiz&quot;
-                        to see your total score.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
                   {/* Test Mode Notice */}
                   {isTestMode && !isImmediateFeedback && (
                     <Alert className="mb-4">
@@ -1421,22 +1392,25 @@ export function QuizPlayer({
                             const showCorrectness = showCorrectnessForCurrent;
 
                             return (
-                              <div
+                              <Label
                                 key={option.id}
+                                htmlFor={option.id}
                                 className={cn(
-                                  "flex items-center space-x-2 p-3 rounded-lg border transition-colors",
+                                  "flex items-center space-x-2 p-3 rounded-lg border transition-colors w-full cursor-pointer",
                                   !showResults && "hover:bg-muted/50",
                                   showCorrectness &&
-                                  isCorrect &&
-                                  "bg-green-50 border-green-300",
+                                    isCorrect &&
+                                    "bg-green-50 border-green-300",
                                   showCorrectness &&
-                                  isSelected &&
-                                  !isCorrect &&
-                                  "bg-red-50 border-red-300",
+                                    isSelected &&
+                                    !isCorrect &&
+                                    "bg-red-50 border-red-300",
                                   showCorrectness &&
-                                  !isSelected &&
-                                  !isCorrect &&
-                                  "border-gray-200"
+                                    !isSelected &&
+                                    !isCorrect &&
+                                    "border-gray-200",
+                                  (showResults || isCurrentQuestionSubmitted) &&
+                                    "cursor-default"
                                 )}
                               >
                                 <RadioGroupItem
@@ -1444,22 +1418,14 @@ export function QuizPlayer({
                                   id={option.id}
                                   disabled={showResults || isCurrentQuestionSubmitted}
                                 />
-                                <Label
-                                  htmlFor={option.id}
-                                  className={cn(
-                                    "flex-1",
-                                    !showResults && "cursor-pointer"
-                                  )}
-                                >
-                                  {option.text}
-                                </Label>
+                                <span className="flex-1">{option.text}</span>
                                 {showCorrectness && isCorrect && (
                                   <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
                                 )}
                                 {showCorrectness && isSelected && !isCorrect && (
                                   <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
                                 )}
-                              </div>
+                              </Label>
                             );
                           })}
                         </div>

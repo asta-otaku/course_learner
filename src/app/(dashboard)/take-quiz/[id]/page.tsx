@@ -163,9 +163,7 @@ export default function TakeQuizPage() {
                         Passing Score
                       </h4>
                       <p className="text-gray-700">
-                        {typeof quiz.passingScore === "number"
-                          ? `${quiz.passingScore}%`
-                          : quiz.passingScore}
+                        {Math.round(Number(quiz.passingScore)).toLocaleString()}%
                       </p>
                     </div>
                   )}
@@ -199,13 +197,32 @@ export default function TakeQuizPage() {
                   <h3 className="font-semibold text-gray-900 mb-2">
                     What to Expect
                   </h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-700">
-                    <li>Answer all questions carefully</li>
-                    <li>Review your answers before submitting</li>
-                    <li>Correct answers will be shown after completion</li>
-                    <li>Your progress will be saved automatically</li>
-                    <li>Take your time and read each question thoroughly</li>
-                  </ul>
+                  {quiz?.feedbackMode === "immediate" ? (
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li>Answer all questions carefully</li>
+                      <li>
+                        You must do each question in order
+                      </li>
+                      <li>
+                        You will get feedback after each question
+                      </li>
+                      <li>Your progress will be saved automatically</li>
+                      <li>Take your time and read each question thoroughly</li>
+                    </ul>
+                  ) : (
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li>Answer all questions carefully</li>
+                      <li>Review your answers before submitting</li>
+                      <li>
+                        <span className="font-bold text-gray-900">
+                          Correct answers will be shown after the whole quiz is
+                          completed
+                        </span>
+                      </li>
+                      <li>Your progress will be saved automatically</li>
+                      <li>Take your time and read each question thoroughly</li>
+                    </ul>
+                  )}
                 </div>
               </div>
 
