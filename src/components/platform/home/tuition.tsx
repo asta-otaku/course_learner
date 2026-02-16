@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import profileIcon from "@/assets/profileIcon.svg";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
 import { Button } from "@/components/ui/button";
@@ -12,8 +13,9 @@ import { toast } from "react-toastify";
 import { TutorChangeRequestDialog } from "./tutor-change-request-dialog";
 import {
   useGetLibrary,
-  useGetChildLessons,
+  useGetChildLastAccessedLessons,
   useGetCurricula,
+  useGetChildBaselineTest,
 } from "@/lib/api/queries";
 import {
   Select,
@@ -23,13 +25,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import LearningCard, { ProgressCard } from "./learningCard";
+import DoubleQuote from "@/assets/svgs/doubleQuote";
 
 function TuitionHome() {
   const {
     activeProfile,
-    changeProfile,
-    isLoaded,
-    profiles,
     selectedCurriculumId: profileSelectedCurriculumId,
     setSelectedCurriculumId: setProfileSelectedCurriculumId,
   } = useSelectedProfile();
@@ -95,12 +95,17 @@ function TuitionHome() {
     setProfileSelectedCurriculumId,
   ]);
 
-  // Fetch lessons for the selected curriculum
-  const { data: lessonsData } = useGetChildLessons(
+  // Fetch last accessed lessons for the selected curriculum
+  const { data: lessonsData } = useGetChildLastAccessedLessons(
     activeProfile?.id || "",
-    selectedCurriculumId,
-    undefined // No sectionId needed
+    selectedCurriculumId
   );
+
+  // Fetch baseline test for this child (API returns a single object)
+  const { data: baselineTestResponse } = useGetChildBaselineTest(
+    activeProfile?.id || ""
+  );
+  const childBaselineTest = baselineTestResponse?.data ?? null;
 
   // Get selected curriculum details
   const selectedCurriculum = useMemo(() => {
@@ -187,32 +192,17 @@ function TuitionHome() {
       {/* Header */}
       <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
         <div className="flex items-center gap-2">
-          <Image
+          <img
             src={activeProfile?.avatar || profileIcon}
             alt="Profile Icon"
             width={32}
             height={32}
-            className="rounded-full"
+            className="rounded-full w-10 h-10 object-cover"
           />
           <div className="flex flex-col gap-1 items-start">
             <p className="uppercase font-medium text-sm text-textSubtitle ml-1">
-              Welcome,
+              Welcome, <span className="text-textGray text-lg capitalize">{activeProfile?.name}</span>
             </p>
-            {isLoaded ? (
-              <select
-                value={activeProfile?.name || ""}
-                onChange={(e) => changeProfile(e.target.value)}
-                className="bg-transparent font-medium uppercase border-none focus:outline-none"
-              >
-                {profiles.map((profile, index) => (
-                  <option key={index} value={profile.name}>
-                    {profile.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
-            )}
           </div>
         </div>
       </div>
@@ -281,6 +271,40 @@ function TuitionHome() {
 
         {/* Right Column */}
         <div className="md:w-2/5 flex flex-col gap-2">
+          {/* Baseline Test */}
+          <div className="border border-[#00000033] rounded-2xl bg-white px-6 pt-4 pb-2">
+            <p className="text-base font-semibold flex items-center gap-3">
+              <DoubleQuote /> Baseline Test
+            </p>
+            {childBaselineTest ? (
+              <>
+                <p className="text-sm font-medium mt-6 mb-3">QUIZ</p>
+                <p className="text-xs text-textSubtitle mb-2">
+                  {childBaselineTest.title}
+                </p>
+                <p className="text-xs text-muted-foreground mb-6">
+                  {childBaselineTest.yearGroup}
+                </p>
+                <Button
+                  variant="link"
+                  className="text-xs text-primaryBlue px-0"
+                  asChild
+                >
+                  <Link href={`/take-quiz/${childBaselineTest.quizId}?isBaselineTest=true&baselineTestId=${childBaselineTest.id}`}>
+                    Start <BackArrow color="#286CFF" flipped />
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium mt-6 mb-3">QUIZ</p>
+                <p className="text-xs text-textSubtitle mb-8">
+                  No baseline test assigned yet. Your tutor can assign one for
+                  your year group.
+                </p>
+              </>
+            )}
+          </div>
           {/* Tutor Info */}
           {activeProfile?.tutorId && (
             <div className="border border-[#00000033] rounded-2xl bg-white p-6 text-center">

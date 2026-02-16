@@ -67,7 +67,7 @@ export function ProgressCard({
           alt="Course Image"
           width={100}
           height={100}
-          className="h-[181px] w-full rounded-2xl"
+          className="h-[220px] w-full rounded-2xl"
         />
         <div className="flex justify-between items-center">
           <div className="space-y-1">
@@ -95,9 +95,8 @@ export function ProgressCard({
                 fill="none"
                 className="text-bgGreen"
                 strokeDasharray="75.398"
-                strokeDashoffset={`${
-                  75.398 - (75.398 * course.progress) / 100
-                }`}
+                strokeDashoffset={`${75.398 - (75.398 * course.progress) / 100
+                  }`}
                 strokeLinecap="round"
               />
             </svg>

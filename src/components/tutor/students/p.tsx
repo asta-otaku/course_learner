@@ -162,11 +162,10 @@ export default function TutorStudentPage() {
 
             {/* Status Badge */}
             <span
-              className={`absolute right-2 top-2 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                profile.isActive
+              className={`absolute right-2 top-2 text-xs font-semibold px-2 py-0.5 rounded-full ${profile.isActive
                   ? "bg-green-100 text-green-600"
                   : "bg-red-100 text-red-600"
-              }`}
+                }`}
             >
               {profile.isActive ? "Active" : "Inactive"}
             </span>
@@ -174,7 +173,7 @@ export default function TutorStudentPage() {
             <div className="mt-2 text-center">
               {/* Year Badge */}
               <span className="bg-blue-100 text-blue-600 text-xs font-semibold px-2 py-0.5 rounded-full">
-                Year {profile.year}
+                {profile.year}
               </span>
               <div className="font-medium text-base text-gray-800 truncate max-w-[120px] mt-2">
                 {profile.name}

@@ -20,6 +20,7 @@ export interface QuizSettings {
   maxAttempts: number;
   passingScore: number;
   showFeedback: boolean;
+  feedbackMode?: "immediate" | "after_completion" | "delayed_random" | "manual_tutor_review";
   allowRetakes: boolean;
   allowReview: boolean;
   availableFrom: string;
@@ -92,6 +93,7 @@ export interface QuizAttempt {
   metadata: any | null;
   createdAt: string;
   updatedAt: string;
+  isResuming?: boolean;
 }
 
 
@@ -105,6 +107,87 @@ export interface QuizUpdateData {
   status?: "draft" | "published" | "archived";
   questions?: QuizQuestionOperation[];
 }
+
+export interface QuizPlayerQuestionImageSettings {
+  width?: string;
+  height?: string;
+  alignment?: "left" | "center" | "right";
+  size_mode?: "auto" | "custom" | "percentage";
+  max_height?: string;
+  object_fit?: "contain" | "cover" | "fill" | "scale-down";
+}
+
+export interface QuizPlayerQuestionItem {
+  id: string;
+  title: string;
+  content: string;
+  type: string;
+  image?: string;
+  image_url?: string;
+  imageSettings?: QuizPlayerQuestionImageSettings;
+  options?: Array<{ id: string; text: string }>;
+  pairs?: Array<{ id: string; left: string; right: string }>;
+  correctAnswer?: string | Record<string, string>;
+}
+
+/** Transformed question shape used by QuizPlayer (one item in the questions list). */
+export interface QuizPlayerQuestion {
+  id: string;
+  order: number;
+  explanation?: string;
+  correct_feedback?: string;
+  incorrect_feedback?: string;
+  question: QuizPlayerQuestionItem;
+}
+
+export interface QuizTransition {
+  id: string;
+  position: number;
+  content: string;
+}
+
+export interface QuizPlayerProps {
+  quizId: string;
+  quizAttemptId?: string | null;
+  attemptNumber?: number;
+  isTestMode?: boolean;
+  attemptId?: string | null;
+  isHomework?: boolean;
+  homeworkId?: string;
+  isBaselineTest?: boolean;
+  baselineTestId?: string;
+  timeLimit?: number;
+  isResuming?: boolean;
+}
+
+export interface QuizQuestionResult {
+  questionId: string;
+  userAnswerContent?: string;
+  userAnswerId?: string;
+  correctAnswers: Array<{
+    id: string;
+    content: string | Record<string, string>;
+  }>;
+  isCorrect: boolean;
+  pointsEarned: number;
+  pointsPossible: number;
+  feedback?: string;
+}
+
+export interface QuizSubmissionResults {
+  attemptId: string;
+  quizId: string;
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  results: QuizQuestionResult[];
+  timeSpent: number;
+}
+
+export type QuizNavigationPosition = {
+  type: "transition" | "question" | "explanation";
+  questionIndex: number;
+};
 
 export interface VideoTopic {
   title: string;
@@ -569,7 +652,7 @@ export interface TimeSlot {
 
 export interface DayAvailability {
   [day: string]: TimeSlot[];
-} 
+}
 
 export interface ParentDetails {
   id: string
@@ -662,11 +745,11 @@ export interface QuestionAnswer {
 export interface QuestionQueryOptions {
   search?: string;
   type?:
-    | "multiple_choice"
-    | "true_false"
-    | "fill_in_the_gap"
-    | "matching_pairs"
-    | "free_text";
+  | "multiple_choice"
+  | "true_false"
+  | "fill_in_the_gap"
+  | "matching_pairs"
+  | "free_text";
   difficulty?: number;
   difficultyMin?: number;
   difficultyMax?: number;
@@ -731,6 +814,7 @@ export interface CurriculumProgress {
 
 export interface LibraryCurriculum {
   id: string;
+  imageUrl: string;
   title: string;
   description: string;
   durationWeeks: number;
@@ -892,6 +976,93 @@ export interface Section {
     title: string;
     orderIndex: number;
   }[]
+}
+
+export interface BaselineTest {
+  id: string;
+  quizId: string;
+  title: string;
+  yearGroup: string
+}
+
+export interface BaselinelineTestCreateData {
+  yearGroup: string;
+  description?: string;
+  masteryThreshold?: number;
+  quizSettings?: QuizSettings;
+}
+
+/** Result for a single question (present when question was already submitted). */
+export interface QuizResumeQuestionResult {
+  questionId: string;
+  questionAttemptId: string;
+  userAnswerId: string;
+  userAnswerContent: string;
+  correctAnswers: Array<{ id: string; content: string }>;
+  isCorrect: boolean;
+  pointsEarned: number;
+  pointsPossible: number;
+  feedback: string;
+}
+
+/** Answer option for MC / true-false (present when question has choices). */
+export interface QuizResumeQuestionAnswer {
+  id: string;
+  content: string;
+  orderIndex: number;
+}
+
+/** Matching-pairs format (present for matching_pairs questions). */
+export interface QuizResumeQuestionFormat {
+  left_items: string[];
+  right_items: string[];
+}
+
+/** Image settings for a question (optional). */
+export interface QuizResumeQuestionImageSettings {
+  width?: string;
+  height?: string;
+  max_height?: string;
+  alignment?: string;
+  object_fit?: string;
+  size_mode?: string;
+}
+
+/** Single question in a resume attempt; result, answers, and question_format are optional depending on type/state. */
+export interface QuizResumeQuestion {
+  quizQuestionId: string;
+  orderIndex: number;
+  pointsOverride: number;
+  questionId: string;
+  title: string;
+  content: string;
+  type: string;
+  points: number;
+  tags?: string[];
+  image?: string;
+  hint?: Record<string, unknown>;
+  imageSettings?: QuizResumeQuestionImageSettings;
+  isLocked: boolean;
+  /** Present when question was already submitted (e.g. immediate feedback). */
+  result?: QuizResumeQuestionResult;
+  /** Present for multiple_choice / true_false. */
+  answers?: QuizResumeQuestionAnswer[];
+  /** Present for matching_pairs. */
+  question_format?: QuizResumeQuestionFormat;
+}
+
+export interface QuizResumeAttempt {
+  attemptId: string;
+  quizId: string;
+  status: "in_progress" | "submitted" | "graded";
+  progress: {
+    answeredCount: number;
+    totalQuestions: number;
+    totalPoints: number;
+    score: number;
+    percentage: number;
+  };
+  questions: QuizResumeQuestion[];
 }
 
 // Export socket types

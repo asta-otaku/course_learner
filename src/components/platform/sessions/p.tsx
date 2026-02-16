@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { Session } from "@/lib/types";
-import { formatDateString } from "@/lib/utils";
+import { formatDateString, formatDisplayDate } from "@/lib/utils";
 import Calendar from "./calendar";
 import BookingDialog from "./bookingDialog";
 import SessionSection, { EmptySessionsState } from "./sessionCard";
@@ -15,6 +15,9 @@ import {
 } from "@/lib/api/queries";
 import { usePostBookSession, usePutCancelSession } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 
 function Sessions() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -46,10 +49,6 @@ function Sessions() {
     error: bookedError,
     refetch: refetchBooked,
   } = useGetBookedSessions(activeProfile?.id || "", {
-    status: filters.status === "all" ? undefined : filters.status,
-    date: filters.date || undefined,
-    dayOfWeek: filters.dayOfWeek === "all" ? undefined : filters.dayOfWeek,
-    search: filters.search || undefined,
     page: bookedPagination.page,
     limit: bookedPagination.limit,
   });
@@ -61,6 +60,10 @@ function Sessions() {
     error: availableError,
     refetch: refetchAvailable,
   } = useGetAvailableSessions(activeProfile?.id || "", {
+    status: filters.status === "all" ? undefined : filters.status,
+    date: filters.date || undefined,
+    dayOfWeek: filters.dayOfWeek === "all" ? undefined : filters.dayOfWeek,
+    search: filters.search || undefined,
     page: availablePagination.page,
     limit: availablePagination.limit,
   });
@@ -180,6 +183,29 @@ function Sessions() {
     }),
     [availableSessionsData, availablePagination]
   );
+
+  // Transform available sessions from API data
+  const availableSessions = useMemo(() => {
+    if (!availableSessionsData?.data?.data) return [];
+
+    return availableSessionsData.data.data.map((apiSession: any) => ({
+      id: apiSession.id.toString(),
+      date: apiSession.sessionDate,
+      name: `Available with ${apiSession.tutor}`,
+      time: `${apiSession.startTime?.slice(0, 5)} - ${apiSession.endTime?.slice(0, 5)}`,
+      timeSlot: `${apiSession.startTime?.slice(0, 5)} - ${apiSession.endTime?.slice(0, 5)}`,
+      tutor: apiSession.tutor,
+      tutorId: apiSession.tutorId,
+      student: undefined,
+      participants: [],
+      issue: undefined,
+      status: apiSession.status,
+      bookedAt: null,
+      bookedBy: null,
+      bookedById: null,
+      notes: apiSession.notes,
+    }));
+  }, [availableSessionsData]);
 
   // Categorize sessions (only show booked sessions, not available ones)
   const { previous, today, upcoming } = useMemo(() => {
@@ -391,6 +417,141 @@ function Sessions() {
                 onCancel={handleCancel}
               />
             </>
+          )}
+          {/* Available Sessions Section */}
+          {availableSessions.length > 0 && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border">
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-medium text-sm">AVAILABLE SESSIONS</h3>
+                  <span className="text-xs text-textSubtitle">
+                    {availableSessions.length} session
+                    {availableSessions.length !== 1 ? "s" : ""} found
+                  </span>
+                </div>
+                <p className="text-xs text-textSubtitle mb-3">
+                  Book an available session with your tutor
+                </p>
+
+                {/* Active Filters Display */}
+                {(filters.status !== "all" ||
+                  filters.date ||
+                  filters.dayOfWeek !== "all" ||
+                  filters.search) && (
+                    <div className="flex flex-wrap items-center gap-2 mb-3 p-2 bg-gray-50 rounded-lg border">
+                      <span className="text-xs text-textSubtitle font-medium">
+                        Active filters:
+                      </span>
+                      {filters.status !== "all" && (
+                        <Badge
+                          variant="secondary"
+                          className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
+                        >
+                          Status: {filters.status}
+                          <button
+                            onClick={() => handleFilterChange("status", "all")}
+                            className="ml-1 hover:bg-blue-300 rounded-full p-0.5 transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      )}
+                      {filters.date && (
+                        <Badge
+                          variant="secondary"
+                          className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
+                        >
+                          Date: {filters.date}
+                          <button
+                            onClick={() => handleFilterChange("date", "")}
+                            className="ml-1 hover:bg-blue-300 rounded-full p-0.5 transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      )}
+                      {filters.dayOfWeek !== "all" && (
+                        <Badge
+                          variant="secondary"
+                          className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
+                        >
+                          Day: {filters.dayOfWeek}
+                          <button
+                            onClick={() => handleFilterChange("dayOfWeek", "all")}
+                            className="ml-1 hover:bg-blue-300 rounded-full p-0.5 transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      )}
+                      {filters.search && (
+                        <Badge
+                          variant="secondary"
+                          className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
+                        >
+                          Search: {filters.search}
+                          <button
+                            onClick={() => handleFilterChange("search", "")}
+                            className="ml-1 hover:bg-blue-300 rounded-full p-0.5 transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+              </div>
+
+              {/* Render session cards directly */}
+              {availableSessions.map((session: Session) => {
+                const displayDate = formatDisplayDate(session.date);
+
+                return (
+                  <div
+                    key={session.id}
+                    className="flex flex-col md:flex-row md:items-center gap-2 mb-3 last:mb-0"
+                  >
+                    <div className="rounded-2xl py-3 px-4 md:max-w-20 text-center bg-bgWhiteGray border">
+                      <div className="text-sm font-medium text-textSubtitle">
+                        {displayDate.date}
+                      </div>
+                      <div className="text-sm font-medium text-textSubtitle">
+                        {displayDate.day}
+                      </div>
+                    </div>
+                    <div className="flex flex-col md:flex-row gap-4 md:gap-1 md:items-center justify-between space-x-4 w-full bg-bgWhiteGray border py-2 px-4 rounded-2xl">
+                      <div className="text-textSubtitle space-y-2">
+                        <div className="font-medium text-sm">{session.name}</div>
+                        <div className="text-xs">
+                          {session.time} • {session.tutor}
+                        </div>
+                        {session.status && (
+                          <div className="text-xs">
+                            <span className="font-medium text-gray-600">
+                              {session.status.charAt(0).toUpperCase() +
+                                session.status.slice(1)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2 w-full md:w-fit justify-center md:justify-normal">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedDate(session.date);
+                            setSessionToEdit(session);
+                            setShowDialog(true);
+                          }}
+                          className="bg-primaryBlue text-white rounded-full text-xs hover:bg-primaryBlue/90"
+                        >
+                          Book Session
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
 

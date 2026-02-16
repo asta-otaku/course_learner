@@ -50,7 +50,7 @@ export default function StudentPage({ id }: { id: string }) {
   // Transform library curricula to Course format
   const curriculaAsCourses = useMemo(() => {
     return curricula.map((curriculum, index) => ({
-      image: availableImages[index % availableImages.length],
+      imageUrl: curriculum.imageUrl,
       course: curriculum.title,
       topics: [
         {
@@ -166,11 +166,10 @@ export default function StudentPage({ id }: { id: string }) {
                       : "Tuition"}
                   </span>
                   <Badge
-                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      profile.isActive
+                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${profile.isActive
                         ? "bg-[#34C759] text-white"
                         : "bg-red-500 text-white"
-                    }`}
+                      }`}
                   >
                     {profile.isActive ? "Active" : "Inactive"}
                   </Badge>

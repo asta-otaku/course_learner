@@ -8,118 +8,24 @@ import {
   startOfDay,
   endOfDay,
 } from "date-fns";
-import profileImage from "@/assets/profile-background.svg";
 import algebra from "@/assets/algebra.png";
 import ans from "@/assets/ans.png";
 import ratio from "@/assets/ratio.png";
 import measurement from "@/assets/measurement.png";
-import { Course, DateRange, Quiz, VideoTopic, TutorProfile, TutorDetails, TransformedTutorProfile, ChangeRequest } from "./types";
+import {
+  Course,
+  DateRange,
+  TutorProfile,
+  TutorDetails,
+  TransformedTutorProfile,
+  type QuizPlayerQuestion,
+  type QuizQuestionResult,
+  type QuizSubmissionResults,
+} from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
-export const dummyProfiles = [
-  {
-    id: "1",
-    name: "Jonathan",
-    year: 1,
-    image: profileImage,
-    status: "active",
-    subscriptionDate: "2023-10-01",
-    duration: 30,
-    subscriptionAmount: 100,
-    subscriptionName: "The platform",
-  },
-  {
-    id: "2",
-    name: "John",
-    year: 1,
-    image: profileImage,
-    status: "active",
-    subscriptionDate: "2023-09-15",
-    duration: 60,
-    subscriptionAmount: 400,
-    subscriptionName: "Tuition",
-  },
-  {
-    id: "3",
-    name: "Doku",
-    year: 1,
-    image: profileImage,
-    status: "active",
-    subscriptionDate: "2023-08-20",
-    duration: 30,
-    subscriptionAmount: 200,
-    subscriptionName: "The platform",
-  },
-  {
-    id: "4",
-    name: "Deku",
-    year: 1,
-    image: profileImage,
-    status: "inactive",
-    subscriptionDate: "2023-07-10",
-    duration: 60,
-    subscriptionAmount: 400,
-    subscriptionName: "Tuition",
-  },
-  {
-    id: "5",
-    name: "Midoriyama",
-    year: 3,
-    image: profileImage,
-    status: "inactive",
-    subscriptionDate: "2023-06-05",
-    duration: 30,
-    subscriptionAmount: 100,
-    subscriptionName: "The platform",
-  },
-  {
-    id: "6",
-    name: "Midoriyama",
-    year: 3,
-    image: profileImage,
-    status: "active",
-    subscriptionDate: "2023-05-01",
-    duration: 60,
-    subscriptionAmount: 400,
-    subscriptionName: "Tuition",
-  },
-  {
-    id: "7",
-    name: "Midoriyama",
-    year: 3,
-    image: profileImage,
-    status: "active",
-    subscriptionDate: "2023-04-15",
-    duration: 30,
-    subscriptionAmount: 200,
-    subscriptionName: "The platform",
-  },
-  {
-    id: "8",
-    name: "Midoriyama",
-    year: 3,
-    image: profileImage,
-    status: "active",
-    subscriptionDate: "2023-03-10",
-    duration: 60,
-    subscriptionAmount: 400,
-    subscriptionName: "Tuition",
-  },
-  {
-    id: "9",
-    name: "Midoriyama",
-    year: 3,
-    image: profileImage,
-    status: "active",
-    subscriptionDate: "2023-02-01",
-    duration: 30,
-    subscriptionAmount: 100,
-    subscriptionName: "The platform",
-  },
-];
 
 export const dummyTutorProfiles: TutorProfile[] = [
   {
@@ -214,7 +120,7 @@ export const dummyTutorProfiles: TutorProfile[] = [
   }
 ]
 
-export const courses: Course[] = [
+export const courses = [
   {
     image: algebra,
     course: "Mathematics",
@@ -907,3 +813,130 @@ export const transformTutorData = (tutors: TutorDetails[]): TransformedTutorProf
     };
   });
 };
+
+// Quiz player constants and helpers
+export const QUIZ_TIMER_URGENT_SECONDS = 300;
+export const QUIZ_TIMER_WARNING_SECONDS = 600;
+
+export const DEFAULT_QUIZ_PLAYER_SETTINGS = {
+  randomizeQuestions: false,
+  showCorrectAnswers: true,
+  maxAttempts: 3,
+  passingScore: 70,
+  examMode: false,
+} as const;
+
+export function shuffleArray<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+export function formatTimeSeconds(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${minutes}:${secs.toString().padStart(2, "0")}`;
+}
+
+export function formatTimeFromMinutes(minutes: number): string {
+  return formatTimeSeconds(Math.floor(minutes * 60));
+}
+
+export function buildQuizSubmissionResults(
+  resultData: any,
+  fallbackAttemptId: string,
+  quizId: string
+): QuizSubmissionResults {
+  return {
+    attemptId: resultData.attemptId || resultData.id || fallbackAttemptId || "",
+    quizId: resultData.quizId || quizId,
+    score: resultData.score || 0,
+    totalPoints: resultData.totalPoints || 0,
+    percentage: resultData.percentage || 0,
+    results: resultData.results || [],
+    timeSpent: resultData.timeSpent || 0,
+  };
+}
+
+export function parseQuizFeedbackText(feedback: string | undefined): string {
+  if (!feedback) return "";
+  try {
+    const parsed = JSON.parse(feedback);
+    if (parsed && typeof parsed === "object" && parsed.feedback) {
+      return parsed.feedback;
+    }
+  } catch {
+    // Not JSON, use as is
+  }
+  return feedback;
+}
+
+export function serializeQuizAnswerForApi(
+  question: QuizPlayerQuestion,
+  answer: string | Record<string, string>
+): string {
+  if (typeof answer === "string") {
+    if (question.question.type === "true_false") {
+      const option = question.question.options?.find((o) => o.id === answer);
+      return option ? option.text.toLowerCase() : answer;
+    }
+    return answer;
+  }
+  return JSON.stringify(answer);
+}
+
+export function parseQuizQuestionSubmitResponse(
+  questionId: string,
+  response: any
+): QuizQuestionResult | null {
+  const data = response?.data?.data ?? response?.data;
+  if (!data) return null;
+  const result = data.result ?? data;
+  return {
+    questionId,
+    userAnswerContent: result.userAnswerContent ?? result.userAnswerContent,
+    userAnswerId: result.userAnswerId ?? result.userAnswerId,
+    correctAnswers: Array.isArray(result.correctAnswers)
+      ? result.correctAnswers
+      : result.correctAnswers
+        ? [{ id: "", content: result.correctAnswers }]
+        : [],
+    isCorrect: Boolean(result.isCorrect),
+    pointsEarned: Number(result.pointsEarned ?? 0),
+    pointsPossible: Number(result.pointsPossible ?? 1),
+    feedback: result.feedback,
+  };
+}
+
+export function getCorrectAnswerText(
+  question: QuizPlayerQuestion,
+  result: QuizQuestionResult
+): string {
+  if (result.correctAnswers.length === 0) return "No correct answer";
+  if (
+    question.question.type === "matching_pairs" &&
+    typeof result.correctAnswers[0].content === "object"
+  ) {
+    const matches = result.correctAnswers[0].content as Record<string, string>;
+    return Object.entries(matches)
+      .map(([left, right]) => `${left} → ${right}`)
+      .join("\n");
+  }
+  if (
+    (question.question.type === "multiple_choice" ||
+      question.question.type === "true_false") &&
+    question.question.options
+  ) {
+    const correctAnswer = result.correctAnswers[0];
+    const option = question.question.options.find(
+      (opt) => opt.id === correctAnswer.id
+    );
+    return option?.text || correctAnswer.content.toString();
+  }
+  return result.correctAnswers
+    .map((ans) => ans.content.toString())
+    .join(" or ");
+}

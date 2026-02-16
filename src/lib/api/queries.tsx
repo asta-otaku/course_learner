@@ -28,6 +28,8 @@ import {
   Homework,
   HomeworkReview,
   Section,
+  BaselineTest,
+  QuizResumeAttempt,
 } from "../types";
 
 // User Queries
@@ -296,6 +298,7 @@ export const useGetBookedSessions = (
       const response = await axiosInstance.get(url);
       return response.data;
     },
+    enabled: !!childId,
   });
 };
 
@@ -331,6 +334,7 @@ export const useGetAvailableSessions = (
       const response = await axiosInstance.get(url);
       return response.data;
     },
+    enabled: !!childId,
   });
 };
 
@@ -585,6 +589,17 @@ export const useGetQuizzes = (options?: {
         },
       };
     },
+  });
+};
+
+export const useGetResumeQuizAttempt = (attemptId: string) => {
+  return useQuery({
+    queryKey: ["resume-quiz-attempt", attemptId],
+    queryFn: async (): Promise<APIGetResponse<QuizResumeAttempt>> => {
+      const response = await axiosInstance.get(`/quizzes/attempt/${attemptId}/resume`);
+      return response.data;
+    },
+    enabled: !!attemptId,
   });
 };
 
@@ -850,6 +865,18 @@ export const useGetChildLessons = (
   });
 };
 
+export const useGetChildLastAccessedLessons = (childId: string,
+  curriculumId: string) => {
+  return useQuery({
+    queryKey: ["child-last-accessed-lessons", childId, curriculumId],
+    queryFn: async (): Promise<APIGetResponse<ChildLesson[]>> => {
+      const response = await axiosInstance.get(`/library/${childId}/curriculums/${curriculumId}/continue-lessons`);
+      return response.data;
+    },
+    enabled: !!childId && !!curriculumId,
+  });
+}
+
 // Analytics Queries
 export const useGetAnalytics = () => {
   return useQuery({
@@ -1018,5 +1045,38 @@ export const useGetSectionById = (id: string, offerType?: string) => {
       return response.data;
     },
     enabled: !!id,
+  });
+};
+
+// Baseline Test Queries
+export const useGetBaselineTests = () => {
+  return useQuery({
+    queryKey: ["baseline-tests"],
+    queryFn: async (): Promise<APIGetResponse<BaselineTest[]>> => {
+      const response = await axiosInstance.get("/baseline-test");
+      return response.data;
+    },
+  });
+};
+
+export const useGetBaselineTestById = (id: string) => {
+  return useQuery({
+    queryKey: ["baseline-test", id],
+    queryFn: async (): Promise<APIGetResponse<BaselineTest>> => {
+      const response = await axiosInstance.get(`/baseline-test/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
+  });
+};
+
+export const useGetChildBaselineTest = (childId: string) => {
+  return useQuery({
+    queryKey: ["child-baseline-test", childId],
+    queryFn: async (): Promise<APIGetResponse<BaselineTest>> => {
+      const response = await axiosInstance.get(`/baseline-test/child/${childId}`);
+      return response.data;
+    },
+    enabled: !!childId,
   });
 };

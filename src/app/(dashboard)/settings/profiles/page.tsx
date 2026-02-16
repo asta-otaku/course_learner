@@ -320,11 +320,10 @@ function Page() {
                       setIsEditMode(true);
                       setStep(1);
                     }}
-                    className={`bg-bgWhiteGray border cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 relative ${
-                      profile.isActive === false
+                    className={`bg-bgWhiteGray border cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 relative ${profile.isActive === false
                         ? "border-gray-300 bg-gray-50"
                         : "border-black/20"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       {profile.avatar ? (
@@ -443,8 +442,8 @@ function Page() {
                       Select Year
                     </option>
                     {Array.from({ length: 6 }, (_, i) => i + 1).map((y) => (
-                      <option key={y} value={y}>
-                        {y}
+                      <option key={y} value={`Year ${y}`}>
+                        Year {y}
                       </option>
                     ))}
                   </select>
@@ -508,11 +507,10 @@ function Page() {
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button
-                          className={`text-xs ${
-                            selectedProfile?.isActive === false
+                          className={`text-xs ${selectedProfile?.isActive === false
                               ? "text-[#008000]"
                               : "text-[#FF0000]"
-                          } font-semibold`}
+                            } font-semibold`}
                         >
                           {selectedProfile?.isActive === false
                             ? "Restore"
@@ -535,11 +533,10 @@ function Page() {
                         </AlertDialogHeader>
                         <AlertDialogFooter className="grid grid-cols-1 gap-1.5 mt-3">
                           <AlertDialogAction
-                            className={`${
-                              selectedProfile?.isActive === false
+                            className={`${selectedProfile?.isActive === false
                                 ? "bg-[#008000] hover:bg-[#006600]"
                                 : "bg-[#FF0000] hover:bg-[#e60000]"
-                            } text-white rounded-full w-full py-2 text-sm font-medium`}
+                              } text-white rounded-full w-full py-2 text-sm font-medium`}
                             onClick={async () => {
                               const willDeactivate =
                                 selectedProfile.isActive === true;
@@ -576,13 +573,13 @@ function Page() {
                                 // Use API response data if available, otherwise use existing profile
                                 const updatedProfileData = res.data?.data
                                   ? {
-                                      ...res.data.data,
-                                      isActive: !willDeactivate, // Explicitly set based on action
-                                    }
+                                    ...res.data.data,
+                                    isActive: !willDeactivate, // Explicitly set based on action
+                                  }
                                   : {
-                                      ...profileToUpdate,
-                                      isActive: !willDeactivate, // Explicitly set based on action
-                                    };
+                                    ...profileToUpdate,
+                                    isActive: !willDeactivate, // Explicitly set based on action
+                                  };
 
                                 updateLocalStorageProfiles(updatedProfileData);
 
