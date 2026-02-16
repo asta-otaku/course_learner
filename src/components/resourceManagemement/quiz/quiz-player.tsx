@@ -16,7 +16,7 @@ import {
   usePostSubmitQuizQuestionDynamic,
   usePostSubmitBaselineTest,
 } from "@/lib/api/mutations";
-import { useGetQuizQuestions, useGetQuiz } from "@/lib/api/queries";
+import { useGetQuizQuestions, useGetQuiz, useGetResumeQuizAttempt } from "@/lib/api/queries";
 import {
   ChevronLeft,
   ChevronRight,
@@ -62,6 +62,7 @@ export function QuizPlayer({
   baselineTestId,
   timeLimit: propTimeLimit,
   quizAttemptId,
+  isResuming = false,
 }: QuizPlayerProps) {
   const router = useRouter();
   const [currentPosition, setCurrentPosition] = useState<QuizNavigationPosition>({
@@ -86,6 +87,7 @@ export function QuizPlayer({
   const [immediateQuestionResults, setImmediateQuestionResults] = useState<
     Record<string, QuizQuestionResult>
   >({});
+  const [lockedQuestions, setLockedQuestions] = useState<Set<string>>(new Set());
 
   // Fetch quiz data for timeLimit and feedbackMode (needed for both regular and homework)
   const { data: quizResponse } = useGetQuiz(quizId || "");
@@ -102,14 +104,21 @@ export function QuizPlayer({
     timeLimit: actualTimeLimit,
   };
 
-  // Fetch questions only when attemptId is available (quiz has started)
+  // Fetch resume data if resuming (for all quiz types: regular, baseline, homework)
+  const {
+    data: resumeResponse,
+    isLoading: resumeLoading,
+    error: resumeError,
+  } = useGetResumeQuizAttempt(isResuming && attemptId ? attemptId : "");
+
+  // Fetch questions only when attemptId is available and NOT resuming
   // Note: The hook will only fetch when quizId is truthy, but we also need attemptId
   // So we'll check for attemptId in the component logic
   const {
     data: questionsResponse,
     isLoading: questionsLoading,
     error: questionsError,
-  } = useGetQuizQuestions(attemptId ? quizId : "");
+  } = useGetQuizQuestions(!isResuming && attemptId ? quizId : "");
 
   // Submit quiz mutation (for regular quizzes)
   const { mutate: submitQuiz, isPending: isSubmittingQuiz } = usePostSubmitQuiz(
@@ -150,9 +159,184 @@ export function QuizPlayer({
     return currentPosition.questionIndex;
   };
 
-  // Transform and initialize questions when fetched
+  // Transform and initialize questions from resume data
   useEffect(() => {
-    if (!questionsResponse?.data || !attemptId) return;
+    if (!isResuming || !resumeResponse?.data || !attemptId) return;
+
+    const resumeData = resumeResponse.data;
+    const rawQuestions = resumeData.questions;
+
+    // Transform questions to QuizPlayerQuestion format
+    const transformedQuestions: QuizPlayerQuestion[] = rawQuestions
+      .map((rq: any, index: number) => {
+        // Determine the question data structure - handle different possible formats
+        const questionData = rq.question || rq;
+
+        // Build options array
+        let options: any[] = [];
+
+        // First try to use the answers array if available
+        if ((rq.type === "multiple_choice" || rq.type === "true_false") && rq.answers) {
+          options = rq.answers
+            .sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0))
+            .map((answer: any) => ({
+              id: answer.id,
+              text: answer.content,
+              isCorrect: answer.isCorrect,
+            }));
+        }
+        // For locked questions without answers array, reconstruct from result
+        else if (rq.isLocked && rq.result && rq.result.correctAnswers) {
+          // Add the correct answer(s)
+          options = rq.result.correctAnswers.map((ans: any) => ({
+            id: ans.id,
+            text: ans.content,
+            isCorrect: true,
+          }));
+
+          // Add the user's selected answer if it's different from the correct answer
+          if (rq.result.userAnswerId && !options.some((opt: any) => opt.id === rq.result.userAnswerId)) {
+            options.push({
+              id: rq.result.userAnswerId,
+              text: rq.result.userAnswerContent,
+              isCorrect: false,
+            });
+          }
+        }
+
+        return {
+          id: rq.questionId || rq.id,
+          order: index,
+          points: rq.points || questionData.points || 1,
+          explanation: questionData.explanation || rq.explanation,
+          question: {
+            id: rq.questionId || questionData.id,
+            title: rq.title || questionData.title || questionData.content?.substring(0, 50) || "Question",
+            content: rq.content || questionData.content || "",
+            type: rq.type || questionData.type || rq.question_format?.type || "multiple_choice",
+            image: rq.image || questionData.image,
+            image_url: rq.image_url || questionData.image_url,
+            imageSettings: rq.imageSettings || questionData.imageSettings || rq.image_settings,
+            // Use the constructed options array
+            options: options,
+            // For matching questions
+            ...(questionData.type === "matching_pairs" && {
+              pairs: (questionData.pairs || questionData.matchingPairs || []).map(
+                (pair: any, idx: number) => ({
+                  id: `pair-${idx}`,
+                  left: pair.left,
+                  right: pair.right,
+                })
+              ),
+              correctAnswer: questionData.pairs || questionData.matchingPairs || [],
+            }),
+            // For free text questions
+            ...(questionData.type === "free_text" && {
+              correctAnswers: questionData.correctAnswers || [],
+            }),
+            metadata: questionData.metadata,
+            correctAnswer: questionData.correctAnswer,
+          },
+        };
+      });
+
+    // Shuffle options for multiple choice questions (but not for locked questions)
+    const withShuffledOptions = transformedQuestions.map((q, idx) => {
+      const isQuestionLocked = rawQuestions[idx]?.isLocked;
+
+      return {
+        ...q,
+        question: {
+          ...q.question,
+          options:
+            !isQuestionLocked && q.question.options && q.question.options.length > 0
+              ? shuffleArray(q.question.options)
+              : q.question.options,
+        },
+      };
+    });
+
+    setQuestions(withShuffledOptions);
+
+    // Populate answers and results from resume data
+    const populatedAnswers: Record<string, string | Record<string, string>> = {};
+    const populatedResults: Record<string, QuizQuestionResult> = {};
+    const locked = new Set<string>();
+    let firstUnansweredIndex = -1;
+
+    rawQuestions.forEach((rq: any, index: number) => {
+      const questionId = rq.questionId || rq.id;
+
+      // If this question has a result, it was already answered
+      if (rq.result || rq.isLocked) {
+        const result = rq.result;
+
+        // Populate the answer based on question type
+        if (rq.type === "multiple_choice" || rq.type === "true_false") {
+          // For MC/TF, use the userAnswerId (the selected option ID)
+          if (result.userAnswerId) {
+            populatedAnswers[questionId] = result.userAnswerId;
+          }
+        } else if (rq.type === "matching_pairs") {
+          // For matching, parse the userAnswerContent as JSON if it's a string
+          try {
+            if (typeof result.userAnswerContent === "string") {
+              populatedAnswers[questionId] = JSON.parse(result.userAnswerContent);
+            } else {
+              populatedAnswers[questionId] = result.userAnswerContent;
+            }
+          } catch {
+            populatedAnswers[questionId] = result.userAnswerContent;
+          }
+        } else {
+          // For free text and other types, use userAnswerContent
+          populatedAnswers[questionId] = result.userAnswerContent || "";
+        }
+
+        // Populate the result
+        populatedResults[questionId] = {
+          questionId: questionId,
+          isCorrect: result.isCorrect || false,
+          pointsEarned: parseFloat(result.pointsEarned) || 0,
+          pointsPossible: result.pointsPossible || rq.points || 1,
+          userAnswerId: result.userAnswerId,
+          userAnswerContent: result.userAnswerContent || "",
+          correctAnswers: result.correctAnswers || [],
+          feedback: result.feedback,
+        };
+
+        // Lock this question
+        locked.add(questionId);
+      } else {
+        // This is the first unanswered question
+        if (firstUnansweredIndex === -1) {
+          firstUnansweredIndex = index;
+        }
+      }
+    });
+
+    // If all questions are answered, set to first question
+    if (firstUnansweredIndex === -1) {
+      firstUnansweredIndex = 0;
+    }
+
+    setAnswers(populatedAnswers);
+    setImmediateQuestionResults(populatedResults);
+    setLockedQuestions(locked);
+    setAnsweredQuestions(new Set(Array.from({ length: firstUnansweredIndex }, (_, i) => i)));
+
+    // Set position to first unanswered question
+    setCurrentPosition({ type: "question", questionIndex: firstUnansweredIndex });
+
+    const initialTransition = getTransitionForPosition(0);
+    if (initialTransition && firstUnansweredIndex === 0) {
+      setCurrentPosition({ type: "transition", questionIndex: 0 });
+    }
+  }, [resumeResponse, attemptId, isResuming]);
+
+  // Transform and initialize questions when fetched (non-resume flow)
+  useEffect(() => {
+    if (isResuming || !questionsResponse?.data || !attemptId) return;
 
     const rawQuestions = questionsResponse.data;
 
@@ -366,8 +550,9 @@ export function QuizPlayer({
     questionId: string,
     answer: string | Record<string, string>
   ) => {
-    if (isImmediateFeedback && immediateQuestionResults[questionId]) {
-      return; // Already submitted, no editing
+    // Prevent changes to locked questions (from resume) or already submitted (immediate feedback)
+    if (lockedQuestions.has(questionId) || (isImmediateFeedback && immediateQuestionResults[questionId])) {
+      return;
     }
     setAnswers((prev) => {
       const newAnswers = {
@@ -799,24 +984,24 @@ export function QuizPlayer({
       "Quiz"
       : "Quiz";
 
-  // Show loading state while fetching questions
-  if (questionsLoading || !attemptId) {
+  // Show loading state while fetching questions or resume data
+  if ((isResuming ? resumeLoading : questionsLoading) || !attemptId) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primaryBlue mx-auto mb-4"></div>
-          <p>Loading quiz...</p>
+          <p>{isResuming ? "Resuming quiz..." : "Loading quiz..."}</p>
         </div>
       </div>
     );
   }
 
   // Show error state
-  if (
-    questionsError ||
-    !questionsResponse?.data ||
-    questionsResponse.data.length === 0
-  ) {
+  const hasError = isResuming
+    ? (resumeError || !resumeResponse?.data || resumeResponse.data.questions.length === 0)
+    : (questionsError || !questionsResponse?.data || questionsResponse.data.length === 0);
+
+  if (hasError) {
     return (
       <div className="max-w-2xl mx-auto py-12">
         <Card>
@@ -827,7 +1012,7 @@ export function QuizPlayer({
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                {questionsError
+                {(isResuming ? resumeError : questionsError)
                   ? "Failed to load quiz questions. Please try again."
                   : "This quiz doesn't have any questions yet."}
               </AlertDescription>
@@ -861,8 +1046,9 @@ export function QuizPlayer({
   const currentResult = getQuestionResult(currentQ.question.id);
   const isCurrentQuestionSubmitted =
     isImmediateFeedback && Boolean(immediateQuestionResults[currentQ.question.id]);
+  const isCurrentQuestionLocked = lockedQuestions.has(currentQ.question.id);
   const showCorrectnessForCurrent =
-    Boolean(currentResult) && (showResults || isCurrentQuestionSubmitted);
+    Boolean(currentResult) && (showResults || isCurrentQuestionSubmitted || isCurrentQuestionLocked);
   const allQuestionsSubmittedInImmediateMode =
     isImmediateFeedback &&
     questions.length > 0 &&
@@ -1344,6 +1530,16 @@ export function QuizPlayer({
                       )}
                   </div>
 
+                  {/* Resume Notice */}
+                  {isResuming && lockedQuestions.size > 0 && (
+                    <Alert className="mb-4 border-blue-200 bg-blue-50">
+                      <AlertCircle className="h-4 w-4 text-blue-600" />
+                      <AlertDescription className="text-blue-800">
+                        <strong>Resuming {isBaselineTest ? "Baseline Test" : isHomework ? "Homework" : "Quiz"}:</strong> You have already answered {lockedQuestions.size} question{lockedQuestions.size !== 1 ? 's' : ''}. Those answers are locked and cannot be changed. Continue from where you left off.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {/* Test Mode Notice */}
                   {isTestMode && !isImmediateFeedback && (
                     <Alert className="mb-4">
@@ -1378,7 +1574,7 @@ export function QuizPlayer({
                           handleAnswerChange(currentQ.question.id, value)
                         }
                         disabled={
-                          showResults || isCurrentQuestionSubmitted
+                          showResults || isCurrentQuestionSubmitted || isCurrentQuestionLocked
                         }
                       >
                         <div className="space-y-3">
@@ -1399,24 +1595,24 @@ export function QuizPlayer({
                                   "flex items-center space-x-2 p-3 rounded-lg border transition-colors w-full cursor-pointer",
                                   !showResults && "hover:bg-muted/50",
                                   showCorrectness &&
-                                    isCorrect &&
-                                    "bg-green-50 border-green-300",
+                                  isCorrect &&
+                                  "bg-green-50 border-green-300",
                                   showCorrectness &&
-                                    isSelected &&
-                                    !isCorrect &&
-                                    "bg-red-50 border-red-300",
+                                  isSelected &&
+                                  !isCorrect &&
+                                  "bg-red-50 border-red-300",
                                   showCorrectness &&
-                                    !isSelected &&
-                                    !isCorrect &&
-                                    "border-gray-200",
+                                  !isSelected &&
+                                  !isCorrect &&
+                                  "border-gray-200",
                                   (showResults || isCurrentQuestionSubmitted) &&
-                                    "cursor-default"
+                                  "cursor-default"
                                 )}
                               >
                                 <RadioGroupItem
                                   value={option.id}
                                   id={option.id}
-                                  disabled={showResults || isCurrentQuestionSubmitted}
+                                  disabled={showResults || isCurrentQuestionSubmitted || isCurrentQuestionLocked}
                                 />
                                 <span className="flex-1">{option.text}</span>
                                 {showCorrectness && isCorrect && (
@@ -1449,11 +1645,12 @@ export function QuizPlayer({
                             handleAnswerChange(currentQ.question.id, matches)
                           }
                           disabled={
-                            showResults || isCurrentQuestionSubmitted
+                            showResults || isCurrentQuestionSubmitted || isCurrentQuestionLocked
                           }
                         />
                         {isImmediateFeedback &&
                           !isCurrentQuestionSubmitted &&
+                          !isCurrentQuestionLocked &&
                           Object.keys(
                             (answers[currentQ.question.id] as Record<
                               string,
@@ -1522,6 +1719,7 @@ export function QuizPlayer({
                           disabled={
                             showResults ||
                             isCurrentQuestionSubmitted ||
+                            isCurrentQuestionLocked ||
                             (isTestMode &&
                               answeredQuestions.has(currentQuestionIndex))
                           }
@@ -1543,6 +1741,7 @@ export function QuizPlayer({
                         />
                         {isImmediateFeedback &&
                           !isCurrentQuestionSubmitted &&
+                          !isCurrentQuestionLocked &&
                           (answers[currentQ.question.id] as string)?.trim() && (
                             <Button
                               onClick={() => {

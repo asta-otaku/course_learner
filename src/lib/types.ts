@@ -93,6 +93,7 @@ export interface QuizAttempt {
   metadata: any | null;
   createdAt: string;
   updatedAt: string;
+  isResuming?: boolean;
 }
 
 
@@ -156,6 +157,7 @@ export interface QuizPlayerProps {
   isBaselineTest?: boolean;
   baselineTestId?: string;
   timeLimit?: number;
+  isResuming?: boolean;
 }
 
 export interface QuizQuestionResult {
@@ -988,6 +990,79 @@ export interface BaselinelineTestCreateData {
   description?: string;
   masteryThreshold?: number;
   quizSettings?: QuizSettings;
+}
+
+/** Result for a single question (present when question was already submitted). */
+export interface QuizResumeQuestionResult {
+  questionId: string;
+  questionAttemptId: string;
+  userAnswerId: string;
+  userAnswerContent: string;
+  correctAnswers: Array<{ id: string; content: string }>;
+  isCorrect: boolean;
+  pointsEarned: number;
+  pointsPossible: number;
+  feedback: string;
+}
+
+/** Answer option for MC / true-false (present when question has choices). */
+export interface QuizResumeQuestionAnswer {
+  id: string;
+  content: string;
+  orderIndex: number;
+}
+
+/** Matching-pairs format (present for matching_pairs questions). */
+export interface QuizResumeQuestionFormat {
+  left_items: string[];
+  right_items: string[];
+}
+
+/** Image settings for a question (optional). */
+export interface QuizResumeQuestionImageSettings {
+  width?: string;
+  height?: string;
+  max_height?: string;
+  alignment?: string;
+  object_fit?: string;
+  size_mode?: string;
+}
+
+/** Single question in a resume attempt; result, answers, and question_format are optional depending on type/state. */
+export interface QuizResumeQuestion {
+  quizQuestionId: string;
+  orderIndex: number;
+  pointsOverride: number;
+  questionId: string;
+  title: string;
+  content: string;
+  type: string;
+  points: number;
+  tags?: string[];
+  image?: string;
+  hint?: Record<string, unknown>;
+  imageSettings?: QuizResumeQuestionImageSettings;
+  isLocked: boolean;
+  /** Present when question was already submitted (e.g. immediate feedback). */
+  result?: QuizResumeQuestionResult;
+  /** Present for multiple_choice / true_false. */
+  answers?: QuizResumeQuestionAnswer[];
+  /** Present for matching_pairs. */
+  question_format?: QuizResumeQuestionFormat;
+}
+
+export interface QuizResumeAttempt {
+  attemptId: string;
+  quizId: string;
+  status: "in_progress" | "submitted" | "graded";
+  progress: {
+    answeredCount: number;
+    totalQuestions: number;
+    totalPoints: number;
+    score: number;
+    percentage: number;
+  };
+  questions: QuizResumeQuestion[];
 }
 
 // Export socket types

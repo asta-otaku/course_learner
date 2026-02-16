@@ -20,6 +20,8 @@ export default function TakeQuizPage() {
   const isHomework = searchParams.get("isHomework") === "true";
   const isBaselineTest = searchParams.get("isBaselineTest") === "true";
   const baselineTestId = searchParams.get("baselineTestId") ?? "";
+  const resumeAttemptId = searchParams.get("attemptId") ?? null;
+  const isResuming = Boolean(resumeAttemptId && !isHomework && !isBaselineTest);
   const router = useRouter();
   const finalQuizIdForFetch = isHomework ? null : id;
   const { data: quizResponse } = useGetQuiz(finalQuizIdForFetch || "");
@@ -43,6 +45,7 @@ export default function TakeQuizPage() {
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [quizId, setQuizId] = useState<string | null>(null);
   const [quizAttemptId, setQuizAttemptId] = useState<string | null>(null);
+  const [isResumingFromStart, setIsResumingFromStart] = useState(false);
 
   // Handler for starting quiz
   const handleStartQuiz = () => {
@@ -89,8 +92,9 @@ export default function TakeQuizPage() {
             if (homeworkData?.id && homeworkData?.quizId) {
               setAttemptId(homeworkData.id);
               setQuizId(homeworkData.quizId);
+              setIsResumingFromStart(Boolean(homeworkData.isResuming));
               setQuizStarted(true);
-              toast.success("Homework started successfully!");
+              toast.success(homeworkData.isResuming ? "Resuming homework..." : "Homework started successfully!");
             } else {
               console.error("Homework ID or Quiz ID not found in response");
               toast.error("Failed to start homework. Please try again.");
@@ -111,8 +115,9 @@ export default function TakeQuizPage() {
             const attemptData = response.data?.data;
             if (attemptData?.id) {
               setAttemptId(attemptData.id);
+              setIsResumingFromStart(Boolean(attemptData.isResuming));
               setQuizStarted(true);
-              toast.success("Quiz started successfully!");
+              toast.success(attemptData.isResuming ? "Resuming quiz..." : "Quiz started successfully!");
             } else {
               console.error("Attempt ID not found in response");
               toast.error("Failed to start quiz. Please try again.");
@@ -126,6 +131,22 @@ export default function TakeQuizPage() {
       );
     }
   };
+
+  // If resuming an existing attempt, skip the start flow
+  if (isResuming && resumeAttemptId) {
+    return (
+      <QuizPlayer
+        quizId={id}
+        isTestMode={isTestMode}
+        attemptId={resumeAttemptId}
+        quizAttemptId={null}
+        isHomework={false}
+        isBaselineTest={false}
+        timeLimit={timeLimit}
+        isResuming={true}
+      />
+    );
+  }
 
   // If quiz hasn't been started, show the pre-quiz UI
   if (!quizStarted) {
@@ -286,6 +307,7 @@ export default function TakeQuizPage() {
       isBaselineTest={isBaselineTest}
       baselineTestId={isBaselineTest ? baselineTestId : undefined}
       timeLimit={finalTimeLimit}
+      isResuming={isResumingFromStart}
     />
   );
 }

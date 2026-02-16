@@ -424,16 +424,17 @@ export function QuestionBankWithFolders({
   return (
     <div className={cn("flex h-full", className)}>
       {/* Left Panel - Folder Tree */}
-      <div className="w-80 border-r bg-muted/30 p-4">
-        <h3 className="text-sm font-semibold mb-3">Folders</h3>
-        <FolderTree
-          folders={allFoldersResponse?.data || []}
-          selectedFolderId={selectedFolderId}
-          onFolderSelect={handleFolderSelect}
-          questionCounts={{}}
-          totalQuestions={questionsData.total}
-          className="h-[calc(100%-2rem)]"
-        />
+      <div className="w-80 border-r bg-muted/30 flex flex-col h-full">
+        <h3 className="text-sm font-semibold p-4 pb-2 flex-shrink-0">Folders</h3>
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 scrollbar-visible">
+          <FolderTree
+            folders={allFoldersResponse?.data || []}
+            selectedFolderId={selectedFolderId}
+            onFolderSelect={handleFolderSelect}
+            questionCounts={{}}
+            totalQuestions={questionsData.total}
+          />
+        </div>
       </div>
 
       {/* Right Panel - Questions */}

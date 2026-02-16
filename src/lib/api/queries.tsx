@@ -29,6 +29,7 @@ import {
   HomeworkReview,
   Section,
   BaselineTest,
+  QuizResumeAttempt,
 } from "../types";
 
 // User Queries
@@ -588,6 +589,17 @@ export const useGetQuizzes = (options?: {
         },
       };
     },
+  });
+};
+
+export const useGetResumeQuizAttempt = (attemptId: string) => {
+  return useQuery({
+    queryKey: ["resume-quiz-attempt", attemptId],
+    queryFn: async (): Promise<APIGetResponse<QuizResumeAttempt>> => {
+      const response = await axiosInstance.get(`/quizzes/attempt/${attemptId}/resume`);
+      return response.data;
+    },
+    enabled: !!attemptId,
   });
 };
 
