@@ -34,6 +34,7 @@ import {
   HomeworkReview,
   BaselinelineTestCreateData,
   BaselineTest,
+  QuizMasterList,
 } from "../types";
 
 // Helper function to handle error messages
@@ -116,7 +117,7 @@ export const usePostForgotPassword = () => {
   return useMutation({
     mutationKey: ["post-forgot-password"],
     mutationFn: (
-      data: ForgotPasswordData
+      data: ForgotPasswordData,
     ): Promise<
       ApiResponse<{
         message: string;
@@ -125,7 +126,7 @@ export const usePostForgotPassword = () => {
     onSuccess: (
       data: ApiResponse<{
         message: string;
-      }>
+      }>,
     ) => {
       return data;
     },
@@ -154,7 +155,7 @@ export const usePostChangePassword = () => {
   return useMutation({
     mutationKey: ["post-change-password"],
     mutationFn: (
-      data: ChangePasswordData
+      data: ChangePasswordData,
     ): Promise<
       ApiResponse<{
         status: string;
@@ -165,7 +166,7 @@ export const usePostChangePassword = () => {
       data: ApiResponse<{
         status: string;
         message: string;
-      }>
+      }>,
     ) => {
       return data;
     },
@@ -216,7 +217,7 @@ export const usePostChildProfiles = () => {
   return useMutation({
     mutationKey: ["post-child-profiles"],
     mutationFn: (
-      data: CreateChildProfileData
+      data: CreateChildProfileData,
     ): Promise<ApiResponse<DetailedChildProfile>> => {
       const formData = new FormData();
       formData.append("name", data.name);
@@ -307,7 +308,7 @@ export const usePatchChildTutor = () => {
       tutorId: string;
     }): Promise<ApiResponse<DetailedChildProfile>> =>
       axiosInstance.patch(
-        `/child-profiles/${data.childProfileId}/tutor/${data.tutorId}/assign`
+        `/child-profiles/${data.childProfileId}/tutor/${data.tutorId}/assign`,
       ),
     onSuccess: (data: ApiResponse<DetailedChildProfile>) => {
       queryClient.invalidateQueries({
@@ -329,7 +330,7 @@ export const usePostSubscription = () => {
   return useMutation({
     mutationKey: ["post-subscription"],
     mutationFn: (
-      data: CreateSubscriptionData
+      data: CreateSubscriptionData,
     ): Promise<ApiResponse<ManageSubscriptionResponse>> =>
       axiosInstance.post("/subscriptions", data),
     onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
@@ -521,7 +522,7 @@ export const usePutConfirmSession = (id: string) => {
   return useMutation({
     mutationKey: ["put-confirm-session"],
     mutationFn: (
-      data: ConfirmSessionData
+      data: ConfirmSessionData,
     ): Promise<ApiResponse<SessionResponse>> =>
       axiosInstance.put(`/sessions/${id}/confirm`, data),
     onSuccess: (data: ApiResponse<SessionResponse>) => {
@@ -537,7 +538,7 @@ export const usePutCancelSession = (id: string) => {
   return useMutation({
     mutationKey: ["put-cancel-session"],
     mutationFn: (
-      data: CancelSessionData
+      data: CancelSessionData,
     ): Promise<ApiResponse<SessionResponse>> =>
       axiosInstance.put(`/sessions/${id}/cancel`, data),
     onSuccess: (data: ApiResponse<SessionResponse>) => {
@@ -553,7 +554,7 @@ export const usePutRescheduleSession = (id: string) => {
   return useMutation({
     mutationKey: ["put-reschedule-session"],
     mutationFn: (
-      data: RescheduleSessionData
+      data: RescheduleSessionData,
     ): Promise<ApiResponse<SessionResponse>> =>
       axiosInstance.put(`/sessions/${id}/reschedule`, data),
     onSuccess: (data: ApiResponse<SessionResponse>) => {
@@ -813,7 +814,7 @@ export const usePostFolder = () => {
         parentFolderId?: string;
         createdAt: string;
         updatedAt: string;
-      }>
+      }>,
     ) => {
       queryClient.invalidateQueries({
         queryKey: ["folders"],
@@ -1041,8 +1042,10 @@ export const usePostSubmitQuiz = (id: string, attemptId: string) => {
   });
 };
 
-
-export const usePostSubmitQuizQuestionDynamic = (id: string, attemptId: string) => {
+export const usePostSubmitQuizQuestionDynamic = (
+  id: string,
+  attemptId: string,
+) => {
   return useMutation({
     mutationKey: ["post-submit-quiz-question-dynamic", id, attemptId],
     mutationFn: ({
@@ -1054,7 +1057,7 @@ export const usePostSubmitQuizQuestionDynamic = (id: string, attemptId: string) 
     }): Promise<ApiResponse<Quiz>> =>
       axiosInstance.post(
         `/quizzes/${id}/attempt/${attemptId}/question/${questionId}/submit`,
-        { answer }
+        { answer },
       ),
     onError: (error: AxiosError) => {
       handleErrorMessage(error);
@@ -1068,7 +1071,7 @@ export const usePatchAddQuizFeedback = (questionAttemptId: string) => {
     mutationFn: (data: { feedback: string }): Promise<ApiResponse<Quiz>> =>
       axiosInstance.patch(
         `/quizzes/attempt/${questionAttemptId}/feedback`,
-        data
+        data,
       ),
     onSuccess: (data: ApiResponse<Quiz>) => {
       return data;
@@ -1465,7 +1468,7 @@ export const usePatchLessonProgress = (lessonId: string, childId: string) => {
     }): Promise<ApiResponse<{ message: string }>> =>
       axiosInstance.patch(
         `/library/${childId}/${lessonId}/progress/quiz`,
-        data
+        data,
       ),
     onSuccess: (data: ApiResponse<{ message: string }>) => {
       return data;
@@ -1478,7 +1481,7 @@ export const usePatchLessonProgress = (lessonId: string, childId: string) => {
 
 export const usePatchVideoLessonProgress = (
   lessonId: string,
-  childId: string
+  childId: string,
 ) => {
   return useMutation({
     mutationKey: ["patch-video-lesson-progress", lessonId, childId],
@@ -1488,7 +1491,7 @@ export const usePatchVideoLessonProgress = (
     }): Promise<ApiResponse<{ message: string }>> =>
       axiosInstance.patch(
         `/library/${childId}/${lessonId}/progress/video`,
-        data
+        data,
       ),
     onSuccess: (data: ApiResponse<{ message: string }>) => {
       return data;
@@ -1724,7 +1727,9 @@ export const usePostBaselineTest = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["post-baseline-test"],
-    mutationFn: (data: BaselinelineTestCreateData): Promise<ApiResponse<BaselineTest>> =>
+    mutationFn: (
+      data: BaselinelineTestCreateData,
+    ): Promise<ApiResponse<BaselineTest>> =>
       axiosInstance.post("/baseline-test", data),
     onSuccess: (data: ApiResponse<BaselineTest>) => {
       queryClient.invalidateQueries({
@@ -1744,7 +1749,10 @@ export const usePostStartBaselineTest = (baselineTestId: string) => {
     mutationFn: (data: {
       childProfileId: string;
     }): Promise<ApiResponse<BaselineTest>> =>
-      axiosInstance.post(`/baseline-test/${baselineTestId}/attempts/start`, data),
+      axiosInstance.post(
+        `/baseline-test/${baselineTestId}/attempts/start`,
+        data,
+      ),
     onSuccess: (data: ApiResponse<BaselineTest>) => {
       return data;
     },
@@ -1752,17 +1760,157 @@ export const usePostStartBaselineTest = (baselineTestId: string) => {
       handleErrorMessage(error);
     },
   });
-}
+};
 
-export const usePostSubmitBaselineTest = (baselineTestId: string, attemptId: string) => {
+export const usePostSubmitBaselineTest = (
+  baselineTestId: string,
+  attemptId: string,
+) => {
   return useMutation({
     mutationKey: ["post-submit-baseline-test", baselineTestId, attemptId],
     mutationFn: (data: {
       answers: Record<string, string | Record<string, string>>;
       timeSpent?: number;
     }): Promise<ApiResponse<BaselineTest>> =>
-      axiosInstance.post(`/baseline-test/${baselineTestId}/attempts/${attemptId}/submit`, data),
+      axiosInstance.post(
+        `/baseline-test/${baselineTestId}/attempts/${attemptId}/submit`,
+        data,
+      ),
     onSuccess: (data: ApiResponse<BaselineTest>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Quiz MasterList Mutations
+export const usePostAddQuizzesToMasterList = (yearGroupId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-add-quizzes-to-master-list", yearGroupId],
+    mutationFn: (data: {
+      quizIds: string[];
+    }): Promise<ApiResponse<QuizMasterList>> =>
+      axiosInstance.post(
+        `/quiz-master-list/year-groups/${yearGroupId}/quizzes`,
+        data,
+      ),
+    onSuccess: (data: ApiResponse<QuizMasterList>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["quiz-master-list"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostBulkAddQuizzesToMasterList = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-bulk-add-quizzes-to-master-list"],
+    mutationFn: (data: {
+      curriculumLessonId: string;
+      yearGroupId: string;
+    }): Promise<ApiResponse<QuizMasterList>> =>
+      axiosInstance.post(
+        `/quiz-master-list/curriculum-lessons/${data.curriculumLessonId}/quizzes`,
+        data,
+      ),
+    onSuccess: (data: ApiResponse<QuizMasterList>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["quiz-master-list"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const useDeleteQuizzesFromMasterList = (yearGroupId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-quizzes-from-master-list", yearGroupId],
+    mutationFn: (data: {
+      quizIds: string[];
+    }): Promise<ApiResponse<QuizMasterList>> =>
+      axiosInstance.delete(
+        `/quiz-master-list/year-groups/${yearGroupId}/quizzes`,
+        { data },
+      ),
+    onSuccess: (data: ApiResponse<QuizMasterList>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["quiz-master-list"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const useDeleteQuizFromMasterList = (yearGroupId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-quiz-from-master-list", yearGroupId],
+    mutationFn: (data: {
+      quizId: string;
+    }): Promise<ApiResponse<QuizMasterList>> =>
+      axiosInstance.delete(
+        `/quiz-master-list/year-groups/${yearGroupId}/quizzes/${data.quizId}`,
+      ),
+    onSuccess: (data: ApiResponse<QuizMasterList>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["quiz-master-list"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostReorderMasterList = (yearGroupId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-reorder-master-list", yearGroupId],
+    mutationFn: (data: {
+      quizIdsInOrder: string[];
+    }): Promise<ApiResponse<QuizMasterList>> =>
+      axiosInstance.post(
+        `/quiz-master-list/year-groups/${yearGroupId}/reorder`,
+        data,
+      ),
+    onSuccess: (data: ApiResponse<QuizMasterList>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["quiz-master-list"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchRefreshMasterList = (yearGroupId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-refresh-master-list", yearGroupId],
+    mutationFn: (): Promise<ApiResponse<QuizMasterList>> =>
+      axiosInstance.patch(`/quiz-master-list/year-groups/${yearGroupId}`),
+    onSuccess: (data: ApiResponse<QuizMasterList>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["quiz-master-list"],
+      });
       return data;
     },
     onError: (error: AxiosError) => {

@@ -99,6 +99,11 @@ export default function Navbar() {
       path: "/admin/curricula",
       icon: <Library className="w-4 h-4" />,
     },
+    {
+      name: "Master Quiz List",
+      path: "/admin/master-quiz-list",
+      icon: <BookOpen className="w-4 h-4" />,
+    },
   ];
 
   // Check if current path is a resource management route

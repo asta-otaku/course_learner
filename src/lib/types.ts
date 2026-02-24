@@ -1065,5 +1065,36 @@ export interface QuizResumeAttempt {
   questions: QuizResumeQuestion[];
 }
 
+export interface QuizMasterList {
+  yearGroupId: string;
+  yearGroupName: string;
+  yearGroupOrder: number;
+  cumulativeFromYear: number;
+  cumulativeToYear: number;
+  totalItems: number;
+  items:{
+      sectionId: string;
+      sectionName: string;
+      sectionOrder: number;
+      lessonId: string;
+      lessonName: string;
+      lessonOrder: number;
+      curriculumLessonId: string;
+      quizId: string;
+      quizTitle: string;
+      quizOrder: number;
+      yearGroupId: string;
+      yearGroupName: string;
+      yearGroupOrder: number;
+    }[];
+}
+
+export interface YearGroup { 
+  id: string;
+  name: string;
+  description: string;
+  orderNumber: number;
+}
+
 // Export socket types
 export * from "./types/socket";
