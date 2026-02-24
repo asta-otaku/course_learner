@@ -55,7 +55,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import {
   useGeQuizMasterList,
@@ -179,13 +178,10 @@ export default function MasterQuizListPage() {
   } = useGeQuizMasterList(selectedYearGroup, isCumulative);
   const masterList = masterListResponse?.data;
 
-  // Update ordered items when master list changes
+  // Update ordered items when master list changes (backend returns correct order)
   useEffect(() => {
     if (masterList?.items) {
-      const sorted = [...masterList.items].sort(
-        (a, b) => a.quizOrder - b.quizOrder
-      );
-      setOrderedItems(sorted);
+      setOrderedItems(masterList.items);
     }
   }, [masterList]);
 
@@ -201,7 +197,7 @@ export default function MasterQuizListPage() {
   // Fetch curricula list for bulk add
   const { data: curriculaResponse, isLoading: curriculaLoading } = useGetCurricula();
   const curricula = curriculaResponse?.curricula || [];
-  
+
   // State to hold selected curriculum for fetching its details
   const [selectedCurriculumForDetails, setSelectedCurriculumForDetails] = useState<string>("");
 
@@ -692,7 +688,7 @@ function BulkAddDialog({
   const [selectedCurriculumLessonId, setSelectedCurriculumLessonId] = useState<string>("");
 
   // Fetch selected curriculum details with sections and lessons
-  const { data: curriculumDetailsResponse, isLoading: detailsLoading } = 
+  const { data: curriculumDetailsResponse, isLoading: detailsLoading } =
     useGetCurriculum(selectedCurriculumId);
   const curriculumDetails = curriculumDetailsResponse?.data;
 
@@ -758,11 +754,10 @@ function BulkAddDialog({
                 <button
                   key={lesson.id}
                   type="button"
-                  className={`w-full text-left flex items-center space-x-2 p-2.5 border rounded-md hover:bg-muted/50 transition-colors ${
-                    selectedCurriculumLessonId === lesson.id
-                      ? "bg-primary/10 border-primary ring-2 ring-primary/20"
-                      : "border-border"
-                  }`}
+                  className={`w-full text-left flex items-center space-x-2 p-2.5 border rounded-md hover:bg-muted/50 transition-colors ${selectedCurriculumLessonId === lesson.id
+                    ? "bg-primary/10 border-primary ring-2 ring-primary/20"
+                    : "border-border"
+                    }`}
                   onClick={() => handleLessonClick(lesson.id)}
                 >
                   <div className="flex-shrink-0">
