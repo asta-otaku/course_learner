@@ -35,6 +35,7 @@ import {
   BaselinelineTestCreateData,
   BaselineTest,
   QuizMasterList,
+  BaselineTestEntry,
 } from "../types";
 
 // Helper function to handle error messages
@@ -1910,6 +1911,93 @@ export const usePatchRefreshMasterList = (yearGroupId: string) => {
     onSuccess: (data: ApiResponse<QuizMasterList>) => {
       queryClient.invalidateQueries({
         queryKey: ["quiz-master-list"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostBaselineTestEntry = (baselineTestId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-baseline-test-entry", baselineTestId],
+    mutationFn: (data: {
+      quizId: string;
+      orderIndex: number;
+      testQuestionCount: number;
+      masteryRules: {
+        condition: string;
+        threshold: number;
+        action: string;
+        targetQuizIds: string[];
+      }[];
+    }): Promise<ApiResponse<BaselineTestEntry>> =>
+      axiosInstance.post(
+        `/baseline-test-entry/baselineTest/${baselineTestId}`,
+        data,
+      ),
+    onSuccess: (data: ApiResponse<BaselineTestEntry>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["baseline-test-entry", baselineTestId],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchBaselineTestEntry = (
+  baselineTestId: string,
+  entryId: string,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-baseline-test-entry", baselineTestId, entryId],
+    mutationFn: (data: {
+      orderIndex?: number;
+      testQuestionCount?: number;
+      masteryRules?: {
+        condition: string;
+        threshold: number;
+        action: string;
+        targetQuizIds: string[];
+      }[];
+    }): Promise<ApiResponse<BaselineTestEntry>> =>
+      axiosInstance.patch(
+        `/baseline-test-entry/baselineTest/${baselineTestId}/entries/${entryId}`,
+        data,
+      ),
+    onSuccess: (data: ApiResponse<BaselineTestEntry>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["baseline-test-entry", baselineTestId],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const useDeleteBaselineTestEntry = (
+  baselineTestId: string,
+  entryId: string,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-baseline-test-entry", baselineTestId, entryId],
+    mutationFn: (): Promise<ApiResponse<BaselineTestEntry>> =>
+      axiosInstance.delete(
+        `/baseline-test-entry/baselineTest/${baselineTestId}/entries/${entryId}`,
+      ),
+    onSuccess: (data: ApiResponse<BaselineTestEntry>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["baseline-test-entry", baselineTestId],
       });
       return data;
     },

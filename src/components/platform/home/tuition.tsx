@@ -285,23 +285,43 @@ function TuitionHome() {
                 <p className="text-xs text-muted-foreground mb-6">
                   {childBaselineTest.yearGroup}
                 </p>
-                <Button
-                  variant="link"
-                  className="text-xs text-primaryBlue px-0"
-                  asChild
-                >
-                  <Link href={`/take-quiz/${childBaselineTest.quizId}?isBaselineTest=true&baselineTestId=${childBaselineTest.id}`}>
-                    Start <BackArrow color="#286CFF" flipped />
-                  </Link>
-                </Button>
+                <div className="flex items-center gap-4 pb-2">
+                  <Button
+                    variant="link"
+                    className="text-xs text-primaryBlue px-0"
+                    asChild
+                  >
+                    <Link href={`/take-quiz/${childBaselineTest.quizId}?isBaselineTest=true&baselineTestId=${childBaselineTest.id}`}>
+                      Start <BackArrow color="#286CFF" flipped />
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="link"
+                    className="text-xs text-primaryBlue px-0"
+                    asChild
+                  >
+                    <Link href="/baseline-results">
+                      View Results <BackArrow color="#286CFF" flipped />
+                    </Link>
+                  </Button>
+                </div>
               </>
             ) : (
               <>
                 <p className="text-sm font-medium mt-6 mb-3">QUIZ</p>
-                <p className="text-xs text-textSubtitle mb-8">
+                <p className="text-xs text-textSubtitle mb-4">
                   No baseline test assigned yet. Your tutor can assign one for
                   your year group.
                 </p>
+                <Button
+                  variant="link"
+                  className="text-xs text-primaryBlue px-0 mb-2"
+                  asChild
+                >
+                  <Link href="/baseline-results">
+                    View Results <BackArrow color="#286CFF" flipped />
+                  </Link>
+                </Button>
               </>
             )}
           </div>

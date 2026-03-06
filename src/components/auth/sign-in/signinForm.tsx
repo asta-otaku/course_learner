@@ -13,7 +13,6 @@ import { z } from "zod";
 import { usePostLogin } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
-import { getAndClearIntendedUrl, resetAuthState } from "@/lib/services/axiosInstance";
 
 function SigninForm({
   setStep,
@@ -39,38 +38,13 @@ function SigninForm({
     const res = await postLogin(data);
     if (res.status === 200) {
       if (res.data.data.userRole !== "parent") {
-        // Save to localStorage
         localStorage.setItem(res.data.data.userRole, JSON.stringify(res.data));
-        
-        // Reset auth state flags to prevent redirect loops
-        resetAuthState();
-        
+        push(`/${res.data.data.userRole}`);
         toast.success(res.data.message);
-        
-        // Check for intended URL
-        const intendedUrl = getAndClearIntendedUrl();
-        
-        // Small delay to ensure localStorage is fully written
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        if (intendedUrl) {
-          push(intendedUrl);
-        } else {
-          push(`/${res.data.data.userRole}`);
-        }
       } else {
-        // Parent user
         localStorage.setItem("user", JSON.stringify(res.data));
-        
-        // Reset auth state flags
-        resetAuthState();
-        
-        toast.success(res.data.message);
-        
-        // Small delay to ensure localStorage is fully written
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
         setStep(1);
+        toast.success(res.data.message);
       }
     }
   };

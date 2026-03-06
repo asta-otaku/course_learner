@@ -32,6 +32,9 @@ import {
   QuizResumeAttempt,
   QuizMasterList,
   YearGroup,
+  BaselineTestEntry,
+  LearningPath,
+  BaselineTestAttempt,
 } from "../types";
 
 // User Queries
@@ -1083,6 +1086,17 @@ export const useGetChildBaselineTest = (childId: string) => {
   });
 };
 
+export const useGetChildBaselineTestEntries = (childId: string) => {
+  return useQuery({
+    queryKey: ["child-baseline-test-entries", childId],
+    queryFn: async (): Promise<APIGetResponse<BaselineTestAttempt[]>> => {
+      const response = await axiosInstance.get(`/baseline-test/attempts/${childId}`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
 // Quiz MasterList Queries
 export const useGeQuizMasterList = (yearGroupId: string, isCummulative = false) => {
   return useQuery({
@@ -1104,3 +1118,29 @@ export const useGetYearGroups = () => {
     },
   });
 };
+
+export const useGetBaselineTestEntry = (baselineTestId: string) => {
+  return useQuery({
+    queryKey: ["baseline-test-entry", baselineTestId],
+    queryFn: async (): Promise<APIGetResponse<BaselineTestEntry[]>> => {
+      const response = await axiosInstance.get(`/baseline-test-entry/baselineTest/${baselineTestId}`);
+      return response.data;
+    },
+    enabled: !!baselineTestId,
+  });
+}
+
+export const useGetLearningPath = (childId: string, status?: string) => {
+  return useQuery({
+    queryKey: ["learning-path", childId, status],
+    queryFn: async (): Promise<APIGetResponse<LearningPath[]>> => {
+      const response = await axiosInstance.get(`/learning-path/${childId}`, {
+        params: {
+          status,
+        },
+      });
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}

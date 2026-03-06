@@ -1,31 +1,59 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   useGetChildProfileById,
   useGetCurrentUser,
-  useGetLibrary,
+  useGetLearningPath,
 } from "@/lib/api/queries";
 import { Badge } from "@/components/ui/badge";
 import BackArrow from "@/assets/svgs/arrowback";
 import MailIcon from "@/assets/svgs/mail";
-import { ProgressCard } from "@/components/platform/home/learningCard";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import Homework from "./homeworkTab";
 // import WorkSchedule from "./homeworkScheduleTab";
 import { usePostCreateChat } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
-import algebra from "@/assets/algebra.png";
-import measurement from "@/assets/measurement.png";
-import ratio from "@/assets/ratio.png";
 
-const availableImages = [algebra, measurement, ratio];
+const STATUS_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "queue", label: "Queue" },
+  { value: "assigned", label: "Assigned" },
+  { value: "completed", label: "Completed" },
+  { value: "failed", label: "Failed" },
+  { value: "max_failed", label: "Max Failed" },
+];
+
+const statusBadgeClass: Record<string, string> = {
+  completed: "bg-green-100 text-green-700",
+  assigned: "bg-blue-100 text-blue-700",
+  queue: "bg-yellow-100 text-yellow-700",
+  failed: "bg-red-100 text-red-700",
+  max_failed: "bg-red-200 text-red-800",
+};
 
 export default function StudentPage({ id }: { id: string }) {
   const router = useRouter();
   const { data: profileData, isLoading, error } = useGetChildProfileById(id);
   const profile = profileData?.data;
+
+  const [statusFilter, setStatusFilter] = useState("all");
 
   // Get tutor information
   const { data: tutorProfileResponse } = useGetCurrentUser();
@@ -39,32 +67,10 @@ export default function StudentPage({ id }: { id: string }) {
 
   const { mutateAsync: createChat } = usePostCreateChat();
 
-  // Fetch library data for the student
-  const { data: library } = useGetLibrary(id);
-
-  // Get curricula from library data
-  const curricula = useMemo(() => {
-    return library?.data || [];
-  }, [library?.data]);
-
-  // Transform library curricula to Course format
-  const curriculaAsCourses = useMemo(() => {
-    return curricula.map((curriculum, index) => ({
-      imageUrl: curriculum.imageUrl,
-      course: curriculum.title,
-      topics: [
-        {
-          title: "Start Learning",
-          number_of_quizzes: curriculum.progress.totalQuizzes,
-        },
-      ],
-      progress: curriculum.progress.completionPercentage,
-      duration: curriculum.durationWeeks * 7, // Convert weeks to days
-      total_section: curriculum.lessonsCount,
-      completed_section: curriculum.progress.completedLessons,
-      curriculumId: curriculum.id, // Add curriculumId for navigation
-    }));
-  }, [curricula]);
+  // Fetch learning path with optional status filter
+  const { data: learningPathData, isLoading: learningPathLoading } =
+    useGetLearningPath(id, statusFilter === "all" ? undefined : statusFilter);
+  const learningPath = learningPathData?.data || [];
 
   const handleMessage = async () => {
     if (
@@ -200,27 +206,41 @@ export default function StudentPage({ id }: { id: string }) {
             {/* <TabsTrigger value="schedule">Home-Work Schedule</TabsTrigger> */}
           </TabsList>
           <TabsContent value="progress">
-            {curriculaAsCourses.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {curriculaAsCourses.map((course, index) => (
-                  <ProgressCard
-                    key={course.curriculumId || index}
-                    course={course}
-                    isTutor={true}
-                  />
-                ))}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500">
+                  {learningPath.length} item{learningPath.length !== 1 ? "s" : ""}
+                </p>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[160px] h-8 text-sm">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            ) : (
-              <div className="flex items-center justify-center py-12">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+
+              {learningPathLoading ? (
+                <div className="animate-pulse space-y-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="h-10 bg-gray-100 rounded" />
+                  ))}
+                </div>
+              ) : learningPath.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-12 text-center">
+                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
                       strokeWidth={1.5}
                       stroke="currentColor"
-                      className="w-8 h-8 text-gray-400"
+                      className="w-6 h-6 text-gray-400"
                     >
                       <path
                         strokeLinecap="round"
@@ -229,17 +249,59 @@ export default function StudentPage({ id }: { id: string }) {
                       />
                     </svg>
                   </div>
-                  <div className="text-center">
-                    <p className="text-gray-900 font-medium mb-1">
-                      No progress data
-                    </p>
-                    <p className="text-gray-500 text-sm">
-                      This student hasn&apos;t started any courses yet
-                    </p>
-                  </div>
+                  <p className="text-gray-900 font-medium">No items found</p>
+                  <p className="text-gray-500 text-sm">
+                    {statusFilter === "all"
+                      ? "This student has no learning path entries yet"
+                      : `No quizzes with status "${STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label}"`}
+                  </p>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Quiz</TableHead>
+                        <TableHead className="hidden sm:table-cell">
+                          Section
+                        </TableHead>
+                        <TableHead className="hidden md:table-cell">
+                          Lesson
+                        </TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {learningPath.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium max-w-[180px]">
+                            <span className="line-clamp-2">
+                              {item.quizTitle}
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-sm text-gray-500">
+                            {item.sectionTitle}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-sm text-gray-500">
+                            {item.curriculumLessonTitle}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={`text-xs font-medium capitalize ${
+                                statusBadgeClass[item.status] ??
+                                "bg-gray-100 text-gray-600"
+                              }`}
+                            >
+                              {item.status.replace(/_/g, " ")}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
           </TabsContent>
           <TabsContent value="homework">
             <Homework studentId={id} />

@@ -20,7 +20,11 @@ export interface QuizSettings {
   maxAttempts: number;
   passingScore: number;
   showFeedback: boolean;
-  feedbackMode?: "immediate" | "after_completion" | "delayed_random" | "manual_tutor_review";
+  feedbackMode?:
+    | "immediate"
+    | "after_completion"
+    | "delayed_random"
+    | "manual_tutor_review";
   allowRetakes: boolean;
   allowReview: boolean;
   availableFrom: string;
@@ -58,7 +62,11 @@ export interface Quiz {
   questions?: QuizQuestion[];
   questionsCount?: number; // Number of questions in the quiz
   status?: "draft" | "published" | "archived";
-  feedbackMode?: "immediate" | "after_completion" | "delayed_random" | "manual_tutor_review";
+  feedbackMode?:
+    | "immediate"
+    | "after_completion"
+    | "delayed_random"
+    | "manual_tutor_review";
   createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -95,7 +103,6 @@ export interface QuizAttempt {
   updatedAt: string;
   isResuming?: boolean;
 }
-
 
 export interface QuizUpdateData {
   title?: string;
@@ -570,12 +577,12 @@ export interface SessionData {
 }
 
 export enum SessionStatus {
-  AVAILABLE = 'available',
-  PENDING = 'pending',
-  CONFIRMED = 'confirmed',
-  CANCELLED = 'cancelled',
-  COMPLETED = 'completed',
-  RESCHEDULED = 'rescheduled',
+  AVAILABLE = "available",
+  PENDING = "pending",
+  CONFIRMED = "confirmed",
+  CANCELLED = "cancelled",
+  COMPLETED = "completed",
+  RESCHEDULED = "rescheduled",
 }
 
 // Session Mutation Request Types
@@ -655,7 +662,7 @@ export interface DayAvailability {
 }
 
 export interface ParentDetails {
-  id: string
+  id: string;
   user: {
     id: string;
     firstName: string;
@@ -675,7 +682,12 @@ export interface Question {
   id: string;
   title: string;
   content: string;
-  type: "multiple_choice" | "true_false" | "free_text" | "matching" | "matching_pairs";
+  type:
+    | "multiple_choice"
+    | "true_false"
+    | "free_text"
+    | "matching"
+    | "matching_pairs";
   points: number;
   difficultyLevel: number | null;
   explanation: string | null;
@@ -700,7 +712,12 @@ export interface Question {
 export interface UpdateQuestionPayload {
   title: string;
   content: string;
-  type: "multiple_choice" | "true_false" | "free_text" | "matching" | "matching_pairs";
+  type:
+    | "multiple_choice"
+    | "true_false"
+    | "free_text"
+    | "matching"
+    | "matching_pairs";
   difficultyLevel: number;
   points: number;
   timeLimit: number;
@@ -745,11 +762,11 @@ export interface QuestionAnswer {
 export interface QuestionQueryOptions {
   search?: string;
   type?:
-  | "multiple_choice"
-  | "true_false"
-  | "fill_in_the_gap"
-  | "matching_pairs"
-  | "free_text";
+    | "multiple_choice"
+    | "true_false"
+    | "fill_in_the_gap"
+    | "matching_pairs"
+    | "free_text";
   difficulty?: number;
   difficultyMin?: number;
   difficultyMax?: number;
@@ -925,11 +942,11 @@ export interface SupportTicket {
 }
 
 export interface ChangeRequest {
-  id: string,
-  childProfileId: string | null,
-  childName: string | null,
-  currentTutorId: string,
-  currentTutorName: string | null,
+  id: string;
+  childProfileId: string | null;
+  childName: string | null;
+  currentTutorId: string;
+  currentTutorName: string | null;
   requestedTutorId: string;
   requestedTutorName: string;
   status: string;
@@ -975,14 +992,26 @@ export interface Section {
     id: string;
     title: string;
     orderIndex: number;
-  }[]
+  }[];
 }
 
 export interface BaselineTest {
   id: string;
   quizId: string;
   title: string;
-  yearGroup: string
+  yearGroup: string;
+}
+
+export interface BaselineTestAttempt {
+  id: string;
+  childProfileId: string;
+  baselineTestId: string;
+  quizAttemptId: string;
+  baselineTestTitle: string;
+  quizId: string;
+  score: number;
+  percentage: number;
+  submittedAt: string;
 }
 
 export interface BaselinelineTestCreateData {
@@ -1072,28 +1101,56 @@ export interface QuizMasterList {
   cumulativeFromYear: number;
   cumulativeToYear: number;
   totalItems: number;
-  items:{
-      sectionId: string;
-      sectionName: string;
-      sectionOrder: number;
-      lessonId: string;
-      lessonName: string;
-      lessonOrder: number;
-      curriculumLessonId: string;
-      quizId: string;
-      quizTitle: string;
-      quizOrder: number;
-      yearGroupId: string;
-      yearGroupName: string;
-      yearGroupOrder: number;
-    }[];
+  baselineTestId?: string;
+  baselineTestQuestions?: number;
+  items: {
+    sectionId: string;
+    sectionName: string;
+    sectionOrder: number;
+    lessonId: string;
+    lessonName: string;
+    lessonOrder: number;
+    curriculumLessonId: string;
+    quizId: string;
+    quizTitle: string;
+    quizOrder: number;
+    yearGroupId: string;
+    yearGroupName: string;
+    yearGroupOrder: number;
+  }[];
 }
 
-export interface YearGroup { 
+export interface YearGroup {
   id: string;
   name: string;
   description: string;
   orderNumber: number;
+}
+
+export interface MasteryRule {
+  condition: string;
+  threshold: number;
+  action: string;
+  targetQuizIds: string[];
+}
+
+export interface BaselineTestEntry {
+  id?: string;
+  orderIndex: number;
+  testQuestionCount: number;
+  quizId: string;
+  quizTitle: string;
+  masteryRules: MasteryRule[];
+}
+
+export interface LearningPath {
+  id: string;
+  quizId: string;
+  quizTitle: string;
+  curriculumLessonId: string;
+  curriculumLessonTitle: string;
+  sectionTitle: string;
+  status: string;
 }
 
 // Export socket types
