@@ -6,7 +6,6 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createQuizSchema, type CreateQuizInput } from "@/lib/validations/quiz";
 import { usePostQuiz, usePostBaselineTest } from "@/lib/api/mutations";
-import type { BaselinelineTestCreateData } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,9 +31,9 @@ import { toast } from "react-toastify";
 
 const YEAR_GROUPS = ["Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6"] as const;
 
-interface CreateQuizFormProps {}
+interface CreateQuizFormProps { }
 
-export function CreateQuizForm({}: CreateQuizFormProps) {
+export function CreateQuizForm({ }: CreateQuizFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isBaselineTest = searchParams.get("isBaselineTest") === "true";
@@ -73,96 +72,72 @@ export function CreateQuizForm({}: CreateQuizFormProps) {
   const onSubmit = async (data: CreateQuizInput) => {
     setError(null);
 
-    if (isBaselineTest) {
-      const trimmedYearGroup = yearGroup.trim();
-      if (!trimmedYearGroup) {
-        setError("Year group is required for baseline tests.");
-        return;
-      }
-      try {
-        const settings: Record<string, unknown> = {};
+    if (isBaselineTest && !yearGroup.trim()) {
+      setError("Year group is required for baseline tests.");
+      return;
+    }
+
+    try {
+      if (isBaselineTest) {
+        const quizSettings: any = {};
         if (data.settings) {
+          if (data.settings.timeLimit !== undefined)
+            quizSettings.timeLimit = data.settings.timeLimit;
+          if (data.settings.passingScore !== undefined)
+            quizSettings.passingScore = data.settings.passingScore;
+          if (data.settings.randomizeQuestions !== undefined)
+            quizSettings.randomizeQuestions = data.settings.randomizeQuestions;
+          if (data.settings.feedbackMode)
+            quizSettings.feedbackMode = data.settings.feedbackMode;
+          if (data.settings.availableFrom?.trim())
+            quizSettings.availableFrom = data.settings.availableFrom;
+          if (data.settings.availableUntil?.trim())
+            quizSettings.availableUntil = data.settings.availableUntil;
+        }
+        const baselinePayload: any = {
+          yearGroup: yearGroup.trim(),
+          ...(data.description && { description: data.description }),
+          ...(Object.keys(quizSettings).length > 0 && { quizSettings }),
+        };
+        const result = await createBaselineTestMutation.mutateAsync(baselinePayload);
+        if (result.status === 200 || result.status === 201) {
+          toast.success(result.data.message);
+          const quizId = (result.data?.data as { quizId?: string })?.quizId;
+          router.push(quizId ? `/admin/quizzes/${quizId}/edit` : "/admin/quizzes");
+        }
+      } else {
+        const payload: any = {
+          title: data.title,
+          description: data.description,
+        };
+        if (data.tags && data.tags.length > 0) {
+          payload.tags = data.tags;
+        }
+        if (data.settings) {
+          const settings: any = {};
           if (data.settings.timeLimit !== undefined)
             settings.timeLimit = data.settings.timeLimit;
           if (data.settings.randomizeQuestions !== undefined)
             settings.randomizeQuestions = data.settings.randomizeQuestions;
+          if (data.settings.passingScore !== undefined)
+            settings.passingScore = data.settings.passingScore;
           if (data.settings.feedbackMode)
             settings.feedbackMode = data.settings.feedbackMode;
           if (data.settings.availableFrom?.trim())
             settings.availableFrom = data.settings.availableFrom;
           if (data.settings.availableUntil?.trim())
             settings.availableUntil = data.settings.availableUntil;
+          if (Object.keys(settings).length > 0)
+            payload.settings = settings;
         }
-        const payload: BaselinelineTestCreateData = {
-          yearGroup: trimmedYearGroup,
-          ...(data.description && { description: data.description }),
-          ...(data.settings?.passingScore !== undefined && {
-            masteryThreshold: data.settings.passingScore,
-          }),
-          ...(Object.keys(settings).length > 0 && {
-            quizSettings: settings as unknown as BaselinelineTestCreateData["quizSettings"],
-          }),
-        };
-        const result = await createBaselineTestMutation.mutateAsync(payload);
+        const result = await createQuizMutation.mutateAsync(payload);
         if (result.status === 200 || result.status === 201) {
           toast.success(result.data.message);
-          const quizId = (result.data?.data as { quizId?: string })?.quizId;
-          if (quizId) {
-            router.push(`/admin/quizzes/${quizId}/edit`);
-          } else {
-            router.push("/admin/quizzes");
-          }
+          router.push(`/admin/quizzes/${result.data?.data?.id}/edit`);
         }
-      } catch (err) {
-        console.error("Error creating baseline test:", err);
-        setError("An unexpected error occurred");
-      }
-      return;
-    }
-
-    try {
-      const payload: any = {
-        title: data.title,
-        description: data.description,
-      };
-
-      if (data.tags && data.tags.length > 0) {
-        payload.tags = data.tags;
-      }
-
-      if (data.settings) {
-        const settings: any = {};
-        if (data.settings.timeLimit !== undefined) {
-          settings.timeLimit = data.settings.timeLimit;
-        }
-        if (data.settings.randomizeQuestions !== undefined) {
-          settings.randomizeQuestions = data.settings.randomizeQuestions;
-        }
-        if (data.settings.passingScore !== undefined) {
-          settings.passingScore = data.settings.passingScore;
-        }
-        if (data.settings.feedbackMode) {
-          settings.feedbackMode = data.settings.feedbackMode;
-        }
-        if (data.settings.availableFrom?.trim()) {
-          settings.availableFrom = data.settings.availableFrom;
-        }
-        if (data.settings.availableUntil?.trim()) {
-          settings.availableUntil = data.settings.availableUntil;
-        }
-        if (Object.keys(settings).length > 0) {
-          payload.settings = settings;
-        }
-      }
-
-      const result = await createQuizMutation.mutateAsync(payload);
-
-      if (result.status === 200 || result.status === 201) {
-        toast.success(result.data.message);
-        router.push(`/admin/quizzes/${result.data?.data?.id}/edit`);
       }
     } catch (err) {
-      console.error("Error creating quiz:", err);
+      console.error("Error creating:", err);
       setError("An unexpected error occurred");
     }
   };

@@ -1017,7 +1017,7 @@ export interface BaselineTestAttempt {
 export interface BaselinelineTestCreateData {
   yearGroup: string;
   description?: string;
-  masteryThreshold?: number;
+  passingScore?: number;
   quizSettings?: QuizSettings;
 }
 
