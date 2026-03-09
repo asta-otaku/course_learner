@@ -30,6 +30,11 @@ import {
   Section,
   BaselineTest,
   QuizResumeAttempt,
+  QuizMasterList,
+  YearGroup,
+  BaselineTestEntry,
+  LearningPath,
+  BaselineTestAttempt,
 } from "../types";
 
 // User Queries
@@ -1080,3 +1085,62 @@ export const useGetChildBaselineTest = (childId: string) => {
     enabled: !!childId,
   });
 };
+
+export const useGetChildBaselineTestEntries = (childId: string) => {
+  return useQuery({
+    queryKey: ["child-baseline-test-entries", childId],
+    queryFn: async (): Promise<APIGetResponse<BaselineTestAttempt[]>> => {
+      const response = await axiosInstance.get(`/baseline-test/attempts/${childId}`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
+// Quiz MasterList Queries
+export const useGeQuizMasterList = (yearGroupId: string, isCummulative = false) => {
+  return useQuery({
+    queryKey: ["quiz-master-list", yearGroupId, isCummulative],
+    queryFn: async (): Promise<APIGetResponse<QuizMasterList>> => {
+      const response = await axiosInstance.get(`/quiz-master-list/year-group/${yearGroupId}?cumulative=${isCummulative}`);
+      return response.data;
+    },
+    enabled: !!yearGroupId,
+  });
+};
+
+export const useGetYearGroups = () => {
+  return useQuery({
+    queryKey: ["year-groups"],
+    queryFn: async (): Promise<APIGetResponse<YearGroup[]>> => {
+      const response = await axiosInstance.get("/year-group");
+      return response.data;
+    },
+  });
+};
+
+export const useGetBaselineTestEntry = (baselineTestId: string) => {
+  return useQuery({
+    queryKey: ["baseline-test-entry", baselineTestId],
+    queryFn: async (): Promise<APIGetResponse<BaselineTestEntry[]>> => {
+      const response = await axiosInstance.get(`/baseline-test-entry/baselineTest/${baselineTestId}`);
+      return response.data;
+    },
+    enabled: !!baselineTestId,
+  });
+}
+
+export const useGetLearningPath = (childId: string, status?: string) => {
+  return useQuery({
+    queryKey: ["learning-path", childId, status],
+    queryFn: async (): Promise<APIGetResponse<LearningPath[]>> => {
+      const response = await axiosInstance.get(`/learning-path/${childId}`, {
+        params: {
+          status,
+        },
+      });
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}

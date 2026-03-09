@@ -41,6 +41,8 @@ import {
   FileText,
   AlertCircle,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +68,7 @@ export function AddQuizDialog({
   const [activeTab, setActiveTab] = useState("existing");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
+  const [page, setPage] = useState(1);
 
   // React Hook Form for new quiz
   const {
@@ -99,18 +102,25 @@ export function AddQuizDialog({
       setActiveTab("existing");
       setSearchTerm("");
       setSelectedQuiz(null);
+      setPage(1);
     }
   }, [open, reset]);
 
-  // Use the useGetQuizzes hook instead of server action
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
+
+  // Use the useGetQuizzes hook with pagination
   const { data: quizzesData, isLoading: loading } = useGetQuizzes({
     search: searchTerm,
     status: "published", // Only show published quizzes
-    page: 1,
-    limit: 50,
+    page,
+    limit: 10,
   });
 
   const quizzes = quizzesData?.quizzes || [];
+  const pagination = quizzesData?.pagination;
 
   // Mutation for adding quiz to lesson
   const { mutate: patchLessonQuizzes, isPending: isPatching } =
@@ -401,6 +411,37 @@ export function AddQuizDialog({
                     </div>
                   )}
                 </div>
+
+                {/* Pagination */}
+                {pagination && pagination.totalPages > 1 && !loading && quizzes.length > 0 && (
+                  <div className="flex items-center justify-between border-t pt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Page {pagination.page} of {pagination.totalPages} ({pagination.totalCount} total)
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={!pagination.hasPreviousPage}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Previous
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage((p) => p + 1)}
+                        disabled={!pagination.hasNextPage}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {selectedQuiz && !isQuizAlreadyAdded(selectedQuiz.id) && (
                   <Alert className="border-primaryBlue">

@@ -460,33 +460,29 @@ export function setCurrentUser(user: any) {
 // Reset flags when page loads (useful for SPA navigation)
 export function resetAuthState() {
   if (typeof window !== "undefined") {
-    // Reset flags unconditionally - this is safe because we check isAuthenticated() anyway
-    // This prevents issues where flags remain set after successful login
-    isLoggingOut = false;
-    hasRedirected = false;
+    // Only reset if we're on auth pages
+    const currentPath = window.location.pathname;
+    const authPages = [
+      "/sign-in",
+      "/sign-up",
+      "/forgot-password",
+      "/reset-password",
+      "/admin/sign-in",
+      "/admin/sign-up",
+      "/admin/forgot-password",
+      "/tutor/sign-in",
+      "/tutor/sign-up",
+      "/tutor/forgot-password",
+    ];
+
+    if (authPages.some((page) => currentPath.includes(page))) {
+      isLoggingOut = false;
+      hasRedirected = false;
+    }
   }
 }
 
-// Helper function to check if we're on an auth page
-function isOnAuthPage(): boolean {
-  if (typeof window === "undefined") return false;
-  const currentPath = window.location.pathname;
-  const authPages = [
-    "/sign-in",
-    "/sign-up",
-    "/forgot-password",
-    "/reset-password",
-    "/admin/sign-in",
-    "/admin/sign-up",
-    "/admin/forgot-password",
-    "/tutor/sign-in",
-    "/tutor/sign-up",
-    "/tutor/forgot-password",
-  ];
-  return authPages.some((page) => currentPath.includes(page));
-}
-
-// Call reset when module loads, but only on auth pages to avoid interfering with protected pages
-if (typeof window !== "undefined" && isOnAuthPage()) {
+// Call reset when module loads
+if (typeof window !== "undefined") {
   resetAuthState();
 }

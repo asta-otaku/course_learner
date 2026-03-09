@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useGetHomeworkById, useGetQuizQuestions } from "@/lib/api/queries";
+import { useGetQuizAttemptById, useGetQuizQuestions } from "@/lib/api/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,8 +9,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   CheckCircle,
   XCircle,
-  Trophy,
-  Clock,
   AlertCircle,
   ChevronLeft,
   ChevronRight,
@@ -27,7 +25,7 @@ interface QuestionWithResults {
 }
 
 interface QuizResult {
-  id?: string; // Question attempt ID
+  id?: string;
   questionId: string;
   userAnswerContent?: string;
   userAnswerId?: string;
@@ -41,19 +39,18 @@ interface QuizResult {
   feedback?: string;
 }
 
-export default function HomeworkReviewPage() {
+export default function BaselineReviewPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
-  const { data: reviewResponse, isLoading, error } = useGetHomeworkById(id);
+  // id is the quizAttemptId
+  const { data: reviewResponse, isLoading, error } = useGetQuizAttemptById(id);
   const review = reviewResponse?.data;
 
-  // Fetch questions for the quiz
   const { data: questionsResponse } = useGetQuizQuestions(review?.quizId || "");
 
-  // Transform questions and map with results
   const questionsWithResults = useMemo(() => {
     if (!review?.results || !questionsResponse?.data) return [];
 
@@ -79,34 +76,34 @@ export default function HomeworkReviewPage() {
           options:
             qq.question.type === "multiple_choice" && qq.question.answers
               ? qq.question.answers
-                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                .map((answer: any) => ({
-                  id: answer.id,
-                  text: answer.content,
-                  isCorrect: answer.isCorrect,
-                }))
+                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                  .map((answer: any) => ({
+                    id: answer.id,
+                    text: answer.content,
+                    isCorrect: answer.isCorrect,
+                  }))
               : [],
           ...(qq.question.type === "true_false" && {
             options: qq.question.answers
               ? qq.question.answers
-                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                .map((answer: any) => ({
-                  id: answer.id,
-                  text: answer.content,
-                  isCorrect: answer.isCorrect,
-                }))
+                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                  .map((answer: any) => ({
+                    id: answer.id,
+                    text: answer.content,
+                    isCorrect: answer.isCorrect,
+                  }))
               : [
-                {
-                  id: "true",
-                  text: "True",
-                  isCorrect: qq.question.metadata?.correct_answer === true,
-                },
-                {
-                  id: "false",
-                  text: "False",
-                  isCorrect: qq.question.metadata?.correct_answer === false,
-                },
-              ],
+                  {
+                    id: "true",
+                    text: "True",
+                    isCorrect: qq.question.metadata?.correct_answer === true,
+                  },
+                  {
+                    id: "false",
+                    text: "False",
+                    isCorrect: qq.question.metadata?.correct_answer === false,
+                  },
+                ],
           }),
           ...(qq.question.type === "matching_pairs" && {
             pairs: (qq.question.answers?.[0]?.matchingPairs || []).map(
@@ -123,12 +120,6 @@ export default function HomeworkReviewPage() {
     });
   }, [review, questionsResponse]);
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${minutes}:${secs.toString().padStart(2, "0")}`;
-  };
-
   const getCorrectAnswerText = (question: any, result: QuizResult): string => {
     if (result.correctAnswers.length === 0) return "No correct answer";
 
@@ -136,10 +127,7 @@ export default function HomeworkReviewPage() {
       question.type === "matching_pairs" &&
       typeof result.correctAnswers[0].content === "object"
     ) {
-      const matches = result.correctAnswers[0].content as Record<
-        string,
-        string
-      >;
+      const matches = result.correctAnswers[0].content as Record<string, string>;
       return Object.entries(matches)
         .map(([left, right]) => `${left} → ${right}`)
         .join("\n");
@@ -156,9 +144,7 @@ export default function HomeworkReviewPage() {
       return option?.text || correctAnswer.content.toString();
     }
 
-    return result.correctAnswers
-      .map((ans) => ans.content.toString())
-      .join(" or ");
+    return result.correctAnswers.map((ans) => ans.content.toString()).join(" or ");
   };
 
   if (isLoading) {
@@ -183,16 +169,16 @@ export default function HomeworkReviewPage() {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Failed to load homework review. Please try again.
+                Failed to load baseline test review. Please try again.
               </AlertDescription>
             </Alert>
             <Button
               className="mt-4"
               variant="outline"
-              onClick={() => router.push("/homework")}
+              onClick={() => router.push("/baseline-results")}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Homework
+              Back to Results
             </Button>
           </CardContent>
         </Card>
@@ -208,21 +194,19 @@ export default function HomeworkReviewPage() {
       <div className="flex gap-6">
         {/* Main Review Area */}
         <div className="flex-1">
-          {/* Results Summary Header */}
+          {/* Summary Header */}
           <Card className="mb-6">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <CardTitle>Homework Review</CardTitle>
-                  </div>
+                  <CardTitle>Baseline Test Review</CardTitle>
                 </div>
                 <Button
                   variant="outline"
-                  onClick={() => router.push("/homework")}
+                  onClick={() => router.push("/baseline-results")}
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Homework
+                  Back to Results
                 </Button>
               </div>
             </CardHeader>
@@ -234,10 +218,7 @@ export default function HomeworkReviewPage() {
                     Correct Answers
                   </p>
                   <p className="text-2xl font-bold text-orange-900">
-                    {
-                      review.results.filter((r: QuizResult) => r.isCorrect)
-                        .length
-                    }
+                    {review.results.filter((r: QuizResult) => r.isCorrect).length}
                     /{review.results.length}
                   </p>
                 </div>
@@ -245,7 +226,7 @@ export default function HomeworkReviewPage() {
             </CardContent>
           </Card>
 
-          {/* Current Question with Results */}
+          {/* Current Question */}
           {currentQ && (
             <Card>
               <CardHeader>
@@ -256,9 +237,7 @@ export default function HomeworkReviewPage() {
                   </CardTitle>
                   {currentResult && (
                     <Badge
-                      variant={
-                        currentResult.isCorrect ? "default" : "destructive"
-                      }
+                      variant={currentResult.isCorrect ? "default" : "destructive"}
                       className="flex items-center gap-2"
                     >
                       {currentResult.isCorrect ? (
@@ -273,8 +252,8 @@ export default function HomeworkReviewPage() {
                         </>
                       )}
                       <span className="ml-2">
-                        {currentResult.pointsEarned}/
-                        {currentResult.pointsPossible} points
+                        {currentResult.pointsEarned}/{currentResult.pointsPossible}{" "}
+                        points
                       </span>
                     </Badge>
                   )}
@@ -305,7 +284,7 @@ export default function HomeworkReviewPage() {
                     <div>
                       <p className="text-base font-medium mb-2">Your Answer:</p>
                       {currentQ.question.type === "matching_pairs" &&
-                        currentResult.userAnswerContent ? (
+                      currentResult.userAnswerContent ? (
                         <div className="p-4 bg-gray-50 rounded-lg border">
                           {(() => {
                             try {
@@ -313,21 +292,17 @@ export default function HomeworkReviewPage() {
                                 currentResult.userAnswerContent
                               ) as Record<string, string>;
                               const correctMatches =
-                                typeof currentResult.correctAnswers[0]
-                                  .content === "object"
+                                typeof currentResult.correctAnswers[0].content ===
+                                "object"
                                   ? (currentResult.correctAnswers[0]
-                                    .content as Record<string, string>)
+                                      .content as Record<string, string>)
                                   : {};
-
                               return (
                                 <div className="space-y-2">
                                   {Object.entries(userMatches).map(
                                     ([leftText, rightText]) => {
-                                      const correctRightText =
-                                        correctMatches[leftText];
                                       const isMatchCorrect =
-                                        correctRightText === rightText;
-
+                                        correctMatches[leftText] === rightText;
                                       return (
                                         <div
                                           key={leftText}
@@ -375,13 +350,13 @@ export default function HomeworkReviewPage() {
                         >
                           <p className="text-base">
                             {currentQ.question.type === "multiple_choice" ||
-                              currentQ.question.type === "true_false"
+                            currentQ.question.type === "true_false"
                               ? currentQ.question.options?.find(
-                                (opt: any) =>
-                                  opt.id ===
-                                  (currentResult.userAnswerId ||
-                                    currentResult.userAnswerContent)
-                              )?.text || currentResult.userAnswerContent
+                                  (opt: any) =>
+                                    opt.id ===
+                                    (currentResult.userAnswerId ||
+                                      currentResult.userAnswerContent)
+                                )?.text || currentResult.userAnswerContent
                               : currentResult.userAnswerContent || "No answer"}
                           </p>
                         </div>
@@ -389,7 +364,7 @@ export default function HomeworkReviewPage() {
                     </div>
                   )}
 
-                  {/* Correct Answer */}
+                  {/* Correct Answer (only when wrong) */}
                   {currentResult && !currentResult.isCorrect && (
                     <div>
                       <p className="text-base font-medium mb-2 text-green-700">
@@ -397,7 +372,7 @@ export default function HomeworkReviewPage() {
                       </p>
                       <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
                         {currentQ.question.type === "matching_pairs" &&
-                          typeof currentResult.correctAnswers[0].content ===
+                        typeof currentResult.correctAnswers[0].content ===
                           "object" ? (
                           <div className="space-y-2">
                             {Object.entries(
@@ -417,17 +392,14 @@ export default function HomeworkReviewPage() {
                           </div>
                         ) : (
                           <p className="text-base text-green-900 whitespace-pre-wrap">
-                            {getCorrectAnswerText(
-                              currentQ.question,
-                              currentResult
-                            )}
+                            {getCorrectAnswerText(currentQ.question, currentResult)}
                           </p>
                         )}
                       </div>
                     </div>
                   )}
 
-                  {/* Question Metadata Feedback */}
+                  {/* Metadata Feedback */}
                   {currentResult &&
                     currentQ.question.metadata &&
                     (currentResult.isCorrect
@@ -448,11 +420,11 @@ export default function HomeworkReviewPage() {
                       </div>
                     )}
 
-                  {/* Tutor Additional Feedback */}
+                  {/* Tutor Feedback */}
                   {currentResult?.feedback && (
                     <div>
                       <p className="text-base font-medium mb-2">
-                        Tutor Additional Feedback:
+                        Additional Feedback:
                       </p>
                       <Alert className="border-yellow-200 bg-yellow-50">
                         <AlertCircle className="h-4 w-4 text-yellow-600" />
@@ -460,20 +432,11 @@ export default function HomeworkReviewPage() {
                           <p className="text-yellow-800 whitespace-pre-wrap">
                             {(() => {
                               try {
-                                const parsed = JSON.parse(
-                                  currentResult.feedback
-                                );
-                                if (
-                                  parsed &&
-                                  typeof parsed === "object" &&
-                                  parsed.feedback
-                                ) {
-                                  return parsed.feedback;
-                                }
+                                const parsed = JSON.parse(currentResult.feedback!);
+                                return parsed?.feedback ?? currentResult.feedback;
                               } catch {
-                                // Not JSON, use as is
+                                return currentResult.feedback;
                               }
-                              return currentResult.feedback;
                             })()}
                           </p>
                         </AlertDescription>
@@ -481,7 +444,7 @@ export default function HomeworkReviewPage() {
                     </div>
                   )}
 
-                  {/* Explanation if available */}
+                  {/* Explanation */}
                   {currentQ.question.explanation && (
                     <div>
                       <p className="text-base font-medium mb-2">Explanation:</p>
@@ -511,16 +474,13 @@ export default function HomeworkReviewPage() {
                       Previous
                     </Button>
                     <span className="text-sm text-muted-foreground">
-                      {currentQuestionIndex + 1} of{" "}
-                      {questionsWithResults.length}
+                      {currentQuestionIndex + 1} of {questionsWithResults.length}
                     </span>
                     <Button
                       variant="outline"
                       onClick={() =>
                         setCurrentQuestionIndex((prev) =>
-                          prev < questionsWithResults.length - 1
-                            ? prev + 1
-                            : prev
+                          prev < questionsWithResults.length - 1 ? prev + 1 : prev
                         )
                       }
                       disabled={
@@ -537,7 +497,7 @@ export default function HomeworkReviewPage() {
           )}
         </div>
 
-        {/* Results Navigation Sidebar */}
+        {/* Sidebar */}
         <Card className="w-64 h-fit sticky top-6">
           <CardHeader>
             <CardTitle className="text-base">Question Review</CardTitle>
