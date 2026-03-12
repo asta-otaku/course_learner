@@ -16,6 +16,7 @@ import {
   useGetChildLastAccessedLessons,
   useGetCurricula,
   useGetChildBaselineTest,
+  useGetChildBaselineTestEntries,
 } from "@/lib/api/queries";
 import {
   Select,
@@ -24,8 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import LearningCard, { ProgressCard } from "./learningCard";
+import { ProgressCard } from "./learningCard";
 import DoubleQuote from "@/assets/svgs/doubleQuote";
+import { AlertTriangle } from "lucide-react";
 
 function TuitionHome() {
   const {
@@ -106,6 +108,15 @@ function TuitionHome() {
     activeProfile?.id || ""
   );
   const childBaselineTest = baselineTestResponse?.data ?? null;
+
+  // Baseline attempts: if any attempt has submittedAt, baseline is "complete" → hide the block
+  const { data: baselineAttemptsResponse } = useGetChildBaselineTestEntries(
+    activeProfile?.id || ""
+  );
+  const hasCompletedBaseline = useMemo(() => {
+    const attempts = baselineAttemptsResponse?.data || [];
+    return attempts.some((a: { submittedAt?: string | null }) => a.submittedAt != null);
+  }, [baselineAttemptsResponse?.data]);
 
   // Get selected curriculum details
   const selectedCurriculum = useMemo(() => {
@@ -192,16 +203,9 @@ function TuitionHome() {
       {/* Header */}
       <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
         <div className="flex items-center gap-2">
-          <img
-            src={activeProfile?.avatar || profileIcon}
-            alt="Profile Icon"
-            width={32}
-            height={32}
-            className="rounded-full w-10 h-10 object-cover"
-          />
           <div className="flex flex-col gap-1 items-start">
-            <p className="uppercase font-medium text-sm text-textSubtitle ml-1">
-              Welcome, <span className="text-textGray text-lg capitalize">{activeProfile?.name}</span>
+            <p className="font-medium text-sm text-textSubtitle ml-1">
+              Welcome, <span className="text-textGray text-sm capitalize font-semibold">{activeProfile?.name}</span>
             </p>
           </div>
         </div>
@@ -209,10 +213,12 @@ function TuitionHome() {
 
       {/* Main Content */}
       <div className="my-8 flex flex-col md:flex-row gap-3 w-full min-h-[40vh]">
-        {/* Lessons Panel */}
-        <div className="md:w-3/5 border border-[#00000033] rounded-3xl bg-white p-6 max-h-[80vh] overflow-auto scrollbar-hide">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-            <h2 className="font-semibold text-base md:text-lg">Your Lessons</h2>
+        {/* Your Assignments – modern table */}
+        <div className="md:w-3/5 rounded-2xl bg-white p-6 max-h-[80vh] overflow-auto scrollbar-hide shadow-sm border border-gray-100">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 tracking-tight">
+              Your Assignments
+            </h2>
             <div className="w-full md:w-auto min-w-[200px]">
               <Select
                 value={selectedCurriculumId}
@@ -220,7 +226,7 @@ function TuitionHome() {
                   setProfileSelectedCurriculumId(value);
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-9 rounded-lg border-gray-200 bg-gray-50/80 text-gray-700 font-normal">
                   <SelectValue placeholder="Select a curriculum..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -243,88 +249,161 @@ function TuitionHome() {
               </Select>
             </div>
           </div>
-          <div className="space-y-3 mt-4">
-            {allLessons.length > 0 ? (
-              allLessons.map((lesson, idx) => (
-                <LearningCard
-                  key={lesson.id || idx}
-                  course={{
-                    course: lesson.curriculumTitle,
-                    imageUrl: lesson.curriculumImageUrl,
-                    topics: [],
-                    progress: lesson.completionPercentage,
-                    duration: 0,
-                    total_section: 0,
-                    completed_section: 0,
-                    curriculumId: lesson.curriculumId,
-                  }}
-                  lesson={lesson}
-                />
-              ))
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                No lessons available.
-              </p>
-            )}
-          </div>
+
+          {allLessons.length > 0 ? (
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-gray-100 text-left">
+                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider w-[56px]"> </th>
+                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider">Lesson</th>
+                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider">Quiz</th>
+                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider">Deadline</th>
+                  <th className="pb-3 font-medium text-gray-500 text-xs uppercase tracking-wider text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allLessons.map((lesson: any, idx: number) => {
+                  const sectionImageUrl = lesson.sectionId
+                    ? sectionImageMap[lesson.sectionId]
+                    : null;
+                  const imageUrl =
+                    sectionImageUrl || lesson.curriculumImageUrl || "";
+                  const lessonHref = lesson.id
+                    ? `/library/${lesson.sectionId || lesson.curriculumId}/${lesson.id}`
+                    : `/library/${lesson.curriculumId}`;
+                  const quizLabel =
+                    lesson.totalQuizzes != null && lesson.totalQuizzes > 0
+                      ? `Quiz 1 – ${lesson.title}`
+                      : "Lesson content";
+                  const hasDeadline = false;
+                  const deadlineMissed = false;
+                  const deadlineDate = "";
+
+                  return (
+                    <tr
+                      key={lesson.id || idx}
+                      className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors"
+                    >
+                      <td className="py-4 pr-4 align-middle">
+                        <div className="w-11 h-11 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 shadow-sm ring-1 ring-gray-100">
+                          {imageUrl ? (
+                            <Image
+                              src={imageUrl}
+                              alt=""
+                              width={44}
+                              height={44}
+                              className="w-11 h-11 object-cover"
+                            />
+                          ) : (
+                            <div className="w-11 h-11 bg-gray-200" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 pr-4 align-middle">
+                        <span className="text-gray-800 font-normal">
+                          {lesson.title}
+                        </span>
+                      </td>
+                      <td className="py-4 pr-4 text-gray-600 font-normal text-sm">
+                        {quizLabel}
+                      </td>
+                      <td className="py-4 pr-4">
+                        {hasDeadline ? (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-gray-800 font-medium text-sm">{deadlineDate}</span>
+                              {deadlineMissed && (
+                                <AlertTriangle className="h-3.5 w-3.5 text-amber-500 fill-amber-100 stroke-amber-500" />
+                              )}
+                            </div>
+                            {deadlineMissed && (
+                              <span className="text-xs text-gray-500">
+                                Deadline previously missed
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="py-4 text-right">
+                        <Link
+                          href={lessonHref}
+                          className="inline-flex items-center text-sm font-medium text-primaryBlue hover:text-blue-600 transition-colors"
+                        >
+                          Start
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-sm text-gray-400 py-8">
+              No assignments available.
+            </p>
+          )}
         </div>
 
         {/* Right Column */}
         <div className="md:w-2/5 flex flex-col gap-2">
-          {/* Baseline Test */}
-          <div className="border border-[#00000033] rounded-2xl bg-white px-6 pt-4 pb-2">
-            <p className="text-base font-semibold flex items-center gap-3">
-              <DoubleQuote /> Baseline Test
-            </p>
-            {childBaselineTest ? (
-              <>
-                <p className="text-sm font-medium mt-6 mb-3">QUIZ</p>
-                <p className="text-xs text-textSubtitle mb-2">
-                  {childBaselineTest.title}
-                </p>
-                <p className="text-xs text-muted-foreground mb-6">
-                  {childBaselineTest.yearGroup}
-                </p>
-                <div className="flex items-center gap-4 pb-2">
+          {/* Baseline Test - only show when not yet completed (not started or in progress) */}
+          {!hasCompletedBaseline && (
+            <div className="border border-[#00000033] rounded-2xl bg-white px-6 pt-4 pb-2">
+              <p className="text-base font-semibold flex items-center gap-3">
+                <DoubleQuote /> Baseline Test
+              </p>
+              {childBaselineTest ? (
+                <>
+                  <p className="text-sm font-medium mt-6 mb-3">QUIZ</p>
+                  <p className="text-xs text-textSubtitle mb-2">
+                    {childBaselineTest.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-6">
+                    {childBaselineTest.yearGroup}
+                  </p>
+                  <div className="flex items-center gap-4 pb-2">
+                    <Button
+                      variant="link"
+                      className="text-xs text-primaryBlue px-0"
+                      asChild
+                    >
+                      <Link href={`/take-quiz/${childBaselineTest.quizId}?isBaselineTest=true&baselineTestId=${childBaselineTest.id}`}>
+                        Start <BackArrow color="#286CFF" flipped />
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="link"
+                      className="text-xs text-primaryBlue px-0"
+                      asChild
+                    >
+                      <Link href="/baseline-results">
+                        View Results <BackArrow color="#286CFF" flipped />
+                      </Link>
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium mt-6 mb-3">QUIZ</p>
+                  <p className="text-xs text-textSubtitle mb-4">
+                    No baseline test assigned yet. Your tutor can assign one for
+                    your year group.
+                  </p>
                   <Button
                     variant="link"
-                    className="text-xs text-primaryBlue px-0"
-                    asChild
-                  >
-                    <Link href={`/take-quiz/${childBaselineTest.quizId}?isBaselineTest=true&baselineTestId=${childBaselineTest.id}`}>
-                      Start <BackArrow color="#286CFF" flipped />
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="link"
-                    className="text-xs text-primaryBlue px-0"
+                    className="text-xs text-primaryBlue px-0 mb-2"
                     asChild
                   >
                     <Link href="/baseline-results">
                       View Results <BackArrow color="#286CFF" flipped />
                     </Link>
                   </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-medium mt-6 mb-3">QUIZ</p>
-                <p className="text-xs text-textSubtitle mb-4">
-                  No baseline test assigned yet. Your tutor can assign one for
-                  your year group.
-                </p>
-                <Button
-                  variant="link"
-                  className="text-xs text-primaryBlue px-0 mb-2"
-                  asChild
-                >
-                  <Link href="/baseline-results">
-                    View Results <BackArrow color="#286CFF" flipped />
-                  </Link>
-                </Button>
-              </>
-            )}
-          </div>
+                </>
+              )}
+            </div>
+          )}
           {/* Tutor Info */}
           {activeProfile?.tutorId && (
             <div className="border border-[#00000033] rounded-2xl bg-white p-6 text-center">
@@ -377,7 +456,7 @@ function TuitionHome() {
       </div>
 
       {/* Progress Section */}
-      <div className="my-8">
+      {/* <div className="my-8">
         <div>
           <h2 className="text-textGray font-medium text-base md:text-lg mb-2">
             Your Progress
@@ -400,7 +479,7 @@ function TuitionHome() {
             </div>
           )}
         </div>
-      </div>
+      </div> */}
 
       {/* Tutor Change Request Dialog */}
       {activeProfile?.tutorId && (

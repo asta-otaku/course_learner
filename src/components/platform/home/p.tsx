@@ -160,8 +160,8 @@ function Home() {
           className="rounded-full w-10 h-10 object-cover"
         />
         <div className="flex flex-col gap-1 items-start">
-          <p className="uppercase font-medium text-sm text-textSubtitle ml-1">
-            Welcome, <span className="text-textGray text-lg capitalize">{activeProfile?.name}</span>
+          <p className="font-medium text-sm text-textSubtitle ml-1">
+            Welcome, <span className="text-textGray text-sm capitalize font-semibold">{activeProfile?.name}</span>
           </p>
         </div>
       </div>

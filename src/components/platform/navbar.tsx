@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useGetStudentChatList } from "@/lib/api/queries";
 import LogoutIcon from "@/assets/svgs/logout";
 import { useAuthGuard } from "../AuthGuard";
 import { logout } from "@/lib/services/axiosInstance";
@@ -64,6 +65,15 @@ export default function Navbar() {
 
   const routes =
     user?.data?.offerType === "Offer One" ? platformRoutes : tuitionRoutes;
+
+  const showMessagesLink = routes.some((r) => r.path === "/messages");
+  const { data: chatListData } = useGetStudentChatList({
+    childId: showMessagesLink ? activeProfile?.id || "" : "",
+  });
+  const messageCount = (chatListData?.data || []).reduce(
+    (sum, c) => sum + (c.unreadCount || 0),
+    0
+  );
 
   if (!isAuthenticated) {
     return null;
@@ -120,7 +130,9 @@ export default function Navbar() {
                     : "text-textSubtitle"
                 } hover:text-blue-500 transition`}
               >
-                {route.name}
+                {route.path === "/messages" && messageCount > 0
+                  ? `${route.name} (${messageCount})`
+                  : route.name}
               </Link>
             ))}
           </div>
@@ -230,7 +242,9 @@ export default function Navbar() {
                       : "text-gray-700 hover:bg-gray-100"
                   } transition`}
                 >
-                  {route.name}
+                  {route.path === "/messages" && messageCount > 0
+                    ? `${route.name} (${messageCount})`
+                    : route.name}
                 </Link>
               ))}
 

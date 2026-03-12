@@ -49,7 +49,7 @@ const MessagingPlatform = () => {
   const chatList = chatListData?.data || [];
 
   // Get socket from global context
-  const { isConnected, markAsRead, deleteMessages } = useSocketContext();
+  const { markAsRead, deleteMessages } = useSocketContext();
 
   const [newMessage, setNewMessage] = useState("");
   const [showChatList, setShowChatList] = useState(true);
@@ -200,21 +200,16 @@ const MessagingPlatform = () => {
   const handleSelectChat = (id: string) => {
     setActiveChat(id);
     setShowChatList(false);
-    // Reset selection mode when switching chats
     setSelectionMode(false);
     setSelectedMessages(new Set());
   };
 
-  // Selection mode handlers
   const handleToggleSelection = (messageId: string) => {
     setSelectedMessages((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(messageId)) {
-        newSet.delete(messageId);
-      } else {
-        newSet.add(messageId);
-      }
-      return newSet;
+      const next = new Set(prev);
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
+      return next;
     });
   };
 
@@ -349,30 +344,71 @@ const MessagingPlatform = () => {
                     </div>
                   )}
 
-                  {getCurrentMessages().map((message: Message) => {
-                    // Determine the correct user ID for comparison based on mode
-                    const currentUserId = isTutorMode
+                  {(() => {
+                    const messages = getCurrentMessages();
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+
+                    const groups = new Map<string, Message[]>();
+                    for (const m of messages) {
+                      const d = new Date(m.createdAt);
+                      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                      if (!groups.has(key)) groups.set(key, []);
+                      groups.get(key)!.push(m);
+                    }
+
+                    const sortedKeys = Array.from(groups.keys()).sort();
+                    const currentUserIdForBubble = isTutorMode
                       ? // @ts-ignore
                         currentUserData?.data?.tutorProfile?.id
                       : activeProfile?.id;
 
-                    return (
-                      <MessageBubble
-                        key={message._id}
-                        message={message}
-                        chats={chatList}
-                        activeChat={activeChat}
-                        currentUserId={currentUserId}
-                        isSelected={selectedMessages.has(message._id)}
-                        onSelect={() => handleToggleSelection(message._id)}
-                        onDeselect={() => handleToggleSelection(message._id)}
-                        onToggleSelection={() =>
-                          setSelectionMode(!selectionMode)
-                        }
-                        selectionMode={selectionMode}
-                      />
-                    );
-                  })}
+                    return sortedKeys.map((dateKey) => {
+                      const dayMessages = groups.get(dateKey)!;
+                      const firstDate = new Date(dayMessages[0].createdAt);
+                      firstDate.setHours(0, 0, 0, 0);
+                      let label: string;
+                      if (firstDate.getTime() === today.getTime()) {
+                        label = "Today";
+                      } else if (firstDate.getTime() === yesterday.getTime()) {
+                        label = "Yesterday";
+                      } else {
+                        label = firstDate.toLocaleDateString(undefined, {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        });
+                      }
+                      return (
+                        <div key={dateKey} className="mb-4">
+                          <div className="flex justify-center my-3">
+                            <span className="text-xs font-medium text-gray-500 bg-gray-200/80 px-3 py-1 rounded-full">
+                              {label}
+                            </span>
+                          </div>
+                          {dayMessages.map((message: Message) => (
+                            <MessageBubble
+                              key={message._id}
+                              message={message}
+                              chats={chatList}
+                              activeChat={activeChat}
+                              currentUserId={currentUserIdForBubble}
+                              isSelected={selectedMessages.has(message._id)}
+                              onSelect={() => handleToggleSelection(message._id)}
+                              onDeselect={() => handleToggleSelection(message._id)}
+                              onToggleSelection={() =>
+                                setSelectionMode(!selectionMode)
+                              }
+                              selectionMode={selectionMode}
+                            />
+                          ))}
+                        </div>
+                      );
+                    });
+                  })()}
 
                   <div ref={messagesEndRef} />
                 </>

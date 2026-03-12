@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Users, Video, Calendar, XCircle } from "lucide-react";
+import { Users, Video, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,8 +13,10 @@ import {
 import { Session } from "@/lib/types";
 import { formatDisplayDate } from "@/lib/utils";
 import { useGetSessionMeetingUrl } from "@/lib/api/queries";
+import type { SessionSectionType } from "./SessionSection";
 
 interface TutorSessionCardProps {
+  sectionType: SessionSectionType;
   title: string;
   description: string;
   sessions: Session[];
@@ -25,6 +27,7 @@ interface TutorSessionCardProps {
 }
 
 const TutorSessionCard = ({
+  sectionType,
   title,
   description,
   sessions,
@@ -39,14 +42,20 @@ const TutorSessionCard = ({
   if (sessions.length === 0) return null;
 
   const handleSessionClick = (session: Session) => {
-    // Only open modal for sessions that have actionable states
-    const actionableStatuses = ["pending", "confirmed", "completed"];
+    // Upcoming: any booked/confirmed session can be acted on (Join or Cancel)
+    const upcomingActionable = ["pending", "confirmed", "booked", "available"];
+    // Previous: show details only
+    const previousActionable = ["completed", "expired"];
 
-    if (actionableStatuses.includes(session.status || "")) {
+    const actionable =
+      sectionType === "upcoming"
+        ? upcomingActionable.includes(session.status || "")
+        : previousActionable.includes(session.status || "");
+
+    if (actionable) {
       setSelectedSession(session);
       setShowModal(true);
     }
-    // Do nothing for "available" and "cancelled" sessions
   };
 
   const closeModal = () => {
@@ -102,11 +111,15 @@ const TutorSessionCard = ({
               </div>
               <div
                 className={`flex flex-col md:flex-row gap-4 md:gap-1 md:items-center justify-between space-x-4 w-full bg-bgWhiteGray border py-2 px-4 rounded-2xl transition-colors ${
-                  ["pending", "confirmed", "completed"].includes(
-                    session.status || ""
-                  )
-                    ? "cursor-pointer hover:bg-gray-100"
-                    : "cursor-default"
+                  sectionType === "upcoming"
+                    ? ["pending", "confirmed", "booked", "available"].includes(
+                        session.status || ""
+                      )
+                      ? "cursor-pointer hover:bg-gray-100"
+                      : "cursor-default"
+                    : ["completed", "expired"].includes(session.status || "")
+                      ? "cursor-pointer hover:bg-gray-100"
+                      : "cursor-default"
                 }`}
                 onClick={() => handleSessionClick(session)}
               >
@@ -153,9 +166,11 @@ const TutorSessionCard = ({
                     </div>
                   )}
                 </div>
-                <div className="text-xs text-textSubtitle">
-                  Click for actions
-                </div>
+                {sectionType === "upcoming" && (
+                  <div className="text-xs text-textSubtitle">
+                    Click for actions
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -164,6 +179,7 @@ const TutorSessionCard = ({
 
       {/* Session Actions Modal */}
       <SessionActionsDialog
+        sectionType={sectionType}
         open={showModal}
         onOpenChange={setShowModal}
         session={selectedSession}
@@ -175,6 +191,7 @@ const TutorSessionCard = ({
 
 // Separate component for session actions dialog
 interface SessionActionsDialogProps {
+  sectionType: SessionSectionType;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   session: Session | null;
@@ -182,6 +199,7 @@ interface SessionActionsDialogProps {
 }
 
 const SessionActionsDialog = ({
+  sectionType,
   open,
   onOpenChange,
   session,
@@ -190,8 +208,7 @@ const SessionActionsDialog = ({
   const { data: meetingUrlData, isLoading: isLoadingUrl } =
     useGetSessionMeetingUrl(session?.id || "");
 
-  // Append role parameter to meeting URL for tutors
-  const meetingUrl = meetingUrlData?.data 
+  const meetingUrl = meetingUrlData?.data
     ? `${meetingUrlData.data}?role=tutor`
     : undefined;
 
@@ -201,9 +218,11 @@ const SessionActionsDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Session Actions</DialogTitle>
+          <DialogTitle>Session Details</DialogTitle>
           <DialogDescription>
-            Manage your session with available actions
+            {sectionType === "upcoming"
+              ? "Join the meeting or cancel the session"
+              : "Past session"}
           </DialogDescription>
         </DialogHeader>
 
@@ -221,139 +240,66 @@ const SessionActionsDialog = ({
                 <span className="font-medium">Student:</span>{" "}
                 {session.student || "Available"}
               </p>
-              <p>
-                <span className="font-medium">Status:</span>{" "}
-                <span
-                  className={`font-medium ${
-                    session.status === "confirmed"
-                      ? "text-green-600"
-                      : session.status === "pending"
-                        ? "text-yellow-600"
-                        : session.status === "cancelled"
-                          ? "text-red-600"
-                          : "text-gray-600"
-                  }`}
-                >
-                  {session.status
-                    ? session.status.charAt(0).toUpperCase() +
-                      session.status.slice(1)
-                    : "Unknown"}
-                </span>
-              </p>
+              {sectionType === "previous" && (
+                <p>
+                  <span className="font-medium">Status:</span>{" "}
+                  <span className="font-medium text-gray-600">
+                    {session.status
+                      ? session.status.charAt(0).toUpperCase() +
+                        session.status.slice(1)
+                      : "Unknown"}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Action buttons in a grid layout */}
-          <div className="space-y-3">
-            {/* Confirmed sessions: Join Meeting (primary), Reschedule, Cancel */}
-            {session.status === "confirmed" && (
-              <>
-                {isLoadingUrl ? (
-                  <Button
-                    className="w-full bg-green-600 hover:bg-green-700"
-                    disabled
-                  >
-                    <Video className="w-4 h-4 mr-2" />
-                    Loading...
-                  </Button>
-                ) : meetingUrl ? (
-                  <a
-                    href={meetingUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center w-full h-10 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
-                  >
-                    <Video className="w-4 h-4 mr-2" />
-                    Join Video Meeting
-                  </a>
-                ) : (
-                  <Button
-                    className="w-full bg-gray-400 cursor-not-allowed"
-                    disabled
-                  >
-                    <Video className="w-4 h-4 mr-2" />
-                    Meeting URL Unavailable
-                  </Button>
-                )}
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => onAction("reschedule", session)}
-                  >
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Reschedule
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => onAction("cancel", session)}
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Cancel
-                  </Button>
-                </div>
-              </>
-            )}
-
-            {/* Pending sessions: Confirm, Reschedule, Cancel */}
-            {session.status === "pending" && (
-              <>
+          {/* Upcoming: Join meeting + Cancel only. No Reschedule, no Confirm. */}
+          {sectionType === "upcoming" && (
+            <div className="space-y-3">
+              {isLoadingUrl ? (
                 <Button
-                  className="w-full"
-                  onClick={() => onAction("confirm", session)}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  disabled
                 >
-                  Confirm Session
+                  <Video className="w-4 h-4 mr-2" />
+                  Loading...
                 </Button>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => onAction("reschedule", session)}
-                  >
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Reschedule
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => onAction("cancel", session)}
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Cancel
-                  </Button>
-                </div>
-              </>
-            )}
-
-            {/* Cancelled sessions: Reschedule only */}
-            {session.status === "cancelled" && (
+              ) : meetingUrl ? (
+                <a
+                  href={meetingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center w-full h-10 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
+                >
+                  <Video className="w-4 h-4 mr-2" />
+                  Join meeting
+                </a>
+              ) : (
+                <Button
+                  className="w-full bg-gray-400 cursor-not-allowed"
+                  disabled
+                >
+                  <Video className="w-4 h-4 mr-2" />
+                  Meeting URL unavailable
+                </Button>
+              )}
               <Button
                 variant="outline"
-                className="w-full"
-                onClick={() => onAction("reschedule", session)}
+                className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={() => onAction("cancel", session)}
               >
-                <Calendar className="w-4 h-4 mr-2" />
-                Reschedule Session
+                <XCircle className="w-4 h-4 mr-2" />
+                Cancel
               </Button>
-            )}
+            </div>
+          )}
 
-            {/* Completed sessions: No actions */}
-            {session.status === "completed" && (
-              <p className="text-center text-gray-500 py-4">
-                This session has been completed
-              </p>
-            )}
-
-            {/* Available/Expired sessions: Confirm only */}
-            {(session.status === "available" ||
-              session.status === "expired") && (
-              <Button
-                className="w-full"
-                onClick={() => onAction("confirm", session)}
-              >
-                Confirm Session
-              </Button>
-            )}
-          </div>
+          {sectionType === "previous" && (
+            <p className="text-center text-gray-500 py-4">
+              This session is in the past.
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

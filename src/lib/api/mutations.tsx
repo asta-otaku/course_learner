@@ -1630,12 +1630,22 @@ export const usePatchUpdateTutorChangeRequest = (id: string) => {
     mutationFn: (data: {
       status: "pending" | "approved" | "rejected";
       reviewNote: string;
+      assignedTutorId?: string;
+      assignedTutorName?: string;
     }): Promise<ApiResponse<ChangeRequest>> => {
       const url =
         data.status === "approved"
           ? `/tutor-change-request/${id}/approve`
           : `/tutor-change-request/${id}/reject`;
-      return axiosInstance.patch(url, { reviewNote: data.reviewNote });
+      const body =
+        data.status === "approved"
+          ? {
+              reviewNote: data.reviewNote,
+              assignedTutorId: data.assignedTutorId ?? "",
+              assignedTutorName: data.assignedTutorName ?? "",
+            }
+          : { reviewNote: data.reviewNote };
+      return axiosInstance.patch(url, body);
     },
     onSuccess: (data: ApiResponse<ChangeRequest>) => {
       queryClient.invalidateQueries({

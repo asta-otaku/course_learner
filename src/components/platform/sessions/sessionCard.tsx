@@ -63,8 +63,11 @@ const SessionCard = ({
   onBook?: (session: Session) => void;
 }) => {
   const displayDate = formatDisplayDate(session.date);
+  // Once booked, session is treated as confirmed (Join + Cancel only; no separate Confirm/Reschedule)
   const isConfirmedOrBooked =
-    session.status === "confirmed" || session.status === "booked";
+    session.status === "confirmed" ||
+    session.status === "booked" ||
+    session.status === "pending";
 
   // Only fetch meeting URL for confirmed/booked sessions
   const { data: meetingUrlData, isLoading: isLoadingUrl } =
@@ -150,25 +153,7 @@ const SessionCard = ({
             </>
           )}
 
-          {onConfirm && session.status === "pending" && (
-            <Button
-              variant="outline"
-              onClick={() => onConfirm(session)}
-              className="bg-blue-600 text-white rounded-full text-xs hover:bg-blue-700"
-            >
-              Confirm
-            </Button>
-          )}
-          {onComplete && session.status === "confirmed" && (
-            <Button
-              variant="outline"
-              onClick={() => onComplete(session)}
-              className="bg-purple-600 text-white rounded-full text-xs hover:bg-purple-700"
-            >
-              Complete
-            </Button>
-          )}
-
+          {/* Cancel: show for any booked/confirmed/pending (student view: no Reschedule) */}
           {session.status !== "cancelled" && 
            session.status !== "completed" && 
            session.status !== "available" && (

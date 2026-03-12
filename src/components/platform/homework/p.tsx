@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { isWithinDateRange } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,8 @@ import { ChevronDown, Loader2 } from "lucide-react";
 import BackArrow from "@/assets/svgs/arrowback";
 import { DateRange, dateRangeLabels } from "@/lib/types";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
-import { useGetHomework } from "@/lib/api/queries";
+import { useGetHomework, useGetChildBaselineTestEntries } from "@/lib/api/queries";
+import type { Homework } from "@/lib/types";
 
 // Status types - matching API format
 const statuses = ["to-do", "submitted", "done and marked"] as const;
@@ -50,6 +51,29 @@ const statusColorMap: Record<Exclude<Status, "ALL">, string> = {
 
 const ITEMS_PER_PAGE = 15;
 
+// Unified row for homework + submitted baseline attempts (Recent Work / history)
+type WorkItem =
+  | { type: "homework"; data: Homework }
+  | {
+      type: "baseline";
+      data: {
+        id: string;
+        quizAttemptId: string;
+        baselineTestTitle: string;
+        submittedAt: string;
+        score?: number | null;
+        percentage?: number | null;
+      };
+    };
+
+function getWorkItemDate(item: WorkItem): Date | null {
+  if (item.type === "homework") {
+    const d = item.data.dueDate || item.data.dateSubmitted;
+    return d ? new Date(d) : null;
+  }
+  return new Date(item.data.submittedAt);
+}
+
 export default function HomeworkStatusPage() {
   const { push } = useRouter();
   const { activeProfile } = useSelectedProfile();
@@ -57,35 +81,70 @@ export default function HomeworkStatusPage() {
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch homework data for the active student profile
-  const { data: homeworkResponse, isLoading } = useGetHomework(
+  // Fetch homework and baseline attempts for the active student profile
+  const { data: homeworkResponse, isLoading: homeworkLoading } = useGetHomework(
     activeProfile?.id || ""
   );
+  const { data: baselineAttemptsResponse, isLoading: baselineLoading } =
+    useGetChildBaselineTestEntries(activeProfile?.id || "");
+
   const homeworks = homeworkResponse?.data || [];
+  const baselineAttempts = baselineAttemptsResponse?.data || [];
+  const submittedBaselineAttempts = useMemo(
+    () =>
+      baselineAttempts.filter(
+        (a: { submittedAt?: string | null }) => a.submittedAt != null
+      ),
+    [baselineAttempts]
+  );
 
-  const filteredHomeworks = homeworks.filter((hw) => {
-    const dueDate = hw.dueDate ? new Date(hw.dueDate) : null;
+  // Unified list: homework + submitted baseline (like completed quizzes in Recent Work / history)
+  const allWorkItems = useMemo((): WorkItem[] => {
+    const items: WorkItem[] = homeworks.map((hw) => ({ type: "homework", data: hw }));
+    submittedBaselineAttempts.forEach((a: any) => {
+      items.push({
+        type: "baseline",
+        data: {
+          id: a.id,
+          quizAttemptId: a.quizAttemptId,
+          baselineTestTitle: a.baselineTestTitle,
+          submittedAt: a.submittedAt,
+          score: a.score,
+          percentage: a.percentage,
+        },
+      });
+    });
+    // Sort by date descending (most recent first)
+    items.sort((a, b) => {
+      const dateA = getWorkItemDate(a)?.getTime() ?? 0;
+      const dateB = getWorkItemDate(b)?.getTime() ?? 0;
+      return dateB - dateA;
+    });
+    return items;
+  }, [homeworks, submittedBaselineAttempts]);
 
-    // Status filter
+  const filteredWorkItems = allWorkItems.filter((item) => {
+    const date = getWorkItemDate(item);
+    const status =
+      item.type === "homework"
+        ? item.data.status?.toLowerCase()
+        : "done and marked";
     const matchesStatus =
-      selectedStatus === "ALL"
-        ? true
-        : hw.status?.toLowerCase() === selectedStatus.toLowerCase();
-
-    // Date filter
-    const matchesDate = dueDate
-      ? isWithinDateRange(dueDate, selectedDateRange)
+      selectedStatus === "ALL" || status === selectedStatus.toLowerCase();
+    const matchesDate = date
+      ? isWithinDateRange(date, selectedDateRange)
       : selectedDateRange === "ALL";
-
     return matchesStatus && matchesDate;
   });
 
+  const isLoading = homeworkLoading || baselineLoading;
+
   // Pagination calculations
-  const totalItems = filteredHomeworks.length;
+  const totalItems = filteredWorkItems.length;
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentHomeworks = filteredHomeworks.slice(startIndex, endIndex);
+  const currentWorkItems = filteredWorkItems.slice(startIndex, endIndex);
 
   // Reset to page 1 when filters change
   React.useEffect(() => {
@@ -176,7 +235,7 @@ export default function HomeworkStatusPage() {
                 <p className="text-gray-500 text-sm">Loading homework...</p>
               </div>
             </div>
-          ) : currentHomeworks.length === 0 ? (
+          ) : currentWorkItems.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-3">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
@@ -202,13 +261,53 @@ export default function HomeworkStatusPage() {
                   <p className="text-gray-500 text-sm">
                     {selectedStatus !== "ALL" || selectedDateRange !== "ALL"
                       ? "Try adjusting your filters"
-                      : "You don't have any homework assigned yet"}
+                      : "You don't have any homework or baseline results yet"}
                   </p>
                 </div>
               </div>
             </div>
           ) : (
-            currentHomeworks.map((hw, idx) => {
+            currentWorkItems.map((item, idx) => {
+              if (item.type === "baseline") {
+                const b = item.data;
+                return (
+                  <div
+                    key={`baseline-${b.id}`}
+                    className="grid grid-cols-3 gap-2 w-full overflow-auto items-center border-t py-4 text-sm last:border-b hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <div className="whitespace-nowrap">
+                      <p className="font-medium">{b.baselineTestTitle}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Submitted {format(new Date(b.submittedAt), "MMM d")}
+                      </p>
+                    </div>
+                    <div className="text-center whitespace-nowrap">
+                      <Badge
+                        className={
+                          statusColorMap["done and marked"]
+                        }
+                      >
+                        <span className="text-center w-full">
+                          {statusLabels["done and marked"]}
+                        </span>
+                      </Badge>
+                    </div>
+                    <div className="text-center whitespace-nowrap">
+                      <Button
+                        variant="link"
+                        className="text-xs text-primaryBlue px-0"
+                        onClick={() => {
+                          push(`/baseline-results/${b.quizAttemptId}/review`);
+                        }}
+                      >
+                        Review <BackArrow color="#286CFF" flipped />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+
+              const hw = item.data;
               const hwStatus = hw.status?.toLowerCase();
               const canStart = hwStatus === "to-do";
               const canReview = hwStatus === "done and marked";

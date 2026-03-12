@@ -3,23 +3,14 @@ import {
   ArrowLeft,
   Send,
   Paperclip,
-  Smile,
   Check,
   CheckCheck,
-  MoreVertical,
   Trash2,
   X,
   CheckSquare,
 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
-import EmojiPicker from "emoji-picker-react";
-import { MediaMessage, TextMessage, MediaGatekeeper } from "./mediaComponents";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { MediaMessage, TextMessage } from "./mediaComponents";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,9 +29,9 @@ export const ChatHeader = ({
   isTutorMode,
   selectionMode = false,
   selectedCount = 0,
-  onToggleSelection = () => {},
-  onDeleteSelected = () => {},
-  onCancelSelection = () => {},
+  onToggleSelection = () => { },
+  onDeleteSelected = () => { },
+  onCancelSelection = () => { },
 }: {
   activeChat: string | null;
   chats: Chat[];
@@ -63,37 +54,37 @@ export const ChatHeader = ({
   if (selectionMode) {
     return (
       <>
-      <div className="bg-blue-50 border-b border-blue-200 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={onCancelSelection}
-              className="p-2 hover:bg-blue-100 rounded-full transition-colors"
-            >
-              <X className="w-5 h-5 text-blue-600" />
-            </button>
-            <div className="flex items-center space-x-2">
-              <CheckSquare className="w-5 h-5 text-blue-600" />
-              <span className="font-semibold text-blue-900">
+        <div className="bg-blue-50 border-b border-blue-200 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={onCancelSelection}
+                className="p-2 hover:bg-blue-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-blue-600" />
+              </button>
+              <div className="flex items-center space-x-2">
+                <CheckSquare className="w-5 h-5 text-blue-600" />
+                <span className="font-semibold text-blue-900">
                   {selectedCount} message{selectedCount !== 1 ? "s" : ""}{" "}
                   selected
-              </span>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              {selectedCount > 0 && (
+                <button
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete ({selectedCount})</span>
+                </button>
+              )}
             </div>
           </div>
-
-          <div className="flex items-center space-x-2">
-            {selectedCount > 0 && (
-              <button
-                  onClick={() => setShowDeleteDialog(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete ({selectedCount})</span>
-              </button>
-            )}
-          </div>
         </div>
-      </div>
 
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent>
@@ -118,13 +109,10 @@ export const ChatHeader = ({
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={(e) => {
-                  // Prevent default form submission if any
                   e.preventDefault();
-                  // Call the delete function
                   if (onDeleteSelected) {
                     onDeleteSelected();
                   }
-                  // Close the dialog
                   setShowDeleteDialog(false);
                 }}
                 className="bg-red-600 hover:bg-red-700"
@@ -167,7 +155,7 @@ export const ChatHeader = ({
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        {/* <div className="flex items-center space-x-2">
           <button
             onClick={onToggleSelection}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -175,17 +163,7 @@ export const ChatHeader = ({
           >
             <CheckSquare className="w-5 h-5 text-gray-600" />
           </button>
-          <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-gray-600"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
-            </svg>
-          </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );
@@ -237,9 +215,9 @@ export const MessageBubble = ({
   currentUserId,
   isSending = false,
   isSelected = false,
-  onSelect = () => {},
-  onDeselect = () => {},
-  onToggleSelection = () => {},
+  onSelect = () => { },
+  onDeselect = () => { },
+  onToggleSelection = () => { },
   selectionMode = false,
 }: {
   message: Message;
@@ -257,7 +235,6 @@ export const MessageBubble = ({
 
   const handleMessageClick = () => {
     if (selectionMode && isUser) {
-      // Toggle selection when clicking the message bubble
       if (isSelected) {
         onDeselect();
       } else {
@@ -267,21 +244,18 @@ export const MessageBubble = ({
   };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation(); // Prevent triggering the message click
-    // Since both onSelect and onDeselect toggle, just call onSelect
-    // The toggle function will handle adding/removing from the set
+    e.stopPropagation();
     onSelect();
   };
 
   const handleCheckboxClick = (e: React.MouseEvent<HTMLInputElement>) => {
-    e.stopPropagation(); // Prevent triggering the message click
+    e.stopPropagation();
   };
 
   return (
     <div
-      className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 group ${
-        selectionMode && isUser ? "cursor-pointer" : ""
-      }`}
+      className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 group ${selectionMode && isUser ? "cursor-pointer" : ""
+        }`}
       onClick={handleMessageClick}
     >
       {!isUser && (
@@ -296,17 +270,14 @@ export const MessageBubble = ({
 
       <div className="relative">
         <div
-          className={`max-w-xs lg:max-w-md xl:max-w-lg rounded-2xl ${
-            isUser
+          className={`max-w-xs lg:max-w-md xl:max-w-lg rounded-2xl ${isUser
               ? "bg-blue-500 text-white rounded-br-md"
               : "bg-white text-gray-900 rounded-bl-md shadow-sm"
-          } ${isSending ? "opacity-70" : ""} ${
-            isSelected ? "ring-2 ring-blue-500 ring-opacity-75" : ""
-          } ${
-            selectionMode && isUser
+            } ${isSending ? "opacity-70" : ""} ${isSelected ? "ring-2 ring-blue-500 ring-opacity-75" : ""
+            } ${selectionMode && isUser
               ? "hover:ring-2 hover:ring-blue-300 hover:ring-opacity-50 transition-all"
               : ""
-          }`}
+            }`}
         >
           <div className="px-3 py-2">
             {/* Display media if present */}
@@ -326,9 +297,8 @@ export const MessageBubble = ({
             )}
 
             <div
-              className={`flex items-center justify-between mt-1 ${
-                isUser ? "text-blue-100" : "text-gray-500"
-              }`}
+              className={`flex items-center justify-between mt-1 ${isUser ? "text-blue-100" : "text-gray-500"
+                }`}
             >
               <span className="text-xs">
                 {new Date(message.createdAt).toLocaleTimeString([], {
@@ -339,24 +309,6 @@ export const MessageBubble = ({
               <div className="flex items-center ml-2">
                 {isUser && (
                   <MessageStatus status={message.status} isUser={isUser} />
-                )}
-                {isUser && !selectionMode && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded-full ml-1">
-                        <MoreVertical className="w-3 h-3" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={onToggleSelection}
-                        className="text-blue-600 focus:text-blue-600"
-                      >
-                        <CheckSquare className="w-4 h-4 mr-2" />
-                        Select Messages
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 )}
                 {isUser && selectionMode && (
                   <div
@@ -405,11 +357,9 @@ export const MessageInput = React.memo(
     isTutorMode?: boolean;
     quickResponses?: string[];
   }) => {
-    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showQuickResponses, setShowQuickResponses] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [filePreview, setFilePreview] = useState<string | null>(null);
-    const emojiPickerRef = useRef<HTMLDivElement>(null);
     const quickResponsesRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -432,25 +382,6 @@ export const MessageInput = React.memo(
         inputRef.current.style.height =
           Math.min(inputRef.current.scrollHeight, 120) + "px";
       }
-    };
-
-    const onEmojiClick = (emojiObject: any) => {
-      const emoji = emojiObject.emoji;
-      const cursor = inputRef.current?.selectionStart || 0;
-      const textBefore = newMessage.substring(0, cursor);
-      const textAfter = newMessage.substring(cursor);
-      const newText = textBefore + emoji + textAfter;
-
-      setNewMessage(newText);
-
-      // Focus back to input and set cursor position after emoji
-      setTimeout(() => {
-        if (inputRef.current) {
-          inputRef.current.focus();
-          const newCursor = cursor + emoji.length;
-          inputRef.current.setSelectionRange(newCursor, newCursor);
-        }
-      }, 0);
     };
 
     const handleQuickResponse = (response: string) => {
@@ -497,15 +428,9 @@ export const MessageInput = React.memo(
       handleRemoveFile();
     };
 
-    // Close emoji picker and quick responses when clicking outside
+    // Close quick responses when clicking outside
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
-        if (
-          emojiPickerRef.current &&
-          !emojiPickerRef.current.contains(event.target as Node)
-        ) {
-          setShowEmojiPicker(false);
-        }
         if (
           quickResponsesRef.current &&
           !quickResponsesRef.current.contains(event.target as Node)
@@ -634,42 +559,19 @@ export const MessageInput = React.memo(
               rows={1}
               disabled={isTyping}
             />
-            <button
-              className="absolute right-3 bottom-3 p-1 hover:bg-gray-200 rounded-full transition-colors"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            >
-              <Smile className="w-5 h-5 text-gray-600" />
-            </button>
           </div>
 
           <button
             onClick={handleSendWithFile}
             disabled={(!newMessage.trim() && !selectedFile) || isTyping}
-            className={`p-3 rounded-full transition-all ${
-              (newMessage.trim() || selectedFile) && !isTyping
+            className={`p-3 rounded-full transition-all ${(newMessage.trim() || selectedFile) && !isTyping
                 ? "bg-blue-500 hover:bg-blue-600 transform hover:scale-105"
                 : "bg-gray-300 cursor-not-allowed"
-            }`}
+              }`}
           >
             <Send className="w-5 h-5 text-white" />
           </button>
         </div>
-
-        {/* Emoji Picker */}
-        {showEmojiPicker && (
-          <div
-            ref={emojiPickerRef}
-            className="absolute bottom-full right-0 mb-2 z-50"
-          >
-            <EmojiPicker
-              onEmojiClick={onEmojiClick}
-              width={350}
-              height={400}
-              searchPlaceholder="Search emoji..."
-              lazyLoadEmojis={true}
-            />
-          </div>
-        )}
       </div>
     );
   }

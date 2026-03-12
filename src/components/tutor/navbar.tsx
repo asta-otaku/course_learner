@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UserCircle } from "lucide-react";
 import LogoutIcon from "@/assets/svgs/logout";
+import { useGetTutorChatList } from "@/lib/api/queries";
 import { getTutorUser } from "@/lib/services/axiosInstance";
 import { logout } from "@/lib/services/axiosInstance";
 
@@ -39,6 +40,12 @@ export default function Navbar() {
     { name: "Messages", path: "/tutor/messages" },
     { name: "Sessions", path: "/tutor/sessions" },
   ];
+
+  const { data: chatListData } = useGetTutorChatList();
+  const messageCount = (chatListData?.data || []).reduce(
+    (sum, c) => sum + (c.unreadCount || 0),
+    0
+  );
 
   return (
     <nav className="bg-white w-full shadow-sm relative z-20">
@@ -70,7 +77,9 @@ export default function Navbar() {
                   : "text-textSubtitle"
               } hover:text-blue-500 transition`}
             >
-              {route.name}
+              {route.path === "/tutor/messages" && messageCount > 0
+                ? `${route.name} (${messageCount})`
+                : route.name}
             </Link>
           ))}
         </div>
@@ -157,7 +166,9 @@ export default function Navbar() {
                     : "text-gray-700 hover:bg-gray-100"
                 } transition`}
               >
-                {route.name}
+                {route.path === "/tutor/messages" && messageCount > 0
+                  ? `${route.name} (${messageCount})`
+                  : route.name}
               </Link>
             ))}
           </div>

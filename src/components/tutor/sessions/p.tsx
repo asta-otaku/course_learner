@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Session } from "@/lib/types";
 import { formatDateString } from "@/lib/utils";
 import { useGetMySessions } from "@/lib/api/queries";
-import SessionControls from "@/components/admin/session-management/sessionControls";
 import {
   usePutCancelSession,
   usePutRescheduleSession,
@@ -12,8 +11,8 @@ import {
   usePutCompleteSession,
 } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
+import { Button } from "@/components/ui/button";
 import SessionsList from "./SessionsList";
-import SessionStatistics from "./SessionStatistics";
 import CancelSessionDialog from "@/components/admin/session-management/cancelSessionDialog";
 import CompleteSessionDialog from "./CompleteSessionDialog";
 import RescheduleSessionDialog from "./RescheduleSessionDialog";
@@ -84,25 +83,18 @@ function Sessions() {
   const confirmSessionMutation = usePutConfirmSession(confirmSessionId);
   const completeSessionMutation = usePutCompleteSession(completeSessionId);
 
-  // Transform API sessions to match the expected Session format
+  // Transform API sessions and sync pagination from API response
   useEffect(() => {
-    if ((sessionsData as any)?.data?.data) {
-      const transformedSessions: Session[] = (
-        sessionsData as any
-      ).data.data.map((apiSession: any) => {
-        // Format the session name with more context
+    const raw = (sessionsData as any)?.data;
+    if (raw?.data) {
+      const transformedSessions: Session[] = raw.data.map((apiSession: any) => {
         const sessionName = `Session with ${apiSession.bookedBy || "Student"}`;
-
-        // Format time for better readability
-        const startTime = apiSession.startTime?.slice(0, 5) || "00:00"; // Remove seconds
+        const startTime = apiSession.startTime?.slice(0, 5) || "00:00";
         const endTime = apiSession.endTime?.slice(0, 5) || "00:00";
         const timeDisplay = `${startTime} - ${endTime}`;
-
-        // Determine if session is today, upcoming, or past
         const sessionDate = new Date(apiSession.sessionDate);
         const today = new Date();
         const isPast = sessionDate < today;
-
         let statusDisplay = apiSession.status;
         if (isPast && apiSession.status === "available") {
           statusDisplay = "expired";
@@ -114,7 +106,7 @@ function Sessions() {
           name: sessionName,
           time: timeDisplay,
           timeSlot: timeDisplay,
-          tutor: apiSession.tutor || "You", // Use the tutor name from API
+          tutor: apiSession.tutor || "You",
           tutorId: apiSession.tutorId || "current-user",
           student: apiSession.bookedBy || undefined,
           participants: apiSession.bookedBy ? [apiSession.bookedBy] : [],
@@ -127,14 +119,24 @@ function Sessions() {
         };
       });
       setAllSessions(transformedSessions);
+
+      if (raw.pagination) {
+        setPagination((prev) => ({
+          ...prev,
+          total: raw.pagination.totalCount ?? prev.total,
+          page: raw.pagination.page ?? prev.page,
+          totalPages: raw.pagination.totalPages ?? prev.totalPages,
+          hasNextPage: raw.pagination.hasNextPage ?? false,
+          hasPreviousPage: raw.pagination.hasPreviousPage ?? false,
+        }));
+      }
     }
   }, [sessionsData]);
 
-  // Apply client-side filtering and pagination
-  const filteredAndPaginatedSessions = useMemo(() => {
+  // Apply client-side filtering only (pagination is server-side via API)
+  const filteredSessions = useMemo(() => {
     let filtered = allSessions;
 
-    // Apply search filter
     if (filters.search.trim()) {
       const searchTerm = filters.search.toLowerCase();
       filtered = filtered.filter(
@@ -147,19 +149,16 @@ function Sessions() {
       );
     }
 
-    // Apply status filter
     if (filters.status !== "all") {
       filtered = filtered.filter(
         (session) => session.status === filters.status
       );
     }
 
-    // Apply date filter
     if (filters.date) {
       filtered = filtered.filter((session) => session.date === filters.date);
     }
 
-    // Apply day of week filter
     if (filters.dayOfWeek !== "all") {
       filtered = filtered.filter((session) => {
         const sessionDate = new Date(session.date);
@@ -170,44 +169,27 @@ function Sessions() {
       });
     }
 
-    // Update pagination total
-    const total = filtered.length;
-    const totalPages = Math.ceil(total / pagination.limit);
-    setPagination((prev) => ({
-      ...prev,
-      total,
-      totalPages,
-      hasNextPage: pagination.page < totalPages,
-      hasPreviousPage: pagination.page > 1,
-    }));
+    return filtered;
+  }, [allSessions, filters]);
 
-    // Apply pagination
-    const startIndex = (pagination.page - 1) * pagination.limit;
-    const endIndex = startIndex + pagination.limit;
-    return filtered.slice(startIndex, endIndex);
-  }, [allSessions, filters, pagination.page, pagination.limit]);
-
-  // Categorize sessions from filtered and paginated data
-  const { previous, today, upcoming } = useMemo(() => {
+  // Categorize: upcoming = today + future, previous = past
+  const { previous, upcoming } = useMemo(() => {
     const todayStr = formatDateString(new Date());
 
     return {
-      previous: filteredAndPaginatedSessions.filter(
+      previous: filteredSessions.filter(
         (session) => session.date < todayStr
       ),
-      today: filteredAndPaginatedSessions.filter(
-        (session) => session.date === todayStr
-      ),
-      upcoming: filteredAndPaginatedSessions.filter(
-        (session) => session.date > todayStr
+      upcoming: filteredSessions.filter(
+        (session) => session.date >= todayStr
       ),
     };
-  }, [filteredAndPaginatedSessions]);
+  }, [filteredSessions]);
 
   // Check if there are no sessions at all
   const noSessions = useMemo(() => {
-    return filteredAndPaginatedSessions.length === 0;
-  }, [filteredAndPaginatedSessions]);
+    return filteredSessions.length === 0;
+  }, [filteredSessions]);
 
   // Filter and pagination handlers
   const handleFilterChange = (key: string, value: string) => {
@@ -354,25 +336,13 @@ function Sessions() {
     <div className="min-h-screen">
       <h2 className="text-xl font-medium my-6 text-gray-900">Sessions</h2>
 
-      {/* Session Controls */}
-      <SessionControls
-        filters={filters}
-        pagination={pagination}
-        onFilterChange={handleFilterChange}
-        onPageChange={handlePageChange}
-        onLimitChange={handleLimitChange}
-        onClearFilters={handleClearFilters}
-      />
-
-      {/* Session Statistics */}
-      <SessionStatistics allSessions={allSessions} />
+      {/* Session filters and overview hidden per product requirement */}
 
       <div className="space-y-4">
         <SessionsList
           isLoading={isLoading}
           error={error}
           noSessions={noSessions}
-          today={today}
           upcoming={upcoming}
           previous={previous}
           onCancel={handleCancel}
@@ -380,6 +350,38 @@ function Sessions() {
           onConfirm={handleConfirmSession}
           onComplete={handleCompleteSession}
         />
+
+        {/* Pagination */}
+        {!isLoading && !error && !noSessions && pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between border-t pt-4">
+            <p className="text-sm text-gray-600">
+              Page {pagination.page} of {pagination.totalPages}
+              {pagination.total > 0 && (
+                <span className="text-gray-500 ml-1">
+                  ({pagination.total} total)
+                </span>
+              )}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={!pagination.hasPreviousPage}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={!pagination.hasNextPage}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Cancel Session Dialog */}

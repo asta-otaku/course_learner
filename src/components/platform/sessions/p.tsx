@@ -6,7 +6,6 @@ import { formatDateString, formatDisplayDate } from "@/lib/utils";
 import Calendar from "./calendar";
 import BookingDialog from "./bookingDialog";
 import SessionSection, { EmptySessionsState } from "./sessionCard";
-import SessionControls from "@/components/admin/session-management/sessionControls";
 import CancelSessionDialog from "@/components/admin/session-management/cancelSessionDialog";
 import { useProfile } from "@/context/profileContext";
 import {
@@ -15,9 +14,7 @@ import {
 } from "@/lib/api/queries";
 import { usePostBookSession, usePutCancelSession } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
 
 function Sessions() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -39,7 +36,7 @@ function Sessions() {
   });
   const [availablePagination, setAvailablePagination] = useState({
     page: 1,
-    limit: 10,
+    limit: 100,
   });
 
   // Get booked sessions for the active child profile
@@ -207,8 +204,8 @@ function Sessions() {
     }));
   }, [availableSessionsData]);
 
-  // Categorize sessions (only show booked sessions, not available ones)
-  const { previous, today, upcoming } = useMemo(() => {
+  // Categorize: upcoming = today + future, previous = past (booked only)
+  const { previous, upcoming } = useMemo(() => {
     const todayStr = formatDateString(new Date());
     const bookedSessions = allSessions.filter(
       (session) => session.status !== "available"
@@ -216,8 +213,7 @@ function Sessions() {
 
     return {
       previous: bookedSessions.filter((session) => session.date < todayStr),
-      today: bookedSessions.filter((session) => session.date === todayStr),
-      upcoming: bookedSessions.filter((session) => session.date > todayStr),
+      upcoming: bookedSessions.filter((session) => session.date >= todayStr),
     };
   }, [allSessions]);
 
@@ -380,15 +376,7 @@ function Sessions() {
     <div className="min-h-screen">
       <h2 className="text-xl font-medium my-6 text-gray-900">Sessions</h2>
 
-      {/* Session Controls for Booked Sessions */}
-      <SessionControls
-        filters={filters}
-        pagination={bookedPaginationInfo}
-        onFilterChange={handleFilterChange}
-        onPageChange={handleBookedPageChange}
-        onLimitChange={handleBookedLimitChange}
-        onClearFilters={handleClearFilters}
-      />
+      {/* Session filters and available sessions list hidden per product requirement */}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="space-y-4 col-span-1 lg:col-span-3">
@@ -397,165 +385,64 @@ function Sessions() {
           ) : (
             <>
               <SessionSection
-                title="TODAY'S SESSION"
-                description="You can cancel today's session if needed"
-                sessions={today}
-                onCancel={handleCancel}
-              />
-
-              <SessionSection
-                title="UPCOMING SESSIONS"
-                description="You can cancel upcoming sessions if needed"
+                title="Upcoming sessions"
+                description="Join the meeting or cancel if needed"
                 sessions={upcoming}
                 onCancel={handleCancel}
               />
 
               <SessionSection
-                title="PREVIOUS SESSIONS"
+                title="Previous sessions"
                 description="Past completed sessions"
                 sessions={previous}
                 onCancel={handleCancel}
               />
             </>
           )}
-          {/* Available Sessions Section */}
-          {availableSessions.length > 0 && (
-            <div className="bg-white rounded-2xl p-4 shadow-sm border">
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium text-sm">AVAILABLE SESSIONS</h3>
-                  <span className="text-xs text-textSubtitle">
-                    {availableSessions.length} session
-                    {availableSessions.length !== 1 ? "s" : ""} found
-                  </span>
-                </div>
-                <p className="text-xs text-textSubtitle mb-3">
-                  Book an available session with your tutor
-                </p>
 
-                {/* Active Filters Display */}
-                {(filters.status !== "all" ||
-                  filters.date ||
-                  filters.dayOfWeek !== "all" ||
-                  filters.search) && (
-                    <div className="flex flex-wrap items-center gap-2 mb-3 p-2 bg-gray-50 rounded-lg border">
-                      <span className="text-xs text-textSubtitle font-medium">
-                        Active filters:
-                      </span>
-                      {filters.status !== "all" && (
-                        <Badge
-                          variant="secondary"
-                          className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
-                        >
-                          Status: {filters.status}
-                          <button
-                            onClick={() => handleFilterChange("status", "all")}
-                            className="ml-1 hover:bg-blue-300 rounded-full p-0.5 transition-colors"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      )}
-                      {filters.date && (
-                        <Badge
-                          variant="secondary"
-                          className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
-                        >
-                          Date: {filters.date}
-                          <button
-                            onClick={() => handleFilterChange("date", "")}
-                            className="ml-1 hover:bg-blue-300 rounded-full p-0.5 transition-colors"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      )}
-                      {filters.dayOfWeek !== "all" && (
-                        <Badge
-                          variant="secondary"
-                          className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
-                        >
-                          Day: {filters.dayOfWeek}
-                          <button
-                            onClick={() => handleFilterChange("dayOfWeek", "all")}
-                            className="ml-1 hover:bg-blue-300 rounded-full p-0.5 transition-colors"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      )}
-                      {filters.search && (
-                        <Badge
-                          variant="secondary"
-                          className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
-                        >
-                          Search: {filters.search}
-                          <button
-                            onClick={() => handleFilterChange("search", "")}
-                            className="ml-1 hover:bg-blue-300 rounded-full p-0.5 transition-colors"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      )}
-                    </div>
+          {/* Pagination */}
+          {!noSessions &&
+            bookedPaginationInfo.totalPages > 1 && (
+              <div className="flex items-center justify-between border-t pt-4">
+                <p className="text-sm text-gray-600">
+                  Page {bookedPaginationInfo.page} of{" "}
+                  {bookedPaginationInfo.totalPages}
+                  {bookedPaginationInfo.total > 0 && (
+                    <span className="text-gray-500 ml-1">
+                      ({bookedPaginationInfo.total} total)
+                    </span>
                   )}
-              </div>
-
-              {/* Render session cards directly */}
-              {availableSessions.map((session: Session) => {
-                const displayDate = formatDisplayDate(session.date);
-
-                return (
-                  <div
-                    key={session.id}
-                    className="flex flex-col md:flex-row md:items-center gap-2 mb-3 last:mb-0"
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      handleBookedPageChange(bookedPaginationInfo.page - 1)
+                    }
+                    disabled={!bookedPaginationInfo.hasPreviousPage}
                   >
-                    <div className="rounded-2xl py-3 px-4 md:max-w-20 text-center bg-bgWhiteGray border">
-                      <div className="text-sm font-medium text-textSubtitle">
-                        {displayDate.date}
-                      </div>
-                      <div className="text-sm font-medium text-textSubtitle">
-                        {displayDate.day}
-                      </div>
-                    </div>
-                    <div className="flex flex-col md:flex-row gap-4 md:gap-1 md:items-center justify-between space-x-4 w-full bg-bgWhiteGray border py-2 px-4 rounded-2xl">
-                      <div className="text-textSubtitle space-y-2">
-                        <div className="font-medium text-sm">{session.name}</div>
-                        <div className="text-xs">
-                          {session.time} • {session.tutor}
-                        </div>
-                        {session.status && (
-                          <div className="text-xs">
-                            <span className="font-medium text-gray-600">
-                              {session.status.charAt(0).toUpperCase() +
-                                session.status.slice(1)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2 w-full md:w-fit justify-center md:justify-normal">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedDate(session.date);
-                            setSessionToEdit(session);
-                            setShowDialog(true);
-                          }}
-                          className="bg-primaryBlue text-white rounded-full text-xs hover:bg-primaryBlue/90"
-                        >
-                          Book Session
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      handleBookedPageChange(bookedPaginationInfo.page + 1)
+                    }
+                    disabled={!bookedPaginationInfo.hasNextPage}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
         </div>
 
-        <div className="col-span-1 lg:col-span-2">
+        <div className="col-span-1 lg:col-span-2 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            You can book a session up to one hour before it starts.
+          </p>
           <Calendar
             currentMonth={currentMonth}
             onMonthChange={navigateMonth}
