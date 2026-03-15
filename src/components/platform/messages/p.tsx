@@ -113,7 +113,7 @@ const MessagingPlatform = () => {
   // Get current user ID for passing to ChatList
   const currentUserId = isTutorMode
     ? // @ts-ignore
-      currentUserData?.data?.tutorProfile?.id
+    currentUserData?.data?.tutorProfile?.id
     : activeProfile?.id;
 
   // Only scroll to bottom on initial load or when new messages arrive (not when loading more)
@@ -160,7 +160,7 @@ const MessagingPlatform = () => {
       // Determine the correct sender ID based on mode
       const senderId = isTutorMode
         ? // @ts-ignore
-          currentUserData?.data?.tutorProfile?.id
+        currentUserData?.data?.tutorProfile?.id
         : activeProfile?.id;
 
       if ((newMessage.trim() || file) && activeChat && senderId) {
@@ -170,10 +170,10 @@ const MessagingPlatform = () => {
             senderId: senderId,
             senderName: isTutorMode
               ? // @ts-ignore
-                currentUserData?.data?.firstName +
-                " " +
-                // @ts-ignore
-                currentUserData?.data?.lastName
+              currentUserData?.data?.firstName +
+              " " +
+              // @ts-ignore
+              currentUserData?.data?.lastName
               : activeProfile?.name || "",
             content: newMessage,
             media: file,
@@ -261,9 +261,8 @@ const MessagingPlatform = () => {
         </div>
 
         <div
-          className={`${
-            showChatList ? "hidden md:flex" : "flex"
-          } flex-1 flex-col`}
+          className={`${showChatList ? "hidden md:flex" : "flex"
+            } flex-1 flex-col`}
         >
           {activeChat && (
             <ChatHeader
@@ -307,11 +306,10 @@ const MessagingPlatform = () => {
                       <button
                         onClick={handleLoadMore}
                         disabled={isFetching}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          isFetching
-                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                            : "bg-blue-500 text-white hover:bg-blue-600 hover:shadow-md"
-                        }`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${isFetching
+                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                          : "bg-blue-500 text-white hover:bg-blue-600 hover:shadow-md"
+                          }`}
                       >
                         {isFetching ? (
                           <span className="flex items-center space-x-2">
@@ -362,7 +360,7 @@ const MessagingPlatform = () => {
                     const sortedKeys = Array.from(groups.keys()).sort();
                     const currentUserIdForBubble = isTutorMode
                       ? // @ts-ignore
-                        currentUserData?.data?.tutorProfile?.id
+                      currentUserData?.data?.tutorProfile?.id
                       : activeProfile?.id;
 
                     return sortedKeys.map((dateKey) => {
@@ -410,7 +408,7 @@ const MessagingPlatform = () => {
                     });
                   })()}
 
-                  <div ref={messagesEndRef} />
+                  <div ref={messagesEndRef} className="pb-12" />
                 </>
               )}
             </div>

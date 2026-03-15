@@ -8,7 +8,6 @@ import {
   Timeslot,
   SessionResponse,
   AdminSessionsResponse,
-  FullSubscriptionPlan,
   APIGetResponse,
   SubscriptionPlan,
   ParentDetails,
@@ -35,6 +34,7 @@ import {
   BaselineTestEntry,
   LearningPath,
   BaselineTestAttempt,
+  Subscription,
 } from "../types";
 
 // User Queries
@@ -69,19 +69,25 @@ export const useGetUserById = (id: string) => {
 };
 
 // Subscription Queries
-export const useGetSubscriptionPlans = (isUser?: boolean, id?: string) => {
+export const useGetSubscriptions = (parentId?: string) => {
+  return useQuery({
+    queryKey: ["subscriptions", parentId],
+    queryFn: async (): Promise<APIGetResponse<Subscription>> => {
+      const response = await axiosInstance.get(`/subscriptions`, {
+        params: { parentId },
+      });
+      return response.data;
+    },
+  });
+}
+
+export const useGetSubscriptionPlans = () => {
   return useQuery({
     queryKey: ["subscription-plans"],
     queryFn: async (): Promise<
-      APIGetResponse<FullSubscriptionPlan[] | SubscriptionPlan>
+      APIGetResponse<SubscriptionPlan[]>
     > => {
-      const url = isUser
-        ? "/subscriptions/user-subscription"
-        : "/subscriptions";
-      const response = await axiosInstance.get(
-        url,
-        id ? { params: { parentId: id } } : undefined
-      );
+      const response = await axiosInstance.get("/subscriptions/plans");
       return response.data;
     },
   });
@@ -106,12 +112,15 @@ export const useGetSubscriptionPlansWithIds = () => {
   });
 };
 
-export const useGetManageSubscription = () => {
+export const useGetManageSubscription = (parentId?: string) => {
   return useQuery({
-    queryKey: ["manage-subscription"],
+    queryKey: ["manage-subscription", parentId],
     queryFn: async (): Promise<APIGetResponse<ManageSubscriptionResponse>> => {
       const response = await axiosInstance.get(
-        "/subscriptions/manage-subscription"
+        "/subscriptions/manage",
+        {
+          params: { parentId },
+        }
       );
       return response.data;
     },

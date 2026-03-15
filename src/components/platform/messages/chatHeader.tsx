@@ -271,8 +271,8 @@ export const MessageBubble = ({
       <div className="relative">
         <div
           className={`max-w-xs lg:max-w-md xl:max-w-lg rounded-2xl ${isUser
-              ? "bg-blue-500 text-white rounded-br-md"
-              : "bg-white text-gray-900 rounded-bl-md shadow-sm"
+            ? "bg-blue-500 text-white rounded-br-md"
+            : "bg-white text-gray-900 rounded-bl-md shadow-sm"
             } ${isSending ? "opacity-70" : ""} ${isSelected ? "ring-2 ring-blue-500 ring-opacity-75" : ""
             } ${selectionMode && isUser
               ? "hover:ring-2 hover:ring-blue-300 hover:ring-opacity-50 transition-all"
@@ -565,8 +565,8 @@ export const MessageInput = React.memo(
             onClick={handleSendWithFile}
             disabled={(!newMessage.trim() && !selectedFile) || isTyping}
             className={`p-3 rounded-full transition-all ${(newMessage.trim() || selectedFile) && !isTyping
-                ? "bg-blue-500 hover:bg-blue-600 transform hover:scale-105"
-                : "bg-gray-300 cursor-not-allowed"
+              ? "bg-blue-500 hover:bg-blue-600 transform hover:scale-105"
+              : "bg-gray-300 cursor-not-allowed"
               }`}
           >
             <Send className="w-5 h-5 text-white" />

@@ -44,6 +44,12 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
       avatar: data.avatar as File,
     });
     if (res.status === 201) {
+      const createdProfile = res.data?.data;
+      if (createdProfile && typeof window !== "undefined") {
+        // Mirror profileSelection: store the child we just created for use in Subscriptions
+        localStorage.setItem("activeProfile", JSON.stringify(createdProfile));
+        localStorage.setItem("childProfiles", JSON.stringify([createdProfile]));
+      }
       toast.success(res.data.message);
       setCurrentStep(2);
     }

@@ -64,7 +64,7 @@ export default function Navbar() {
   ];
 
   const routes =
-    user?.data?.offerType === "Offer One" ? platformRoutes : tuitionRoutes;
+    user?.data?.offerType === "platform" ? platformRoutes : tuitionRoutes;
 
   const showMessagesLink = routes.some((r) => r.path === "/messages");
   const { data: chatListData } = useGetStudentChatList({
@@ -124,11 +124,10 @@ export default function Navbar() {
               <Link
                 key={route.name}
                 href={route.path}
-                className={`font-medium text-sm md:text-base ${
-                  pathname.startsWith(route.path)
+                className={`font-medium text-sm md:text-base ${pathname.startsWith(route.path)
                     ? "text-blue-500"
                     : "text-textSubtitle"
-                } hover:text-blue-500 transition`}
+                  } hover:text-blue-500 transition`}
               >
                 {route.path === "/messages" && messageCount > 0
                   ? `${route.name} (${messageCount})`
@@ -236,11 +235,10 @@ export default function Navbar() {
                   key={route.name}
                   href={route.path}
                   onClick={() => setMobileOpen(false)}
-                  className={`block py-2 px-2 rounded-md font-medium text-sm ${
-                    pathname === route.path
+                  className={`block py-2 px-2 rounded-md font-medium text-sm ${pathname === route.path
                       ? "bg-blue-50 text-blue-500"
                       : "text-gray-700 hover:bg-gray-100"
-                  } transition`}
+                    } transition`}
                 >
                   {route.path === "/messages" && messageCount > 0
                     ? `${route.name} (${messageCount})`

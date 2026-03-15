@@ -327,14 +327,29 @@ export const usePatchChildTutor = () => {
 };
 
 // Subscription Mutations
-export const usePostSubscription = () => {
+export const useDeleteCancelSubscriptions = () => {
   return useMutation({
-    mutationKey: ["post-subscription"],
+    mutationKey: ["delete-cancel-subscriptions"],
+    mutationFn: (): Promise<ApiResponse<ManageSubscriptionResponse>> =>
+      axiosInstance.delete("/subscriptions"),
+    onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
+      window.location.replace("/pricing");
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostSubscriptionCheckout = () => {
+  return useMutation({
+    mutationKey: ["post-subscription-checkout"],
     mutationFn: (
       data: CreateSubscriptionData,
-    ): Promise<ApiResponse<ManageSubscriptionResponse>> =>
-      axiosInstance.post("/subscriptions", data),
-    onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
+    ): Promise<ApiResponse<{ url: string }>> =>
+      axiosInstance.post("/subscriptions/checkout", data),
+    onSuccess: (data: ApiResponse<{ url: string }>) => {
       return data;
     },
     onError: (error: AxiosError) => {
@@ -343,35 +358,92 @@ export const usePostSubscription = () => {
   });
 };
 
-export const usePostTrialSubscription = () => {
+export const usePostSubscriptionBillingPortal = () => {
   return useMutation({
-    mutationKey: ["post-trial-subscription"],
-    mutationFn: (): Promise<ApiResponse<{ clientSecret: string }>> =>
-      axiosInstance.post("/subscriptions/trial-setup"),
-    onSuccess: (data: ApiResponse<{ clientSecret: string }>) => {
+    mutationKey: ["post-subscription-billing-portal"],
+    mutationFn: (): Promise<ApiResponse<{ url: string }>> =>
+      axiosInstance.post("/subscriptions/billing-portal", {}),
+    onSuccess: (data: ApiResponse<{ url: string }>) => {
       return data;
     },
     onError: (error: AxiosError) => {
       handleErrorMessage(error);
     },
   });
-};
+}
 
-export const useValidateTrialSubscription = () => {
+export const usePostTuitionSubscription = () => {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationKey: ["validate-trial-subscription"],
+    mutationKey: ["post-tuition-subscription"],
     mutationFn: (data: {
-      paymentMethodId: string;
-    }): Promise<ApiResponse<{ message: string }>> =>
-      axiosInstance.post("/subscriptions/validate-trial-card", data),
-    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      childProfileId: string;
+    }): Promise<ApiResponse<ManageSubscriptionResponse>> =>
+      axiosInstance.post("/subscriptions/tuition", data),
+    onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["subscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["manage-subscription"],
+      });
       return data;
     },
     onError: (error: AxiosError) => {
       handleErrorMessage(error);
     },
   });
-};
+}
+
+export const useDeleteTuitionSubscription = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-tuition-subscription"],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<ManageSubscriptionResponse>> =>
+      axiosInstance.delete("/subscriptions/tuition", {
+        data: {
+          childProfileId: data.childProfileId,
+        },
+      }),
+    onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["subscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["manage-subscription"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+}
+
+export const usePostUpgradeToTuition = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-upgrade-to-tuition"],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<ManageSubscriptionResponse>> =>
+      axiosInstance.post("/subscriptions/upgrade-to-tuition", data),
+    onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["subscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["manage-subscription"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+}
 
 // Timeslot Mutations
 export const usePostTimeslot = () => {
@@ -1640,10 +1712,10 @@ export const usePatchUpdateTutorChangeRequest = (id: string) => {
       const body =
         data.status === "approved"
           ? {
-              reviewNote: data.reviewNote,
-              assignedTutorId: data.assignedTutorId ?? "",
-              assignedTutorName: data.assignedTutorName ?? "",
-            }
+            reviewNote: data.reviewNote,
+            assignedTutorId: data.assignedTutorId ?? "",
+            assignedTutorName: data.assignedTutorName ?? "",
+          }
           : { reviewNote: data.reviewNote };
       return axiosInstance.patch(url, body);
     },

@@ -361,13 +361,36 @@ export interface AuthResponse {
 }
 
 // Subscription Types
-export interface SubscriptionPlan {
-  description: string;
-  subscriptionId: string;
+export interface Subscription {
+  id: string;
   status: string;
-  offerType: string;
+  plan: {
+    id: string;
+    offerType: string;
+    isActive: boolean;
+  };
   startDate: string;
   endDate: string;
+  cancelAtPeriodEnd: boolean;
+  trialUsed: boolean;
+  pendingCancellation: boolean;
+  /** When present, links this subscription to a child profile (e.g. tuition per child) */
+  childProfileId?: string;
+}
+export interface SubscriptionPlan {
+  offerType: string;
+  amount?: number;
+  tiers?: {
+    upTo: number | "infinity";
+    amount: number;
+  }[];
+  currency: string;
+  interval: string;
+  intervalCount: number;
+  trialPeriodDays: number;
+  displayName: string;
+  description: string;
+  metadata: Record<string, any>;
 }
 
 export interface FullSubscriptionPlan {
@@ -422,10 +445,23 @@ export interface FullSubscriptionPlan {
 }
 
 export interface ManageSubscriptionResponse {
-  url: string;
+  state: string;
+  status: string;
+  pendingCancellation: boolean;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  trialEndsAt: string | null;
+  canCancelEverything: boolean;
+  childSubscription: {
+    childProfileId: string;
+    childName: string;
+    accessLevel: string;
+    accessEndsAt: string | null;
+    actions: string[];
+  }[];
 }
-
 export interface CreateSubscriptionData {
+  childProfileId: string;
   offerType: string;
 }
 

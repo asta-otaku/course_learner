@@ -164,7 +164,7 @@ function DashboardSectionPage() {
 
   return (
     <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
-      {user?.data?.offerType === "Offer One" && (
+      {user?.data?.offerType === "platform" && (
         <div>
           <h1 className="text-xl font-medium text-textGray">Dashboard</h1>
           <p className="text-sm text-textSubtitle">
@@ -231,9 +231,8 @@ function DashboardSectionPage() {
       <div className="flex gap-6">
         {/* First Column - Lessons List */}
         <div
-          className={`md:max-w-xs w-full border border-dashed flex flex-col max-h-[80vh] h-fit scrollbar-hide overflow-auto ${
-            selectedLesson ? "hidden md:flex" : "flex"
-          }`}
+          className={`md:max-w-xs w-full border border-dashed flex flex-col max-h-[80vh] h-fit scrollbar-hide overflow-auto ${selectedLesson ? "hidden md:flex" : "flex"
+            }`}
         >
           {sectionLessons.map((lesson, idx) => (
             <button
@@ -241,16 +240,14 @@ function DashboardSectionPage() {
               onClick={() => {
                 setSelectedLesson(lesson.id);
               }}
-              className={`border-b last-of-type:border-none border-dashed p-4 hover:bg-[#EEEEEE]/20 w-full text-left ${
-                lesson.id === selectedLesson ? "bg-[#EEEEEE]" : "bg-white"
-              }`}
+              className={`border-b last-of-type:border-none border-dashed p-4 hover:bg-[#EEEEEE]/20 w-full text-left ${lesson.id === selectedLesson ? "bg-[#EEEEEE]" : "bg-white"
+                }`}
             >
               <span
-                className={`${
-                  lesson.id === selectedLesson
+                className={`${lesson.id === selectedLesson
                     ? "text-primaryBlue font-semibold"
                     : "text-textSubtitle"
-                } font-medium text-sm md:text-base max-w-[300px] whitespace-nowrap truncate inline-block`}
+                  } font-medium text-sm md:text-base max-w-[300px] whitespace-nowrap truncate inline-block`}
               >
                 {lesson.title}
               </span>
@@ -264,9 +261,8 @@ function DashboardSectionPage() {
 
         {/* Second Column - Lesson Content */}
         <div
-          className={`w-full flex justify-center ${
-            selectedLesson ? "flex" : "hidden md:flex"
-          }`}
+          className={`w-full flex justify-center ${selectedLesson ? "flex" : "hidden md:flex"
+            }`}
         >
           <div className="space-y-6 max-w-4xl w-full">
             {currentLesson ? (
@@ -292,7 +288,7 @@ function DashboardSectionPage() {
 
                 {/* Quiz Sections */}
                 {currentLesson.quizAttempts &&
-                currentLesson.quizAttempts.length > 0 ? (
+                  currentLesson.quizAttempts.length > 0 ? (
                   currentLesson.quizAttempts.map((quiz: any) => (
                     <Card key={quiz.id}>
                       <CardHeader>

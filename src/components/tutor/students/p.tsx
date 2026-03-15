@@ -48,7 +48,7 @@ export default function TutorStudentPage() {
     ...Array.from(
       new Set(
         students.map((s: ChildProfile) =>
-          s.offerType === "Offer One" ? "The Platform" : "Tuition"
+          s.offerType === "platform" ? "The Platform" : "Tuition"
         )
       )
     ),
@@ -63,7 +63,7 @@ export default function TutorStudentPage() {
         .includes(search.toLowerCase());
       const matchesYear = year === "All" || `Year ${profile.year}` === year;
       const profileSubscription =
-        profile.offerType === "Offer One" ? "The Platform" : "Tuition";
+        profile.offerType === "platform" ? "The Platform" : "Tuition";
       const matchesSubscription =
         subscription === "All" || profileSubscription === subscription;
       return matchesSearch && matchesYear && matchesSubscription;
@@ -163,8 +163,8 @@ export default function TutorStudentPage() {
             {/* Status Badge */}
             <span
               className={`absolute right-2 top-2 text-xs font-semibold px-2 py-0.5 rounded-full ${profile.isActive
-                  ? "bg-green-100 text-green-600"
-                  : "bg-red-100 text-red-600"
+                ? "bg-green-100 text-green-600"
+                : "bg-red-100 text-red-600"
                 }`}
             >
               {profile.isActive ? "Active" : "Inactive"}
@@ -180,7 +180,7 @@ export default function TutorStudentPage() {
               </div>
               {/* Subscription */}
               <div className="mt-1 text-xs text-gray-500">
-                {profile.offerType === "Offer One" ? "The Platform" : "Tuition"}
+                {profile.offerType === "platform" ? "The Platform" : "Tuition"}
               </div>
             </div>
           </div>

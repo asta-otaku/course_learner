@@ -31,13 +31,12 @@ function SignUp() {
         {Array.from({ length: 3 }).map((_, idx: number) => (
           <div
             key={idx}
-            className={`w-full h-[6px] rounded-sm ${
-              idx < currentStep
+            className={`w-full h-[6px] rounded-sm ${idx < currentStep
+              ? "bg-primaryBlue"
+              : currentStep === idx
                 ? "bg-primaryBlue"
-                : currentStep === idx
-                  ? "bg-primaryBlue"
-                  : "bg-borderGray"
-            }`}
+                : "bg-borderGray"
+              }`}
           ></div>
         ))}
       </div>

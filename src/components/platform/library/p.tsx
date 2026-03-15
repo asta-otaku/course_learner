@@ -313,7 +313,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
   // Normal mode (no tag) - show everything as before
   return (
     <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
-      {user?.data?.offerType === "Offer One" && (
+      {user?.data?.offerType === "platform" && (
         <div>
           <h1 className="text-xl font-medium text-textGray">Library</h1>
           <p className="text-sm text-textSubtitle">
@@ -390,9 +390,8 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
 
         {/* Second Column - Lesson Content */}
         <div
-          className={`w-full flex justify-center ${
-            selectedLesson ? "flex" : "hidden md:flex"
-          }`}
+          className={`w-full flex justify-center ${selectedLesson ? "flex" : "hidden md:flex"
+            }`}
         >
           <div className="space-y-6 max-w-2xl w-full">
             <LessonContent

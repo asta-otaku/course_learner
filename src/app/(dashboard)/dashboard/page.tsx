@@ -143,9 +143,9 @@ function Page() {
     );
   }
 
-  return user?.data?.offerType === "Offer One" ? (
+  return user?.data?.offerType === "platform" ? (
     <Home />
-  ) : user?.data?.offerType === "Offer Two" ? (
+  ) : user?.data?.offerType === "tuition" ? (
     <TuitionHome />
   ) : (
     <div className="flex items-center justify-center h-screen">

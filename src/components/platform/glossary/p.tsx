@@ -123,7 +123,7 @@ const Glossary = () => {
   }
 
   // Platform subscription - original design
-  if (user?.data?.offerType === "Offer One") {
+  if (user?.data?.offerType === "platform") {
     return (
       <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
         {
@@ -141,11 +141,10 @@ const Glossary = () => {
                   {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => (
                     <button
                       key={letter}
-                      className={`text-sm flex-shrink-0 ${
-                        letter === selectedLetter
+                      className={`text-sm flex-shrink-0 ${letter === selectedLetter
                           ? "font-bold text-primaryBlue"
                           : "text-textGray"
-                      }`}
+                        }`}
                       onClick={() => setSelectedLetter(letter)}
                     >
                       {letter}
@@ -237,11 +236,10 @@ const Glossary = () => {
                 {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => (
                   <button
                     key={letter}
-                    className={`text-sm flex-shrink-0 ${
-                      letter === selectedLetter
+                    className={`text-sm flex-shrink-0 ${letter === selectedLetter
                         ? "font-bold text-primaryBlue"
                         : "text-textGray"
-                    }`}
+                      }`}
                     onClick={() => setSelectedLetter(letter)}
                   >
                     {letter}

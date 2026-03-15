@@ -167,14 +167,14 @@ export default function StudentPage({ id }: { id: string }) {
                 </span>
                 <div className="flex gap-2">
                   <span className="font-medium text-sm">
-                    {profile.offerType === "Offer One"
+                    {profile.offerType === "platform"
                       ? "The Platform"
                       : "Tuition"}
                   </span>
                   <Badge
                     className={`px-2 py-0.5 rounded-full text-xs font-medium ${profile.isActive
-                        ? "bg-[#34C759] text-white"
-                        : "bg-red-500 text-white"
+                      ? "bg-[#34C759] text-white"
+                      : "bg-red-500 text-white"
                       }`}
                   >
                     {profile.isActive ? "Active" : "Inactive"}
@@ -287,10 +287,9 @@ export default function StudentPage({ id }: { id: string }) {
                           </TableCell>
                           <TableCell>
                             <Badge
-                              className={`text-xs font-medium capitalize ${
-                                statusBadgeClass[item.status] ??
+                              className={`text-xs font-medium capitalize ${statusBadgeClass[item.status] ??
                                 "bg-gray-100 text-gray-600"
-                              }`}
+                                }`}
                             >
                               {item.status.replace(/_/g, " ")}
                             </Badge>
