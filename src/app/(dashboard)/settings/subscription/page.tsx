@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "@/assets/svgs/calendar";
 import {
   useGetManageSubscription,
   useGetSubscriptions,
-  useGetChildProfile,
 } from "@/lib/api/queries";
 import {
   usePostSubscriptionBillingPortal,
@@ -32,6 +32,65 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+function formatSubscriptionLabel(state: string | undefined): string {
+  if (!state || state === "none") return "None";
+  if (state === "platform") return "Platform (£30/month)";
+  if (state === "tuition" || state === "tuition_single")
+    return "Tuition (£70 first child + £40 add-ons)";
+  return state;
+}
+
+function formatNextBilling(endDate: string | undefined): string {
+  if (!endDate) return "—";
+  const d = new Date(endDate);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+}
+
+function getBannerMessage(
+  sub: ManageSubscriptionResponse | undefined
+): string | null {
+  if (!sub) return null;
+  const hasNoActive =
+    sub.state === "none" ||
+    !sub.status ||
+    sub.status === "canceled" ||
+    sub.status === "past_due";
+  const pendingEnd = sub.pendingCancellation || sub.status === "trialing";
+  if (hasNoActive && sub.currentPeriodEnd) {
+    return "No active subscription. You can resubscribe at the end of the billing period.";
+  }
+  if (hasNoActive) {
+    return "No active subscription. Reactivate to continue learning.";
+  }
+  if (pendingEnd && sub.currentPeriodEnd) {
+    return `Your subscription will end ${formatNextBilling(sub.currentPeriodEnd)}. You can resubscribe at the end of the period.`;
+  }
+  return null;
+}
+
+function formatAccessLevel(
+  accessLevel: string,
+  accessEndsAt: string | null
+): string {
+  const display =
+    accessLevel === "tuition"
+      ? "1-to-1 Tuition"
+      : accessLevel === "platform"
+        ? "Platform"
+        : accessLevel === "locked"
+          ? "Locked"
+          : accessLevel.charAt(0).toUpperCase() + accessLevel.slice(1).toLowerCase();
+  if (accessEndsAt) {
+    const d = new Date(accessEndsAt);
+    const ends = d.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+    });
+    return `${display} (Ends ${ends})`;
+  }
+  return display;
+}
+
 function Page() {
   const { data: manageData, isLoading: manageLoading } =
     useGetManageSubscription();
@@ -44,16 +103,7 @@ function Page() {
     return Array.isArray(raw) ? raw : [raw];
   }, [subscriptionsData?.data]);
 
-  // Map childProfileId -> subscription for table lookup (tuition per child)
-  const subscriptionByChildId = useMemo(() => {
-    const map = new Map<string, Subscription>();
-    subscriptionsList.forEach((s) => {
-      if (s.childProfileId) map.set(s.childProfileId, s);
-    });
-    return map;
-  }, [subscriptionsList]);
-
-  // Primary subscription (platform or first) for overview dates when no per-child
+  // Primary subscription (platform or first) for overview dates
   const primarySubscription = useMemo(
     () =>
       subscriptionsList.find((s) => !s.childProfileId) ?? subscriptionsList[0],
@@ -123,8 +173,6 @@ function Page() {
   };
 
   const [actingChildId, setActingChildId] = useState<string | null>(null);
-  const [addSeatChildId, setAddSeatChildId] = useState<string>("");
-  const [upgradeChildId, setUpgradeChildId] = useState<string>("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const anyActionPending =
     billingPending ||
@@ -133,41 +181,20 @@ function Page() {
     addTuitionPending ||
     deleteTuitionPending;
 
-  const currentPlanIsPlatform =
-    primarySubscription?.plan?.offerType === "platform" || sub?.state === "platform";
-  const currentPlanIsTuition =
-    primarySubscription?.plan?.offerType === "tuition" ||
-    sub?.state === "tuition" ||
-    sub?.state === "tuition_single";
-
-  // For platform: children that can upgrade (have choose_plan)
-  const childrenCanUpgrade = useMemo(
-    () =>
-      sub?.childSubscription?.filter((r) =>
-        r.actions?.includes("choose_plan") || r.actions?.includes("upgrade_to_tuition")
-      ) ?? [],
-    [sub?.childSubscription]
-  );
   const hasActiveSubscription =
     primarySubscription != null || (sub != null && (sub.status === "active" || sub.status === "canceled"));
 
-  const handleAddTuitionSeat = async (childId?: string) => {
-    const id = childId ?? addSeatChildId;
-    if (!id) {
-      toast.error("Select a child");
-      return;
-    }
-    if (childId) setActingChildId(childId);
+  const handleAddTuitionSeat = async (childProfileId: string) => {
+    setActingChildId(childProfileId);
     try {
-      const res = await addTuitionSeat({ childProfileId: id });
+      const res = await addTuitionSeat({ childProfileId });
       if (res.status === 201) {
         toast.success("Tuition seat added.");
-        if (!childId) setAddSeatChildId("");
       }
     } catch {
       // Error handled by mutation
     } finally {
-      if (childId) setActingChildId(null);
+      setActingChildId(null);
     }
   };
 
@@ -199,243 +226,128 @@ function Page() {
             </h2>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-textSubtitle text-sm">State:</span>
-                <span className="text-textGray font-medium text-sm capitalize">
-                  {sub.state}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-textSubtitle text-sm">Status:</span>
-                <span
-                  className={`text-xs font-medium px-3 py-1 rounded-full ${sub.status === "active"
-                    ? "bg-green-100 text-green-700"
-                    : "bg-red-100 text-red-700"
-                    }`}
-                >
-                  {(sub.status ?? "—").toString().toUpperCase()}
-                </span>
-              </div>
-              {sub.pendingCancellation && (
-                <div className="flex justify-between items-center">
-                  <span className="text-textSubtitle text-sm" />
-                  <span className="text-amber-600 text-xs font-medium">
-                    Pending cancellation
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between items-center">
-                <span className="text-textSubtitle text-sm">
-                  Current period start:
-                </span>
+                <span className="text-textSubtitle text-sm">Subscription:</span>
                 <span className="text-textGray font-medium text-sm">
-                  {(primarySubscription?.startDate
-                    ? new Date(primarySubscription.startDate)
-                    : new Date(sub.currentPeriodStart)
-                  ).toLocaleDateString()}
+                  {formatSubscriptionLabel(sub.state)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-textSubtitle text-sm">
-                  Current period end:
-                </span>
+                <span className="text-textSubtitle text-sm">Next Billing:</span>
                 <span className="text-textGray font-medium text-sm">
-                  {(primarySubscription?.endDate
-                    ? new Date(primarySubscription.endDate)
-                    : new Date(sub.currentPeriodEnd)
-                  ).toLocaleDateString()}
+                  {formatNextBilling(
+                    primarySubscription?.endDate ?? sub.currentPeriodEnd
+                  )}
                 </span>
               </div>
-              {sub.trialEndsAt && (
-                <div className="flex justify-between items-center">
-                  <span className="text-textSubtitle text-sm">
-                    Trial ends:
-                  </span>
-                  <span className="text-textGray font-medium text-sm">
-                    {new Date(sub.trialEndsAt).toLocaleDateString()}
-                  </span>
+              {getBannerMessage(sub) && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 mt-3">
+                  <p className="text-amber-800 text-sm font-medium">
+                    {getBannerMessage(sub)}
+                  </p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Platform: only show single "Upgrade to Tuition" */}
-          {currentPlanIsPlatform && (
+          {/* Unified children / seats table (platform and tuition) */}
+          {sub.childSubscription && sub.childSubscription.length > 0 && (
             <div className="bg-white rounded-2xl border border-black/15 shadow-sm p-6">
-              <h2 className="text-textGray font-semibold text-lg mb-2">
-                Upgrade to Tuition
+              <h2 className="text-textGray font-semibold text-lg mb-4">
+                Children / seats
               </h2>
-              <p className="text-textSubtitle text-sm mb-4">
-                Get personalized tutoring for your child. Choose a child and
-                upgrade to Tuition.
-              </p>
-              <div className="flex flex-wrap items-end gap-3">
-                {childrenCanUpgrade.length > 1 ? (
-                  <>
-                    <div className="flex-1 min-w-[180px]">
-                      <label className="block text-xs font-medium text-textSubtitle mb-1">
-                        Child
-                      </label>
-                      <select
-                        value={upgradeChildId}
-                        onChange={(e) => setUpgradeChildId(e.target.value)}
-                        className="w-full h-10 rounded-xl border border-gray-200 px-3 text-sm bg-white"
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-left text-textSubtitle font-medium">
+                      <th className="pb-3 pr-4">Child</th>
+                      <th className="pb-3 pr-4">Access Level</th>
+                      <th className="pb-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sub.childSubscription.map((row) => (
+                      <tr
+                        key={row.childProfileId}
+                        className="border-b border-gray-100"
                       >
-                        <option value="">Select child</option>
-                        {childrenCanUpgrade.map((r) => (
-                          <option key={r.childProfileId} value={r.childProfileId}>
-                            {r.childName}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <Button
-                      className="rounded-full bg-primaryBlue text-white hover:bg-primaryBlue/90"
-                      disabled={anyActionPending || !upgradeChildId}
-                      onClick={() =>
-                        upgradeChildId && handleUpgradeToTuition(upgradeChildId)
-                      }
-                    >
-                      {upgradePending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Upgrade to Tuition"
-                      )}
-                    </Button>
-                  </>
-                ) : childrenCanUpgrade.length === 1 ? (
-                  <Button
-                    className="rounded-full bg-primaryBlue text-white hover:bg-primaryBlue/90"
-                    disabled={anyActionPending}
-                    onClick={() =>
-                      handleUpgradeToTuition(childrenCanUpgrade[0].childProfileId)
-                    }
-                  >
-                    {upgradePending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      `Upgrade to Tuition (${childrenCanUpgrade[0].childName})`
-                    )}
-                  </Button>
-                ) : (
-                  <p className="text-textSubtitle text-sm">
-                    No children available to upgrade.
-                  </p>
-                )}
+                        <td className="py-3 pr-4 font-medium text-textGray">
+                          {row.childName}
+                        </td>
+                        <td className="py-3 pr-4 text-textSubtitle">
+                          {formatAccessLevel(
+                            row.accessLevel,
+                            row.accessEndsAt
+                          )}
+                        </td>
+                        <td className="py-3 text-right">
+                          {row.actions?.includes("remove_tuition") ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-full text-xs text-red-600 border-red-200 hover:bg-red-50"
+                              disabled={anyActionPending}
+                              onClick={() =>
+                                handleCancelTuition(row.childProfileId)
+                              }
+                            >
+                              {actingChildId === row.childProfileId &&
+                              deleteTuitionPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                "Remove Tuition"
+                              )}
+                            </Button>
+                          ) : row.actions?.includes("add_tuition") ? (
+                            <Button
+                              size="sm"
+                              className="rounded-full text-xs bg-primaryBlue text-white hover:bg-primaryBlue/90"
+                              disabled={anyActionPending}
+                              onClick={() =>
+                                handleAddTuitionSeat(row.childProfileId)
+                              }
+                            >
+                              {actingChildId === row.childProfileId &&
+                              addTuitionPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                "Add Tuition"
+                              )}
+                            </Button>
+                          ) : row.actions?.includes("upgrade_to_tuition") ? (
+                            <Button
+                              size="sm"
+                              className="rounded-full text-xs bg-primaryBlue text-white hover:bg-primaryBlue/90"
+                              disabled={anyActionPending}
+                              onClick={() =>
+                                handleUpgradeToTuition(row.childProfileId)
+                              }
+                            >
+                              {actingChildId === row.childProfileId &&
+                              upgradePending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                "Add Tuition"
+                              )}
+                            </Button>
+                          ) : row.actions?.includes("choose_plan") ? (
+                            <Button
+                              size="sm"
+                              asChild
+                              className="rounded-full text-xs bg-primaryBlue text-white hover:bg-primaryBlue/90"
+                            >
+                              <Link href="/pricing">Choose Plan</Link>
+                            </Button>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
-
-          {/* Tuition only: Children / seats table + Add seat + Cancel tuition */}
-          {currentPlanIsTuition &&
-            sub.childSubscription &&
-            sub.childSubscription.length > 0 && (
-              <div className="bg-white rounded-2xl border border-black/15 shadow-sm p-6">
-                <h2 className="text-textGray font-semibold text-lg mb-4">
-                  Children / seats
-                </h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-200 text-left text-textSubtitle font-medium">
-                        <th className="pb-3 pr-4">Child</th>
-                        <th className="pb-3 pr-4">Plan</th>
-                        <th className="pb-3 pr-4">Billing start</th>
-                        <th className="pb-3 pr-4">Billing end</th>
-                        <th className="pb-3 pr-4">Access</th>
-                        <th className="pb-3 pr-4">Access ends</th>
-                        <th className="pb-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sub.childSubscription.map((row) => {
-                        const rowSub = subscriptionByChildId.get(
-                          row.childProfileId
-                        );
-                        const startDate =
-                          rowSub?.startDate ?? sub.currentPeriodStart;
-                        const endDate =
-                          rowSub?.endDate ?? sub.currentPeriodEnd;
-                        const planLabel =
-                          rowSub?.plan?.offerType == null
-                            ? "—"
-                            : String(rowSub.plan.offerType);
-                        return (
-                          <tr
-                            key={row.childProfileId}
-                            className="border-b border-gray-100"
-                          >
-                            <td className="py-3 pr-4 font-medium text-textGray">
-                              {row.childName}
-                            </td>
-                            <td className="py-3 pr-4 text-textSubtitle capitalize">
-                              {planLabel}
-                            </td>
-                            <td className="py-3 pr-4 text-textSubtitle">
-                              {startDate
-                                ? new Date(startDate).toLocaleDateString()
-                                : "—"}
-                            </td>
-                            <td className="py-3 pr-4 text-textSubtitle">
-                              {endDate
-                                ? new Date(endDate).toLocaleDateString()
-                                : "—"}
-                            </td>
-                            <td className="py-3 pr-4 text-textSubtitle capitalize">
-                              {row.accessLevel}
-                            </td>
-                            <td className="py-3 pr-4 text-textSubtitle">
-                              {row.accessEndsAt
-                                ? new Date(
-                                  row.accessEndsAt
-                                ).toLocaleDateString()
-                                : "—"}
-                            </td>
-                            <td className="py-3 text-right">
-                              {row.actions?.includes("remove_tuition") ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="rounded-full text-xs text-red-600 border-red-200 hover:bg-red-50"
-                                  disabled={anyActionPending}
-                                  onClick={() =>
-                                    handleCancelTuition(row.childProfileId)
-                                  }
-                                >
-                                  {actingChildId === row.childProfileId &&
-                                    deleteTuitionPending ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    "Cancel tuition"
-                                  )}
-                                </Button>
-                              ) : row.actions?.includes("add_tuition") ? (
-                                <Button
-                                  size="sm"
-                                  className="rounded-full text-xs bg-primaryBlue text-white hover:bg-primaryBlue/90"
-                                  disabled={anyActionPending}
-                                  onClick={() =>
-                                    handleAddTuitionSeat(row.childProfileId)
-                                  }
-                                >
-                                  {actingChildId === row.childProfileId &&
-                                    addTuitionPending ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    "Add tuition"
-                                  )}
-                                </Button>
-                              ) : (
-                                "—"
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
 
           {/* Cancel subscription */}
           {sub && (sub.canCancelEverything || hasActiveSubscription) && (
