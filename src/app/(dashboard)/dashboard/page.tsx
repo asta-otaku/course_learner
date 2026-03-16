@@ -6,6 +6,7 @@ import TuitionHome from "@/components/platform/home/tuition";
 import { useProfile } from "@/context/profileContext";
 import React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
 
 function DashboardLoadingSkeleton() {
   return (
@@ -96,6 +97,7 @@ function Page() {
   const { activeProfile, isLoaded } = useProfile();
   const [user, setUser] = React.useState<any>({});
   const [hasCheckedProfile, setHasCheckedProfile] = React.useState(false);
+  const router = useRouter();
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -129,6 +131,18 @@ function Page() {
     }
   }, [isLoaded, activeProfile]);
 
+  const offerType = user?.data?.offerType;
+  const isAccessDenied =
+    offerType !== "platform" && offerType !== "tuition";
+
+  React.useEffect(() => {
+    if (!isAccessDenied) return;
+    const timer = setTimeout(() => {
+      router.push("/pricing");
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [isAccessDenied, router]);
+
   if (!isLoaded || (isLoaded && !activeProfile && !hasCheckedProfile)) {
     return <DashboardLoadingSkeleton />;
   }
@@ -143,18 +157,20 @@ function Page() {
     );
   }
 
-  return user?.data?.offerType === "platform" ? (
-    <Home />
-  ) : user?.data?.offerType === "tuition" ? (
-    <TuitionHome />
-  ) : (
-    <div className="flex items-center justify-center h-screen">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-        <p className="text-gray-600">You do not have access to this page.</p>
+  if (isAccessDenied) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-gray-600">
+            You do not have access to this page. Redirecting to pricing…
+          </p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return offerType === "platform" ? <Home /> : <TuitionHome />;
 }
 
 export default Page;
