@@ -13,7 +13,7 @@ import { signinSchema } from "@/lib/schema";
 import { z } from "zod";
 import { usePostLogin } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
-import { getAndClearIntendedUrl } from "@/lib/services/axiosInstance";
+import { getAndClearIntendedUrl, resetAuthState } from "@/lib/services/axiosInstance";
 
 function SigninForm() {
   const {
@@ -36,6 +36,7 @@ function SigninForm() {
   const onSubmit = async (data: z.infer<typeof signinSchema>) => {
     const res = await postLogin(data);
     if (res.status === 200) {
+      resetAuthState();
       localStorage.setItem(res.data.data.userRole, JSON.stringify(res.data));
       // Set flag to initialize socket
       localStorage.setItem("initializeSocket", "true");

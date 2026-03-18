@@ -64,6 +64,7 @@ function getCreatedChildProfileFromStorage(): { id: number } | null {
 
 function Subscriptions({ currentStep }: { currentStep?: number }) {
   const [childProfileId, setChildProfileId] = useState<string | null>(null);
+  const [pendingOfferType, setPendingOfferType] = useState<string | null>(null);
   const { data: plansData, isLoading: plansLoading } = useGetSubscriptionPlans();
   const { mutateAsync: postSubscriptionCheckout, isPending } =
     usePostSubscriptionCheckout();
@@ -80,6 +81,7 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
       toast.error("Child profile not found. Please complete profile setup first.");
       return;
     }
+    setPendingOfferType(offerType);
     try {
       const res = await postSubscriptionCheckout({ childProfileId, offerType });
       if (res.status === 201 && res.data?.data?.url) {
@@ -87,6 +89,8 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
       }
     } catch {
       // Error already handled by mutation
+    } finally {
+      setPendingOfferType(null);
     }
   };
 
@@ -116,6 +120,7 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
                 offerType={plan.offerType}
                 onSelect={() => handleSelectPlan(plan.offerType)}
                 isPending={isPending}
+                isSelected={pendingOfferType === plan.offerType}
               />
             ))}
           </div>
@@ -134,6 +139,7 @@ function Card({
   offerType,
   onSelect,
   isPending,
+  isSelected,
 }: {
   title: string;
   priceDisplay: string;
@@ -141,7 +147,9 @@ function Card({
   offerType: string;
   onSelect: () => void;
   isPending?: boolean;
+  isSelected?: boolean;
 }) {
+  const isLoading = Boolean(isPending && isSelected);
   return (
     <div className="min-h-[60vh] max-h-[80vh] grow bg-white p-[5px] max-w-[300px] min-w-[300px] md:max-w-[380px] w-full rounded-3xl space-y-6 cursor-pointer">
       <div className="bg-bgWhiteGray rounded-2xl p-4 space-y-4">
@@ -156,7 +164,7 @@ function Card({
           disabled={isPending}
           className="w-full flex gap-2 mt-6 py-5 rounded-[999px] font-medium text-sm bg-demo-gradient text-white shadow-demoShadow"
         >
-          {isPending ? "Redirecting…" : "Get Started"}
+          {isLoading ? "Redirecting…" : "Get Started"}
         </Button>
       </div>
       <p className="font-geist text-textSubtitle text-xs font-medium text-center uppercase">

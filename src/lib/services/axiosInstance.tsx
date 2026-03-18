@@ -460,29 +460,27 @@ export function setCurrentUser(user: any) {
 // Reset flags when page loads (useful for SPA navigation)
 export function resetAuthState() {
   if (typeof window !== "undefined") {
-    // Only reset if we're on auth pages
-    const currentPath = window.location.pathname;
-    const authPages = [
-      "/sign-in",
-      "/sign-up",
-      "/forgot-password",
-      "/reset-password",
-      "/admin/sign-in",
-      "/admin/sign-up",
-      "/admin/forgot-password",
-      "/tutor/sign-in",
-      "/tutor/sign-up",
-      "/tutor/forgot-password",
-    ];
-
-    if (authPages.some((page) => currentPath.includes(page))) {
-      isLoggingOut = false;
-      hasRedirected = false;
-    }
+    isLoggingOut = false;
+    hasRedirected = false;
   }
 }
 
-// Call reset when module loads
+// On module load, only auto-reset when starting on an auth page
 if (typeof window !== "undefined") {
-  resetAuthState();
+  const currentPath = window.location.pathname;
+  const authPages = [
+    "/sign-in",
+    "/sign-up",
+    "/forgot-password",
+    "/reset-password",
+    "/admin/sign-in",
+    "/admin/sign-up",
+    "/admin/forgot-password",
+    "/tutor/sign-in",
+    "/tutor/sign-up",
+    "/tutor/forgot-password",
+  ];
+  if (authPages.some((page) => currentPath.includes(page))) {
+    resetAuthState();
+  }
 }

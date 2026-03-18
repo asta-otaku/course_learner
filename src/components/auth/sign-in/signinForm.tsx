@@ -13,6 +13,7 @@ import { z } from "zod";
 import { usePostLogin } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
+import { resetAuthState } from "@/lib/services/axiosInstance";
 
 function SigninForm({
   setStep,
@@ -37,6 +38,7 @@ function SigninForm({
   const onSubmit = async (data: z.infer<typeof signinSchema>) => {
     const res = await postLogin(data);
     if (res.status === 200) {
+      resetAuthState();
       if (res.data.data.userRole !== "parent") {
         localStorage.setItem(res.data.data.userRole, JSON.stringify(res.data));
         push(`/${res.data.data.userRole}`);
