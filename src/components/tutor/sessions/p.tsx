@@ -172,17 +172,23 @@ function Sessions() {
     return filtered;
   }, [allSessions, filters]);
 
-  // Categorize: upcoming = today + future, previous = past
+  // Categorize by session end datetime: once end time has passed, session goes to previous
   const { previous, upcoming } = useMemo(() => {
-    const todayStr = formatDateString(new Date());
+    const now = new Date();
+
+    const isSessionEnded = (session: Session): boolean => {
+      const endTimeStr = session.timeSlot.split(" - ")[1]?.trim();
+      if (!endTimeStr) {
+        const todayStr = formatDateString(now);
+        return session.date < todayStr;
+      }
+      const sessionEnd = new Date(`${session.date}T${endTimeStr}`);
+      return now > sessionEnd;
+    };
 
     return {
-      previous: filteredSessions.filter(
-        (session) => session.date < todayStr
-      ),
-      upcoming: filteredSessions.filter(
-        (session) => session.date >= todayStr
-      ),
+      previous: filteredSessions.filter(isSessionEnded),
+      upcoming: filteredSessions.filter((s) => !isSessionEnded(s)),
     };
   }, [filteredSessions]);
 

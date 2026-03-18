@@ -102,13 +102,12 @@ const SessionCard = ({
           {session.status && (
             <div className="text-xs">
               <span
-                className={`font-medium ${
-                  session.status === "booked" || session.status === "confirmed"
+                className={`font-medium ${session.status === "booked" || session.status === "confirmed"
                     ? "text-green-600"
                     : session.status === "cancelled"
                       ? "text-red-600"
                       : "text-gray-600"
-                }`}
+                  }`}
               >
                 {session.status.charAt(0).toUpperCase() +
                   session.status.slice(1)}
@@ -154,17 +153,17 @@ const SessionCard = ({
           )}
 
           {/* Cancel: show for any booked/confirmed/pending (student view: no Reschedule) */}
-          {session.status !== "cancelled" && 
-           session.status !== "completed" && 
-           session.status !== "available" && (
-            <Button
-              variant="outline"
-              className="rounded-full text-xs text-red-600 hover:bg-red-50 border-red-200"
-              onClick={() => onCancel(session.id)}
-            >
-              Cancel
-            </Button>
-          )}
+          {session.status !== "cancelled" &&
+            session.status !== "completed" &&
+            session.status !== "available" && (
+              <Button
+                variant="outline"
+                className="rounded-full text-xs text-red-600 hover:bg-red-50 border-red-200"
+                onClick={() => onCancel(session.id)}
+              >
+                Cancel
+              </Button>
+            )}
         </div>
       </div>
     </div>

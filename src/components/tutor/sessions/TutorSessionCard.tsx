@@ -91,7 +91,6 @@ const TutorSessionCard = ({
 
         {sessions.map((session) => {
           const displayDate = formatDisplayDate(session.date);
-          const participantCount = session.participants?.length || 1;
 
           return (
             <div
@@ -110,51 +109,23 @@ const TutorSessionCard = ({
                 </div>
               </div>
               <div
-                className={`flex flex-col md:flex-row gap-4 md:gap-1 md:items-center justify-between space-x-4 w-full bg-bgWhiteGray border py-2 px-4 rounded-2xl transition-colors ${
-                  sectionType === "upcoming"
-                    ? ["pending", "confirmed", "booked", "available"].includes(
-                        session.status || ""
-                      )
-                      ? "cursor-pointer hover:bg-gray-100"
-                      : "cursor-default"
-                    : ["completed", "expired"].includes(session.status || "")
-                      ? "cursor-pointer hover:bg-gray-100"
-                      : "cursor-default"
-                }`}
+                className={`flex flex-col md:flex-row gap-4 md:gap-1 md:items-center justify-between space-x-4 w-full bg-bgWhiteGray border py-2 px-4 rounded-2xl transition-colors ${sectionType === "upcoming"
+                  ? ["pending", "confirmed", "booked", "available"].includes(
+                    session.status || ""
+                  )
+                    ? "cursor-pointer hover:bg-gray-100"
+                    : "cursor-default"
+                  : ["completed", "expired"].includes(session.status || "")
+                    ? "cursor-pointer hover:bg-gray-100"
+                    : "cursor-default"
+                  }`}
                 onClick={() => handleSessionClick(session)}
               >
                 <div className="text-textSubtitle space-y-2">
                   <div className="font-medium text-sm">{session.name}</div>
                   <div className="text-xs">
-                    {session.time} • {session.tutor}
-                    {session.student && ` • ${session.student}`}
+                    {session.time}
                   </div>
-                  <div className="flex items-center gap-1 text-xs">
-                    <Users className="w-3 h-3" />
-                    {participantCount} Participant
-                    {participantCount !== 1 ? "s" : ""}
-                  </div>
-                  {session.status && (
-                    <div className="text-xs">
-                      Status:{" "}
-                      <span
-                        className={`font-medium ${
-                          session.status === "available"
-                            ? "text-green-600"
-                            : session.status === "booked"
-                              ? "text-blue-600"
-                              : session.status === "cancelled"
-                                ? "text-red-600"
-                                : session.status === "expired"
-                                  ? "text-orange-600"
-                                  : "text-gray-600"
-                        }`}
-                      >
-                        {session.status.charAt(0).toUpperCase() +
-                          session.status.slice(1)}
-                      </span>
-                    </div>
-                  )}
                   {session.bookedAt && (
                     <div className="text-xs">
                       Booked: {new Date(session.bookedAt).toLocaleDateString()}
@@ -246,7 +217,7 @@ const SessionActionsDialog = ({
                   <span className="font-medium text-gray-600">
                     {session.status
                       ? session.status.charAt(0).toUpperCase() +
-                        session.status.slice(1)
+                      session.status.slice(1)
                       : "Unknown"}
                   </span>
                 </p>

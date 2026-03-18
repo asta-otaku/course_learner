@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { childProfileEditSchema } from "@/lib/schema";
 import { z } from "zod";
+import { toast } from "react-toastify";
 
 function CreateProfile({
   setStep,
@@ -39,10 +40,17 @@ function CreateProfile({
   const handleCreateProfile = async (
     formData: z.infer<typeof childProfileEditSchema>
   ) => {
-    if (!formData.name || !formData.year || !data.avatar) return;
+    if (!formData.name) {
+      toast.error("Please enter a name.");
+      return;
+    }
+    if (!formData.year) {
+      toast.error("Please select a year.");
+      return;
+    }
     const res = await postChildProfiles({
       ...formData,
-      avatar: data.avatar as File,
+      avatar: data.avatar ? (data.avatar as File) : undefined,
     });
     if (res.status === 201) {
       setData({ avatar: null, name: "", year: "", status: "active" });
@@ -122,8 +130,8 @@ function CreateProfile({
               Year
             </option>
             {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
+              <option key={y} value={`Year ${y}`}>
+                Year {y}
               </option>
             ))}
           </select>

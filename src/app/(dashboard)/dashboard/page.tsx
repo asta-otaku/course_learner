@@ -6,7 +6,8 @@ import TuitionHome from "@/components/platform/home/tuition";
 import { useProfile } from "@/context/profileContext";
 import React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useGetChildProfile, useGetManageSubscription } from "@/lib/api/queries";
 
 function DashboardLoadingSkeleton() {
   return (
@@ -95,16 +96,70 @@ function DashboardLoadingSkeleton() {
 
 function Page() {
   const { activeProfile, isLoaded } = useProfile();
-  const [user, setUser] = React.useState<any>({});
   const [hasCheckedProfile, setHasCheckedProfile] = React.useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const paymentSuccess = searchParams.get("paymentSuccess");
 
+  const { data: manageData, refetch: refetchManage, isFetching: manageFetching } =
+    useGetManageSubscription();
+  const {
+    data: childProfilesData,
+    refetch: refetchChildProfiles,
+    isFetching: childProfilesFetching,
+  } = useGetChildProfile();
+
+  const activeProfileId = (activeProfile as any)?.id as string | undefined;
+  const activeProfileFresh = React.useMemo(() => {
+    const list = childProfilesData?.data ?? [];
+    if (!activeProfileId) return null;
+    return list.find((p) => String(p.id) === String(activeProfileId)) ?? null;
+  }, [childProfilesData?.data, activeProfileId]);
+
+  const manageAccessLevel = React.useMemo(() => {
+    const sub = manageData?.data;
+    if (!sub?.childSubscription || !activeProfileId) return null;
+    const row = sub.childSubscription.find(
+      (r) => String(r.childProfileId) === String(activeProfileId)
+    );
+    return row?.accessLevel ?? null;
+  }, [manageData?.data, activeProfileId]);
+
+  const effectiveOfferType =
+    manageAccessLevel === "tuition"
+      ? "tuition"
+      : manageAccessLevel === "platform"
+        ? "platform"
+        : (activeProfileFresh as any)?.offerType;
+
+  // After Stripe redirect (?paymentSuccess), refetch fresh data and normalize storage.
   React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const userData = JSON.parse(localStorage.getItem("user") || "{}");
-      setUser(userData);
-    }
-  }, []);
+    if (!paymentSuccess) return;
+    (async () => {
+      try {
+        await Promise.all([refetchManage(), refetchChildProfiles()]);
+        if (typeof window !== "undefined") {
+          const stored = localStorage.getItem("activeProfile");
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored) as { id?: string | number };
+              if (parsed?.id != null) {
+                localStorage.setItem(
+                  "activeProfile",
+                  JSON.stringify({ id: parsed.id })
+                );
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+      } finally {
+        // Remove query param to avoid refetch loop on re-render
+        router.replace("/dashboard");
+      }
+    })();
+  }, [paymentSuccess, refetchManage, refetchChildProfiles, router]);
 
   // Give a small grace period for profile to load after navigation
   React.useEffect(() => {
@@ -131,7 +186,7 @@ function Page() {
     }
   }, [isLoaded, activeProfile]);
 
-  const offerType = user?.data?.offerType;
+  const offerType = effectiveOfferType;
   const isAccessDenied =
     offerType !== "platform" && offerType !== "tuition";
 
@@ -143,7 +198,11 @@ function Page() {
     return () => clearTimeout(timer);
   }, [isAccessDenied, router]);
 
-  if (!isLoaded || (isLoaded && !activeProfile && !hasCheckedProfile)) {
+  if (
+    !isLoaded ||
+    (isLoaded && !activeProfile && !hasCheckedProfile) ||
+    (activeProfile != null && (manageFetching || childProfilesFetching))
+  ) {
     return <DashboardLoadingSkeleton />;
   }
   if (!activeProfile) {

@@ -50,6 +50,8 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
     scrollRef.current?.scrollBy({ left: delta, behavior: "smooth" });
   };
 
+  const profiles = childProfile?.data ?? [];
+
   return (
     <div className="w-full flex flex-col items-center relative">
       <h2 className="text-primaryBlue text-xl md:text-2xl lg:text-4xl my-3 uppercase font-gorditas">
@@ -64,7 +66,7 @@ function ProfileSelection({ setStep }: { setStep: (step: number) => void }) {
           className="flex gap-4 overflow-x-auto scrollbar-hide px-8"
           onScroll={updateScrollButtons}
         >
-          {childProfile?.data?.map((profile, i) => {
+          {profiles.map((profile, i) => {
             const isInactive = profile.deletedAt;
             return (
               <div

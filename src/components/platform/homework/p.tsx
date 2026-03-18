@@ -1,461 +1,402 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { format } from "date-fns";
-import { isWithinDateRange } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import React, { useMemo } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Loader2, FileQuestion, ClipboardCheck } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import { useRouter } from "next/navigation";
-import { ChevronDown, Loader2 } from "lucide-react";
-import BackArrow from "@/assets/svgs/arrowback";
-import { DateRange, dateRangeLabels } from "@/lib/types";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
-import { useGetHomework, useGetChildBaselineTestEntries } from "@/lib/api/queries";
+import {
+  useGetHomework,
+  useGetChildBaselineTestEntries,
+} from "@/lib/api/queries";
 import type { Homework } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
-// Status types - matching API format
-const statuses = ["to-do", "submitted", "done and marked"] as const;
-type Status = (typeof statuses)[number] | "ALL";
+// Current week = Monday 00:00 of the week containing today → next Monday 00:00 (exclusive).
+function getCurrentWeekRange(): { start: Date; end: Date } {
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const day = start.getDay(); // 0 Sun .. 6 Sat
+  const diff = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + diff); // this Monday 00:00
 
-// Status labels for display
-const statusLabels: Record<Exclude<Status, "ALL">, string> = {
-  "to-do": "TO-DO",
-  submitted: "SUBMITTED",
-  "done and marked": "DONE AND MARKED",
-};
+  const end = new Date(start);
+  end.setDate(end.getDate() + 7); // next Monday 00:00
 
-// Badge colors
-const statusColorMap: Record<Exclude<Status, "ALL">, string> = {
-  "to-do":
-    "bg-primaryBlue text-white w-[115px] md:w-[140px] py-2 rounded-full font-medium text-[9px] md:text-xs",
-  submitted:
-    "bg-yellow-400 text-white w-[115px] md:w-[140px] py-2 rounded-full font-medium text-[9px] md:text-xs",
-  "done and marked":
-    "bg-green-500 text-white w-[115px] md:w-[140px] py-2 rounded-full font-medium text-[9px] md:text-xs",
-};
+  return { start, end };
+}
 
-const ITEMS_PER_PAGE = 15;
+function formatShortDate(d: Date): string {
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
 
-// Unified row for homework + submitted baseline attempts (Recent Work / history)
-type WorkItem =
-  | { type: "homework"; data: Homework }
-  | {
-      type: "baseline";
-      data: {
-        id: string;
-        quizAttemptId: string;
-        baselineTestTitle: string;
-        submittedAt: string;
-        score?: number | null;
-        percentage?: number | null;
-      };
-    };
-
-function getWorkItemDate(item: WorkItem): Date | null {
-  if (item.type === "homework") {
-    const d = item.data.dueDate || item.data.dateSubmitted;
-    return d ? new Date(d) : null;
-  }
-  return new Date(item.data.submittedAt);
+function statusDisplay(status: string | null | undefined): string {
+  const s = (status ?? "").trim();
+  if (!s) return "—";
+  // Show backend status as-is, optionally normalize casing
+  if (s.toLowerCase() === "done and marked") return "MARKED";
+  if (s.toLowerCase() === "submitted") return "AWAITING_BUDDY_REVIEW";
+  return s.toUpperCase().replace(/_/g, " ");
 }
 
 export default function HomeworkStatusPage() {
-  const { push } = useRouter();
+  const searchParams = useSearchParams();
   const { activeProfile } = useSelectedProfile();
-  const [selectedStatus, setSelectedStatus] = useState<Status>("ALL");
-  const [selectedDateRange, setSelectedDateRange] = useState<DateRange>("ALL");
-  const [currentPage, setCurrentPage] = useState(1);
+  const childIdFromUrl = searchParams.get("childId") ?? "";
+  const childIdFromProfile = activeProfile?.id ? String(activeProfile.id) : "";
+  const studentId = childIdFromUrl || childIdFromProfile;
 
-  // Fetch homework and baseline attempts for the active student profile
-  const { data: homeworkResponse, isLoading: homeworkLoading } = useGetHomework(
-    activeProfile?.id || ""
-  );
-  const { data: baselineAttemptsResponse, isLoading: baselineLoading } =
-    useGetChildBaselineTestEntries(activeProfile?.id || "");
+  const { data: homeworkResponse, isLoading: homeworkLoading } =
+    useGetHomework(studentId);
+  const { data: baselineResponse, isLoading: baselineLoading } =
+    useGetChildBaselineTestEntries(studentId);
 
-  const homeworks = homeworkResponse?.data || [];
-  const baselineAttempts = baselineAttemptsResponse?.data || [];
-  const submittedBaselineAttempts = useMemo(
-    () =>
-      baselineAttempts.filter(
-        (a: { submittedAt?: string | null }) => a.submittedAt != null
-      ),
-    [baselineAttempts]
-  );
+  const homeworks = homeworkResponse?.data ?? [];
+  const baselineAttempts = (baselineResponse?.data ?? []) as Array<{
+    id: string;
+    quizAttemptId: string;
+    baselineTestTitle: string;
+    submittedAt: string;
+    score?: number | null;
+    percentage?: number | null;
+    isPassed?: boolean | null;
+  }>;
 
-  // Unified list: homework + submitted baseline (like completed quizzes in Recent Work / history)
-  const allWorkItems = useMemo((): WorkItem[] => {
-    const items: WorkItem[] = homeworks.map((hw) => ({ type: "homework", data: hw }));
-    submittedBaselineAttempts.forEach((a: any) => {
-      items.push({
-        type: "baseline",
-        data: {
-          id: a.id,
-          quizAttemptId: a.quizAttemptId,
-          baselineTestTitle: a.baselineTestTitle,
-          submittedAt: a.submittedAt,
-          score: a.score,
-          percentage: a.percentage,
-        },
-      });
-    });
-    // Sort by date descending (most recent first)
-    items.sort((a, b) => {
-      const dateA = getWorkItemDate(a)?.getTime() ?? 0;
-      const dateB = getWorkItemDate(b)?.getTime() ?? 0;
-      return dateB - dateA;
-    });
-    return items;
-  }, [homeworks, submittedBaselineAttempts]);
+  const { recentHomeworks, historyHomeworks } = useMemo(() => {
+    const recent: Homework[] = [];
+    const history: Homework[] = [];
+    const { start, end } = getCurrentWeekRange();
 
-  const filteredWorkItems = allWorkItems.filter((item) => {
-    const date = getWorkItemDate(item);
-    const status =
-      item.type === "homework"
-        ? item.data.status?.toLowerCase()
-        : "done and marked";
-    const matchesStatus =
-      selectedStatus === "ALL" || status === selectedStatus.toLowerCase();
-    const matchesDate = date
-      ? isWithinDateRange(date, selectedDateRange)
-      : selectedDateRange === "ALL";
-    return matchesStatus && matchesDate;
-  });
+    for (const hw of homeworks) {
+      const dateStr = hw.dueDate || hw.dateSubmitted || hw.dateAssigned;
+      if (!dateStr) {
+        history.push(hw);
+        continue;
+      }
+      const d = new Date(dateStr);
+      const t = d.getTime();
+      if (t >= start.getTime() && t < end.getTime()) {
+        recent.push(hw);
+      } else {
+        history.push(hw);
+      }
+    }
+    return { recentHomeworks: recent, historyHomeworks: history };
+  }, [homeworks]);
+
+  const { recentBaselines, historyBaselines } = useMemo(() => {
+    const recent: typeof baselineAttempts = [];
+    const history: typeof baselineAttempts = [];
+    const { start, end } = getCurrentWeekRange();
+
+    for (const b of baselineAttempts) {
+      const d = new Date(b.submittedAt);
+      const t = d.getTime();
+      if (t >= start.getTime() && t < end.getTime()) {
+        recent.push(b);
+      } else {
+        history.push(b);
+      }
+    }
+    return { recentBaselines: recent, historyBaselines: history };
+  }, [baselineAttempts]);
 
   const isLoading = homeworkLoading || baselineLoading;
-
-  // Pagination calculations
-  const totalItems = filteredWorkItems.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentWorkItems = filteredWorkItems.slice(startIndex, endIndex);
-
-  // Reset to page 1 when filters change
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedStatus, selectedDateRange]);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
+  const hasRecent = recentHomeworks.length > 0 || recentBaselines.length > 0;
+  const hasHistory = historyHomeworks.length > 0 || historyBaselines.length > 0;
 
   return (
-    <div>
-      <div className="flex justify-between items-center mt-4 mb-6">
-        <h2 className="md:text-lg font-medium">Homework</h2>
-        <div className="flex items-center gap-3">
-          {/* Status Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="bg-white border rounded-full px-4 py-1 text-sm font-medium text-black flex items-center gap-1">
-                Status:{" "}
-                {selectedStatus === "ALL"
-                  ? "All"
-                  : statusLabels[
-                      selectedStatus as keyof typeof statusLabels
-                    ]}{" "}
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setSelectedStatus("ALL")}>
-                All
-              </DropdownMenuItem>
-              {statuses.map((status) => (
-                <DropdownMenuItem
-                  key={status}
-                  onSelect={() => setSelectedStatus(status)}
-                >
-                  {statusLabels[status]}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Date Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="bg-white border rounded-full px-4 py-1 text-sm font-medium text-black flex items-center gap-1">
-                {dateRangeLabels[selectedDateRange]}{" "}
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {(
-                [
-                  "ALL",
-                  "TODAY",
-                  "LAST_3_DAYS",
-                  "LAST_WEEK",
-                  "LAST_TWO_WEEKS",
-                  "LAST_MONTH",
-                  "LAST_3_MONTHS",
-                ] as DateRange[]
-              ).map((range) => (
-                <DropdownMenuItem
-                  key={range}
-                  onSelect={() => setSelectedDateRange(range)}
-                >
-                  {dateRangeLabels[range]}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+    <div className="w-full space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold tracking-tight">Homework</h2>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border overflow-auto scrollbar-hide min-h-[70vh] max-h-[85vh] px-4 flex flex-col">
-        <div className="grid grid-cols-3 gap-2 pt-6 pb-4 text-sm font-medium text-textSubtitle">
-          <div>Homework</div>
-          <div className="text-center">Status</div>
-          <div className="text-center">Action</div>
-        </div>
-
-        <div className="flex-1 overflow-auto">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-primaryBlue" />
-                <p className="text-gray-500 text-sm">Loading homework...</p>
-              </div>
-            </div>
-          ) : currentWorkItems.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="w-8 h-8 text-gray-400"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"
-                    />
-                  </svg>
-                </div>
-                <div className="text-center">
-                  <p className="text-gray-900 font-medium mb-1">
-                    No homework found
-                  </p>
-                  <p className="text-gray-500 text-sm">
-                    {selectedStatus !== "ALL" || selectedDateRange !== "ALL"
-                      ? "Try adjusting your filters"
-                      : "You don't have any homework or baseline results yet"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            currentWorkItems.map((item, idx) => {
-              if (item.type === "baseline") {
-                const b = item.data;
-                return (
-                  <div
-                    key={`baseline-${b.id}`}
-                    className="grid grid-cols-3 gap-2 w-full overflow-auto items-center border-t py-4 text-sm last:border-b hover:bg-gray-50 transition-colors cursor-pointer"
-                  >
-                    <div className="whitespace-nowrap">
-                      <p className="font-medium">{b.baselineTestTitle}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Submitted {format(new Date(b.submittedAt), "MMM d")}
-                      </p>
-                    </div>
-                    <div className="text-center whitespace-nowrap">
-                      <Badge
-                        className={
-                          statusColorMap["done and marked"]
-                        }
-                      >
-                        <span className="text-center w-full">
-                          {statusLabels["done and marked"]}
-                        </span>
-                      </Badge>
-                    </div>
-                    <div className="text-center whitespace-nowrap">
-                      <Button
-                        variant="link"
-                        className="text-xs text-primaryBlue px-0"
-                        onClick={() => {
-                          push(`/baseline-results/${b.quizAttemptId}/review`);
-                        }}
-                      >
-                        Review <BackArrow color="#286CFF" flipped />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              }
-
-              const hw = item.data;
-              const hwStatus = hw.status?.toLowerCase();
-              const canStart = hwStatus === "to-do";
-              const canReview = hwStatus === "done and marked";
-
-              return (
-                <div
-                  key={hw.id || startIndex + idx}
-                  className="grid grid-cols-3 gap-2 w-full overflow-auto items-center border-t py-4 text-sm last:border-b hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  <div className="whitespace-nowrap">
-                    <p className="font-medium">Quiz Assignment</p>
-                    <p className="text-xs text-muted-foreground">
-                      {hw.dueDate
-                        ? `Due ${format(new Date(hw.dueDate), "MMM d")}`
-                        : "No due date"}
-                    </p>
-                  </div>
-
-                  <div className="text-center whitespace-nowrap">
-                    <Badge
-                      className={
-                        statusColorMap[
-                          hwStatus as keyof typeof statusColorMap
-                        ] ||
-                        "bg-gray-500 text-white w-[115px] md:w-[140px] py-2 rounded-full font-medium text-[9px] md:text-xs"
-                      }
-                    >
-                      <span className="text-center w-full">
-                        {statusLabels[hwStatus as keyof typeof statusLabels] ||
-                          hw.status?.toUpperCase() ||
-                          "UNKNOWN"}
-                      </span>
-                    </Badge>
-                  </div>
-
-                  <div className="text-center whitespace-nowrap">
-                    {canReview ? (
-                      <Button
-                        variant="link"
-                        className="text-xs text-primaryBlue px-0"
-                        onClick={() => {
-                          push(`/homework/${hw.id}/review`);
-                        }}
-                      >
-                        Review <BackArrow color="#286CFF" flipped />
-                      </Button>
-                    ) : hwStatus === "submitted" ? (
-                      <div className="text-xs text-gray-400 font-medium">
-                        Waiting for review
-                      </div>
-                    ) : canStart ? (
-                      <Button
-                        variant="link"
-                        className="text-xs text-primaryBlue px-0"
-                        onClick={() => {
-                          push(`/take-quiz/${hw.id}?isHomework=true`);
-                        }}
-                      >
-                        Start <BackArrow color="#286CFF" flipped />
-                      </Button>
-                    ) : (
-                      <div className="text-xs text-gray-400">-</div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Pagination - only show if there are multiple pages */}
-        {totalPages > 1 && (
-          <div className="flex justify-between items-center py-4 border-t">
-            <div className="text-sm text-gray-600">
-              Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of{" "}
-              {totalItems} items
-            </div>
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (currentPage > 1) handlePageChange(currentPage - 1);
-                    }}
-                    className={
-                      currentPage === 1 ? "pointer-events-none opacity-50" : ""
-                    }
-                  />
-                </PaginationItem>
-
-                {/* Page numbers */}
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  let pageNumber;
-                  if (totalPages <= 5) {
-                    pageNumber = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNumber = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNumber = totalPages - 4 + i;
-                  } else {
-                    pageNumber = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <PaginationItem key={pageNumber}>
-                      <PaginationLink
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handlePageChange(pageNumber);
-                        }}
-                        isActive={currentPage === pageNumber}
-                      >
-                        {pageNumber}
-                      </PaginationLink>
-                    </PaginationItem>
-                  );
-                })}
-
-                {/* Show ellipsis if there are more pages */}
-                {totalPages > 5 && currentPage < totalPages - 2 && (
-                  <PaginationItem>
-                    <PaginationEllipsis />
-                  </PaginationItem>
-                )}
-
-                <PaginationItem>
-                  <PaginationNext
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (currentPage < totalPages)
-                        handlePageChange(currentPage + 1);
-                    }}
-                    className={
-                      currentPage === totalPages
-                        ? "pointer-events-none opacity-50"
-                        : ""
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-9 w-9 animate-spin text-primaryBlue" />
+            <p className="text-muted-foreground text-sm">Loading homework…</p>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <Tabs defaultValue="recent" className="w-full">
+          <TabsList className="h-11 bg-muted/60 p-1 rounded-xl">
+            <TabsTrigger
+              value="recent"
+              className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              Recent Work
+            </TabsTrigger>
+            <TabsTrigger
+              value="history"
+              className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              History
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="recent" className="mt-6">
+            <Card className="overflow-visible border border-border/80 shadow-sm">
+              <CardContent className="p-0">
+                {!hasRecent ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <ClipboardCheck className="h-12 w-12 text-muted-foreground/50 mb-3" />
+                    <p className="text-muted-foreground font-medium">No recent work this week</p>
+                    <p className="text-muted-foreground/80 text-sm mt-1">Completed work will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-visible">
+                    <Table className="overflow-visible">
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent border-b">
+                          <TableHead className="font-semibold text-muted-foreground h-12">Lesson</TableHead>
+                          <TableHead className="font-semibold text-muted-foreground">Quiz</TableHead>
+                          <TableHead className="font-semibold text-muted-foreground">Status</TableHead>
+                          <TableHead className="font-semibold text-muted-foreground">Completed</TableHead>
+                          <TableHead className="font-semibold text-muted-foreground text-right w-[120px]">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {recentHomeworks.map((hw) => {
+                          const completedAt =
+                            hw.dateReviewed || hw.dateSubmitted || hw.dueDate;
+                          const status = statusDisplay(hw.status);
+                          const isMarked = (hw.status ?? "").toLowerCase() === "done and marked";
+                          return (
+                            <TableRow key={hw.id} className="group">
+                              <TableCell className="font-medium">
+                                <span className="inline-flex items-center gap-2">
+                                  <FileQuestion className="h-4 w-4 text-muted-foreground" />
+                                  Homework
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">Quiz Assignment</TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={isMarked ? "default" : "secondary"}
+                                  className={cn(
+                                    "font-medium",
+                                    isMarked && "bg-primaryBlue/90"
+                                  )}
+                                >
+                                  {status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground tabular-nums">
+                                {completedAt
+                                  ? formatShortDate(new Date(completedAt))
+                                  : "—"}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {isMarked ? (
+                                  <Button
+                                    variant="link"
+                                    className="text-primaryBlue h-auto p-0 font-medium hover:underline"
+                                    asChild
+                                  >
+                                    <Link href={`/homework/${hw.id}/review`}>
+                                      View results
+                                    </Link>
+                                  </Button>
+                                ) : (
+                                  <span className="text-muted-foreground/60 text-sm">—</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {recentBaselines.map((b) => (
+                          <TableRow key={b.id} className="group">
+                            <TableCell className="font-medium">
+                              <span className="inline-flex items-center gap-2">
+                                <FileQuestion className="h-4 w-4 text-muted-foreground" />
+                                Baseline Test
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">{b.baselineTestTitle}</TableCell>
+                            <TableCell>
+                              <Badge variant="default" className="bg-primaryBlue/90 font-medium">
+                                Marked
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground tabular-nums">
+                              {formatShortDate(new Date(b.submittedAt))}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="link"
+                                className="text-primaryBlue h-auto p-0 font-medium hover:underline"
+                                asChild
+                              >
+                                <Link href={`/baseline-results/${b.quizAttemptId}/review`}>
+                                  View results
+                                </Link>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-6">
+            <Card className="overflow-visible border border-border/80 shadow-sm">
+              <CardContent className="p-0">
+                {!hasHistory ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <ClipboardCheck className="h-12 w-12 text-muted-foreground/50 mb-3" />
+                    <p className="text-muted-foreground font-medium">No history yet</p>
+                    <p className="text-muted-foreground/80 text-sm mt-1">Past work will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-visible">
+                    <Table className="overflow-visible">
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent border-b">
+                          <TableHead className="font-semibold text-muted-foreground h-12">Lesson</TableHead>
+                          <TableHead className="font-semibold text-muted-foreground">Quiz</TableHead>
+                          <TableHead className="font-semibold text-muted-foreground">Score</TableHead>
+                          <TableHead className="font-semibold text-muted-foreground">Result</TableHead>
+                          <TableHead className="font-semibold text-muted-foreground">Completed</TableHead>
+                          <TableHead className="font-semibold text-muted-foreground text-right w-[100px]">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {historyHomeworks.map((hw) => {
+                          const completedAt =
+                            hw.dateReviewed || hw.dateSubmitted || hw.dueDate;
+                          const hwAny = hw as unknown as Record<string, unknown>;
+                          const score =
+                            hwAny.score != null && hwAny.totalPoints != null
+                              ? `${hwAny.score} / ${hwAny.totalPoints}`
+                              : hwAny.percentage != null
+                                ? `${hwAny.percentage}%`
+                                : "—";
+                          const isPassed = hwAny.isPassed === true;
+                          const isFailed = hwAny.isPassed === false;
+                          const result =
+                            isPassed ? "Passed" : isFailed ? "Failed" : "—";
+                          return (
+                            <TableRow key={hw.id} className="group">
+                              <TableCell className="font-medium">
+                                <span className="inline-flex items-center gap-2">
+                                  <FileQuestion className="h-4 w-4 text-muted-foreground" />
+                                  Homework
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">Quiz Assignment</TableCell>
+                              <TableCell className="tabular-nums text-muted-foreground">{score}</TableCell>
+                              <TableCell>
+                                {result !== "—" ? (
+                                  <Badge
+                                    variant={isPassed ? "default" : "destructive"}
+                                    className={cn(isPassed && "bg-emerald-600 hover:bg-emerald-600/90")}
+                                  >
+                                    {result}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground/60">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground tabular-nums">
+                                {completedAt
+                                  ? formatShortDate(new Date(completedAt))
+                                  : "—"}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="link"
+                                  className="text-primaryBlue h-auto p-0 font-medium hover:underline"
+                                  asChild
+                                >
+                                  <Link href={`/homework/${hw.id}/review`}>View</Link>
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {historyBaselines.map((b) => {
+                          const scoreText =
+                            b.score != null && b.percentage != null
+                              ? `${b.score} (${b.percentage}%)`
+                              : b.percentage != null
+                                ? `${b.percentage}%`
+                                : "—";
+                          const isPassed = b.isPassed === true;
+                          const isFailed = b.isPassed === false;
+                          const result =
+                            isPassed ? "Passed" : isFailed ? "Failed" : "—";
+                          return (
+                            <TableRow key={b.id} className="group">
+                              <TableCell className="font-medium">
+                                <span className="inline-flex items-center gap-2">
+                                  <FileQuestion className="h-4 w-4 text-muted-foreground" />
+                                  Baseline Test
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">{b.baselineTestTitle}</TableCell>
+                              <TableCell className="tabular-nums text-muted-foreground">{scoreText}</TableCell>
+                              <TableCell>
+                                {result !== "—" ? (
+                                  <Badge
+                                    variant={isPassed ? "default" : "destructive"}
+                                    className={cn(isPassed && "bg-emerald-600 hover:bg-emerald-600/90")}
+                                  >
+                                    {result}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground/60">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground tabular-nums">
+                                {formatShortDate(new Date(b.submittedAt))}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="link"
+                                  className="text-primaryBlue h-auto p-0 font-medium hover:underline"
+                                  asChild
+                                >
+                                  <Link href={`/baseline-results/${b.quizAttemptId}/review`}>
+                                    View
+                                  </Link>
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }

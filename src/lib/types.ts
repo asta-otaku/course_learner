@@ -579,7 +579,7 @@ export interface DetailedChildProfile {
 export interface CreateChildProfileData {
   name: string;
   year: string;
-  avatar: File;
+  avatar?: File;
 }
 
 // Session Types

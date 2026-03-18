@@ -125,8 +125,8 @@ export default function Navbar() {
                 key={route.name}
                 href={route.path}
                 className={`font-medium text-sm md:text-base ${pathname.startsWith(route.path)
-                    ? "text-blue-500"
-                    : "text-textSubtitle"
+                  ? "text-blue-500"
+                  : "text-textSubtitle"
                   } hover:text-blue-500 transition`}
               >
                 {route.path === "/messages" && messageCount > 0
@@ -236,8 +236,8 @@ export default function Navbar() {
                   href={route.path}
                   onClick={() => setMobileOpen(false)}
                   className={`block py-2 px-2 rounded-md font-medium text-sm ${pathname === route.path
-                      ? "bg-blue-50 text-blue-500"
-                      : "text-gray-700 hover:bg-gray-100"
+                    ? "bg-blue-50 text-blue-500"
+                    : "text-gray-700 hover:bg-gray-100"
                     } transition`}
                 >
                   {route.path === "/messages" && messageCount > 0

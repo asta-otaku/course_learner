@@ -16,12 +16,14 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { Trash2, Loader } from "lucide-react";
-import { useGetChildProfile } from "@/lib/api/queries";
+import { useGetChildProfile, useGetManageSubscription } from "@/lib/api/queries";
 import { ChildProfile } from "@/lib/types";
 import {
   usePatchChildProfile,
   usePostChildProfiles,
   usePatchUpdateChildProfile,
+  usePostTuitionSubscription,
+  usePostUpgradeToTuition,
 } from "@/lib/api/mutations";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,15 +33,27 @@ import { toast } from "react-toastify";
 
 function Page() {
   const { data: childProfiles } = useGetChildProfile();
+  const {
+    data: manageData,
+    isLoading: manageLoading,
+    refetch: refetchManage,
+  } = useGetManageSubscription();
   const { mutateAsync: postChildProfiles, isPending } = usePostChildProfiles();
   const { mutateAsync: patchChildProfile, isPending: isPatching } =
     usePatchChildProfile();
+  const { mutateAsync: postTuitionSubscription, isPending: isPostingTuition } =
+    usePostTuitionSubscription();
+  const { mutateAsync: upgradeToTuition, isPending: isUpgradingToTuition } =
+    usePostUpgradeToTuition();
 
   const [profiles, setProfiles] = React.useState<ChildProfile[]>([]);
   const [selectedProfile, setSelectedProfile] =
     React.useState<ChildProfile | null>(null);
   const [step, setStep] = React.useState(0);
   const [isEditMode, setIsEditMode] = React.useState(false);
+  const [newProfilePlan, setNewProfilePlan] = React.useState<
+    "platform" | "tuition"
+  >("platform");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize mutation after selectedProfile is available
@@ -69,96 +83,7 @@ function Page() {
   });
 
   const watchedName = watch("name");
-
-  // Helper function to update localStorage after profile update
-  const updateLocalStorageProfiles = (updatedProfile: any) => {
-    if (typeof window === "undefined") return;
-
-    // Get existing profile to preserve fields that might not be in the response
-    let existingProfile: ChildProfile | null = null;
-    const storedProfiles = localStorage.getItem("childProfiles");
-    if (storedProfiles) {
-      try {
-        const profilesData: ChildProfile[] = JSON.parse(storedProfiles);
-        existingProfile =
-          profilesData.find((p) => p.id === String(updatedProfile.id)) || null;
-      } catch (error) {
-        // Ignore error
-      }
-    }
-
-    // Convert DetailedChildProfile to ChildProfile format if needed
-    const profileToStore = {
-      id: String(updatedProfile.id),
-      name: updatedProfile.name,
-      year: updatedProfile.year,
-      avatar: updatedProfile.avatar || "",
-      createdAt: updatedProfile.createdAt || existingProfile?.createdAt || "",
-      isActive: updatedProfile.isActive ?? existingProfile?.isActive ?? true,
-      offerType: updatedProfile.offerType || existingProfile?.offerType || "",
-      updatedAt: updatedProfile.updatedAt || new Date().toISOString(),
-      tutorId: updatedProfile.tutorId || existingProfile?.tutorId,
-      parentFirstName:
-        updatedProfile.parentFirstName ||
-        existingProfile?.parentFirstName ||
-        "",
-      parentLastName:
-        updatedProfile.parentLastName || existingProfile?.parentLastName || "",
-      tutorFirstName:
-        updatedProfile.tutorFirstName || existingProfile?.tutorFirstName || "",
-      tutorLastName:
-        updatedProfile.tutorLastName || existingProfile?.tutorLastName || "",
-    } as ChildProfile;
-
-    // Update childProfiles in localStorage
-    if (storedProfiles) {
-      try {
-        const profilesData: ChildProfile[] = JSON.parse(storedProfiles);
-        const updatedProfiles = profilesData.map((profile) =>
-          profile.id === profileToStore.id ? profileToStore : profile
-        );
-        localStorage.setItem("childProfiles", JSON.stringify(updatedProfiles));
-        // Dispatch event to notify other components
-        window.dispatchEvent(new CustomEvent("childProfilesUpdate"));
-      } catch (error) {
-        console.error("Error updating childProfiles in localStorage:", error);
-      }
-    }
-
-    // Update activeProfile if it's the one being updated
-    const storedActiveProfile = localStorage.getItem("activeProfile");
-    if (storedActiveProfile) {
-      try {
-        const activeProfile: ChildProfile = JSON.parse(storedActiveProfile);
-        if (activeProfile.id === profileToStore.id) {
-          localStorage.setItem("activeProfile", JSON.stringify(profileToStore));
-        }
-      } catch (error) {
-        console.error("Error updating activeProfile in localStorage:", error);
-      }
-    }
-
-    // Update user object in localStorage if it contains child profiles
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser);
-        if (
-          userData?.data?.childProfiles &&
-          Array.isArray(userData.data.childProfiles)
-        ) {
-          const updatedChildProfiles = userData.data.childProfiles.map(
-            (profile: ChildProfile) =>
-              profile.id === profileToStore.id ? profileToStore : profile
-          );
-          userData.data.childProfiles = updatedChildProfiles;
-          localStorage.setItem("user", JSON.stringify(userData));
-        }
-      } catch (error) {
-        console.error("Error updating user object in localStorage:", error);
-      }
-    }
-  };
+  // Do not cache child profiles in localStorage; always rely on fresh API data.
 
   useEffect(() => {
     if (childProfiles?.data) {
@@ -181,6 +106,7 @@ function Page() {
     setSelectedProfile(null);
     setIsEditMode(false);
     setStep(1);
+    setNewProfilePlan("platform");
     // Reset form and avatar data
     setValue("name", "");
     setValue("year", "");
@@ -214,11 +140,6 @@ function Page() {
       return;
     }
 
-    if (!isEditMode && !avatarData.avatarFile) {
-      toast.error("Please select an avatar image");
-      return;
-    }
-
     try {
       if (isEditMode && selectedProfile) {
         // Update existing profile
@@ -234,12 +155,6 @@ function Page() {
         const res = await patchUpdateChildProfile(updateData);
 
         if (res.status === 200) {
-          // Update localStorage with the updated profile
-          if (res.data?.data) {
-            updateLocalStorageProfiles(res.data.data as any);
-            // Dispatch event to notify other components
-            window.dispatchEvent(new CustomEvent("childProfilesUpdate"));
-          }
           toast.success("Profile updated successfully!");
           setAvatarData({ avatar: null, avatarFile: null });
           setStep(0);
@@ -254,12 +169,40 @@ function Page() {
         });
 
         if (res.status === 201) {
-          // Update localStorage with the new profile
-          if (res.data?.data) {
-            updateLocalStorageProfiles(res.data.data as any);
-            // Dispatch event to notify other components
-            window.dispatchEvent(new CustomEvent("childProfilesUpdate"));
+          const createdId =
+            (res.data as any)?.data?.id ?? (res.data as any)?.data?.data?.id;
+          if (!createdId) {
+            toast.success("Profile created successfully!");
+            setAvatarData({ avatar: null, avatarFile: null });
+            setStep(0);
+            return;
           }
+
+          if (newProfilePlan === "tuition") {
+            // Always fetch manage-subscription first for authoritative state.
+            let state = (manageData as any)?.data?.state as string | undefined;
+            if (!state) {
+              const fresh = await refetchManage();
+              state = (fresh.data as any)?.data?.state as string | undefined;
+            }
+            if (!state) {
+              toast.error(
+                "Could not confirm subscription state. Please try again."
+              );
+              return;
+            }
+            const parentIsTuition =
+              state === "tuition" || state === "tuition_single";
+
+            if (parentIsTuition) {
+              await postTuitionSubscription({ childProfileId: String(createdId) });
+            } else {
+              // Ensure parent is on tuition first, then add tuition seat for child
+              await upgradeToTuition({ childProfileId: String(createdId) });
+              await postTuitionSubscription({ childProfileId: String(createdId) });
+            }
+          }
+
           toast.success("Profile created successfully!");
           setAvatarData({ avatar: null, avatarFile: null });
           setStep(0);
@@ -321,8 +264,8 @@ function Page() {
                       setStep(1);
                     }}
                     className={`bg-bgWhiteGray border cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 relative ${profile.isActive === false
-                        ? "border-gray-300 bg-gray-50"
-                        : "border-black/20"
+                      ? "border-gray-300 bg-gray-50"
+                      : "border-black/20"
                       }`}
                   >
                     <div className="flex items-center gap-2">
@@ -456,22 +399,39 @@ function Page() {
 
                 {!isEditMode && (
                   <div className="py-2 border-b border-gray-200">
-                    <label className="text-xs font-medium text-gray-500">
-                      Avatar Image *
+                    <label className="text-xs font-medium">
+                      Plan for this child
                     </label>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Click on the avatar above to upload an image
-                    </p>
+                    <select
+                      value={newProfilePlan}
+                      onChange={(e) =>
+                        setNewProfilePlan(
+                          e.target.value === "tuition" ? "tuition" : "platform"
+                        )
+                      }
+                      className="text-sm text-textSubtitle font-medium bg-transparent border-none focus:outline-none focus:ring-0 py-2 w-full cursor-pointer"
+                    >
+                      <option value="platform">Platform</option>
+                      <option value="tuition">Tuition</option>
+                    </select>
                   </div>
                 )}
-
                 <div className="pt-4">
                   <button
                     type="submit"
                     className="bg-primaryBlue text-white text-sm font-semibold rounded-full px-4 py-2 flex items-center gap-2"
-                    disabled={isPending || isUpdating}
+                    disabled={
+                      isPending ||
+                      isUpdating ||
+                      isPostingTuition ||
+                      isUpgradingToTuition ||
+                      manageLoading
+                    }
                   >
-                    {isPending || isUpdating ? (
+                    {isPending ||
+                      isUpdating ||
+                      isPostingTuition ||
+                      isUpgradingToTuition ? (
                       <>
                         <Loader className="w-4 h-4 animate-spin" />
                         {isEditMode ? "Updating..." : "Creating..."}
@@ -508,8 +468,8 @@ function Page() {
                       <AlertDialogTrigger asChild>
                         <button
                           className={`text-xs ${selectedProfile?.isActive === false
-                              ? "text-[#008000]"
-                              : "text-[#FF0000]"
+                            ? "text-[#008000]"
+                            : "text-[#FF0000]"
                             } font-semibold`}
                         >
                           {selectedProfile?.isActive === false
@@ -534,8 +494,8 @@ function Page() {
                         <AlertDialogFooter className="grid grid-cols-1 gap-1.5 mt-3">
                           <AlertDialogAction
                             className={`${selectedProfile?.isActive === false
-                                ? "bg-[#008000] hover:bg-[#006600]"
-                                : "bg-[#FF0000] hover:bg-[#e60000]"
+                              ? "bg-[#008000] hover:bg-[#006600]"
+                              : "bg-[#FF0000] hover:bg-[#e60000]"
                               } text-white rounded-full w-full py-2 text-sm font-medium`}
                             onClick={async () => {
                               const willDeactivate =
@@ -545,49 +505,6 @@ function Page() {
                                 deactivate: willDeactivate,
                               });
                               if (res.status === 200) {
-                                // The API response may not include data, so we need to update based on the action
-                                // Get the current profile from localStorage to update it
-                                const storedProfiles =
-                                  localStorage.getItem("childProfiles");
-                                let profileToUpdate = selectedProfile;
-
-                                if (storedProfiles) {
-                                  try {
-                                    const profilesData: ChildProfile[] =
-                                      JSON.parse(storedProfiles);
-                                    const existingProfile = profilesData.find(
-                                      (p) => p.id === selectedProfile.id
-                                    );
-                                    if (existingProfile) {
-                                      profileToUpdate = existingProfile;
-                                    }
-                                  } catch (error) {
-                                    console.error(
-                                      "Error parsing profiles:",
-                                      error
-                                    );
-                                  }
-                                }
-
-                                // Create updated profile data with the new isActive value
-                                // Use API response data if available, otherwise use existing profile
-                                const updatedProfileData = res.data?.data
-                                  ? {
-                                    ...res.data.data,
-                                    isActive: !willDeactivate, // Explicitly set based on action
-                                  }
-                                  : {
-                                    ...profileToUpdate,
-                                    isActive: !willDeactivate, // Explicitly set based on action
-                                  };
-
-                                updateLocalStorageProfiles(updatedProfileData);
-
-                                // Dispatch event to notify other components
-                                window.dispatchEvent(
-                                  new CustomEvent("childProfilesUpdate")
-                                );
-
                                 toast.success(res.data.message);
                                 setStep(0);
                               }

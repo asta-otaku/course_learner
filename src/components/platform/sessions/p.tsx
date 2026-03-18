@@ -204,16 +204,26 @@ function Sessions() {
     }));
   }, [availableSessionsData]);
 
-  // Categorize: upcoming = today + future, previous = past (booked only)
+  // Categorize by session end datetime: once end time has passed, session goes to previous (booked only)
   const { previous, upcoming } = useMemo(() => {
-    const todayStr = formatDateString(new Date());
+    const now = new Date();
     const bookedSessions = allSessions.filter(
       (session) => session.status !== "available"
     );
 
+    const isSessionEnded = (session: Session): boolean => {
+      const endTimeStr = session.timeSlot.split(" - ")[1]?.trim();
+      if (!endTimeStr) {
+        const todayStr = formatDateString(now);
+        return session.date < todayStr;
+      }
+      const sessionEnd = new Date(`${session.date}T${endTimeStr}`);
+      return now > sessionEnd;
+    };
+
     return {
-      previous: bookedSessions.filter((session) => session.date < todayStr),
-      upcoming: bookedSessions.filter((session) => session.date >= todayStr),
+      previous: bookedSessions.filter(isSessionEnded),
+      upcoming: bookedSessions.filter((s) => !isSessionEnded(s)),
     };
   }, [allSessions]);
 

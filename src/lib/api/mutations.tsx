@@ -223,7 +223,9 @@ export const usePostChildProfiles = () => {
       const formData = new FormData();
       formData.append("name", data.name);
       formData.append("year", data.year);
-      formData.append("avatar", data.avatar);
+      if (data.avatar) {
+        formData.append("avatar", data.avatar);
+      }
       return axiosInstance.post("/child-profiles/register", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
