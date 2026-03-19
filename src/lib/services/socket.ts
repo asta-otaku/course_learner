@@ -6,8 +6,8 @@ import {
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
-// Helper to get access token (same logic as axiosInstance)
-function getAccessToken(): string | null {
+// Helper to get access token (same logic as axiosInstance) - exported for SocketContext
+export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
 
   const pathname = window.location.pathname;
@@ -44,29 +44,36 @@ export const initSocket = (): Socket<
       process.env.NEXT_PUBLIC_API_URL ||
       "http://localhost:3001";
 
-    const token = getAccessToken();
-
     socket = io(`${SOCKET_URL}/events`, {
       autoConnect: false,
       transports: ["websocket", "polling"],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
       query: {
-        jwtToken: token,
+        jwtToken: getAccessToken(),
       },
     });
 
     socket.io.on("reconnect_attempt", () => {
       const newToken = getAccessToken();
-      if (socket && newToken) {
-        // @ts-ignore
-        socket.io.opts.query = { jwtToken: newToken };
+      if (socket) {
+        // @ts-ignore - ensure each reconnect uses latest token
+        socket.io.opts.query = { jwtToken: newToken ?? socket.io.opts?.query?.jwtToken };
       }
     });
   }
 
   return socket;
+};
+
+/** Call before connect() to ensure the socket uses the current token (e.g. after login). */
+export const setSocketQueryToken = (token: string | null) => {
+  if (socket) {
+    // @ts-ignore
+    socket.io.opts.query = { jwtToken: token };
+  }
 };
 
 export const getSocket = (): Socket<

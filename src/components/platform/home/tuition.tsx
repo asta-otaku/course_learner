@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import profileIcon from "@/assets/profileIcon.svg";
@@ -12,96 +12,28 @@ import { usePostCreateChat } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { TutorChangeRequestDialog } from "./tutor-change-request-dialog";
 import {
-  useGetLibrary,
-  useGetChildLastAccessedLessons,
-  useGetCurricula,
   useGetChildBaselineTest,
   useGetChildBaselineTestEntries,
+  useGetLearningPath,
 } from "@/lib/api/queries";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ProgressCard } from "./learningCard";
 import DoubleQuote from "@/assets/svgs/doubleQuote";
-import { AlertTriangle } from "lucide-react";
+import type { LearningPath } from "@/lib/types";
+
+const STATUS_BADGE_CLASS: Record<string, string> = {
+  not_started: "bg-gray-100 text-gray-600",
+  in_progress: "bg-amber-100 text-amber-800",
+  completed: "bg-green-100 text-green-800",
+};
 
 function TuitionHome() {
-  const {
-    activeProfile,
-    selectedCurriculumId: profileSelectedCurriculumId,
-    setSelectedCurriculumId: setProfileSelectedCurriculumId,
-  } = useSelectedProfile();
+  const { activeProfile } = useSelectedProfile();
   const [showChangeRequestDialog, setShowChangeRequestDialog] = useState(false);
   const { push } = useRouter();
   const { mutateAsync: createChat } = usePostCreateChat();
 
-  const { data: library } = useGetLibrary(activeProfile?.id || "");
-
-  // Get sections from library data (for Your Progress section only)
-  const sections = useMemo(() => {
-    return library?.data || [];
-  }, [library?.data]);
-
-  // Create a mapping from sectionId to section imageUrl
-  const sectionImageMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    sections.forEach((section: any) => {
-      if (section.id && section.imageUrl) {
-        map[section.id] = section.imageUrl;
-      }
-    });
-    return map;
-  }, [sections]);
-
-  // Fetch curricula by offerType
-  const { data: curriculaData } = useGetCurricula({
-    offerType: activeProfile?.offerType || "",
-  });
-
-  // Get curricula list for dropdown
-  const curriculaList = useMemo(() => {
-    return curriculaData?.curricula || [];
-  }, [curriculaData?.curricula]);
-
-  // Get default curriculum (first one)
-  const defaultCurriculumId = useMemo(() => {
-    if (curriculaList.length > 0) {
-      const firstCurriculum = curriculaList[0] as any;
-      return firstCurriculum.id || "";
-    }
-    return "";
-  }, [curriculaList]);
-
-  // Determine the actual selected curriculum ID
-  const selectedCurriculumId = useMemo(() => {
-    // If profile has a stored curriculum ID, use it
-    if (profileSelectedCurriculumId) {
-      return profileSelectedCurriculumId;
-    }
-    // Otherwise, use default (first curriculum)
-    return defaultCurriculumId;
-  }, [profileSelectedCurriculumId, defaultCurriculumId]);
-
-  // Update profile's selectedCurriculumId when default changes (if not already set)
-  useEffect(() => {
-    if (defaultCurriculumId && !profileSelectedCurriculumId) {
-      setProfileSelectedCurriculumId(defaultCurriculumId);
-    }
-  }, [
-    defaultCurriculumId,
-    profileSelectedCurriculumId,
-    setProfileSelectedCurriculumId,
-  ]);
-
-  // Fetch last accessed lessons for the selected curriculum
-  const { data: lessonsData } = useGetChildLastAccessedLessons(
-    activeProfile?.id || "",
-    selectedCurriculumId
-  );
+  const { data: learningPathData, isLoading: learningPathLoading } =
+    useGetLearningPath(activeProfile?.id || "");
+  const learningPath = (learningPathData?.data || []) as LearningPath[];
 
   // Fetch baseline test for this child (API returns a single object)
   const { data: baselineTestResponse } = useGetChildBaselineTest(
@@ -117,64 +49,6 @@ function TuitionHome() {
     const attempts = baselineAttemptsResponse?.data || [];
     return attempts.some((a: { submittedAt?: string | null }) => a.submittedAt != null);
   }, [baselineAttemptsResponse?.data]);
-
-  // Get selected curriculum details
-  const selectedCurriculum = useMemo(() => {
-    return curriculaList.find(
-      (curriculum: any) => curriculum.id === selectedCurriculumId
-    ) as any;
-  }, [curriculaList, selectedCurriculumId]);
-
-  // Collect lessons from the selected curriculum
-  const allLessons = useMemo(() => {
-    const lessons: any[] = [];
-    if (lessonsData?.data && selectedCurriculum) {
-      lessonsData.data.forEach((lesson: any) => {
-        // Get section image from library data based on lesson's sectionId
-        const sectionImageUrl = lesson.sectionId
-          ? sectionImageMap[lesson.sectionId]
-          : null;
-        lessons.push({
-          ...lesson,
-          curriculumId: selectedCurriculumId,
-          curriculumTitle: selectedCurriculum.title,
-          curriculumImageUrl: sectionImageUrl || selectedCurriculum.imageUrl,
-        });
-      });
-    }
-    return lessons;
-  }, [
-    lessonsData?.data,
-    selectedCurriculum,
-    selectedCurriculumId,
-    sectionImageMap,
-  ]);
-
-  // Transform library sections to Course format, sorted by orderIndex
-  const curriculaAsCourses = useMemo(() => {
-    return sections
-      .slice()
-      .sort((a: any, b: any) => {
-        const orderA = a.orderIndex ?? 0;
-        const orderB = b.orderIndex ?? 0;
-        return orderA - orderB;
-      })
-      .map((section: any) => ({
-        imageUrl: section.imageUrl,
-        course: section.title,
-        topics: [
-          {
-            title: "Start Learning",
-            number_of_quizzes: section.progress?.totalQuizzes || 0,
-          },
-        ],
-        progress: section.progress?.completionPercentage || 0,
-        duration: 0, // Sections don't have durationWeeks
-        total_section: section.progress?.totalLessons || 0,
-        completed_section: section.progress?.completedLessons || 0,
-        curriculumId: section.id, // Using section.id as curriculumId
-      }));
-  }, [sections]);
 
   const handleMessage = async () => {
     if (
@@ -213,136 +87,71 @@ function TuitionHome() {
 
       {/* Main Content */}
       <div className="my-8 flex flex-col md:flex-row gap-3 w-full min-h-[40vh]">
-        {/* Your Assignments – modern table */}
+        {/* Your Assignments – learning path table */}
         <div className="md:w-3/5 rounded-2xl bg-white p-6 max-h-[80vh] overflow-auto scrollbar-hide shadow-sm border border-gray-100">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 tracking-tight">
-              Your Assignments
-            </h2>
-            <div className="w-full md:w-auto min-w-[200px]">
-              <Select
-                value={selectedCurriculumId}
-                onValueChange={(value) => {
-                  setProfileSelectedCurriculumId(value);
-                }}
-              >
-                <SelectTrigger className="h-9 rounded-lg border-gray-200 bg-gray-50/80 text-gray-700 font-normal">
-                  <SelectValue placeholder="Select a curriculum..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {curriculaList.length > 0 ? (
-                    curriculaList.map((curriculum: any, index: number) => {
-                      const curriculumId =
-                        curriculum.id || `curriculum-${index}`;
-                      return (
-                        <SelectItem key={curriculumId} value={curriculumId}>
-                          {curriculum.title}
-                        </SelectItem>
-                      );
-                    })
-                  ) : (
-                    <SelectItem value="no-curricula" disabled>
-                      No curricula available
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <h2 className="text-lg font-semibold text-gray-900 tracking-tight mb-6">
+            Your Assignments
+          </h2>
 
-          {allLessons.length > 0 ? (
+          {learningPathLoading ? (
+            <div className="animate-pulse space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-12 bg-gray-100 rounded" />
+              ))}
+            </div>
+          ) : learningPath.length === 0 ? (
+            <p className="text-sm text-gray-400 py-8">
+              No assignments available.
+            </p>
+          ) : (
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-gray-100 text-left">
-                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider w-[56px]"> </th>
-                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider">Lesson</th>
                   <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider">Quiz</th>
-                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider">Deadline</th>
+                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider hidden sm:table-cell">Section</th>
+                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider hidden md:table-cell">Lesson</th>
+                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider">Status</th>
                   <th className="pb-3 font-medium text-gray-500 text-xs uppercase tracking-wider text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {allLessons.map((lesson: any, idx: number) => {
-                  const sectionImageUrl = lesson.sectionId
-                    ? sectionImageMap[lesson.sectionId]
-                    : null;
-                  const imageUrl =
-                    sectionImageUrl || lesson.curriculumImageUrl || "";
-                  const lessonHref = lesson.id
-                    ? `/library/${lesson.sectionId || lesson.curriculumId}/${lesson.id}`
-                    : `/library/${lesson.curriculumId}`;
-                  const quizLabel =
-                    lesson.totalQuizzes != null && lesson.totalQuizzes > 0
-                      ? `Quiz 1 – ${lesson.title}`
-                      : "Lesson content";
-                  const hasDeadline = false;
-                  const deadlineMissed = false;
-                  const deadlineDate = "";
-
-                  return (
-                    <tr
-                      key={lesson.id || idx}
-                      className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors"
-                    >
-                      <td className="py-4 pr-4 align-middle">
-                        <div className="w-11 h-11 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 shadow-sm ring-1 ring-gray-100">
-                          {imageUrl ? (
-                            <Image
-                              src={imageUrl}
-                              alt=""
-                              width={44}
-                              height={44}
-                              className="w-11 h-11 object-cover"
-                            />
-                          ) : (
-                            <div className="w-11 h-11 bg-gray-200" />
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-4 pr-4 align-middle">
-                        <span className="text-gray-800 font-normal">
-                          {lesson.title}
-                        </span>
-                      </td>
-                      <td className="py-4 pr-4 text-gray-600 font-normal text-sm">
-                        {quizLabel}
-                      </td>
-                      <td className="py-4 pr-4">
-                        {hasDeadline ? (
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-gray-800 font-medium text-sm">{deadlineDate}</span>
-                              {deadlineMissed && (
-                                <AlertTriangle className="h-3.5 w-3.5 text-amber-500 fill-amber-100 stroke-amber-500" />
-                              )}
-                            </div>
-                            {deadlineMissed && (
-                              <span className="text-xs text-gray-500">
-                                Deadline previously missed
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="py-4 text-right">
-                        <Link
-                          href={lessonHref}
-                          className="inline-flex items-center text-sm font-medium text-primaryBlue hover:text-blue-600 transition-colors"
-                        >
-                          Start
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {learningPath.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors"
+                  >
+                    <td className="py-4 pr-4 align-middle">
+                      <span className="text-gray-800 font-normal line-clamp-2">
+                        {item.quizTitle}
+                      </span>
+                    </td>
+                    <td className="py-4 pr-4 align-middle hidden sm:table-cell text-sm text-gray-500">
+                      {item.sectionTitle}
+                    </td>
+                    <td className="py-4 pr-4 align-middle hidden md:table-cell text-sm text-gray-500">
+                      {item.curriculumLessonTitle}
+                    </td>
+                    <td className="py-4 pr-4 align-middle">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
+                          STATUS_BADGE_CLASS[item.status] ?? "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {item.status.replace(/_/g, " ")}
+                      </span>
+                    </td>
+                    <td className="py-4 text-right">
+                      <Link
+                        href={`/take-quiz/${item.quizId}`}
+                        className="inline-flex items-center text-sm font-medium text-primaryBlue hover:text-blue-600 transition-colors"
+                      >
+                        Start
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
-          ) : (
-            <p className="text-sm text-gray-400 py-8">
-              No assignments available.
-            </p>
           )}
         </div>
 
@@ -454,32 +263,6 @@ function TuitionHome() {
           )}
         </div>
       </div>
-
-      {/* Progress Section */}
-      {/* <div className="my-8">
-        <div>
-          <h2 className="text-textGray font-medium text-base md:text-lg mb-2">
-            Your Progress
-          </h2>
-          <p className="text-xs text-textSubtitle">
-            Track your progress across all curricula
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-8">
-          {curriculaAsCourses.length > 0 ? (
-            curriculaAsCourses.map((course, index) => (
-              <ProgressCard
-                key={course.curriculumId || index}
-                course={course}
-              />
-            ))
-          ) : (
-            <div className="text-center py-8 text-textSubtitle col-span-full">
-              No progress data available
-            </div>
-          )}
-        </div>
-      </div> */}
 
       {/* Tutor Change Request Dialog */}
       {activeProfile?.tutorId && (

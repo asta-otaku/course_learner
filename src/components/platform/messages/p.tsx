@@ -61,9 +61,13 @@ const MessagingPlatform = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const previousMessageCountRef = useRef(0);
 
   // Reset when chat changes - MUST come before the update effect
   const activeChatRef = useRef(activeChat);
+  // Tracks the last message ID for which markAsRead was emitted, so we only
+  // call it when a genuinely new message arrives rather than on every render.
+  const lastMarkedReadIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (activeChat && activeChat !== activeChatRef.current) {
@@ -71,6 +75,8 @@ const MessagingPlatform = () => {
       setPage(1);
       setAllMessages([]);
       setHasMore(true);
+      previousMessageCountRef.current = 0;
+      lastMarkedReadIdRef.current = null;
     }
   }, [activeChat]);
 
@@ -116,39 +122,35 @@ const MessagingPlatform = () => {
     currentUserData?.data?.tutorProfile?.id
     : activeProfile?.id;
 
-  // Only scroll to bottom on initial load or when new messages arrive (not when loading more)
-  const previousMessageCountRef = useRef(0);
-
   useEffect(() => {
-    if (activeChat) {
-      const currentMessageCount = allMessages.length;
+    if (!activeChat) return;
 
-      // Scroll to bottom only if:
-      // 1. First time loading (previousCount is 0)
-      // 2. New messages added at the end (count increased and page is 1)
-      if (
-        previousMessageCountRef.current === 0 ||
-        (page === 1 && currentMessageCount > previousMessageCountRef.current)
-      ) {
-        scrollToBottom();
-      }
+    const currentMessageCount = allMessages.length;
 
-      previousMessageCountRef.current = currentMessageCount;
-      inputRef.current?.focus();
-
-      // Mark messages as read when viewing them
-      if (currentUserId && page === 1) {
-        markAsRead(activeChat, currentUserId);
-      }
+    if (
+      previousMessageCountRef.current === 0 ||
+      (page === 1 && currentMessageCount > previousMessageCountRef.current)
+    ) {
+      scrollToBottom();
     }
-  }, [
-    allMessages,
-    activeChat,
-    scrollToBottom,
-    markAsRead,
-    currentUserId,
-    page,
-  ]);
+
+    previousMessageCountRef.current = currentMessageCount;
+    inputRef.current?.focus();
+  }, [allMessages, activeChat, scrollToBottom, page]);
+
+  // Mark messages as read when the chat is opened OR when a new message
+  // arrives while the chat is already open. Using a ref to track the last
+  // marked message ID prevents the read→invalidate→refetch→read loop that
+  // would occur if we called markAsRead on every allMessages reference change.
+  useEffect(() => {
+    if (!activeChat || !currentUserId || allMessages.length === 0) return;
+
+    const lastMessage = allMessages[allMessages.length - 1];
+    if (lastMessage._id === lastMarkedReadIdRef.current) return;
+
+    lastMarkedReadIdRef.current = lastMessage._id;
+    markAsRead(activeChat, currentUserId);
+  }, [activeChat, currentUserId, allMessages, markAsRead]);
 
   useEscapeClose(() => {
     setActiveChat(null);
@@ -351,7 +353,10 @@ const MessagingPlatform = () => {
 
                     const groups = new Map<string, Message[]>();
                     for (const m of messages) {
-                      const d = new Date(m.createdAt);
+                      const d = m.createdAt ? new Date(m.createdAt) : null;
+                      // Skip messages that haven't received a server timestamp yet
+                      // (briefly true while the optimistic socket update is in flight)
+                      if (!d || isNaN(d.getTime())) continue;
                       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
                       if (!groups.has(key)) groups.set(key, []);
                       groups.get(key)!.push(m);

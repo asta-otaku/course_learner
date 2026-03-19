@@ -481,6 +481,7 @@ export interface ChildProfile {
   parentLastName: string;
   tutorFirstName: string;
   tutorLastName: string;
+  status: string;
 }
 
 export interface ParentProfile {
@@ -1187,6 +1188,42 @@ export interface LearningPath {
   curriculumLessonTitle: string;
   sectionTitle: string;
   status: string;
+}
+
+export interface SchemeOfWork {
+  quizId: string;
+  quizTitle: string;
+  sectionTitle: string;
+  lessonTitle: string;
+  orderIndex: number;
+  inLearningPath: boolean;
+  status: string;
+}
+
+export interface LearningPathSummary {
+  assigned: {
+    quizId: string;
+    quizTitle: string;
+    sectionTitle: string;
+    lessonTitle: string;
+    status: string;
+  }[];
+  upNext: {
+    quizId: string;
+    quizTitle: string;
+    sectionTitle: string;
+    lessonTitle: string;
+    status: string;
+  }[];
+}
+
+export interface LearningHistory {
+  quizAttemptId: string;
+  lessonTitle: string;
+  quizTitle: string;
+  score: number;
+  status: string;
+  completedAt: string;
 }
 
 // Export socket types

@@ -35,6 +35,9 @@ import {
   LearningPath,
   BaselineTestAttempt,
   Subscription,
+  SchemeOfWork,
+  LearningPathSummary,
+  LearningHistory,
 } from "../types";
 
 // User Queries
@@ -1149,6 +1152,39 @@ export const useGetLearningPath = (childId: string, status?: string) => {
           status,
         },
       });
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
+export const useGetChildSchemeOfWork = (childId: string) => {
+  return useQuery({
+    queryKey: ["child-scheme-of-work", childId],
+    queryFn: async (): Promise<APIGetResponse<SchemeOfWork[]>> => {
+      const response = await axiosInstance.get(`/learning-path/${childId}/scheme-of-work`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
+export const useGetChildLearningPathSummary = (childId: string) => {
+  return useQuery({
+    queryKey: ["child-learning-path-summary", childId],
+    queryFn: async (): Promise<APIGetResponse<LearningPathSummary[]>> => {
+      const response = await axiosInstance.get(`/learning-path/${childId}/learning-path-summary`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
+export const useGetChildLearningHistory = (childId: string) => {
+  return useQuery({
+    queryKey: ["child-learning-history", childId],
+    queryFn: async (): Promise<APIGetResponse<LearningHistory[]>> => {
+      const response = await axiosInstance.get(`/learning-path/${childId}/history`);
       return response.data;
     },
     enabled: !!childId,
