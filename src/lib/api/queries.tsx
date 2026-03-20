@@ -38,6 +38,7 @@ import {
   SchemeOfWork,
   LearningPathSummary,
   LearningHistory,
+  LearningPathConfig,
 } from "../types";
 
 // User Queries
@@ -1185,6 +1186,17 @@ export const useGetChildLearningHistory = (childId: string) => {
     queryKey: ["child-learning-history", childId],
     queryFn: async (): Promise<APIGetResponse<LearningHistory[]>> => {
       const response = await axiosInstance.get(`/learning-path/${childId}/history`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
+export const useGetLearningPathConfig = (childId: string) => {
+  return useQuery({
+    queryKey: ["learning-path-config", childId],
+    queryFn: async (): Promise<APIGetResponse<LearningPathConfig>> => {
+      const response = await axiosInstance.get(`/learning-path/${childId}/config`);
       return response.data;
     },
     enabled: !!childId,

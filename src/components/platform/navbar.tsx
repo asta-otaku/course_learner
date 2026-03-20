@@ -20,7 +20,11 @@ import {
   X,
 } from "lucide-react";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
-import { useGetStudentChatList } from "@/lib/api/queries";
+import {
+  useGetChildProfile,
+  useGetManageSubscription,
+  useGetStudentChatList,
+} from "@/lib/api/queries";
 import LogoutIcon from "@/assets/svgs/logout";
 import { useAuthGuard } from "../AuthGuard";
 import { logout } from "@/lib/services/axiosInstance";
@@ -39,14 +43,8 @@ export default function Navbar() {
     isChangingProfile,
   } = useSelectedProfile();
   const { isAuthenticated } = useAuthGuard();
-  const [user, setUser] = React.useState<any>({});
-
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const userData = JSON.parse(localStorage.getItem("user") || "{}");
-      setUser(userData);
-    }
-  }, []);
+  const { data: manageData } = useGetManageSubscription();
+  const { data: childProfilesData } = useGetChildProfile();
 
   const platformRoutes = [
     { name: "Dashboard", path: "/dashboard" },
@@ -63,8 +61,31 @@ export default function Navbar() {
     { name: "Sessions", path: "/sessions" },
   ];
 
+  const activeProfileId = (activeProfile as any)?.id as string | undefined;
+  const activeProfileFresh = React.useMemo(() => {
+    const list = childProfilesData?.data ?? [];
+    if (!activeProfileId) return null;
+    return list.find((p) => String(p.id) === String(activeProfileId)) ?? null;
+  }, [childProfilesData?.data, activeProfileId]);
+
+  const manageAccessLevel = React.useMemo(() => {
+    const sub = manageData?.data;
+    if (!sub?.childSubscription || !activeProfileId) return null;
+    const row = sub.childSubscription.find(
+      (r) => String(r.childProfileId) === String(activeProfileId)
+    );
+    return row?.accessLevel ?? null;
+  }, [manageData?.data, activeProfileId]);
+
+  const effectiveOfferType =
+    manageAccessLevel === "tuition"
+      ? "tuition"
+      : manageAccessLevel === "platform"
+        ? "platform"
+        : (activeProfileFresh as any)?.offerType;
+
   const routes =
-    user?.data?.offerType === "platform" ? platformRoutes : tuitionRoutes;
+    effectiveOfferType === "platform" ? platformRoutes : tuitionRoutes;
 
   const showMessagesLink = routes.some((r) => r.path === "/messages");
   const { data: chatListData } = useGetStudentChatList({

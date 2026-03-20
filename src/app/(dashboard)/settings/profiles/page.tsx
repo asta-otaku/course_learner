@@ -4,6 +4,7 @@ import BackArrow from "@/assets/svgs/arrowback";
 import { ArrowRightIcon } from "@/assets/svgs/arrowRight";
 import EditPencilIcon from "@/assets/svgs/editPencil";
 import React, { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -32,7 +33,11 @@ import { z } from "zod";
 import { toast } from "react-toastify";
 
 function Page() {
-  const { data: childProfiles } = useGetChildProfile();
+  const router = useRouter();
+  const {
+    data: childProfiles,
+    refetch: refetchChildProfiles,
+  } = useGetChildProfile();
   const {
     data: manageData,
     isLoading: manageLoading,
@@ -55,6 +60,32 @@ function Page() {
     "platform" | "tuition"
   >("platform");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const syncChildProfilesToLocalStorage = async (
+    activeProfileId?: string
+  ) => {
+    if (typeof window === "undefined") return;
+
+    const fresh = await refetchChildProfiles();
+    const updatedProfiles: ChildProfile[] = fresh.data?.data ?? [];
+
+    // Keep localStorage aligned with the server response, so `useSelectedProfile`
+    // (which reads localStorage) reflects new/edited children immediately.
+    localStorage.setItem("childProfiles", JSON.stringify(updatedProfiles));
+    window.dispatchEvent(new Event("childProfilesUpdate"));
+
+    if (activeProfileId) {
+      const target = updatedProfiles.find(
+        (p) => String(p.id) === String(activeProfileId)
+      );
+      if (target) {
+        localStorage.setItem("activeProfile", JSON.stringify(target));
+        window.dispatchEvent(
+          new CustomEvent("activeProfileChange", { detail: target })
+        );
+      }
+    }
+  };
 
   // Initialize mutation after selectedProfile is available
   const { mutateAsync: patchUpdateChildProfile, isPending: isUpdating } =
@@ -83,7 +114,8 @@ function Page() {
   });
 
   const watchedName = watch("name");
-  // Do not cache child profiles in localStorage; always rely on fresh API data.
+  // Keep localStorage in sync with the server so `useSelectedProfile` updates
+  // immediately after create/edit/deactivate actions (no logout needed).
 
   useEffect(() => {
     if (childProfiles?.data) {
@@ -155,7 +187,26 @@ function Page() {
         const res = await patchUpdateChildProfile(updateData);
 
         if (res.status === 200) {
-          toast.success("Profile updated successfully!");
+          toast.success(res.data.message);
+
+          // Refresh children list + localStorage cache that `useSelectedProfile` reads.
+          const storedActiveRaw = localStorage.getItem("activeProfile");
+          const storedActiveId = storedActiveRaw
+            ? (() => {
+              try {
+                return String(JSON.parse(storedActiveRaw)?.id);
+              } catch {
+                return null;
+              }
+            })()
+            : null;
+
+          await syncChildProfilesToLocalStorage(
+            storedActiveId === String(selectedProfile.id)
+              ? String(selectedProfile.id)
+              : undefined
+          );
+
           setAvatarData({ avatar: null, avatarFile: null });
           setStep(0);
           setIsEditMode(false);
@@ -204,8 +255,15 @@ function Page() {
           }
 
           toast.success("Profile created successfully!");
+
+          // Refresh list + switch active profile immediately so the navbar/routes update.
+          await syncChildProfilesToLocalStorage(String(createdId));
+
           setAvatarData({ avatar: null, avatarFile: null });
           setStep(0);
+
+          // Route to the new child's dashboard.
+          router.push("/dashboard");
         }
       }
     } catch (error) {
@@ -506,6 +564,7 @@ function Page() {
                               });
                               if (res.status === 200) {
                                 toast.success(res.data.message);
+                                await syncChildProfilesToLocalStorage();
                                 setStep(0);
                               }
                             }}

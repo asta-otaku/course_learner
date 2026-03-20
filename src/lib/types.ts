@@ -1226,5 +1226,11 @@ export interface LearningHistory {
   completedAt: string;
 }
 
+export interface LearningPathConfig {
+  weeklyQuota: number;
+  isPaused: boolean;
+  pauseUntil: string | null;
+}
+
 // Export socket types
 export * from "./types/socket";

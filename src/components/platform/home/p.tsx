@@ -151,18 +151,13 @@ function Home() {
 
   const renderHeader = () => (
     <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
-      <div className="flex items-center gap-2">
-        <img
-          src={activeProfile?.avatar || profileIcon}
-          alt="Profile Icon"
-          width={0}
-          height={0}
-          className="rounded-full w-10 h-10 object-cover"
-        />
-        <div className="flex flex-col gap-1 items-start">
-          <p className="font-medium text-sm text-textSubtitle ml-1">
-            Welcome, <span className="text-textGray text-sm capitalize font-semibold">{activeProfile?.name}</span>
-          </p>
+      <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
+        <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-1 items-start">
+            <p className="font-medium text-sm text-textSubtitle ml-1">
+              Welcome, <span className="text-textGray text-sm capitalize font-semibold">{activeProfile?.name}</span>
+            </p>
+          </div>
         </div>
       </div>
       {/* <Streak streakDays={12} /> */}

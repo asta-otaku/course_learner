@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   useGetChildProfileById,
@@ -8,8 +8,15 @@ import {
   useGetChildSchemeOfWork,
   useGetChildLearningPathSummary,
   useGetChildLearningHistory,
+  useGetChildBaselineTest,
+  useGetChildBaselineTestEntries,
+  useGetYearGroups,
+  useGetLearningPathConfig,
 } from "@/lib/api/queries";
-import type { LearningPathSummary } from "@/lib/types";
+import {
+  usePatchLearningPathConfig,
+  usePostAssignBaselineTest,
+} from "@/lib/api/mutations";
 import { Badge } from "@/components/ui/badge";
 import BackArrow from "@/assets/svgs/arrowback";
 import MailIcon from "@/assets/svgs/mail";
@@ -22,10 +29,29 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { usePostCreateChat } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import { format } from "date-fns";
+import type { LearningPathSummary } from "@/lib/types";
+
+// ── helpers ──────────────────────────────────────────────────────────────────
 
 const statusBadgeClass: Record<string, string> = {
   completed: "bg-green-100 text-green-700",
@@ -36,6 +62,48 @@ const statusBadgeClass: Record<string, string> = {
   passed: "bg-green-100 text-green-700",
   "forced complete": "bg-purple-100 text-purple-700",
 };
+
+/** Returns the next `count` upcoming Mondays from today */
+function getUpcomingMondays(count = 8): Date[] {
+  const result: Date[] = [];
+  const now = new Date();
+  const day = now.getDay(); // 0 = Sun
+  const daysUntil = day === 0 ? 1 : 8 - day;
+  const base = new Date(now);
+  base.setDate(now.getDate() + daysUntil);
+  base.setHours(0, 0, 0, 0);
+  for (let i = 0; i < count; i++) {
+    const m = new Date(base);
+    m.setDate(base.getDate() + i * 7);
+    result.push(m);
+  }
+  return result;
+}
+
+// ── sub-components ────────────────────────────────────────────────────────────
+
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <div className="font-medium border px-4 py-2.5 rounded-xl bg-white text-sm">
+      {label}
+    </div>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex justify-between items-center text-sm py-1">
+      <span className="text-textSubtitle font-medium text-xs">{label}</span>
+      <span className="font-medium text-right">{value ?? "—"}</span>
+    </div>
+  );
+}
 
 function EmptyState({ message }: { message: string }) {
   return (
@@ -62,12 +130,16 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+// ── main component ────────────────────────────────────────────────────────────
+
 export default function StudentPage({ id }: { id: string }) {
   const router = useRouter();
+
+  // Profile
   const { data: profileData, isLoading, error } = useGetChildProfileById(id);
   const profile = profileData?.data;
 
-  // Get tutor information
+  // Tutor info
   const { data: tutorProfileResponse } = useGetCurrentUser();
   const tutorProfile = tutorProfileResponse?.data;
   //@ts-ignore
@@ -79,23 +151,86 @@ export default function StudentPage({ id }: { id: string }) {
 
   const { mutateAsync: createChat } = usePostCreateChat();
 
-  // Fetch scheme of work
+  // Right-panel data
   const { data: schemeData, isLoading: schemeLoading } =
     useGetChildSchemeOfWork(id);
   const schemeOfWork = schemeData?.data || [];
 
-  // Fetch learning path summary (student work)
-  // The query is typed as LearningPathSummary[] but the API returns a single object
   const { data: summaryData, isLoading: summaryLoading } =
     useGetChildLearningPathSummary(id);
   const learningPathSummary = summaryData?.data as LearningPathSummary | undefined;
 
-  // Fetch learning history
   const { data: historyData, isLoading: historyLoading } =
     useGetChildLearningHistory(id);
   const learningHistory = historyData?.data || [];
 
-  // Group scheme of work by lesson
+  // Left-panel: baseline
+  const { data: baselineTestData } = useGetChildBaselineTest(id);
+  const baselineTest = baselineTestData?.data;
+
+  const { data: baselineAttemptsData, isLoading: attemptsLoading } =
+    useGetChildBaselineTestEntries(id);
+  const baselineAttempts = baselineAttemptsData?.data || [];
+  const latestAttempt =
+    baselineAttempts.length > 0 ? baselineAttempts[baselineAttempts.length - 1] : null;
+
+  // Left-panel: year groups for modal
+  const { data: yearGroupsData } = useGetYearGroups();
+  const yearGroups = yearGroupsData?.data || [];
+
+  // Left-panel: config (quota / pause)
+  const { data: configData } = useGetLearningPathConfig(id);
+  const serverConfig = configData?.data;
+
+  // Local config state — synced from server
+  const [quota, setQuota] = useState(2);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pauseUntil, setPauseUntil] = useState("");
+
+  useEffect(() => {
+    if (serverConfig) {
+      setQuota(serverConfig.weeklyQuota ?? 2);
+      setIsPaused(serverConfig.isPaused ?? false);
+      setPauseUntil(serverConfig.pauseUntil ?? "");
+    }
+  }, [serverConfig]);
+
+  const { mutateAsync: patchConfig, isPending: savingConfig } =
+    usePatchLearningPathConfig();
+
+  const saveConfig = async (patch: Partial<{ weeklyQuota: number; isPaused: boolean; pauseUntil: string | null }>) => {
+    try {
+      await patchConfig({ childId: id, data: patch });
+      toast.success("Settings saved");
+    } catch {
+      // error handled inside mutation
+    }
+  };
+
+  // Baseline modals
+  const [showResultsDialog, setShowResultsDialog] = useState(false);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [selectedYearGroupId, setSelectedYearGroupId] = useState("");
+
+  const { mutateAsync: assignBaseline, isPending: assigning } =
+    usePostAssignBaselineTest();
+
+  const handleAssignBaseline = async () => {
+    if (!selectedYearGroupId) {
+      toast.error("Please select a year group");
+      return;
+    }
+    try {
+      await assignBaseline({ childId: id, yearGroupId: selectedYearGroupId });
+      toast.success("Baseline test assigned");
+      setShowAssignDialog(false);
+      setSelectedYearGroupId("");
+    } catch {
+      // handled inside mutation
+    }
+  };
+
+  // Group scheme of work by lesson for the Scheme of Work tab
   const schemeGrouped = useMemo(() => {
     const map = new Map<string, typeof schemeOfWork>();
     for (const item of schemeOfWork) {
@@ -106,41 +241,49 @@ export default function StudentPage({ id }: { id: string }) {
     return Array.from(map.entries());
   }, [schemeOfWork]);
 
+  // Progress snapshot — derived from scheme of work (inLearningPath items only)
+  const snapshot = useMemo(() => {
+    const inPath = schemeOfWork.filter((s) => s.inLearningPath);
+    return {
+      total: inPath.length,
+      passed: inPath.filter((s) => s.status === "completed").length,
+      skipped: inPath.filter((s) => s.status === "skipped").length,
+      remaining: inPath.filter((s) => s.status === "queue").length,
+      forcedComplete: inPath.filter((s) => s.status === "max_failed").length,
+    };
+  }, [schemeOfWork]);
+
+  // Baseline completed = at least one attempt exists
+  const baselinePending =
+    !!baselineTest && baselineAttempts.length === 0;
+
   const handleMessage = async () => {
-    if (
-      !tutorId ||
-      !id ||
-      !tutorFirstName ||
-      !tutorLastName ||
-      !profile?.name
-    ) {
+    if (!tutorId || !id || !tutorFirstName || !tutorLastName || !profile?.name) {
       toast.error("Unable to create chat. Missing information.");
       return;
     }
-
     try {
       const chat = await createChat({
-        tutorId: tutorId,
+        tutorId,
         childId: id,
         tutorName: `${tutorFirstName} ${tutorLastName}`,
         childName: profile.name,
       });
-
       if (chat.status === 201) {
         toast.success(chat.data.message);
-        router.push(`/tutor/messages`);
+        router.push("/tutor/messages");
       }
-    } catch (error) {
-      console.error("Failed to create chat:", error);
+    } catch {
+      console.error("Failed to create chat");
     }
   };
 
+  const upcomingMondays = getUpcomingMondays(8);
+
   if (isLoading) {
     return (
-      <div className="p-8">
-        <div className="flex items-center justify-center py-8">
-          <div className="text-gray-500">Loading student details...</div>
-        </div>
+      <div className="p-8 flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
       </div>
     );
   }
@@ -151,364 +294,633 @@ export default function StudentPage({ id }: { id: string }) {
 
   return (
     <div className="flex flex-col md:flex-row h-full min-h-[90vh]">
-      {/* Left: Student Details */}
-      <div className="w-full md:w-2/5 p-6 m-4 flex flex-col gap-6">
+      {/* ── LEFT PANEL ─────────────────────────────────────────────────────── */}
+      <div className="w-full md:w-2/5 p-6 m-4 flex flex-col gap-5 overflow-y-auto max-h-[90vh]">
         <button
           className="flex items-center gap-2 text-gray-500 hover:text-black"
           onClick={() => router.back()}
         >
           <BackArrow color="#808080" />
         </button>
-        <div className="flex flex-col items-start gap-4">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={profile.avatar || ""}
-                  alt={profile.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      "https://via.placeholder.com/80x80?text=Avatar";
-                  }}
-                />
-              </div>
-              <div>
-                <div className="font-semibold text-lg text-gray-900">
-                  {profile.name}
-                </div>
-              </div>
+
+        {/* Profile header */}
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={profile.avatar || ""}
+                alt={profile.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src =
+                    "https://via.placeholder.com/80x80?text=Avatar";
+                }}
+              />
             </div>
-            <span className="cursor-pointer" onClick={handleMessage}>
-              <MailIcon />
-            </span>
+            <div className="font-semibold text-lg text-gray-900">
+              {profile.name}
+            </div>
           </div>
-          <div className="flex flex-col gap-2 w-full">
-            <div className="font-medium border px-4 py-2.5 rounded-xl bg-white">
-              DETAILS
-            </div>
-            <div className="flex gap-1 w-full justify-between text-sm">
-              <div className="flex flex-col gap-3">
-                <span className="text-textSubtitle font-medium text-xs">
-                  Year
+          <span className="cursor-pointer" onClick={handleMessage}>
+            <MailIcon />
+          </span>
+        </div>
+
+        {/* ── DETAILS ─────────────────────────────────────────────────────── */}
+        <div className="flex flex-col gap-2">
+          <SectionHeader label="DETAILS" />
+          <InfoRow label="Year" value={profile.year} />
+          <InfoRow
+            label="Subscription"
+            value={
+              <div className="flex items-center gap-2">
+                <span>
+                  {profile.offerType === "platform" ? "The Platform" : "Tuition"}
                 </span>
-                <span className="font-medium">{profile.year}</span>
-              </div>
-              <div className="flex flex-col gap-3">
-                <span className="text-textSubtitle font-medium text-xs">
-                  Subscription Type
-                </span>
-                <div className="flex gap-2">
-                  <span className="font-medium text-sm">
-                    {profile.offerType === "platform"
-                      ? "The Platform"
-                      : "Tuition"}
-                  </span>
-                  <Badge
-                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${profile.status === "active"
+                <Badge
+                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    profile.status === "active"
                       ? "bg-[#34C759] text-white"
                       : profile.status === "not-active"
                         ? "bg-red-500 text-white"
                         : "bg-gray-500 text-white"
-                      }`}
-                  >
-                    {profile.status === "active" ? "Active" : profile.status === "not-active" ? "Inactive" : "Pending"}
-                  </Badge>
-                </div>
+                  }`}
+                >
+                  {profile.status === "active"
+                    ? "Active"
+                    : profile.status === "not-active"
+                      ? "Inactive"
+                      : "Pending"}
+                </Badge>
               </div>
-              <div className="flex flex-col gap-3">
-                <span className="text-textSubtitle font-medium text-xs">
-                  Joined
-                </span>
-                <span className="font-medium">
-                  {new Date(profile.createdAt).toLocaleDateString("en-GB", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </span>
-              </div>
+            }
+          />
+          <InfoRow
+            label="Joined"
+            value={new Date(profile.createdAt).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            })}
+          />
+        </div>
+
+        {/* ── BASELINE TEST SUMMARY ────────────────────────────────────────── */}
+        <div className="flex flex-col gap-2">
+          <SectionHeader label="BASELINE TEST" />
+
+          {baselinePending && (
+            <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Baseline assigned — awaiting completion. Right panel is locked
+              until the student completes it.
             </div>
+          )}
+
+          <InfoRow
+            label="Year Group"
+            value={baselineTest?.yearGroup ?? null}
+          />
+          <InfoRow
+            label="Score"
+            value={
+              latestAttempt
+                ? `${Math.round(latestAttempt.percentage ?? 0)}%`
+                : null
+            }
+          />
+          <InfoRow
+            label="Date Taken"
+            value={
+              latestAttempt?.submittedAt
+                ? format(new Date(latestAttempt.submittedAt), "d MMM yyyy")
+                : null
+            }
+          />
+
+          <div className="flex gap-2 mt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs"
+              disabled={baselineAttempts.length === 0}
+              onClick={() => setShowResultsDialog(true)}
+            >
+              View Results
+            </Button>
+            <Button
+              size="sm"
+              className="flex-1 text-xs bg-primaryBlue hover:bg-primaryBlue/90"
+              onClick={() => setShowAssignDialog(true)}
+            >
+              Assign New
+            </Button>
           </div>
         </div>
-      </div>
-      {/* Right: Tabbed Content */}
-      <div className="w-full md:w-3/5 flex flex-col p-4 gap-4 md:border-l border-gray-200">
-        <Tabs defaultValue="scheme" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="scheme">Scheme of Work</TabsTrigger>
-            <TabsTrigger value="student-work">Student Work</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
-          </TabsList>
 
-          {/* ── Scheme of Work ── */}
-          <TabsContent value="scheme">
-            {schemeLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-primaryBlue" />
-              </div>
-            ) : schemeOfWork.length === 0 ? (
-              <EmptyState message="No scheme of work available for this student." />
-            ) : (
-              <div className="space-y-6 overflow-y-auto max-h-[70vh] pr-1">
-                {schemeGrouped.map(([lesson, items]) => (
-                  <div key={lesson}>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2 px-1">
-                      {lesson}
-                    </p>
-                    <div className="rounded-md border overflow-hidden">
-                      {items.map((item, idx) => {
-                        const isInPath = item.inLearningPath;
-                        const isAssigned = item.status === "assigned";
-                        const isQueue = item.status === "queue";
-                        const isCompleted = item.status === "completed";
-                        return (
-                          <div
-                            key={item.quizId}
-                            className={`flex items-center gap-3 px-4 py-3 border-b last:border-b-0 transition-colors ${!isInPath
-                                ? "opacity-40 bg-gray-50"
-                                : isAssigned
-                                  ? "bg-blue-50 border-l-4 border-l-primaryBlue"
-                                  : isQueue
-                                    ? "bg-white"
-                                    : isCompleted
-                                      ? "bg-green-50/40"
-                                      : "bg-white"
-                              }`}
-                          >
-                            {/* Order indicator */}
-                            <span className="text-xs text-gray-400 w-5 shrink-0 text-right font-mono">
-                              {item.orderIndex ?? idx + 1}
-                            </span>
+        {/* ── PROGRESS SNAPSHOT ────────────────────────────────────────────── */}
+        <div className="flex flex-col gap-2">
+          <SectionHeader label="PROGRESS SNAPSHOT" />
+          <InfoRow label="Total in path" value={snapshot.total} />
+          <InfoRow
+            label="Passed"
+            value={
+              <span className="text-green-600 font-semibold">
+                {snapshot.passed}
+              </span>
+            }
+          />
+          <InfoRow
+            label="Remaining"
+            value={
+              <span className="text-yellow-600 font-semibold">
+                {snapshot.remaining}
+              </span>
+            }
+          />
+          <InfoRow
+            label="Skipped"
+            value={
+              <span className="text-gray-500 font-semibold">
+                {snapshot.skipped}
+              </span>
+            }
+          />
+          <InfoRow
+            label="Forced complete"
+            value={
+              <span className="text-red-500 font-semibold">
+                {snapshot.forcedComplete}
+              </span>
+            }
+          />
+        </div>
 
-                            {/* Quiz info */}
-                            <div className="flex-1 min-w-0">
-                              <p
-                                className={`text-sm font-medium truncate ${!isInPath ? "text-gray-400" : "text-gray-900"
-                                  }`}
-                              >
-                                {item.quizTitle}
-                              </p>
-                              <p className="text-xs text-gray-400 truncate">
-                                {item.sectionTitle}
-                              </p>
-                            </div>
+        {/* ── CONTROLS ─────────────────────────────────────────────────────── */}
+        <div className="flex flex-col gap-3">
+          <SectionHeader label="CONTROLS" />
 
-                            {/* Status badge */}
-                            {isInPath ? (
-                              <Badge
-                                className={`text-xs font-medium capitalize shrink-0 ${statusBadgeClass[item.status] ??
-                                  "bg-gray-100 text-gray-600"
-                                  } ${isAssigned
-                                    ? "ring-1 ring-blue-300"
-                                    : ""
-                                  }`}
-                              >
-                                {isAssigned && (
-                                  <span className="mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                                )}
-                                {item.status.replace(/_/g, " ")}
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-gray-300 shrink-0">
-                                not in path
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+          {/* Weekly quota */}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-textSubtitle font-medium text-xs">
+              Weekly Quota
+            </span>
+            <Select
+              value={String(quota)}
+              onValueChange={(v) => {
+                const n = Number(v);
+                setQuota(n);
+                saveConfig({ weeklyQuota: n });
+              }}
+            >
+              <SelectTrigger className="w-20 h-7 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
                 ))}
-              </div>
-            )}
-          </TabsContent>
+              </SelectContent>
+            </Select>
+          </div>
 
-          {/* ── Student Work ── */}
-          <TabsContent value="student-work">
-            {summaryLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-primaryBlue" />
-              </div>
-            ) : !learningPathSummary ? (
-              <EmptyState message="No student work data available." />
-            ) : (
-              <div className="space-y-6 overflow-y-auto max-h-[70vh] pr-1">
-                {/* Assigned */}
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2 px-1">
-                    Assigned
-                  </p>
-                  {learningPathSummary.assigned?.length > 0 ? (
-                    <div className="rounded-md border overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Quiz</TableHead>
-                            <TableHead>Section</TableHead>
-                            <TableHead>Lesson</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {learningPathSummary.assigned.map((item) => (
-                            <TableRow key={item.quizId}>
-                              <TableCell className="font-medium text-sm max-w-[160px]">
-                                <span className="line-clamp-2">
-                                  {item.quizTitle}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-sm text-gray-500">
-                                {item.sectionTitle}
-                              </TableCell>
-                              <TableCell className="text-sm text-gray-500">
-                                {item.lessonTitle}
-                              </TableCell>
-                              <TableCell>
-                                <Badge
-                                  className={`text-xs font-medium capitalize ${statusBadgeClass[item.status] ??
-                                    "bg-gray-100 text-gray-600"
-                                    }`}
-                                >
-                                  {item.status.replace(/_/g, " ")}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-400 px-1">
-                      No assigned quizzes.
-                    </p>
-                  )}
+          {/* Pause toggle */}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-textSubtitle font-medium text-xs">
+              Pause Assignments
+            </span>
+            <Switch
+              checked={isPaused}
+              onCheckedChange={(checked) => {
+                setIsPaused(checked);
+                if (!checked) {
+                  setPauseUntil("");
+                  saveConfig({ isPaused: false, pauseUntil: null });
+                } else {
+                  saveConfig({ isPaused: true });
+                }
+              }}
+            />
+          </div>
+
+          {/* Pause-until date (Mondays only) */}
+          {isPaused && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-textSubtitle font-medium text-xs">
+                Paused until
+              </span>
+              <Select
+                value={pauseUntil}
+                onValueChange={(v) => {
+                  setPauseUntil(v);
+                  saveConfig({ pauseUntil: v });
+                }}
+              >
+                <SelectTrigger className="w-36 h-7 text-xs">
+                  <SelectValue placeholder="Select Monday" />
+                </SelectTrigger>
+                <SelectContent>
+                  {upcomingMondays.map((d) => {
+                    const iso = d.toISOString().split("T")[0];
+                    return (
+                      <SelectItem key={iso} value={iso}>
+                        {format(d, "EEE d MMM")}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {savingConfig && (
+            <p className="text-xs text-gray-400 flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* ── RIGHT PANEL ────────────────────────────────────────────────────── */}
+      <div className="w-full md:w-3/5 flex flex-col p-4 gap-4 md:border-l border-gray-200">
+        {baselinePending ? (
+          <div className="flex flex-col items-center justify-center h-full py-24 gap-3 text-center">
+            <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center">
+              <Lock className="h-6 w-6 text-amber-500" />
+            </div>
+            <p className="font-semibold text-gray-800">
+              Baseline Test Pending
+            </p>
+            <p className="text-sm text-gray-500 max-w-xs">
+              This student has been assigned a baseline test. Progress and
+              assignments will be available once it is completed.
+            </p>
+          </div>
+        ) : (
+          <Tabs defaultValue="scheme" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="scheme">Scheme of Work</TabsTrigger>
+              <TabsTrigger value="student-work">Student Work</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
+            </TabsList>
+
+            {/* ── Scheme of Work ── */}
+            <TabsContent value="scheme">
+              {schemeLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-primaryBlue" />
                 </div>
-
-                {/* Up Next */}
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2 px-1">
-                    Up Next
-                  </p>
-                  {learningPathSummary.upNext?.length > 0 ? (
-                    <div className="rounded-md border overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Quiz</TableHead>
-                            <TableHead>Section</TableHead>
-                            <TableHead>Lesson</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {learningPathSummary.upNext.map((item) => (
-                            <TableRow key={item.quizId}>
-                              <TableCell className="font-medium text-sm max-w-[160px]">
-                                <span className="line-clamp-2">
-                                  {item.quizTitle}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-sm text-gray-500">
-                                {item.sectionTitle}
-                              </TableCell>
-                              <TableCell className="text-sm text-gray-500">
-                                {item.lessonTitle}
-                              </TableCell>
-                              <TableCell>
-                                <Badge
-                                  className={`text-xs font-medium capitalize ${statusBadgeClass[item.status] ??
-                                    "bg-gray-100 text-gray-600"
-                                    }`}
-                                >
-                                  {item.status.replace(/_/g, " ")}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-400 px-1">
-                      No upcoming quizzes.
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-          </TabsContent>
-
-          {/* ── History ── */}
-          <TabsContent value="history">
-            {historyLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-primaryBlue" />
-              </div>
-            ) : learningHistory.length === 0 ? (
-              <EmptyState message="No history available for this student." />
-            ) : (
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Lesson</TableHead>
-                      <TableHead>Quiz</TableHead>
-                      <TableHead>Score</TableHead>
-                      <TableHead>Result</TableHead>
-                      <TableHead>Completed</TableHead>
-                      <TableHead>Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {learningHistory.map((item) => (
-                      <TableRow key={item.quizAttemptId}>
-                        <TableCell className="text-sm text-gray-700">
-                          {item.lessonTitle}
-                        </TableCell>
-                        <TableCell className="text-sm font-medium max-w-[160px]">
-                          <span className="line-clamp-2">{item.quizTitle}</span>
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-700">
-                          {item.score}%
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            className={`text-xs font-medium capitalize ${statusBadgeClass[
-                              item.status?.toLowerCase()
-                              ] ?? "bg-gray-100 text-gray-600"
+              ) : schemeOfWork.length === 0 ? (
+                <EmptyState message="No scheme of work available for this student." />
+              ) : (
+                <div className="space-y-6 overflow-y-auto max-h-[70vh] pr-1">
+                  {schemeGrouped.map(([lesson, items]) => (
+                    <div key={lesson}>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2 px-1">
+                        {lesson}
+                      </p>
+                      <div className="rounded-md border overflow-hidden">
+                        {items.map((item, idx) => {
+                          const isInPath = item.inLearningPath;
+                          const isAssigned = item.status === "assigned";
+                          const isQueue = item.status === "queue";
+                          const isCompleted = item.status === "completed";
+                          return (
+                            <div
+                              key={item.quizId}
+                              className={`flex items-center gap-3 px-4 py-3 border-b last:border-b-0 transition-colors ${
+                                !isInPath
+                                  ? "opacity-40 bg-gray-50"
+                                  : isAssigned
+                                    ? "bg-blue-50 border-l-4 border-l-primaryBlue"
+                                    : isQueue
+                                      ? "bg-white"
+                                      : isCompleted
+                                        ? "bg-green-50/40"
+                                        : "bg-white"
                               }`}
-                          >
-                            {item.status}
-                          </Badge>
+                            >
+                              <span className="text-xs text-gray-400 w-5 shrink-0 text-right font-mono">
+                                {item.orderIndex ?? idx + 1}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p
+                                  className={`text-sm font-medium truncate ${
+                                    !isInPath ? "text-gray-400" : "text-gray-900"
+                                  }`}
+                                >
+                                  {item.quizTitle}
+                                </p>
+                                <p className="text-xs text-gray-400 truncate">
+                                  {item.sectionTitle}
+                                </p>
+                              </div>
+                              {isInPath ? (
+                                <Badge
+                                  className={`text-xs font-medium capitalize shrink-0 ${
+                                    statusBadgeClass[item.status] ??
+                                    "bg-gray-100 text-gray-600"
+                                  } ${isAssigned ? "ring-1 ring-blue-300" : ""}`}
+                                >
+                                  {isAssigned && (
+                                    <span className="mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                  )}
+                                  {item.status.replace(/_/g, " ")}
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-gray-300 shrink-0">
+                                  not in path
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ── Student Work ── */}
+            <TabsContent value="student-work">
+              {summaryLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-primaryBlue" />
+                </div>
+              ) : !learningPathSummary ? (
+                <EmptyState message="No student work data available." />
+              ) : (
+                <div className="space-y-6 overflow-y-auto max-h-[70vh] pr-1">
+                  {(["assigned", "upNext"] as const).map((section) => (
+                    <div key={section}>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2 px-1">
+                        {section === "assigned" ? "Assigned" : "Up Next"}
+                      </p>
+                      {learningPathSummary[section]?.length > 0 ? (
+                        <div className="rounded-md border overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Quiz</TableHead>
+                                <TableHead>Section</TableHead>
+                                <TableHead>Lesson</TableHead>
+                                <TableHead>Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {learningPathSummary[section].map((item) => (
+                                <TableRow key={item.quizId}>
+                                  <TableCell className="font-medium text-sm max-w-[160px]">
+                                    <span className="line-clamp-2">
+                                      {item.quizTitle}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-sm text-gray-500">
+                                    {item.sectionTitle}
+                                  </TableCell>
+                                  <TableCell className="text-sm text-gray-500">
+                                    {item.lessonTitle}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      className={`text-xs font-medium capitalize ${
+                                        statusBadgeClass[item.status] ??
+                                        "bg-gray-100 text-gray-600"
+                                      }`}
+                                    >
+                                      {item.status.replace(/_/g, " ")}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400 px-1">
+                          {section === "assigned"
+                            ? "No assigned quizzes."
+                            : "No upcoming quizzes."}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ── History ── */}
+            <TabsContent value="history">
+              {historyLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-primaryBlue" />
+                </div>
+              ) : learningHistory.length === 0 ? (
+                <EmptyState message="No history available for this student." />
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Lesson</TableHead>
+                        <TableHead>Quiz</TableHead>
+                        <TableHead>Score</TableHead>
+                        <TableHead>Result</TableHead>
+                        <TableHead>Completed</TableHead>
+                        <TableHead>Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {learningHistory.map((item) => (
+                        <TableRow key={item.quizAttemptId}>
+                          <TableCell className="text-sm text-gray-700">
+                            {item.lessonTitle}
+                          </TableCell>
+                          <TableCell className="text-sm font-medium max-w-[160px]">
+                            <span className="line-clamp-2">
+                              {item.quizTitle}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-700">
+                            {item.score}%
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={`text-xs font-medium capitalize ${
+                                statusBadgeClass[item.status?.toLowerCase()] ??
+                                "bg-gray-100 text-gray-600"
+                              }`}
+                            >
+                              {item.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-500 whitespace-nowrap">
+                            {item.completedAt
+                              ? format(new Date(item.completedAt), "d MMM")
+                              : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <button
+                              className="text-sm text-primaryBlue font-medium hover:underline"
+                              onClick={() =>
+                                router.push(
+                                  `/tutor/homework/${item.quizAttemptId}/review`
+                                )
+                              }
+                            >
+                              View
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        )}
+      </div>
+
+      {/* ── BASELINE RESULTS DIALOG ──────────────────────────────────────── */}
+      <Dialog open={showResultsDialog} onOpenChange={setShowResultsDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Baseline Test Results</DialogTitle>
+          </DialogHeader>
+
+          {attemptsLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primaryBlue" />
+            </div>
+          ) : baselineAttempts.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-8">
+              No attempts recorded yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Test</TableHead>
+                    <TableHead className="text-center">Score</TableHead>
+                    <TableHead className="text-center">Submitted</TableHead>
+                    <TableHead className="text-center">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {baselineAttempts.map((attempt) => {
+                    const passed = attempt.percentage >= 50;
+                    return (
+                      <TableRow key={attempt.id}>
+                        <TableCell className="font-medium text-sm">
+                          <p className="line-clamp-1">
+                            {attempt.baselineTestTitle}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {attempt.submittedAt
+                              ? format(
+                                  new Date(attempt.submittedAt),
+                                  "MMM d, yyyy"
+                                )
+                              : "—"}
+                          </p>
                         </TableCell>
-                        <TableCell className="text-sm text-gray-500 whitespace-nowrap">
-                          {item.completedAt
-                            ? format(new Date(item.completedAt), "d MMM")
+                        <TableCell className="text-center">
+                          <span
+                            className={`font-semibold text-sm ${
+                              passed ? "text-green-600" : "text-red-500"
+                            }`}
+                          >
+                            {Math.round(attempt.score ?? 0)} (
+                            {Math.round(attempt.percentage ?? 0)}%)
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground">
+                          {attempt.submittedAt
+                            ? format(new Date(attempt.submittedAt), "d MMM")
                             : "—"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">
                           <button
                             className="text-sm text-primaryBlue font-medium hover:underline"
-                            onClick={() =>
+                            onClick={() => {
+                              setShowResultsDialog(false);
                               router.push(
-                                `/tutor/homework/${item.quizAttemptId}/review`
-                              )
-                            }
+                                `/baseline-results/${attempt.quizAttemptId}/review`
+                              );
+                            }}
                           >
-                            View
+                            Review
                           </button>
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── ASSIGN BASELINE DIALOG ───────────────────────────────────────── */}
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Assign Baseline Test</DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-gray-500">
+            Assigning a new baseline test will archive the current learning
+            path and lock progress until the test is completed.
+          </p>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-gray-700">
+              Year Group
+            </label>
+            <Select
+              value={selectedYearGroupId}
+              onValueChange={setSelectedYearGroupId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select year group…" />
+              </SelectTrigger>
+              <SelectContent>
+                {yearGroups.map((yg) => (
+                  <SelectItem key={yg.id} value={yg.id}>
+                    {yg.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowAssignDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-primaryBlue hover:bg-primaryBlue/90"
+              onClick={handleAssignBaseline}
+              disabled={!selectedYearGroupId || assigning}
+            >
+              {assigning ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Confirm"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

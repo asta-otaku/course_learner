@@ -36,6 +36,7 @@ import {
   BaselineTest,
   QuizMasterList,
   BaselineTestEntry,
+  LearningPathConfig,
 } from "../types";
 
 // Helper function to handle error messages
@@ -2084,6 +2085,64 @@ export const useDeleteBaselineTestEntry = (
         queryKey: ["baseline-test-entry", baselineTestId],
       });
       return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Learning Path Config Mutations
+export const usePatchLearningPathConfig = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-learning-path-config"],
+    mutationFn: async ({
+      childId,
+      data,
+    }: {
+      childId: string;
+      data: Partial<LearningPathConfig>;
+    }): Promise<ApiResponse<LearningPathConfig>> =>
+      axiosInstance.patch(`/learning-path/${childId}/config`, data),
+    onSuccess: (_, { childId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["learning-path-config", childId],
+      });
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostAssignBaselineTest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-assign-baseline-test"],
+    mutationFn: async ({
+      childId,
+      yearGroupId,
+    }: {
+      childId: string;
+      yearGroupId: string;
+    }): Promise<ApiResponse<BaselineTest>> =>
+      axiosInstance.post(`/learning-path/${childId}/assign-baseline`, {
+        yearGroupId,
+      }),
+    onSuccess: (_, { childId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["child-baseline-test", childId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["child-baseline-test-entries", childId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["child-scheme-of-work", childId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["child-learning-path-summary", childId],
+      });
     },
     onError: (error: AxiosError) => {
       handleErrorMessage(error);

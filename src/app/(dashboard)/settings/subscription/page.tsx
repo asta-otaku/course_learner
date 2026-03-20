@@ -137,9 +137,10 @@ function Page() {
   const handleCancelAll = async () => {
     setShowCancelConfirm(false);
     try {
-      await cancelAll();
-      toast.success("Subscription cancelled.");
-    } catch {
+      const res = await cancelAll();
+      toast.success(res.data.message);
+    } catch (error) {
+      console.error("Failed to cancel all subscriptions:", error);
       // Error handled by mutation (redirects to /pricing on success)
     }
   };
@@ -149,9 +150,10 @@ function Page() {
     try {
       const res = await upgradeToTuition({ childProfileId });
       if (res.status === 201) {
-        toast.success("Upgraded to Tuition.");
+        toast.success(res.data.message);
       }
-    } catch {
+    } catch (error) {
+      console.error("Failed to upgrade to tuition:", error);
       // Error handled by mutation
     } finally {
       setActingChildId(null);
@@ -163,7 +165,7 @@ function Page() {
     try {
       const res = await deleteTuition({ childProfileId });
       if (res.status === 200) {
-        toast.success("Tuition subscription cancelled.");
+        toast.success(res.data.message);
       }
     } catch {
       // Error handled by mutation
@@ -189,7 +191,7 @@ function Page() {
     try {
       const res = await addTuitionSeat({ childProfileId });
       if (res.status === 201) {
-        toast.success("Tuition seat added.");
+        toast.success(res.data.message);
       }
     } catch {
       // Error handled by mutation
@@ -291,7 +293,7 @@ function Page() {
                               }
                             >
                               {actingChildId === row.childProfileId &&
-                              deleteTuitionPending ? (
+                                deleteTuitionPending ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
                                 "Remove Tuition"
@@ -307,7 +309,7 @@ function Page() {
                               }
                             >
                               {actingChildId === row.childProfileId &&
-                              addTuitionPending ? (
+                                addTuitionPending ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
                                 "Add Tuition"
@@ -323,7 +325,7 @@ function Page() {
                               }
                             >
                               {actingChildId === row.childProfileId &&
-                              upgradePending ? (
+                                upgradePending ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
                                 "Add Tuition"
