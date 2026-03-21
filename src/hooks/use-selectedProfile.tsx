@@ -14,6 +14,14 @@ const getSelectedCurriculumKey = (profileId: string | null) => {
   return profileId ? `selectedCurriculumId_${profileId}` : null;
 };
 
+const getDefaultProfileFromResponse = (
+  profilesData: ChildProfile[]
+): ChildProfile | null => {
+  if (!profilesData.length) return null;
+  const firstActive = profilesData.find((p) => p.isActive === true);
+  return firstActive || profilesData[0];
+};
+
 export function useSelectedProfile() {
   const [activeProfile, setActiveProfile] = useState<ChildProfile | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -61,6 +69,7 @@ export function useSelectedProfile() {
         if (storedProfiles) {
           try {
             const profilesData = JSON.parse(storedProfiles);
+            const defaultProfile = getDefaultProfileFromResponse(profilesData);
             const updatedProfile = profilesData.find(
               (p: ChildProfile) => p.id === profile.id
             );
@@ -76,14 +85,11 @@ export function useSelectedProfile() {
                 return;
               } else {
                 // Profile became inactive, switch to first active profile
-                const firstActiveProfile = profilesData.find(
-                  (p: ChildProfile) => p.isActive === true
-                );
-                if (firstActiveProfile) {
-                  setActiveProfile(firstActiveProfile);
+                if (defaultProfile) {
+                  setActiveProfile(defaultProfile);
                   localStorage.setItem(
                     ACTIVE_PROFILE_KEY,
-                    JSON.stringify(firstActiveProfile)
+                    JSON.stringify(defaultProfile)
                   );
                   return;
                 } else {
@@ -109,14 +115,11 @@ export function useSelectedProfile() {
                 return;
               } else {
                 // Profile not found or inactive, switch to first active profile
-                const firstActiveProfile = profilesData.find(
-                  (p: ChildProfile) => p.isActive === true
-                );
-                if (firstActiveProfile) {
-                  setActiveProfile(firstActiveProfile);
+                if (defaultProfile) {
+                  setActiveProfile(defaultProfile);
                   localStorage.setItem(
                     ACTIVE_PROFILE_KEY,
-                    JSON.stringify(firstActiveProfile)
+                    JSON.stringify(defaultProfile)
                   );
                   return;
                 } else {
@@ -127,14 +130,11 @@ export function useSelectedProfile() {
               }
             } else {
               // Profile not found in profiles array, switch to first active profile
-              const firstActiveProfile = profilesData.find(
-                (p: ChildProfile) => p.isActive === true
-              );
-              if (firstActiveProfile) {
-                setActiveProfile(firstActiveProfile);
+              if (defaultProfile) {
+                setActiveProfile(defaultProfile);
                 localStorage.setItem(
                   ACTIVE_PROFILE_KEY,
-                  JSON.stringify(firstActiveProfile)
+                  JSON.stringify(defaultProfile)
                 );
                 return;
               } else {
@@ -158,6 +158,23 @@ export function useSelectedProfile() {
         }
       } catch (e) {
         console.error("Error parsing active profile", e);
+      }
+    }
+
+    // If there is no active profile but profiles exist, preselect first profile
+    if (!storedProfile && storedProfiles) {
+      try {
+        const profilesData = JSON.parse(storedProfiles) as ChildProfile[];
+        const defaultProfile = getDefaultProfileFromResponse(profilesData);
+        if (defaultProfile) {
+          setActiveProfile(defaultProfile);
+          localStorage.setItem(ACTIVE_PROFILE_KEY, JSON.stringify(defaultProfile));
+        } else {
+          setActiveProfile(null);
+          localStorage.removeItem(ACTIVE_PROFILE_KEY);
+        }
+      } catch (e) {
+        console.error("Error parsing profiles for default active profile", e);
       }
     }
   };
