@@ -104,11 +104,11 @@ export function ProgressCard({
         </div>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h6 className="text-textSubtitle text-xs">Total Lesson</h6>
+            <h6 className="text-textSubtitle text-xs">Total Lessons</h6>
             <p className="text-xs font-medium">{course.total_section}</p>
           </div>
           <div className="flex items-center justify-between">
-            <h6 className="text-textSubtitle text-xs">Completed Lesson</h6>
+            <h6 className="text-textSubtitle text-xs">Completed Lessons</h6>
             <p className="text-xs font-medium">{course.completed_section}</p>
           </div>
         </div>

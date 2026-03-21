@@ -336,16 +336,15 @@ export default function StudentPage({ id }: { id: string }) {
             value={
               <div className="flex items-center gap-2">
                 <span>
-                  {profile.offerType === "platform" ? "The Platform" : "Tuition"}
+                  {profile.offerType === "platform" ? "Platform" : "Tuition"}
                 </span>
                 <Badge
-                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    profile.status === "active"
-                      ? "bg-[#34C759] text-white"
-                      : profile.status === "not-active"
-                        ? "bg-red-500 text-white"
-                        : "bg-gray-500 text-white"
-                  }`}
+                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${profile.status === "active"
+                    ? "bg-[#34C759] text-white"
+                    : profile.status === "not-active"
+                      ? "bg-red-500 text-white"
+                      : "bg-gray-500 text-white"
+                    }`}
                 >
                   {profile.status === "active"
                     ? "Active"
@@ -561,8 +560,8 @@ export default function StudentPage({ id }: { id: string }) {
         ) : (
           <Tabs defaultValue="scheme" className="w-full">
             <TabsList className="mb-4">
-              <TabsTrigger value="scheme">Scheme of Work</TabsTrigger>
               <TabsTrigger value="student-work">Student Work</TabsTrigger>
+              <TabsTrigger value="scheme">Scheme of Work</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
 
@@ -590,26 +589,24 @@ export default function StudentPage({ id }: { id: string }) {
                           return (
                             <div
                               key={item.quizId}
-                              className={`flex items-center gap-3 px-4 py-3 border-b last:border-b-0 transition-colors ${
-                                !isInPath
-                                  ? "opacity-40 bg-gray-50"
-                                  : isAssigned
-                                    ? "bg-blue-50 border-l-4 border-l-primaryBlue"
-                                    : isQueue
-                                      ? "bg-white"
-                                      : isCompleted
-                                        ? "bg-green-50/40"
-                                        : "bg-white"
-                              }`}
+                              className={`flex items-center gap-3 px-4 py-3 border-b last:border-b-0 transition-colors ${!isInPath
+                                ? "opacity-40 bg-gray-50"
+                                : isAssigned
+                                  ? "bg-blue-50 border-l-4 border-l-primaryBlue"
+                                  : isQueue
+                                    ? "bg-white"
+                                    : isCompleted
+                                      ? "bg-green-50/40"
+                                      : "bg-white"
+                                }`}
                             >
                               <span className="text-xs text-gray-400 w-5 shrink-0 text-right font-mono">
                                 {item.orderIndex ?? idx + 1}
                               </span>
                               <div className="flex-1 min-w-0">
                                 <p
-                                  className={`text-sm font-medium truncate ${
-                                    !isInPath ? "text-gray-400" : "text-gray-900"
-                                  }`}
+                                  className={`text-sm font-medium truncate ${!isInPath ? "text-gray-400" : "text-gray-900"
+                                    }`}
                                 >
                                   {item.quizTitle}
                                 </p>
@@ -619,10 +616,9 @@ export default function StudentPage({ id }: { id: string }) {
                               </div>
                               {isInPath ? (
                                 <Badge
-                                  className={`text-xs font-medium capitalize shrink-0 ${
-                                    statusBadgeClass[item.status] ??
+                                  className={`text-xs font-medium capitalize shrink-0 ${statusBadgeClass[item.status] ??
                                     "bg-gray-100 text-gray-600"
-                                  } ${isAssigned ? "ring-1 ring-blue-300" : ""}`}
+                                    } ${isAssigned ? "ring-1 ring-blue-300" : ""}`}
                                 >
                                   {isAssigned && (
                                     <span className="mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
@@ -686,10 +682,9 @@ export default function StudentPage({ id }: { id: string }) {
                                   </TableCell>
                                   <TableCell>
                                     <Badge
-                                      className={`text-xs font-medium capitalize ${
-                                        statusBadgeClass[item.status] ??
+                                      className={`text-xs font-medium capitalize ${statusBadgeClass[item.status] ??
                                         "bg-gray-100 text-gray-600"
-                                      }`}
+                                        }`}
                                     >
                                       {item.status.replace(/_/g, " ")}
                                     </Badge>
@@ -718,8 +713,6 @@ export default function StudentPage({ id }: { id: string }) {
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin text-primaryBlue" />
                 </div>
-              ) : learningHistory.length === 0 ? (
-                <EmptyState message="No history available for this student." />
               ) : (
                 <div className="rounded-md border overflow-x-auto">
                   <Table>
@@ -734,48 +727,58 @@ export default function StudentPage({ id }: { id: string }) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {learningHistory.map((item) => (
-                        <TableRow key={item.quizAttemptId}>
-                          <TableCell className="text-sm text-gray-700">
-                            {item.lessonTitle}
-                          </TableCell>
-                          <TableCell className="text-sm font-medium max-w-[160px]">
-                            <span className="line-clamp-2">
-                              {item.quizTitle}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-700">
-                            {item.score}%
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              className={`text-xs font-medium capitalize ${
-                                statusBadgeClass[item.status?.toLowerCase()] ??
-                                "bg-gray-100 text-gray-600"
-                              }`}
-                            >
-                              {item.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-500 whitespace-nowrap">
-                            {item.completedAt
-                              ? format(new Date(item.completedAt), "d MMM")
-                              : "—"}
-                          </TableCell>
-                          <TableCell>
-                            <button
-                              className="text-sm text-primaryBlue font-medium hover:underline"
-                              onClick={() =>
-                                router.push(
-                                  `/tutor/homework/${item.quizAttemptId}/review`
-                                )
-                              }
-                            >
-                              View
-                            </button>
+                      {learningHistory.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={6}
+                            className="text-sm text-gray-500 text-center py-10"
+                          >
+                            No history available for this student.
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ) : (
+                        learningHistory.map((item) => (
+                          <TableRow key={item.quizAttemptId}>
+                            <TableCell className="text-sm text-gray-700">
+                              {item.lessonTitle}
+                            </TableCell>
+                            <TableCell className="text-sm font-medium max-w-[160px]">
+                              <span className="line-clamp-2">
+                                {item.quizTitle}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-700">
+                              {item.score}%
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                className={`text-xs font-medium capitalize ${statusBadgeClass[item.status?.toLowerCase()] ??
+                                  "bg-gray-100 text-gray-600"
+                                  }`}
+                              >
+                                {item.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-500 whitespace-nowrap">
+                              {item.completedAt
+                                ? format(new Date(item.completedAt), "d MMM")
+                                : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <button
+                                className="text-sm text-primaryBlue font-medium hover:underline"
+                                onClick={() =>
+                                  router.push(
+                                    `/tutor/homework/${item.quizAttemptId}/review`
+                                  )
+                                }
+                              >
+                                View
+                              </button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -823,17 +826,16 @@ export default function StudentPage({ id }: { id: string }) {
                           <p className="text-xs text-muted-foreground">
                             {attempt.submittedAt
                               ? format(
-                                  new Date(attempt.submittedAt),
-                                  "MMM d, yyyy"
-                                )
+                                new Date(attempt.submittedAt),
+                                "MMM d, yyyy"
+                              )
                               : "—"}
                           </p>
                         </TableCell>
                         <TableCell className="text-center">
                           <span
-                            className={`font-semibold text-sm ${
-                              passed ? "text-green-600" : "text-red-500"
-                            }`}
+                            className={`font-semibold text-sm ${passed ? "text-green-600" : "text-red-500"
+                              }`}
                           >
                             {Math.round(attempt.score ?? 0)} (
                             {Math.round(attempt.percentage ?? 0)}%)

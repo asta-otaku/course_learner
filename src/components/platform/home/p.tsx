@@ -154,8 +154,8 @@ function Home() {
       <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
         <div className="flex items-center gap-2">
           <div className="flex flex-col gap-1 items-start">
-            <p className="font-medium text-sm text-textSubtitle ml-1">
-              Welcome, <span className="text-textGray text-sm capitalize font-semibold">{activeProfile?.name}</span>
+            <p className="font-medium text-lg text-textSubtitle ml-1">
+              Welcome, <span className="text-textGray capitalize font-semibold">{activeProfile?.name}</span>
             </p>
           </div>
         </div>
@@ -176,9 +176,6 @@ function Home() {
               <h1 className="text-textGray font-medium md:text-lg lg:text-xl capitalize">
                 continue Learning
               </h1>
-              <span className="text-xs text-textSubtitle">
-                We recommend the following baseline tests.
-              </span>
             </div>
             <div className="w-full md:w-auto min-w-[200px]">
               <Select
@@ -242,7 +239,7 @@ function Home() {
               Your Progress
             </h1>
             <span className="text-xs text-textSubtitle">
-              This shows your progress levels in each curriculum
+              This shows your progress levels in each section
             </span>
           </div>
           <div className="my-8 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">

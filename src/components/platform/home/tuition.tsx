@@ -78,8 +78,8 @@ function TuitionHome() {
       <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
         <div className="flex items-center gap-2">
           <div className="flex flex-col gap-1 items-start">
-            <p className="font-medium text-sm text-textSubtitle ml-1">
-              Welcome, <span className="text-textGray text-sm capitalize font-semibold">{activeProfile?.name}</span>
+            <p className="font-medium text-lg text-textSubtitle ml-1">
+              Welcome, <span className="text-textGray capitalize font-semibold">{activeProfile?.name}</span>
             </p>
           </div>
         </div>
@@ -133,9 +133,8 @@ function TuitionHome() {
                     </td>
                     <td className="py-4 pr-4 align-middle">
                       <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
-                          STATUS_BADGE_CLASS[item.status] ?? "bg-gray-100 text-gray-600"
-                        }`}
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${STATUS_BADGE_CLASS[item.status] ?? "bg-gray-100 text-gray-600"
+                          }`}
                       >
                         {item.status.replace(/_/g, " ")}
                       </span>

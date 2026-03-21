@@ -48,7 +48,7 @@ export default function TutorStudentPage() {
     ...Array.from(
       new Set(
         students.map((s: ChildProfile) =>
-          s.offerType === "platform" ? "The Platform" : "Tuition"
+          s.offerType === "platform" ? "Platform" : "Tuition"
         )
       )
     ),
@@ -63,7 +63,7 @@ export default function TutorStudentPage() {
         .includes(search.toLowerCase());
       const matchesYear = year === "All" || `Year ${profile.year}` === year;
       const profileSubscription =
-        profile.offerType === "platform" ? "The Platform" : "Tuition";
+        profile.offerType === "platform" ? "Platform" : "Tuition";
       const matchesSubscription =
         subscription === "All" || profileSubscription === subscription;
       return matchesSearch && matchesYear && matchesSubscription;
@@ -180,7 +180,7 @@ export default function TutorStudentPage() {
               </div>
               {/* Subscription */}
               <div className="mt-1 text-xs text-gray-500">
-                {profile.offerType === "platform" ? "The Platform" : "Tuition"}
+                {profile.offerType === "platform" ? "Platform" : "Tuition"}
               </div>
             </div>
           </div>
