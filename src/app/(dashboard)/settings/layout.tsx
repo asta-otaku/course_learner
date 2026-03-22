@@ -12,6 +12,7 @@ interface TabItem {
 
 const tabs: TabItem[] = [
   { label: "Overview", path: "/settings" },
+  { label: "Parent Profile", path: "/settings/profile" },
   { label: "Subscription", path: "/settings/subscription" },
   { label: "Profiles", path: "/settings/profiles" },
   { label: "Support", path: "/settings/support" },
@@ -51,11 +52,10 @@ function SettingsLayout({ children }: { children: React.ReactNode }) {
               <button
                 key={tab.path}
                 onClick={() => handleTabClick(tab.path)}
-                className={`px-1 text-sm md:text-base transition-colors relative ${
-                  isActiveTab(tab.path)
+                className={`px-1 text-sm md:text-base transition-colors relative ${isActiveTab(tab.path)
                     ? "font-bold text-primaryBlue"
                     : "text-textSubtitle hover:text-gray-800 font-medium"
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>

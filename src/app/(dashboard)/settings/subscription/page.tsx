@@ -37,7 +37,42 @@ function formatSubscriptionLabel(state: string | undefined): string {
   if (state === "platform") return "Platform (£30/month)";
   if (state === "tuition" || state === "tuition_single")
     return "Tuition (£70 first child + £40 add-ons)";
+  if (state === "tuition_multi")
+    return "Tuition — multiple children (£70 first + £40 add-ons)";
   return state;
+}
+
+function isTrialingStatus(sub: ManageSubscriptionResponse | undefined): boolean {
+  if (!sub?.status) return false;
+  return sub.status.toLowerCase() === "trialing";
+}
+
+/** During trial, `trialEndsAt` matches the period end; when null, subscription is paid and `currentPeriodEnd` is next renewal. */
+function getPeriodDateLabelAndValue(
+  sub: ManageSubscriptionResponse,
+  fallbackEndDate: string | undefined
+): { label: string; value: string } {
+  const endForDisplay =
+    fallbackEndDate ?? sub.currentPeriodEnd ?? undefined;
+  const trialing = isTrialingStatus(sub);
+  const hasTrialEnd = Boolean(sub.trialEndsAt);
+
+  if (trialing && hasTrialEnd) {
+    return {
+      label: "Trial ends",
+      value: formatNextBilling(sub.trialEndsAt ?? endForDisplay),
+    };
+  }
+  if (trialing && !hasTrialEnd) {
+    return {
+      label: "Next billing",
+      value: formatNextBilling(endForDisplay),
+    };
+  }
+  return {
+    label: "Next billing",
+    value: formatNextBilling(endForDisplay),
+  };
 }
 
 function formatNextBilling(endDate: string | undefined): string {
@@ -50,12 +85,16 @@ function getBannerMessage(
   sub: ManageSubscriptionResponse | undefined
 ): string | null {
   if (!sub) return null;
+  // Trialing is active access — don't treat as cancellation
+  if (isTrialingStatus(sub)) {
+    return null;
+  }
   const hasNoActive =
     sub.state === "none" ||
     !sub.status ||
     sub.status === "canceled" ||
     sub.status === "past_due";
-  const pendingEnd = sub.pendingCancellation || sub.status === "trialing";
+  const pendingEnd = sub.pendingCancellation;
   if (hasNoActive && sub.currentPeriodEnd) {
     return "No active subscription. You can resubscribe at the end of the billing period.";
   }
@@ -66,6 +105,17 @@ function getBannerMessage(
     return `Your subscription will end ${formatNextBilling(sub.currentPeriodEnd)}. You can resubscribe at the end of the period.`;
   }
   return null;
+}
+
+function getTrialInfoMessage(
+  sub: ManageSubscriptionResponse | undefined
+): string | null {
+  if (!sub || !isTrialingStatus(sub)) return null;
+  const end = sub.trialEndsAt ?? sub.currentPeriodEnd;
+  if (!end) {
+    return "You're on a free trial. Billing period dates are shown above.";
+  }
+  return `You're on a free trial until ${formatNextBilling(end)}.`;
 }
 
 function formatAccessLevel(
@@ -121,6 +171,16 @@ function Page() {
     useDeleteTuitionSubscription();
 
   const sub = manageData?.data as ManageSubscriptionResponse | undefined;
+
+  const periodLine = useMemo(
+    () =>
+      sub
+        ? getPeriodDateLabelAndValue(sub, primarySubscription?.endDate)
+        : { label: "Next billing" as const, value: "—" },
+    [sub, primarySubscription?.endDate]
+  );
+
+  const trialBannerText = useMemo(() => getTrialInfoMessage(sub), [sub]);
 
   const handleManageSubscription = async () => {
     try {
@@ -184,7 +244,11 @@ function Page() {
     deleteTuitionPending;
 
   const hasActiveSubscription =
-    primarySubscription != null || (sub != null && (sub.status === "active" || sub.status === "canceled"));
+    primarySubscription != null ||
+    (sub != null &&
+      (sub.status === "active" ||
+        sub.status === "canceled" ||
+        sub.status?.toLowerCase() === "trialing"));
 
   const handleAddTuitionSeat = async (childProfileId: string) => {
     setActingChildId(childProfileId);
@@ -223,9 +287,16 @@ function Page() {
       {sub ? (
         <div className="mt-6 space-y-4">
           <div className="bg-white rounded-2xl border border-black/15 shadow-sm p-6">
-            <h2 className="text-textGray font-semibold text-lg mb-4">
-              Current Subscription
-            </h2>
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <h2 className="text-textGray font-semibold text-lg">
+                Current Subscription
+              </h2>
+              {isTrialingStatus(sub) && (
+                <span className="inline-flex items-center rounded-full bg-sky-100 text-sky-800 border border-sky-200 px-2.5 py-0.5 text-xs font-semibold">
+                  Free trial
+                </span>
+              )}
+            </div>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-textSubtitle text-sm">Subscription:</span>
@@ -234,13 +305,20 @@ function Page() {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-textSubtitle text-sm">Next Billing:</span>
+                <span className="text-textSubtitle text-sm">
+                  {periodLine.label}:
+                </span>
                 <span className="text-textGray font-medium text-sm">
-                  {formatNextBilling(
-                    primarySubscription?.endDate ?? sub.currentPeriodEnd
-                  )}
+                  {periodLine.value}
                 </span>
               </div>
+              {trialBannerText && (
+                <div className="rounded-xl bg-sky-50 border border-sky-200 px-4 py-3 mt-1">
+                  <p className="text-sky-900 text-sm font-medium">
+                    {trialBannerText}
+                  </p>
+                </div>
+              )}
               {getBannerMessage(sub) && (
                 <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 mt-3">
                   <p className="text-amber-800 text-sm font-medium">
