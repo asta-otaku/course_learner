@@ -109,34 +109,34 @@ export default function TutorHomeworkReviewPage() {
           options:
             qq.question.type === "multiple_choice" && qq.question.answers
               ? qq.question.answers
-                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                  .map((answer: any) => ({
-                    id: answer.id,
-                    text: answer.content,
-                    isCorrect: answer.isCorrect,
-                  }))
+                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                .map((answer: any) => ({
+                  id: answer.id,
+                  text: answer.content,
+                  isCorrect: answer.isCorrect,
+                }))
               : [],
           ...(qq.question.type === "true_false" && {
             options: qq.question.answers
               ? qq.question.answers
-                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                  .map((answer: any) => ({
-                    id: answer.id,
-                    text: answer.content,
-                    isCorrect: answer.isCorrect,
-                  }))
+                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                .map((answer: any) => ({
+                  id: answer.id,
+                  text: answer.content,
+                  isCorrect: answer.isCorrect,
+                }))
               : [
-                  {
-                    id: "true",
-                    text: "True",
-                    isCorrect: qq.question.metadata?.correct_answer === true,
-                  },
-                  {
-                    id: "false",
-                    text: "False",
-                    isCorrect: qq.question.metadata?.correct_answer === false,
-                  },
-                ],
+                {
+                  id: "true",
+                  text: "True",
+                  isCorrect: qq.question.metadata?.correct_answer === true,
+                },
+                {
+                  id: "false",
+                  text: "False",
+                  isCorrect: qq.question.metadata?.correct_answer === false,
+                },
+              ],
           }),
           ...(qq.question.type === "matching_pairs" && {
             pairs: (qq.question.answers?.[0]?.matchingPairs || []).map(
@@ -380,10 +380,10 @@ export default function TutorHomeworkReviewPage() {
                           Incorrect
                         </>
                       )}
-                      <span className="ml-2">
+                      {/* <span className="ml-2">
                         {currentResult.pointsEarned}/
                         {currentResult.pointsPossible} points
-                      </span>
+                      </span> */}
                     </Badge>
                   )}
                 </div>
@@ -415,7 +415,7 @@ export default function TutorHomeworkReviewPage() {
                         Student Answer:
                       </p>
                       {currentQ.question.type === "matching_pairs" &&
-                      currentResult.userAnswerContent ? (
+                        currentResult.userAnswerContent ? (
                         <div className="p-4 bg-gray-50 rounded-lg border">
                           {(() => {
                             try {
@@ -426,7 +426,7 @@ export default function TutorHomeworkReviewPage() {
                                 typeof currentResult.correctAnswers[0]
                                   .content === "object"
                                   ? (currentResult.correctAnswers[0]
-                                      .content as Record<string, string>)
+                                    .content as Record<string, string>)
                                   : {};
 
                               return (
@@ -485,13 +485,13 @@ export default function TutorHomeworkReviewPage() {
                         >
                           <p className="text-base">
                             {currentQ.question.type === "multiple_choice" ||
-                            currentQ.question.type === "true_false"
+                              currentQ.question.type === "true_false"
                               ? currentQ.question.options?.find(
-                                  (opt: any) =>
-                                    opt.id ===
-                                    (currentResult.userAnswerId ||
-                                      currentResult.userAnswerContent)
-                                )?.text || currentResult.userAnswerContent
+                                (opt: any) =>
+                                  opt.id ===
+                                  (currentResult.userAnswerId ||
+                                    currentResult.userAnswerContent)
+                              )?.text || currentResult.userAnswerContent
                               : currentResult.userAnswerContent || "No answer"}
                           </p>
                         </div>
@@ -507,7 +507,7 @@ export default function TutorHomeworkReviewPage() {
                       </p>
                       <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
                         {currentQ.question.type === "matching_pairs" &&
-                        typeof currentResult.correctAnswers[0].content ===
+                          typeof currentResult.correctAnswers[0].content ===
                           "object" ? (
                           <div className="space-y-2">
                             {Object.entries(

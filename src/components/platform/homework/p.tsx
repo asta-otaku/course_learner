@@ -84,22 +84,21 @@ export default function HomeworkStatusPage() {
   const { recentHomeworks, historyHomeworks } = useMemo(() => {
     const recent: Homework[] = [];
     const history: Homework[] = [];
-    const { start, end } = getCurrentWeekRange();
 
     for (const hw of homeworks) {
-      const dateStr = hw.dueDate || hw.dateSubmitted || hw.dateAssigned;
-      if (!dateStr) {
+      const status = (hw.status ?? "").toLowerCase();
+      const isCompleted =
+        status === "done and marked" ||
+        status === "submitted" ||
+        status === "completed";
+
+      if (isCompleted) {
         history.push(hw);
-        continue;
-      }
-      const d = new Date(dateStr);
-      const t = d.getTime();
-      if (t >= start.getTime() && t < end.getTime()) {
-        recent.push(hw);
       } else {
-        history.push(hw);
+        recent.push(hw);
       }
     }
+
     return { recentHomeworks: recent, historyHomeworks: history };
   }, [homeworks]);
 
@@ -171,7 +170,7 @@ export default function HomeworkStatusPage() {
                           <TableHead className="font-semibold text-muted-foreground h-12">Lesson</TableHead>
                           <TableHead className="font-semibold text-muted-foreground">Quiz</TableHead>
                           <TableHead className="font-semibold text-muted-foreground">Status</TableHead>
-                          <TableHead className="font-semibold text-muted-foreground">Completed</TableHead>
+                          <TableHead className="font-semibold text-muted-foreground">Submission Date</TableHead>
                           <TableHead className="font-semibold text-muted-foreground text-right w-[120px]">Action</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -180,7 +179,9 @@ export default function HomeworkStatusPage() {
                           const completedAt =
                             hw.dateReviewed || hw.dateSubmitted || hw.dueDate;
                           const status = statusDisplay(hw.status);
-                          const isMarked = (hw.status ?? "").toLowerCase() === "done and marked";
+                          const hwStatus = (hw.status ?? "").toLowerCase();
+                          const isMarked = hwStatus === "done and marked";
+                          const isTodo = hwStatus === "to-do";
                           return (
                             <TableRow key={hw.id} className="group">
                               <TableCell className="font-medium">
@@ -216,6 +217,14 @@ export default function HomeworkStatusPage() {
                                     <Link href={`/homework/${hw.id}/review`}>
                                       View results
                                     </Link>
+                                  </Button>
+                                ) : isTodo ? (
+                                  <Button
+                                    variant="link"
+                                    className="text-primaryBlue h-auto p-0 font-medium hover:underline"
+                                    asChild
+                                  >
+                                    <Link href={`/take-quiz/${hw.id}`}>Start</Link>
                                   </Button>
                                 ) : (
                                   <span className="text-muted-foreground/60 text-sm">—</span>
@@ -299,6 +308,10 @@ export default function HomeworkStatusPage() {
                           const isFailed = hwAny.isPassed === false;
                           const result =
                             isPassed ? "Passed" : isFailed ? "Failed" : "—";
+                          const hwStatus = (hw.status ?? "").toLowerCase();
+                          const isTodo = hwStatus === "to-do";
+                          const isUnattempted =
+                            !hw.dateSubmitted && !hw.dateReviewed;
                           return (
                             <TableRow key={hw.id} className="group">
                               <TableCell className="font-medium">
@@ -327,13 +340,23 @@ export default function HomeworkStatusPage() {
                                   : "—"}
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button
-                                  variant="link"
-                                  className="text-primaryBlue h-auto p-0 font-medium hover:underline"
-                                  asChild
-                                >
-                                  <Link href={`/homework/${hw.id}/review`}>View</Link>
-                                </Button>
+                                {isTodo || isUnattempted ? (
+                                  <Button
+                                    variant="link"
+                                    className="text-primaryBlue h-auto p-0 font-medium hover:underline"
+                                    asChild
+                                  >
+                                    <Link href={`/take-quiz/${hw.id}`}>Start</Link>
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="link"
+                                    className="text-primaryBlue h-auto p-0 font-medium hover:underline"
+                                    asChild
+                                  >
+                                    <Link href={`/homework/${hw.id}/review`}>View</Link>
+                                  </Button>
+                                )}
                               </TableCell>
                             </TableRow>
                           );

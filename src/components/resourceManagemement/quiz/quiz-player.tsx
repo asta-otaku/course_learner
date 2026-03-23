@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -158,6 +158,30 @@ export function QuizPlayer({
     }
     return currentPosition.questionIndex;
   };
+
+  // In immediate feedback mode, don't allow jumping ahead of the furthest
+  // question the learner has already reached/submitted.
+  const maxReachedQuestionIndex = useMemo(() => {
+    if (!isImmediateFeedback) return questions.length - 1;
+
+    let maxSubmittedIndex = -1;
+    questions.forEach((q, index) => {
+      if (
+        immediateQuestionResults[q.question.id] ||
+        lockedQuestions.has(q.question.id)
+      ) {
+        maxSubmittedIndex = Math.max(maxSubmittedIndex, index);
+      }
+    });
+
+    return Math.max(getCurrentQuestionIndex(), maxSubmittedIndex);
+  }, [
+    isImmediateFeedback,
+    questions,
+    immediateQuestionResults,
+    lockedQuestions,
+    currentPosition,
+  ]);
 
   // Transform and initialize questions from resume data
   useEffect(() => {
@@ -584,9 +608,6 @@ export function QuizPlayer({
                   ...prev,
                   [questionId]: result,
                 }));
-                toast.success(
-                  result.isCorrect ? "Correct!" : "Submitted. Check feedback below."
-                );
               }
             },
             onError: () => {
@@ -842,7 +863,7 @@ export function QuizPlayer({
 
   const handleQuestionNavigation = (index: number) => {
     // Immediate feedback: no skipping — only allow up to current question
-    if (isImmediateFeedback && index > getCurrentQuestionIndex()) {
+    if (isImmediateFeedback && index > maxReachedQuestionIndex) {
       return;
     }
 
@@ -977,13 +998,6 @@ export function QuizPlayer({
     return submissionResults.results.find((r) => r.questionId === questionId);
   };
 
-  const quizTitle =
-    questions.length > 0
-      ? questions[0]?.question?.title ||
-      questions[0]?.question?.content ||
-      "Quiz"
-      : "Quiz";
-
   // Show loading state while fetching questions or resume data
   if ((isResuming ? resumeLoading : questionsLoading) || !attemptId) {
     return (
@@ -1056,6 +1070,16 @@ export function QuizPlayer({
 
   // Results Summary View
   if (showResults && submissionResults) {
+    const lessonTitle =
+      (quiz as any)?.lessonTitle ||
+      (quiz as any)?.lesson?.title ||
+      (quiz as any)?.metadata?.lessonTitle ||
+      "---";
+    const quizName = quiz?.title || "Quiz";
+    const quizDescription = quiz?.description || "---";
+    const passPercentage = Number(quiz?.passingScore);
+    const isTimedQuiz = Boolean(actualTimeLimit && actualTimeLimit > 0);
+
     return (
       <div className="max-w-6xl mx-auto p-6">
         <div className="flex gap-6">
@@ -1063,20 +1087,33 @@ export function QuizPlayer({
           <div className="flex-1">
             {/* Results Summary Header */}
             <Card className="mb-6">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <CardTitle>Quiz Results: {quizTitle}</CardTitle>
-                    </div>
+              <CardHeader className="space-y-3">
+                <CardTitle>Quiz Review</CardTitle>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-muted-foreground text-xs mb-1">Lesson</p>
+                    <p className="font-medium">{lessonTitle}</p>
                   </div>
-                  <Button variant="outline" onClick={() => router.back()}>
-                    Back to Lessons
-                  </Button>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-muted-foreground text-xs mb-1">Quiz Name</p>
+                    <p className="font-medium">{quizName}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-muted-foreground text-xs mb-1">
+                      Quiz Description
+                    </p>
+                    <p className="font-medium line-clamp-2">{quizDescription}</p>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <QuizPlayerResultsStats submissionResults={submissionResults} />
+                <QuizPlayerResultsStats
+                  submissionResults={submissionResults}
+                  isTimed={isTimedQuiz}
+                  passPercentage={
+                    Number.isFinite(passPercentage) ? passPercentage : undefined
+                  }
+                />
               </CardContent>
             </Card>
 
@@ -1105,10 +1142,6 @@ export function QuizPlayer({
                           Incorrect
                         </>
                       )}
-                      <span className="ml-2">
-                        {currentResult.pointsEarned}/
-                        {currentResult.pointsPossible} points
-                      </span>
                     </Badge>
                   )}
                 </div>
@@ -1339,10 +1372,7 @@ export function QuizPlayer({
 
           {/* Results Navigation Sidebar */}
           <Card className="w-64 h-fit sticky top-6">
-            <CardHeader>
-              <CardTitle className="text-base">Question Review</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <div className="space-y-2">
                 {questions.map((q, index) => {
                   const result = getQuestionResult(q.question.id);
@@ -1358,7 +1388,7 @@ export function QuizPlayer({
                         })
                       }
                       className={cn(
-                        "w-full px-3 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-colors",
+                        "w-full min-w-0 px-3 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-colors",
                         isCurrent
                           ? "bg-primaryBlue text-white hover:bg-primaryBlue/90"
                           : result?.isCorrect
@@ -1681,11 +1711,6 @@ export function QuizPlayer({
                                           ...prev,
                                           [currentQ.question.id]: result,
                                         }));
-                                        toast.success(
-                                          result.isCorrect
-                                            ? "Correct!"
-                                            : "Submitted. Check feedback below."
-                                        );
                                       }
                                     },
                                     onError: () => {
@@ -1763,11 +1788,6 @@ export function QuizPlayer({
                                           ...prev,
                                           [currentQ.question.id]: result,
                                         }));
-                                        toast.success(
-                                          result.isCorrect
-                                            ? "Correct!"
-                                            : "Submitted. Check feedback below."
-                                        );
                                       }
                                     },
                                     onError: () => {
@@ -1810,10 +1830,6 @@ export function QuizPlayer({
                                 Incorrect
                               </>
                             )}
-                            <span className="ml-1">
-                              {currentResult.pointsEarned}/
-                              {currentResult.pointsPossible} points
-                            </span>
                           </Badge>
                         </div>
                         {!currentResult.isCorrect &&
@@ -1871,22 +1887,6 @@ export function QuizPlayer({
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
-                        size="icon"
-                        onClick={handleFirst}
-                        disabled={
-                          ((currentPosition as any).type === "transition" &&
-                            (currentPosition as any).questionIndex === 0) ||
-                          (currentPosition.type === "question" &&
-                            currentQuestionIndex === 0 &&
-                            !getTransitionForPosition(0)) ||
-                          (quizSettings.examMode && isTestMode)
-                        }
-                        title="Go to first (Home)"
-                      >
-                        <ChevronFirst className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
                         onClick={handlePrevious}
                         disabled={
                           ((currentPosition as any).type === "transition" &&
@@ -1938,23 +1938,6 @@ export function QuizPlayer({
                           <ChevronRight className="h-4 w-4 ml-2" />
                         </Button>
                       )}
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleLast}
-                        disabled={
-                          (isImmediateFeedback &&
-                            !allQuestionsSubmittedInImmediateMode) ||
-                          ((currentPosition as any).type === "explanation" &&
-                            currentQuestionIndex === questions.length - 1) ||
-                          (currentPosition.type === "question" &&
-                            currentQuestionIndex === questions.length - 1 &&
-                            !currentQ.explanation)
-                        }
-                        title="Go to last (End)"
-                      >
-                        <ChevronLast className="h-4 w-4" />
-                      </Button>
                     </div>
                   </div>
                 </>
@@ -2005,7 +1988,7 @@ export function QuizPlayer({
                   (isTestMode &&
                     answeredQuestions.has(index) &&
                     index < currentQuestionIndex) ||
-                  (isImmediateFeedback && index > currentQuestionIndex);
+                  (isImmediateFeedback && index > maxReachedQuestionIndex);
                 const result = showResults
                   ? getQuestionResult(q.question.id)
                   : undefined;
@@ -2114,7 +2097,7 @@ export function QuizPlayer({
               })}
             </div>
 
-            <div className="mt-4 pt-4 border-t space-y-2 text-sm">
+            {/* <div className="mt-4 pt-4 border-t space-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-primary" />
                 <span>
@@ -2122,7 +2105,6 @@ export function QuizPlayer({
                 </span>
               </div>
 
-              {/* Legend */}
               <div className="pt-2 space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">
                   Navigation Guide:
@@ -2143,7 +2125,6 @@ export function QuizPlayer({
                 </div>
               </div>
 
-              {/* Keyboard Shortcuts */}
               <div className="pt-3 space-y-1 border-t mt-3">
                 <p className="text-xs font-medium text-muted-foreground">
                   Keyboard Shortcuts:
@@ -2175,7 +2156,7 @@ export function QuizPlayer({
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </CardContent>
         </Card>
       </div>

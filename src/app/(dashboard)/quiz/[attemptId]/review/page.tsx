@@ -14,7 +14,6 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  ArrowLeft,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -79,34 +78,34 @@ export default function QuizAttemptReviewPage() {
           options:
             qq.question.type === "multiple_choice" && qq.question.answers
               ? qq.question.answers
-                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                  .map((answer: any) => ({
-                    id: answer.id,
-                    text: answer.content,
-                    isCorrect: answer.isCorrect,
-                  }))
+                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                .map((answer: any) => ({
+                  id: answer.id,
+                  text: answer.content,
+                  isCorrect: answer.isCorrect,
+                }))
               : [],
           ...(qq.question.type === "true_false" && {
             options: qq.question.answers
               ? qq.question.answers
-                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                  .map((answer: any) => ({
-                    id: answer.id,
-                    text: answer.content,
-                    isCorrect: answer.isCorrect,
-                  }))
+                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                .map((answer: any) => ({
+                  id: answer.id,
+                  text: answer.content,
+                  isCorrect: answer.isCorrect,
+                }))
               : [
-                  {
-                    id: "true",
-                    text: "True",
-                    isCorrect: qq.question.metadata?.correct_answer === true,
-                  },
-                  {
-                    id: "false",
-                    text: "False",
-                    isCorrect: qq.question.metadata?.correct_answer === false,
-                  },
-                ],
+                {
+                  id: "true",
+                  text: "True",
+                  isCorrect: qq.question.metadata?.correct_answer === true,
+                },
+                {
+                  id: "false",
+                  text: "False",
+                  isCorrect: qq.question.metadata?.correct_answer === false,
+                },
+              ],
           }),
           ...(qq.question.type === "matching_pairs" && {
             pairs: (qq.question.answers?.[0]?.matchingPairs || []).map(
@@ -191,7 +190,6 @@ export default function QuizAttemptReviewPage() {
               variant="outline"
               onClick={() => router.back()}
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
               Go Back
             </Button>
           </CardContent>
@@ -202,6 +200,31 @@ export default function QuizAttemptReviewPage() {
 
   const currentQ = questionsWithResults[currentQuestionIndex];
   const currentResult = currentQ?.result;
+  const reviewAny = review as any;
+  const lessonTitle =
+    reviewAny?.lessonTitle ||
+    reviewAny?.lesson?.title ||
+    reviewAny?.quiz?.lessonTitle ||
+    reviewAny?.quiz?.lesson?.title ||
+    reviewAny?.quizMetadata?.lessonTitle ||
+    "---";
+  const quizName =
+    reviewAny?.quizTitle || reviewAny?.quiz?.title || "Quiz";
+  const quizDescription =
+    reviewAny?.quizDescription || reviewAny?.quiz?.description || "---";
+  const finalScore = `${Math.round(Number(reviewAny?.score ?? 0))}/${Math.round(
+    Number(reviewAny?.totalPoints ?? 0)
+  )}`;
+  const roundedPercentage = `${Math.round(Number(reviewAny?.percentage ?? 0))}%`;
+  const passPercentageRaw = Number(
+    reviewAny?.passingScore ?? reviewAny?.quiz?.passingScore
+  );
+  const passPercentage = Number.isFinite(passPercentageRaw)
+    ? `${Math.round(passPercentageRaw)}%`
+    : "---";
+  const isTimedQuiz =
+    Number(reviewAny?.quiz?.timeLimit) > 0 ||
+    Number(reviewAny?.timeLimit) > 0;
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -210,20 +233,23 @@ export default function QuizAttemptReviewPage() {
         <div className="flex-1">
           {/* Results Summary Header */}
           <Card className="mb-6">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <CardTitle>Quiz Review</CardTitle>
-                  </div>
+            <CardHeader className="space-y-3">
+              <CardTitle>Quiz Review</CardTitle>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-muted-foreground text-xs mb-1">Lesson</p>
+                  <p className="font-medium">{lessonTitle}</p>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => router.back()}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Go Back
-                </Button>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-muted-foreground text-xs mb-1">Quiz Name</p>
+                  <p className="font-medium">{quizName}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-muted-foreground text-xs mb-1">
+                    Quiz Description
+                  </p>
+                  <p className="font-medium line-clamp-2">{quizDescription}</p>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -231,9 +257,9 @@ export default function QuizAttemptReviewPage() {
                 <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <Trophy className="h-8 w-8 text-blue-600" />
                   <div>
-                    <p className="text-sm text-blue-600 font-medium">Score</p>
+                    <p className="text-sm text-blue-600 font-medium">Final score</p>
                     <p className="text-2xl font-bold text-blue-900">
-                      {review.score}/{review.totalPoints}
+                      {finalScore}
                     </p>
                   </div>
                 </div>
@@ -244,7 +270,7 @@ export default function QuizAttemptReviewPage() {
                       Percentage
                     </p>
                     <p className="text-2xl font-bold text-green-900">
-                      {review.percentage}%
+                      {roundedPercentage}
                     </p>
                   </div>
                 </div>
@@ -255,7 +281,7 @@ export default function QuizAttemptReviewPage() {
                       Time Spent
                     </p>
                     <p className="text-2xl font-bold text-purple-900">
-                      {formatTime(review.timeSpent)}
+                      {isTimedQuiz ? formatTime(review.timeSpent) : "---"}
                     </p>
                   </div>
                 </div>
@@ -263,14 +289,10 @@ export default function QuizAttemptReviewPage() {
                   <AlertCircle className="h-8 w-8 text-orange-600" />
                   <div>
                     <p className="text-sm text-orange-600 font-medium">
-                      Correct Answers
+                      Percentage need to pass
                     </p>
                     <p className="text-2xl font-bold text-orange-900">
-                      {
-                        review.results.filter((r: QuizResult) => r.isCorrect)
-                          .length
-                      }
-                      /{review.results.length}
+                      {passPercentage}
                     </p>
                   </div>
                 </div>
@@ -305,10 +327,10 @@ export default function QuizAttemptReviewPage() {
                           Incorrect
                         </>
                       )}
-                      <span className="ml-2">
+                      {/* <span className="ml-2">
                         {currentResult.pointsEarned}/
                         {currentResult.pointsPossible} points
-                      </span>
+                      </span> */}
                     </Badge>
                   )}
                 </div>
@@ -338,7 +360,7 @@ export default function QuizAttemptReviewPage() {
                     <div>
                       <p className="text-base font-medium mb-2">Your Answer:</p>
                       {currentQ.question.type === "matching_pairs" &&
-                      currentResult.userAnswerContent ? (
+                        currentResult.userAnswerContent ? (
                         <div className="p-4 bg-gray-50 rounded-lg border">
                           {(() => {
                             try {
@@ -349,7 +371,7 @@ export default function QuizAttemptReviewPage() {
                                 typeof currentResult.correctAnswers[0]
                                   .content === "object"
                                   ? (currentResult.correctAnswers[0]
-                                      .content as Record<string, string>)
+                                    .content as Record<string, string>)
                                   : {};
 
                               return (
@@ -408,13 +430,13 @@ export default function QuizAttemptReviewPage() {
                         >
                           <p className="text-base">
                             {currentQ.question.type === "multiple_choice" ||
-                            currentQ.question.type === "true_false"
+                              currentQ.question.type === "true_false"
                               ? currentQ.question.options?.find(
-                                  (opt: any) =>
-                                    opt.id ===
-                                    (currentResult.userAnswerId ||
-                                      currentResult.userAnswerContent)
-                                )?.text || currentResult.userAnswerContent
+                                (opt: any) =>
+                                  opt.id ===
+                                  (currentResult.userAnswerId ||
+                                    currentResult.userAnswerContent)
+                              )?.text || currentResult.userAnswerContent
                               : currentResult.userAnswerContent || "No answer"}
                           </p>
                         </div>
@@ -430,7 +452,7 @@ export default function QuizAttemptReviewPage() {
                       </p>
                       <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
                         {currentQ.question.type === "matching_pairs" &&
-                        typeof currentResult.correctAnswers[0].content ===
+                          typeof currentResult.correctAnswers[0].content ===
                           "object" ? (
                           <div className="space-y-2">
                             {Object.entries(
@@ -572,10 +594,7 @@ export default function QuizAttemptReviewPage() {
 
         {/* Results Navigation Sidebar */}
         <Card className="w-64 h-fit sticky top-6">
-          <CardHeader>
-            <CardTitle className="text-base">Question Review</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="space-y-2">
               {questionsWithResults.map(
                 (q: QuestionWithResults, index: number) => {
@@ -587,7 +606,7 @@ export default function QuizAttemptReviewPage() {
                       key={q.id}
                       onClick={() => setCurrentQuestionIndex(index)}
                       className={cn(
-                        "w-full px-3 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-colors",
+                        "w-full min-w-0 px-3 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-colors",
                         isCurrent
                           ? "bg-primaryBlue text-white hover:bg-primaryBlue/90"
                           : result?.isCorrect

@@ -272,10 +272,10 @@ export default function HomeworkReviewPage() {
                           Incorrect
                         </>
                       )}
-                      <span className="ml-2">
+                      {/* <span className="ml-2">
                         {currentResult.pointsEarned}/
                         {currentResult.pointsPossible} points
-                      </span>
+                      </span> */}
                     </Badge>
                   )}
                 </div>
