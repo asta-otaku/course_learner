@@ -1014,7 +1014,6 @@ export const useGetHomework = (childId?: string) => {
       });
       return response.data;
     },
-    enabled: !!childId,
   });
 };
 

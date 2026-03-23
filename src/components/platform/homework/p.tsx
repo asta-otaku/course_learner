@@ -73,6 +73,8 @@ export default function HomeworkStatusPage() {
   const homeworks = homeworkResponse?.data ?? [];
   const baselineAttempts = (baselineResponse?.data ?? []) as Array<{
     id: string;
+    baselineTestId?: string;
+    quizId?: string;
     quizAttemptId: string;
     baselineTestTitle: string;
     submittedAt: string;
@@ -224,7 +226,7 @@ export default function HomeworkStatusPage() {
                                     className="text-primaryBlue h-auto p-0 font-medium hover:underline"
                                     asChild
                                   >
-                                    <Link href={`/take-quiz/${hw.id}`}>Start</Link>
+                                    <Link href={`/take-quiz/${hw.id}?isHomework=true`}>Start</Link>
                                   </Button>
                                 ) : (
                                   <span className="text-muted-foreground/60 text-sm">—</span>
@@ -346,7 +348,7 @@ export default function HomeworkStatusPage() {
                                     className="text-primaryBlue h-auto p-0 font-medium hover:underline"
                                     asChild
                                   >
-                                    <Link href={`/take-quiz/${hw.id}`}>Start</Link>
+                                    <Link href={`/take-quiz/${hw.id}?isHomework=true`}>Start</Link>
                                   </Button>
                                 ) : (
                                   <Button
