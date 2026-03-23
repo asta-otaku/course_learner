@@ -1,7 +1,11 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useGetQuizAttemptById, useGetQuizQuestions } from "@/lib/api/queries";
+import {
+  useGetQuizAttemptById,
+  useGetQuizQuestions,
+  useGetQuiz,
+} from "@/lib/api/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +52,8 @@ export default function QuizAttemptReviewPage() {
 
   const { data: reviewResponse, isLoading, error } = useGetQuizAttemptById(attemptId);
   const review = reviewResponse?.data;
+  const { data: quizResponse } = useGetQuiz(review?.quizId || "");
+  const quizData = quizResponse?.data;
 
   // Fetch questions for the quiz
   const { data: questionsResponse } = useGetQuizQuestions(review?.quizId || "");
@@ -160,6 +166,24 @@ export default function QuizAttemptReviewPage() {
       .join(" or ");
   };
 
+  const { totalEarned, totalPossible, computedPercentage } = useMemo(() => {
+    const results = review?.results ?? [];
+    const earned = results.reduce(
+      (sum: number, r: QuizResult) => sum + Number(r.pointsEarned ?? 0),
+      0
+    );
+    const possible = results.reduce(
+      (sum: number, r: QuizResult) => sum + Number(r.pointsPossible ?? 0),
+      0
+    );
+    const percentage = possible > 0 ? (earned / possible) * 100 : 0;
+    return {
+      totalEarned: earned,
+      totalPossible: possible,
+      computedPercentage: percentage,
+    };
+  }, [review?.results]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -200,31 +224,21 @@ export default function QuizAttemptReviewPage() {
 
   const currentQ = questionsWithResults[currentQuestionIndex];
   const currentResult = currentQ?.result;
-  const reviewAny = review as any;
   const lessonTitle =
-    reviewAny?.lessonTitle ||
-    reviewAny?.lesson?.title ||
-    reviewAny?.quiz?.lessonTitle ||
-    reviewAny?.quiz?.lesson?.title ||
-    reviewAny?.quizMetadata?.lessonTitle ||
+    (quizData as any)?.lessonTitle ||
+    (quizData as any)?.lesson?.title ||
     "---";
-  const quizName =
-    reviewAny?.quizTitle || reviewAny?.quiz?.title || "Quiz";
-  const quizDescription =
-    reviewAny?.quizDescription || reviewAny?.quiz?.description || "---";
-  const finalScore = `${Math.round(Number(reviewAny?.score ?? 0))}/${Math.round(
-    Number(reviewAny?.totalPoints ?? 0)
-  )}`;
-  const roundedPercentage = `${Math.round(Number(reviewAny?.percentage ?? 0))}%`;
-  const passPercentageRaw = Number(
-    reviewAny?.passingScore ?? reviewAny?.quiz?.passingScore
-  );
+  const quizName = quizData?.title || "Quiz";
+  const quizDescription = quizData?.description || "---";
+
+  const finalScore = `${Math.round(totalEarned)}/${Math.round(totalPossible)}`;
+  const roundedPercentage = `${Math.round(computedPercentage)}%`;
+  const passPercentageRaw = Number(quizData?.passingScore);
   const passPercentage = Number.isFinite(passPercentageRaw)
     ? `${Math.round(passPercentageRaw)}%`
     : "---";
   const isTimedQuiz =
-    Number(reviewAny?.quiz?.timeLimit) > 0 ||
-    Number(reviewAny?.timeLimit) > 0;
+    Number(quizData?.timeLimit) > 0;
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -281,7 +295,9 @@ export default function QuizAttemptReviewPage() {
                       Time Spent
                     </p>
                     <p className="text-2xl font-bold text-purple-900">
-                      {isTimedQuiz ? formatTime(review.timeSpent) : "---"}
+                      {isTimedQuiz && Number((review as any)?.timeSpent) > 0
+                        ? formatTime(Number((review as any).timeSpent))
+                        : "---"}
                     </p>
                   </div>
                 </div>
