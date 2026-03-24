@@ -27,35 +27,15 @@ function Home() {
     setSelectedCurriculumId: setProfileSelectedCurriculumId,
   } = useSelectedProfile();
 
-  const { data: library } = useGetLibrary(activeProfile?.id || "");
-
-  // Get sections from library data (for Your Progress section only)
-  const sections = useMemo(() => {
-    return library?.data || [];
-  }, [library?.data]);
-
-  // Create a mapping from sectionId to section imageUrl
-  const sectionImageMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    sections.forEach((section: any) => {
-      if (section.id && section.imageUrl) {
-        map[section.id] = section.imageUrl;
-      }
-    });
-    return map;
-  }, [sections]);
-
-  // Fetch curricula by offerType
+  // Fetch curricula first so we can resolve selectedCurriculumId for library + lessons
   const { data: curriculaData } = useGetCurricula({
     offerType: activeProfile?.offerType || "",
   });
 
-  // Get curricula list for dropdown
   const curriculaList = useMemo(() => {
     return curriculaData?.curricula || [];
   }, [curriculaData?.curricula]);
 
-  // Get default curriculum (first one)
   const defaultCurriculumId = useMemo(() => {
     if (curriculaList.length > 0) {
       const firstCurriculum = curriculaList[0] as any;
@@ -64,17 +44,13 @@ function Home() {
     return "";
   }, [curriculaList]);
 
-  // Determine the actual selected curriculum ID
   const selectedCurriculumId = useMemo(() => {
-    // If profile has a stored curriculum ID, use it
     if (profileSelectedCurriculumId) {
       return profileSelectedCurriculumId;
     }
-    // Otherwise, use default (first curriculum)
     return defaultCurriculumId;
   }, [profileSelectedCurriculumId, defaultCurriculumId]);
 
-  // Update profile's selectedCurriculumId when default changes (if not already set)
   useEffect(() => {
     if (defaultCurriculumId && !profileSelectedCurriculumId) {
       setProfileSelectedCurriculumId(defaultCurriculumId);
@@ -84,6 +60,25 @@ function Home() {
     profileSelectedCurriculumId,
     setProfileSelectedCurriculumId,
   ]);
+
+  const { data: library } = useGetLibrary(
+    activeProfile?.id || "",
+    selectedCurriculumId
+  );
+
+  const sections = useMemo(() => {
+    return library?.data || [];
+  }, [library?.data]);
+
+  const sectionImageMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    sections.forEach((section: any) => {
+      if (section.id && section.imageUrl) {
+        map[section.id] = section.imageUrl;
+      }
+    });
+    return map;
+  }, [sections]);
 
   // Fetch last accessed lessons for the selected curriculum
   const { data: lessonsData } = useGetChildLastAccessedLessons(
@@ -101,8 +96,9 @@ function Home() {
   // Collect lessons from the selected curriculum
   const allLessons = useMemo(() => {
     const lessons: any[] = [];
-    if (lessonsData?.data && selectedCurriculum) {
-      lessonsData.data.forEach((lesson: any) => {
+    const rows = Array.isArray(lessonsData?.data) ? lessonsData.data : [];
+    if (rows.length > 0 && selectedCurriculum) {
+      rows.forEach((lesson: any) => {
         // Get section image from library data based on lesson's sectionId
         const sectionImageUrl = lesson.sectionId
           ? sectionImageMap[lesson.sectionId]
@@ -138,7 +134,7 @@ function Home() {
         topics: [
           {
             title: "Start Learning",
-            number_of_quizzes: section.progress?.totalQuizzes || 0,
+            number_of_quizzes: section.progress?.totalLessons ?? 0,
           },
         ],
         progress: section.progress?.completionPercentage || 0,

@@ -7,13 +7,52 @@ import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import BackArrow from "@/assets/svgs/arrowback";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
-import { useGetLibrary } from "@/lib/api/queries";
+import { useGetCurricula, useGetLibrary } from "@/lib/api/queries";
 
 export default function CourseList() {
   const pathname = usePathname();
   const router = useRouter();
-  const { activeProfile } = useSelectedProfile();
-  const { data: library } = useGetLibrary(activeProfile?.id || "");
+  const {
+    activeProfile,
+    selectedCurriculumId: profileSelectedCurriculumId,
+    setSelectedCurriculumId: setProfileSelectedCurriculumId,
+  } = useSelectedProfile();
+
+  const { data: curriculaData } = useGetCurricula({
+    offerType: activeProfile?.offerType || "",
+  });
+
+  const curriculaList = useMemo(() => {
+    return curriculaData?.curricula || [];
+  }, [curriculaData?.curricula]);
+
+  const defaultCurriculumId = useMemo(() => {
+    if (curriculaList.length > 0) {
+      const first = curriculaList[0] as { id?: string };
+      return first.id || "";
+    }
+    return "";
+  }, [curriculaList]);
+
+  const selectedCurriculumId = useMemo(() => {
+    if (profileSelectedCurriculumId) return profileSelectedCurriculumId;
+    return defaultCurriculumId;
+  }, [profileSelectedCurriculumId, defaultCurriculumId]);
+
+  useEffect(() => {
+    if (defaultCurriculumId && !profileSelectedCurriculumId) {
+      setProfileSelectedCurriculumId(defaultCurriculumId);
+    }
+  }, [
+    defaultCurriculumId,
+    profileSelectedCurriculumId,
+    setProfileSelectedCurriculumId,
+  ]);
+
+  const { data: library } = useGetLibrary(
+    activeProfile?.id || "",
+    selectedCurriculumId
+  );
 
   // Transform library data to curriculum options
   const curricula = useMemo(() => {

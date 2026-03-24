@@ -87,7 +87,10 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
     setProfileSelectedCurriculumId,
   ]);
 
-  const { data: library } = useGetLibrary(activeProfile?.id || "");
+  const { data: library } = useGetLibrary(
+    activeProfile?.id || "",
+    selectedCurriculum || ""
+  );
 
   // Fetch lessons with curriculumId (from dropdown) and sectionId (from pathname)
   // Only fetch if tag doesn't exist (normal mode)
@@ -137,16 +140,19 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
   // Get section progress (using sectionId from pathname)
   const sectionProgress = useMemo(() => {
     const sectionId = selectedSection || urlSectionId;
-    return (library?.data || []).find((c: any) => c.id === sectionId)
-      ?.progress as
-      | { watchedVideoDuration?: number; isCompleted?: boolean }
-      | undefined;
+    const p = (library?.data || []).find((c) => c.id === sectionId)?.progress;
+    if (!p) return undefined;
+    return {
+      isCompleted: p.sectionCompleted,
+      watchedVideoDuration: (p as { watchedVideoDuration?: number })
+        .watchedVideoDuration,
+    };
   }, [library?.data, selectedSection, urlSectionId]);
 
   const isCompleted = Boolean(sectionProgress?.isCompleted);
   const resumePositionSec = Math.max(
     0,
-    Math.floor((sectionProgress?.watchedVideoDuration as number) || 0)
+    Math.floor(sectionProgress?.watchedVideoDuration ?? 0)
   );
 
   // Get lessons for selected curriculum

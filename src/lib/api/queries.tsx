@@ -854,14 +854,14 @@ export const useGetTagLessons = (tag: string) => {
 };
 
 // Child Library Queries
-export const useGetLibrary = (childId: string) => {
+export const useGetLibrary = (childId: string, curriculumId: string) => {
   return useQuery({
-    queryKey: ["library", childId],
+    queryKey: ["library", childId, curriculumId],
     queryFn: async (): Promise<APIGetResponse<LibraryCurriculum[]>> => {
-      const response = await axiosInstance.get(`/library/${childId}`);
+      const response = await axiosInstance.get(`/library/${childId}/curriculums/${curriculumId}`);
       return response.data;
     },
-    enabled: !!childId,
+    enabled: !!childId && !!curriculumId,
   });
 };
 
@@ -883,17 +883,86 @@ export const useGetChildLessons = (
   });
 };
 
-export const useGetChildLastAccessedLessons = (childId: string,
-  curriculumId: string) => {
+/**
+ * Continue-lessons / next-lesson API may return:
+ * - `ChildLesson[]`
+ * - a single lesson object (next lesson to continue)
+ * - wrappers like `{ lessons: [...] }` or `{ nextLesson: { ... } }`
+ */
+function normalizeContinueLessonsData(data: unknown): ChildLesson[] {
+  if (data == null) return [];
+  if (Array.isArray(data)) return data as ChildLesson[];
+  if (typeof data === "object") {
+    const o = data as Record<string, unknown>;
+    for (const key of [
+      "lessons",
+      "continueLessons",
+      "lastAccessedLessons",
+      "sectionLessons",
+      "items",
+      "results",
+      "rows",
+    ] as const) {
+      const v = o[key];
+      if (Array.isArray(v)) return v as ChildLesson[];
+    }
+    if (Array.isArray(o.data)) return o.data as ChildLesson[];
+
+    const unwrap = (node: unknown): ChildLesson | null => {
+      if (!node || typeof node !== "object") return null;
+      const x = node as Record<string, unknown>;
+      if (typeof x.id === "string" && typeof x.sectionId === "string") {
+        return childLessonFromNextPayload(x);
+      }
+      return null;
+    };
+
+    const fromNext = unwrap(o.nextLesson ?? o.lesson);
+    if (fromNext) return [fromNext];
+
+    const bare = unwrap(o);
+    if (bare) return [bare];
+  }
+  return [];
+}
+
+/** Map slim "next lesson" payload to ChildLesson; missing fields get safe defaults. */
+function childLessonFromNextPayload(x: Record<string, unknown>): ChildLesson {
+  return {
+    id: x.id as string,
+    title: typeof x.title === "string" ? x.title : "",
+    description: typeof x.description === "string" ? x.description : "",
+    orderIndex: typeof x.orderIndex === "number" ? x.orderIndex : 0,
+    sectionId: x.sectionId as string,
+    watchedPosition: typeof x.watchedPosition === "number" ? x.watchedPosition : 0,
+    videoCompleted: Boolean(x.videoCompleted),
+    quizzesPassed: typeof x.quizzesPassed === "number" ? x.quizzesPassed : 0,
+    totalQuizzes: typeof x.totalQuizzes === "number" ? x.totalQuizzes : 0,
+    completionPercentage:
+      typeof x.completionPercentage === "number" ? x.completionPercentage : 0,
+    lessonCompleted: Boolean(x.lessonCompleted),
+  };
+}
+
+export const useGetChildLastAccessedLessons = (
+  childId: string,
+  curriculumId: string
+) => {
   return useQuery({
     queryKey: ["child-last-accessed-lessons", childId, curriculumId],
     queryFn: async (): Promise<APIGetResponse<ChildLesson[]>> => {
-      const response = await axiosInstance.get(`/library/${childId}/curriculums/${curriculumId}/continue-lessons`);
-      return response.data;
+      const response = await axiosInstance.get(
+        `/library/${childId}/curriculums/${curriculumId}/continue-lessons`
+      );
+      const body = response.data as APIGetResponse<unknown>;
+      return {
+        ...body,
+        data: normalizeContinueLessonsData(body?.data),
+      };
     },
     enabled: !!childId && !!curriculumId,
   });
-}
+};
 
 // Analytics Queries
 export const useGetAnalytics = () => {

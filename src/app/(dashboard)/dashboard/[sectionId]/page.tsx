@@ -96,7 +96,10 @@ function DashboardSectionPage() {
     setProfileSelectedCurriculumId,
   ]);
 
-  const { data: library } = useGetLibrary(activeProfile?.id || "");
+  const { data: library } = useGetLibrary(
+    activeProfile?.id || "",
+    selectedCurriculum || ""
+  );
 
   // Fetch lessons with curriculumId and sectionId
   const { data: lessons } = useGetChildLessons(

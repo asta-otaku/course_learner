@@ -866,18 +866,24 @@ export interface CurriculumProgress {
   isCompleted: boolean;
 }
 
+/** Section progress from GET /library/:childId/curriculums/:curriculumId */
+export interface LibrarySectionProgress {
+  totalLessons: number;
+  completedLessons: number;
+  completionPercentage: number;
+  sectionCompleted: boolean;
+}
+
+/**
+ * Section row in child library (curriculum-scoped).
+ * Formerly modeled as a full curriculum; API now returns sections with compact progress.
+ */
 export interface LibraryCurriculum {
   id: string;
-  imageUrl: string;
   title: string;
-  description: string;
-  durationWeeks: number;
-  learningObjectives: string[];
-  prerequisites: string[];
-  lessonsCount: number;
-  createdAt: string;
   orderIndex: number;
-  progress: CurriculumProgress;
+  imageUrl: string;
+  progress: LibrarySectionProgress;
 }
 
 export interface ChildLesson {
