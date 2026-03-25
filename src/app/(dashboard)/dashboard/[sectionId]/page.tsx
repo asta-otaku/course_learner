@@ -133,14 +133,28 @@ function DashboardSectionPage() {
 
   // Handle URL parameters and initialize selections
   useEffect(() => {
+    // Prefer URL sectionId; otherwise preselect the first available section.
     if (sectionId) {
       setSelectedSection(sectionId);
+    } else if (!selectedSection && sections.length > 0) {
+      const firstSectionId = sections[0]?.id;
+      if (firstSectionId) {
+        setSelectedSection(firstSectionId);
+        router.replace(`/dashboard/${firstSectionId}`);
+      }
     }
     // Auto-select first lesson if available
     if (sectionLessons.length > 0 && !selectedLesson) {
       setSelectedLesson(sectionLessons[0].id);
     }
-  }, [sectionId, sectionLessons, selectedLesson]);
+  }, [
+    router,
+    sectionId,
+    sections,
+    selectedSection,
+    sectionLessons,
+    selectedLesson,
+  ]);
 
   // Early returns after all hooks
   if (!isLoaded) {
@@ -215,9 +229,6 @@ function DashboardSectionPage() {
             }}
             className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[200px] w-full md:w-fit"
           >
-            <option value="" className="text-textGray">
-              Select a Section
-            </option>
             {sections.map((section: any, idx) => (
               <option
                 key={idx}

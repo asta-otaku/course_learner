@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useMemo, useEffect } from "react";
-import profileIcon from "@/assets/profileIcon.svg";
 // import Streak from "./streaks";
 import LearningCard, { ProgressCard } from "./learningCard";
 import { useSelectedProfile } from "@/hooks/use-selectedProfile";
@@ -36,13 +35,17 @@ function Home() {
     return curriculaData?.curricula || [];
   }, [curriculaData?.curricula]);
 
+  const reversedCurriculaList = useMemo(() => {
+    return curriculaList.slice().reverse();
+  }, [curriculaList]);
+
   const defaultCurriculumId = useMemo(() => {
-    if (curriculaList.length > 0) {
-      const firstCurriculum = curriculaList[0] as any;
+    if (reversedCurriculaList.length > 0) {
+      const firstCurriculum = reversedCurriculaList[0] as any;
       return firstCurriculum.id || "";
     }
     return "";
-  }, [curriculaList]);
+  }, [reversedCurriculaList]);
 
   const selectedCurriculumId = useMemo(() => {
     if (profileSelectedCurriculumId) {
@@ -88,10 +91,10 @@ function Home() {
 
   // Get selected curriculum details
   const selectedCurriculum = useMemo(() => {
-    return curriculaList.find(
+    return reversedCurriculaList.find(
       (curriculum: any) => curriculum.id === selectedCurriculumId
     ) as any;
-  }, [curriculaList, selectedCurriculumId]);
+  }, [reversedCurriculaList, selectedCurriculumId]);
 
   // Collect lessons from the selected curriculum
   const allLessons = useMemo(() => {
@@ -184,8 +187,8 @@ function Home() {
                   <SelectValue placeholder="Select a curriculum..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {curriculaList.length > 0 ? (
-                    curriculaList.map((curriculum: any, index: number) => {
+                  {reversedCurriculaList.length > 0 ? (
+                    reversedCurriculaList.map((curriculum: any, index: number) => {
                       const curriculumId =
                         curriculum.id || `curriculum-${index}`;
                       return (

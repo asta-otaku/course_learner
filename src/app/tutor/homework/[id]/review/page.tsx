@@ -38,6 +38,7 @@ import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
+import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
 
 interface QuestionWithResults {
   id: string;
@@ -548,11 +549,15 @@ export default function TutorHomeworkReviewPage() {
                         <Alert className="border-blue-200 bg-blue-50">
                           <AlertCircle className="h-4 w-4 text-blue-600" />
                           <AlertDescription>
-                            <p className="text-blue-800 whitespace-pre-wrap">
-                              {currentResult.isCorrect
-                                ? currentQ.question.metadata.correctFeedback
-                                : currentQ.question.metadata.incorrectFeedback}
-                            </p>
+                            <MathPreview
+                              content={String(
+                                currentResult.isCorrect
+                                  ? currentQ.question.metadata.correctFeedback
+                                  : currentQ.question.metadata.incorrectFeedback
+                              )}
+                              renderMarkdown
+                              className="text-blue-800 whitespace-pre-wrap"
+                            />
                           </AlertDescription>
                         </Alert>
                       </div>
@@ -898,14 +903,14 @@ function FeedbackSection({
         >
           <AlertCircle className="h-4 w-4 text-yellow-600" />
           <AlertDescription>
-            <p
+            <MathPreview
+              content={currentFeedback || "No feedback provided yet"}
+              renderMarkdown
               className={cn(
                 "whitespace-pre-wrap",
                 currentFeedback ? "text-yellow-800" : "text-gray-500 italic"
               )}
-            >
-              {currentFeedback || "No feedback provided yet"}
-            </p>
+            />
           </AlertDescription>
         </Alert>
       )}

@@ -17,10 +17,15 @@ export function QuizPlayerResultsStats({
     submissionResults.totalPoints
   )}`;
   const roundedPercentage = `${Math.round(submissionResults.percentage)}%`;
-  const targetPass =
-    passPercentage != null && !Number.isNaN(passPercentage)
-      ? `${Math.round(passPercentage)}%`
-      : "---";
+  const passingScore = (() => {
+    const pct = Number(passPercentage);
+    const questions = Number(submissionResults.totalPoints);
+    if (!Number.isFinite(pct) || !Number.isFinite(questions) || questions <= 0) {
+      return "---";
+    }
+    const needed = Math.ceil((pct / 100) * questions);
+    return `${needed}/${questions}`;
+  })();
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -50,9 +55,9 @@ export function QuizPlayerResultsStats({
         <AlertCircle className="h-8 w-8 text-orange-600" />
         <div>
           <p className="text-sm text-orange-600 font-medium">
-            Percentage need to pass
+            Passing score
           </p>
-          <p className="text-2xl font-bold text-orange-900">{targetPass}</p>
+          <p className="text-2xl font-bold text-orange-900">{passingScore}</p>
         </div>
       </div>
     </div>

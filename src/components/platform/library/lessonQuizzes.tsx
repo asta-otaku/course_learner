@@ -39,10 +39,6 @@ export default function LessonQuizzes({ quizzes }: LessonQuizzesProps) {
                 <p className="text-xs font-medium text-textSubtitle font-inter">
                   {quiz.questionsCount || quiz.questions?.length || 0} Questions
                 </p>
-                <span className="p-1 rounded-full bg-borderGray" />
-                <p className="text-xs font-medium text-textSubtitle font-inter">
-                  {quiz.status === "published" ? "Published" : "Draft"}
-                </p>
               </div>
             </div>
 

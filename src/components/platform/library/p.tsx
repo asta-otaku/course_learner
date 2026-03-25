@@ -236,6 +236,12 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
     // Set sectionId from URL (what we previously called curriculumId)
     if (urlSectionId) {
       setSelectedSection(urlSectionId);
+    } else if (!selectedSection && sections.length > 0) {
+      const firstSectionId = sections[0]?.id;
+      if (firstSectionId) {
+        setSelectedSection(firstSectionId);
+        router.replace(`/library/${firstSectionId}`);
+      }
     }
 
     // Set lessonId from URL
@@ -245,7 +251,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
       // If we have sectionId but no lessonId, clear lesson selection
       setSelectedLesson("");
     }
-  }, [urlSectionId, urlLessonId]);
+  }, [router, urlSectionId, urlLessonId, selectedSection, sections]);
 
   // Early returns after all hooks
   if (!isLoaded) {
@@ -323,9 +329,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
         <div>
           <h1 className="text-xl font-medium text-textGray">Library</h1>
           <p className="text-sm text-textSubtitle">
-            This tab contains videos and worksheets for the entire 11+ Maths
-            syllabus. We have numbered each section of the syllabus for easy
-            navigation.
+            This tab contains videos and quizzes for your child to watch and complete!
           </p>
         </div>
       )}
@@ -369,9 +373,6 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
             }}
             className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[200px] w-full md:w-fit"
           >
-            <option value="" className="text-textGray">
-              Select a Section
-            </option>
             {sections.map((section: any, idx) => (
               <option
                 key={idx}

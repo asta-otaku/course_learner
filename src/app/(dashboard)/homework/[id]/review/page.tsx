@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
 import {
   CheckCircle,
   XCircle,
@@ -438,11 +439,15 @@ export default function HomeworkReviewPage() {
                         <Alert className="border-blue-200 bg-blue-50">
                           <AlertCircle className="h-4 w-4 text-blue-600" />
                           <AlertDescription>
-                            <p className="text-blue-800 whitespace-pre-wrap">
-                              {currentResult.isCorrect
-                                ? currentQ.question.metadata.correctFeedback
-                                : currentQ.question.metadata.incorrectFeedback}
-                            </p>
+                            <MathPreview
+                              content={String(
+                                currentResult.isCorrect
+                                  ? currentQ.question.metadata.correctFeedback
+                                  : currentQ.question.metadata.incorrectFeedback
+                              )}
+                              renderMarkdown
+                              className="text-blue-800 whitespace-pre-wrap"
+                            />
                           </AlertDescription>
                         </Alert>
                       </div>
@@ -457,25 +462,25 @@ export default function HomeworkReviewPage() {
                       <Alert className="border-yellow-200 bg-yellow-50">
                         <AlertCircle className="h-4 w-4 text-yellow-600" />
                         <AlertDescription>
-                          <p className="text-yellow-800 whitespace-pre-wrap">
-                            {(() => {
+                          <MathPreview
+                            content={(() => {
                               try {
-                                const parsed = JSON.parse(
-                                  currentResult.feedback
-                                );
+                                const parsed = JSON.parse(currentResult.feedback);
                                 if (
                                   parsed &&
                                   typeof parsed === "object" &&
-                                  parsed.feedback
+                                  (parsed as any).feedback
                                 ) {
-                                  return parsed.feedback;
+                                  return String((parsed as any).feedback);
                                 }
                               } catch {
                                 // Not JSON, use as is
                               }
-                              return currentResult.feedback;
+                              return String(currentResult.feedback);
                             })()}
-                          </p>
+                            renderMarkdown
+                            className="text-yellow-800 whitespace-pre-wrap"
+                          />
                         </AlertDescription>
                       </Alert>
                     </div>

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
 import {
   CheckCircle,
   XCircle,
@@ -22,6 +23,7 @@ import {
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { QuestionImage } from "@/components/ui/question-image";
 
 interface QuestionWithResults {
   id: string;
@@ -78,7 +80,12 @@ export default function QuizAttemptReviewPage() {
           title: qq.question.title,
           content: qq.question.content,
           type: qq.question.type,
-          image_url: qq.question.image_url,
+          // Support both new (image) and legacy (image_url) formats
+          image: (qq.question as any).image || qq.question.image_url,
+          image_url: qq.question.image_url || (qq.question as any).image,
+          imageSettings:
+            (qq.question as any).imageSettings ||
+            (qq.question as any).image_settings,
           explanation: qq.question.explanation,
           metadata: qq.question.metadata,
           options:
@@ -234,9 +241,15 @@ export default function QuizAttemptReviewPage() {
   const finalScore = `${Math.round(totalEarned)}/${Math.round(totalPossible)}`;
   const roundedPercentage = `${Math.round(computedPercentage)}%`;
   const passPercentageRaw = Number(quizData?.passingScore);
-  const passPercentage = Number.isFinite(passPercentageRaw)
-    ? `${Math.round(passPercentageRaw)}%`
-    : "---";
+  const passingScore = (() => {
+    const pct = Number(passPercentageRaw);
+    const questions = Number(questionsWithResults.length);
+    if (!Number.isFinite(pct) || !Number.isFinite(questions) || questions <= 0) {
+      return "---";
+    }
+    const needed = Math.ceil((pct / 100) * questions);
+    return `${needed}/${questions}`;
+  })();
   const isTimedQuiz =
     Number(quizData?.timeLimit) > 0;
 
@@ -305,10 +318,10 @@ export default function QuizAttemptReviewPage() {
                   <AlertCircle className="h-8 w-8 text-orange-600" />
                   <div>
                     <p className="text-sm text-orange-600 font-medium">
-                      Percentage need to pass
+                      Passing score
                     </p>
                     <p className="text-2xl font-bold text-orange-900">
-                      {passPercentage}
+                      {passingScore}
                     </p>
                   </div>
                 </div>
@@ -356,18 +369,25 @@ export default function QuizAttemptReviewPage() {
                   {/* Question Content */}
                   <div>
                     <p className="text-base font-medium mb-2">Question:</p>
-                    <p className="text-base whitespace-pre-wrap">
-                      {currentQ.question.content}
-                    </p>
-                    {currentQ.question.image_url && (
-                      <div className="mt-4">
-                        <img
-                          src={currentQ.question.image_url}
-                          alt="Question illustration"
-                          className="max-w-full h-auto rounded-lg border shadow-sm"
-                          style={{ maxHeight: "400px", objectFit: "contain" }}
-                        />
-                      </div>
+                    <MathPreview
+                      content={String(currentQ.question.content ?? "")}
+                      className="text-base text-textGray whitespace-pre-wrap"
+                      renderMarkdown={true}
+                    />
+                    {(currentQ.question.image || currentQ.question.image_url) && (
+                      <QuestionImage
+                        src={
+                          currentQ.question.image ||
+                          currentQ.question.image_url ||
+                          ""
+                        }
+                        alt="Question illustration"
+                        metadata={
+                          currentQ.question.imageSettings
+                            ? { image_settings: currentQ.question.imageSettings }
+                            : undefined
+                        }
+                      />
                     )}
                   </div>
 
@@ -487,12 +507,14 @@ export default function QuizAttemptReviewPage() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-base text-green-900 whitespace-pre-wrap">
-                            {getCorrectAnswerText(
+                          <MathPreview
+                            content={getCorrectAnswerText(
                               currentQ.question,
                               currentResult
                             )}
-                          </p>
+                            className="text-base text-green-900 whitespace-pre-wrap"
+                            renderMarkdown={true}
+                          />
                         )}
                       </div>
                     </div>
@@ -509,11 +531,15 @@ export default function QuizAttemptReviewPage() {
                         <Alert className="border-blue-200 bg-blue-50">
                           <AlertCircle className="h-4 w-4 text-blue-600" />
                           <AlertDescription>
-                            <p className="text-blue-800 whitespace-pre-wrap">
-                              {currentResult.isCorrect
-                                ? currentQ.question.metadata.correctFeedback
-                                : currentQ.question.metadata.incorrectFeedback}
-                            </p>
+                            <MathPreview
+                              content={String(
+                                currentResult.isCorrect
+                                  ? currentQ.question.metadata.correctFeedback
+                                  : currentQ.question.metadata.incorrectFeedback
+                              )}
+                              renderMarkdown
+                              className="text-blue-800 whitespace-pre-wrap"
+                            />
                           </AlertDescription>
                         </Alert>
                       </div>
@@ -528,25 +554,25 @@ export default function QuizAttemptReviewPage() {
                       <Alert className="border-yellow-200 bg-yellow-50">
                         <AlertCircle className="h-4 w-4 text-yellow-600" />
                         <AlertDescription>
-                          <p className="text-yellow-800 whitespace-pre-wrap">
-                            {(() => {
+                          <MathPreview
+                            content={(() => {
                               try {
-                                const parsed = JSON.parse(
-                                  currentResult.feedback
-                                );
+                                const parsed = JSON.parse(currentResult.feedback);
                                 if (
                                   parsed &&
                                   typeof parsed === "object" &&
-                                  parsed.feedback
+                                  (parsed as any).feedback
                                 ) {
-                                  return parsed.feedback;
+                                  return String((parsed as any).feedback);
                                 }
                               } catch {
                                 // Not JSON, use as is
                               }
-                              return currentResult.feedback;
+                              return String(currentResult.feedback);
                             })()}
-                          </p>
+                            renderMarkdown
+                            className="text-yellow-800 whitespace-pre-wrap"
+                          />
                         </AlertDescription>
                       </Alert>
                     </div>
@@ -559,9 +585,11 @@ export default function QuizAttemptReviewPage() {
                       <Alert className="border-blue-200 bg-blue-50">
                         <AlertCircle className="h-4 w-4 text-blue-600" />
                         <AlertDescription>
-                          <p className="text-blue-800 whitespace-pre-wrap">
-                            {currentQ.question.explanation}
-                          </p>
+                          <MathPreview
+                            content={String(currentQ.question.explanation ?? "")}
+                            className="text-blue-800 whitespace-pre-wrap"
+                            renderMarkdown={true}
+                          />
                         </AlertDescription>
                       </Alert>
                     </div>

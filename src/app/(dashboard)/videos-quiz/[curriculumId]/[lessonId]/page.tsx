@@ -114,11 +114,10 @@ export default function LessonPage() {
                 onClick={() =>
                   router.push(`/videos-quiz/${curriculumId}/${l.id}`)
                 }
-                className={`whitespace-nowrap uppercase ${
-                  isActive
-                    ? "border-b-2 border-primaryBlue text-primaryBlue font-semibold pb-2"
-                    : "text-textGray text-xs md:text-sm hover:text-gray-800"
-                }`}
+                className={`whitespace-nowrap uppercase ${isActive
+                  ? "border-b-2 border-primaryBlue text-primaryBlue font-semibold pb-2"
+                  : "text-textGray text-xs md:text-sm hover:text-gray-800"
+                  }`}
               >
                 Lesson {i + 1}
               </button>
@@ -187,7 +186,7 @@ export default function LessonPage() {
                         );
                         try {
                           vid.currentTime = safe > 0 ? safe : 0;
-                        } catch {}
+                        } catch { }
                       }
                     }}
                     onTimeUpdate={(e) => maybeSendProgress(e.currentTarget)}
@@ -256,10 +255,6 @@ export default function LessonPage() {
                       <p className="text-xs font-medium text-textSubtitle font-inter">
                         {quiz.questionsCount || quiz.questions?.length || 0}{" "}
                         Questions
-                      </p>
-                      <span className="p-1 rounded-full bg-borderGray" />
-                      <p className="text-xs font-medium text-textSubtitle font-inter">
-                        {quiz.status === "published" ? "Published" : "Draft"}
                       </p>
                     </div>
                   </div>

@@ -1151,9 +1151,11 @@ export function QuizPlayer({
                   {/* Question Content */}
                   <div>
                     <p className="text-base font-medium mb-2">Question:</p>
-                    <p className="text-base whitespace-pre-wrap">
-                      {currentQ.question.content}
-                    </p>
+                    <MathPreview
+                      content={String(currentQ.question.content ?? "")}
+                      className="text-base text-textGray whitespace-pre-wrap"
+                      renderMarkdown={true}
+                    />
                     {(currentQ.question.image ||
                       currentQ.question.image_url) && (
                         <QuestionImage
@@ -1537,9 +1539,11 @@ export function QuizPlayer({
               ) : (
                 <>
                   <div className="mb-6">
-                    <p className="text-base whitespace-pre-wrap">
-                      {currentQ.question.content}
-                    </p>
+                    <MathPreview
+                      content={String(currentQ.question.content ?? "")}
+                      className="text-base text-textGray whitespace-pre-wrap"
+                      renderMarkdown={true}
+                    />
                     {(currentQ.question.image ||
                       currentQ.question.image_url) && (
                         <QuestionImage

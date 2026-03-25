@@ -36,7 +36,7 @@ export default function LessonVideoPlayer({
       {videos.map((v, idx) => (
         <div
           key={idx}
-          className="bg-gray-100 rounded-xl select-none flex items-center justify-center"
+          className="bg-black rounded-xl select-none flex items-center justify-center"
           onContextMenu={(e) => e.preventDefault()}
           onDragStart={(e) => e.preventDefault()}
         >
@@ -49,7 +49,7 @@ export default function LessonVideoPlayer({
             controls
             controlsList="nodownload noremoteplayback"
             disablePictureInPicture
-            className="w-full h-full object-cover rounded-lg pointer-events-auto"
+            className="w-full h-full object-contain rounded-lg pointer-events-auto bg-black"
             preload="auto"
             onLoadedMetadata={(e) => {
               const vid = e.currentTarget;

@@ -132,9 +132,7 @@ const Glossary = () => {
               <>
                 <h1 className="text-xl font-medium text-textGray">Glossary</h1>
                 <p className="text-sm text-textSubtitle">
-                  This tab contains videos and worksheets for the entire 11+
-                  Maths syllabus. We have numbered each section of the syllabus
-                  for easy navigation.
+                  Browse every maths topic by letter - click any topic to jump straight to its lesson and quiz!
                 </p>
 
                 <div className="flex md:justify-center gap-6 my-8 overflow-x-auto scrollbar-hide border-b-2 py-6">
@@ -142,8 +140,8 @@ const Glossary = () => {
                     <button
                       key={letter}
                       className={`text-sm flex-shrink-0 ${letter === selectedLetter
-                          ? "font-bold text-primaryBlue"
-                          : "text-textGray"
+                        ? "font-bold text-primaryBlue"
+                        : "text-textGray"
                         }`}
                       onClick={() => setSelectedLetter(letter)}
                     >
@@ -237,8 +235,8 @@ const Glossary = () => {
                   <button
                     key={letter}
                     className={`text-sm flex-shrink-0 ${letter === selectedLetter
-                        ? "font-bold text-primaryBlue"
-                        : "text-textGray"
+                      ? "font-bold text-primaryBlue"
+                      : "text-textGray"
                       }`}
                     onClick={() => setSelectedLetter(letter)}
                   >
