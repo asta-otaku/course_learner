@@ -144,8 +144,13 @@ function DashboardSectionPage() {
       }
     }
     // Auto-select first lesson if available
-    if (sectionLessons.length > 0 && !selectedLesson) {
-      setSelectedLesson(sectionLessons[0].id);
+    if (sectionLessons.length > 0) {
+      const stillExists = selectedLesson
+        ? sectionLessons.some((l) => l.id === selectedLesson)
+        : false;
+      if (!stillExists) {
+        setSelectedLesson(sectionLessons[0].id);
+      }
     }
   }, [
     router,

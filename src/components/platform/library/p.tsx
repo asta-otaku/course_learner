@@ -160,6 +160,33 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
     return lessons?.data || [];
   }, [lessons?.data]);
 
+  // Always preselect the first lesson (normal mode) and sync URL.
+  useEffect(() => {
+    if (tag) return;
+    if (urlLessonId) return; // URL lesson takes priority
+    if (selectedCurriculumLessons.length === 0) return;
+
+    const stillExists = selectedLesson
+      ? selectedCurriculumLessons.some((l: any) => l.id === selectedLesson)
+      : false;
+    if (stillExists) return;
+
+    const firstLessonId = (selectedCurriculumLessons[0] as any)?.id;
+    const sectionIdForUrl = selectedSection || urlSectionId;
+    if (!firstLessonId || !sectionIdForUrl) return;
+
+    setSelectedLesson(firstLessonId);
+    router.replace(`/library/${sectionIdForUrl}/${firstLessonId}`);
+  }, [
+    router,
+    tag,
+    urlLessonId,
+    selectedCurriculumLessons,
+    selectedLesson,
+    selectedSection,
+    urlSectionId,
+  ]);
+
   // Get current lesson details
   // When tag exists, create a minimal lesson object from lessonData
   const currentLesson = useMemo(() => {

@@ -35,13 +35,13 @@ interface LessonContentProps {
   selectedCurriculum: string;
   lessonLoading: boolean;
   lessonData:
-    | {
-        title: string;
-        description?: string;
-        videos?: Video[];
-      }
-    | null
-    | undefined;
+  | {
+    title: string;
+    description?: string;
+    videos?: Video[];
+  }
+  | null
+  | undefined;
   currentLesson: Lesson | null | undefined;
   videos: Video[];
   quizzes: Quiz[];
@@ -70,7 +70,7 @@ export default function LessonContent({
   onBack,
   showTitleAndDescription = true,
 }: LessonContentProps) {
-  if (!selectedLesson) {
+  if (!selectedLesson && !lessonData) {
     return (
       <div className="text-center py-12">
         <p className="text-textSubtitle text-lg">
