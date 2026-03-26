@@ -70,6 +70,12 @@ export default function LessonContent({
   onBack,
   showTitleAndDescription = true,
 }: LessonContentProps) {
+  const playableVideos = React.useMemo(() => {
+    return (videos || []).filter(
+      (v) => Boolean(v?.fileName?.trim()) && Boolean(v?.playbackUrl?.trim())
+    );
+  }, [videos]);
+
   if (!selectedLesson && !lessonData) {
     return (
       <div className="text-center py-12">
@@ -118,7 +124,7 @@ export default function LessonContent({
 
       {/* Video Player(s) */}
       <LessonVideoPlayer
-        videos={videos}
+        videos={playableVideos}
         resumePositionSec={resumePositionSec}
         isCompleted={isCompleted}
         activeProfileId={activeProfileId}
