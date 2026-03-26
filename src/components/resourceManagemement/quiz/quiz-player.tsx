@@ -16,7 +16,11 @@ import {
   usePostSubmitQuizQuestionDynamic,
   usePostSubmitBaselineTest,
 } from "@/lib/api/mutations";
-import { useGetQuizQuestions, useGetQuiz, useGetResumeQuizAttempt } from "@/lib/api/queries";
+import {
+  useGetQuizQuestions,
+  useGetQuiz,
+  useGetResumeQuizAttempt,
+} from "@/lib/api/queries";
 import {
   ChevronLeft,
   ChevronRight,
@@ -65,10 +69,11 @@ export function QuizPlayer({
   isResuming = false,
 }: QuizPlayerProps) {
   const router = useRouter();
-  const [currentPosition, setCurrentPosition] = useState<QuizNavigationPosition>({
-    type: "question",
-    questionIndex: 0,
-  });
+  const [currentPosition, setCurrentPosition] =
+    useState<QuizNavigationPosition>({
+      type: "question",
+      questionIndex: 0,
+    });
   const [answers, setAnswers] = useState<
     Record<string, string | Record<string, string>>
   >({});
@@ -78,7 +83,7 @@ export function QuizPlayer({
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [questions, setQuestions] = useState<QuizPlayerQuestion[]>([]);
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
   const [submissionResults, setSubmissionResults] =
     useState<QuizSubmissionResults | null>(null);
@@ -87,7 +92,9 @@ export function QuizPlayer({
   const [immediateQuestionResults, setImmediateQuestionResults] = useState<
     Record<string, QuizQuestionResult>
   >({});
-  const [lockedQuestions, setLockedQuestions] = useState<Set<string>>(new Set());
+  const [lockedQuestions, setLockedQuestions] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Fetch quiz data for timeLimit and feedbackMode (needed for both regular and homework)
   const { data: quizResponse } = useGetQuiz(quizId || "");
@@ -123,7 +130,7 @@ export function QuizPlayer({
   // Submit quiz mutation (for regular quizzes)
   const { mutate: submitQuiz, isPending: isSubmittingQuiz } = usePostSubmitQuiz(
     quizId,
-    attemptId || ""
+    attemptId || "",
   );
 
   // Submit homework mutation (for homework quizzes)
@@ -135,16 +142,14 @@ export function QuizPlayer({
 
   // For baseline (immediate feedback), per-question submit uses quizAttemptId; final submit uses attemptId (baselineAttemptId)
   const attemptIdForQuestionSubmit =
-    isBaselineTest && quizAttemptId ? quizAttemptId : (attemptId || "");
+    isBaselineTest && quizAttemptId ? quizAttemptId : attemptId || "";
 
   // Submit single question (for immediate feedback mode only)
-  const {
-    mutate: submitQuestion,
-    isPending: isSubmittingQuestion,
-  } = usePostSubmitQuizQuestionDynamic(quizId, attemptIdForQuestionSubmit);
+  const { mutate: submitQuestion, isPending: isSubmittingQuestion } =
+    usePostSubmitQuizQuestionDynamic(quizId, attemptIdForQuestionSubmit);
 
   const getTransitionForPosition = (
-    position: number
+    position: number,
   ): QuizTransition | undefined => {
     return undefined;
   };
@@ -191,8 +196,8 @@ export function QuizPlayer({
     const rawQuestions = resumeData.questions;
 
     // Transform questions to QuizPlayerQuestion format
-    const transformedQuestions: QuizPlayerQuestion[] = rawQuestions
-      .map((rq: any, index: number) => {
+    const transformedQuestions: QuizPlayerQuestion[] = rawQuestions.map(
+      (rq: any, index: number) => {
         // Determine the question data structure - handle different possible formats
         const questionData = rq.question || rq;
 
@@ -200,7 +205,10 @@ export function QuizPlayer({
         let options: any[] = [];
 
         // First try to use the answers array if available
-        if ((rq.type === "multiple_choice" || rq.type === "true_false") && rq.answers) {
+        if (
+          (rq.type === "multiple_choice" || rq.type === "true_false") &&
+          rq.answers
+        ) {
           options = rq.answers
             .sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0))
             .map((answer: any) => ({
@@ -219,7 +227,10 @@ export function QuizPlayer({
           }));
 
           // Add the user's selected answer if it's different from the correct answer
-          if (rq.result.userAnswerId && !options.some((opt: any) => opt.id === rq.result.userAnswerId)) {
+          if (
+            rq.result.userAnswerId &&
+            !options.some((opt: any) => opt.id === rq.result.userAnswerId)
+          ) {
             options.push({
               id: rq.result.userAnswerId,
               text: rq.result.userAnswerContent,
@@ -235,24 +246,38 @@ export function QuizPlayer({
           explanation: questionData.explanation || rq.explanation,
           question: {
             id: rq.questionId || questionData.id,
-            title: rq.title || questionData.title || questionData.content?.substring(0, 50) || "Question",
+            title:
+              rq.title ||
+              questionData.title ||
+              questionData.content?.substring(0, 50) ||
+              "Question",
             content: rq.content || questionData.content || "",
-            type: rq.type || questionData.type || rq.question_format?.type || "multiple_choice",
+            type:
+              rq.type ||
+              questionData.type ||
+              rq.question_format?.type ||
+              "multiple_choice",
             image: rq.image || questionData.image,
             image_url: rq.image_url || questionData.image_url,
-            imageSettings: rq.imageSettings || questionData.imageSettings || rq.image_settings,
+            imageSettings:
+              rq.imageSettings ||
+              questionData.imageSettings ||
+              rq.image_settings,
             // Use the constructed options array
             options: options,
             // For matching questions
             ...(questionData.type === "matching_pairs" && {
-              pairs: (questionData.pairs || questionData.matchingPairs || []).map(
-                (pair: any, idx: number) => ({
-                  id: `pair-${idx}`,
-                  left: pair.left,
-                  right: pair.right,
-                })
-              ),
-              correctAnswer: questionData.pairs || questionData.matchingPairs || [],
+              pairs: (
+                questionData.pairs ||
+                questionData.matchingPairs ||
+                []
+              ).map((pair: any, idx: number) => ({
+                id: `pair-${idx}`,
+                left: pair.left,
+                right: pair.right,
+              })),
+              correctAnswer:
+                questionData.pairs || questionData.matchingPairs || [],
             }),
             // For free text questions
             ...(questionData.type === "free_text" && {
@@ -262,7 +287,8 @@ export function QuizPlayer({
             correctAnswer: questionData.correctAnswer,
           },
         };
-      });
+      },
+    );
 
     // Shuffle options for multiple choice questions (but not for locked questions)
     const withShuffledOptions = transformedQuestions.map((q, idx) => {
@@ -273,7 +299,9 @@ export function QuizPlayer({
         question: {
           ...q.question,
           options:
-            !isQuestionLocked && q.question.options && q.question.options.length > 0
+            !isQuestionLocked &&
+              q.question.options &&
+              q.question.options.length > 0
               ? shuffleArray(q.question.options)
               : q.question.options,
         },
@@ -283,7 +311,8 @@ export function QuizPlayer({
     setQuestions(withShuffledOptions);
 
     // Populate answers and results from resume data
-    const populatedAnswers: Record<string, string | Record<string, string>> = {};
+    const populatedAnswers: Record<string, string | Record<string, string>> =
+      {};
     const populatedResults: Record<string, QuizQuestionResult> = {};
     const locked = new Set<string>();
     let firstUnansweredIndex = -1;
@@ -305,7 +334,9 @@ export function QuizPlayer({
           // For matching, parse the userAnswerContent as JSON if it's a string
           try {
             if (typeof result.userAnswerContent === "string") {
-              populatedAnswers[questionId] = JSON.parse(result.userAnswerContent);
+              populatedAnswers[questionId] = JSON.parse(
+                result.userAnswerContent,
+              );
             } else {
               populatedAnswers[questionId] = result.userAnswerContent;
             }
@@ -347,10 +378,15 @@ export function QuizPlayer({
     setAnswers(populatedAnswers);
     setImmediateQuestionResults(populatedResults);
     setLockedQuestions(locked);
-    setAnsweredQuestions(new Set(Array.from({ length: firstUnansweredIndex }, (_, i) => i)));
+    setAnsweredQuestions(
+      new Set(Array.from({ length: firstUnansweredIndex }, (_, i) => i)),
+    );
 
     // Set position to first unanswered question
-    setCurrentPosition({ type: "question", questionIndex: firstUnansweredIndex });
+    setCurrentPosition({
+      type: "question",
+      questionIndex: firstUnansweredIndex,
+    });
 
     const initialTransition = getTransitionForPosition(0);
     if (initialTransition && firstUnansweredIndex === 0) {
@@ -422,7 +458,7 @@ export function QuizPlayer({
                 id: `pair-${index}`,
                 left: pair.left,
                 right: pair.right,
-              })
+              }),
             ),
             correctAnswer: qq.question.answers?.[0]?.matchingPairs || [],
           }),
@@ -572,10 +608,13 @@ export function QuizPlayer({
 
   const handleAnswerChange = (
     questionId: string,
-    answer: string | Record<string, string>
+    answer: string | Record<string, string>,
   ) => {
     // Prevent changes to locked questions (from resume) or already submitted (immediate feedback)
-    if (lockedQuestions.has(questionId) || (isImmediateFeedback && immediateQuestionResults[questionId])) {
+    if (
+      lockedQuestions.has(questionId) ||
+      (isImmediateFeedback && immediateQuestionResults[questionId])
+    ) {
       return;
     }
     setAnswers((prev) => {
@@ -595,7 +634,8 @@ export function QuizPlayer({
       const q = questions.find((qu) => qu.question.id === questionId);
       if (
         q &&
-        (q.question.type === "multiple_choice" || q.question.type === "true_false")
+        (q.question.type === "multiple_choice" ||
+          q.question.type === "true_false")
       ) {
         const payload = serializeQuizAnswerForApi(q, answer);
         submitQuestion(
@@ -613,7 +653,7 @@ export function QuizPlayer({
             onError: () => {
               toast.error("Failed to submit answer. Please try again.");
             },
-          }
+          },
         );
       }
     }
@@ -705,7 +745,7 @@ export function QuizPlayer({
           answers[questions[currentQuestionIndex].question.id]
         ) {
           setAnsweredQuestions((prev) =>
-            new Set(prev).add(currentQuestionIndex)
+            new Set(prev).add(currentQuestionIndex),
           );
         }
         setCurrentPosition({
@@ -907,7 +947,7 @@ export function QuizPlayer({
         typeof answer === "string"
       ) {
         const option = question.question.options?.find(
-          (opt) => opt.id === answer
+          (opt) => opt.id === answer,
         );
         if (option) {
           // Convert option text to lowercase ("True" -> "true", "False" -> "false")
@@ -932,14 +972,14 @@ export function QuizPlayer({
     const handleSubmissionSuccess = (resultData: any) => {
       if (resultData) {
         setSubmissionResults(
-          buildQuizSubmissionResults(resultData, attemptId || "", quizId)
+          buildQuizSubmissionResults(resultData, attemptId || "", quizId),
         );
         setShowResults(true);
         setCurrentPosition({ type: "question", questionIndex: 0 });
         toast.success(successMessage);
       } else {
         router.push(
-          `/quiz-results/${resultData?.id || resultData?.attemptId || attemptId || ""}`
+          `/quiz-results/${resultData?.id || resultData?.attemptId || attemptId || ""}`,
         );
       }
     };
@@ -990,7 +1030,9 @@ export function QuizPlayer({
   }).length;
   const progress = (answeredCount / questions.length) * 100;
 
-  const getQuestionResult = (questionId: string): QuizQuestionResult | undefined => {
+  const getQuestionResult = (
+    questionId: string,
+  ): QuizQuestionResult | undefined => {
     if (isImmediateFeedback && immediateQuestionResults[questionId]) {
       return immediateQuestionResults[questionId];
     }
@@ -1012,8 +1054,12 @@ export function QuizPlayer({
 
   // Show error state
   const hasError = isResuming
-    ? (resumeError || !resumeResponse?.data || resumeResponse.data.questions.length === 0)
-    : (questionsError || !questionsResponse?.data || questionsResponse.data.length === 0);
+    ? resumeError ||
+    !resumeResponse?.data ||
+    resumeResponse.data.questions.length === 0
+    : questionsError ||
+    !questionsResponse?.data ||
+    questionsResponse.data.length === 0;
 
   if (hasError) {
     return (
@@ -1059,10 +1105,12 @@ export function QuizPlayer({
   const currentQ = questions[currentQuestionIndex] || questions[0]; // Fallback for edge cases
   const currentResult = getQuestionResult(currentQ.question.id);
   const isCurrentQuestionSubmitted =
-    isImmediateFeedback && Boolean(immediateQuestionResults[currentQ.question.id]);
+    isImmediateFeedback &&
+    Boolean(immediateQuestionResults[currentQ.question.id]);
   const isCurrentQuestionLocked = lockedQuestions.has(currentQ.question.id);
   const showCorrectnessForCurrent =
-    Boolean(currentResult) && (showResults || isCurrentQuestionSubmitted || isCurrentQuestionLocked);
+    Boolean(currentResult) &&
+    (showResults || isCurrentQuestionSubmitted || isCurrentQuestionLocked);
   const allQuestionsSubmittedInImmediateMode =
     isImmediateFeedback &&
     questions.length > 0 &&
@@ -1095,14 +1143,18 @@ export function QuizPlayer({
                     <p className="font-medium">{lessonTitle}</p>
                   </div>
                   <div className="rounded-lg border bg-muted/30 p-3">
-                    <p className="text-muted-foreground text-xs mb-1">Quiz Name</p>
+                    <p className="text-muted-foreground text-xs mb-1">
+                      Quiz Name
+                    </p>
                     <p className="font-medium">{quizName}</p>
                   </div>
                   <div className="rounded-lg border bg-muted/30 p-3">
                     <p className="text-muted-foreground text-xs mb-1">
                       Quiz Description
                     </p>
-                    <p className="font-medium line-clamp-2">{quizDescription}</p>
+                    <p className="font-medium line-clamp-2">
+                      {quizDescription}
+                    </p>
                   </div>
                 </div>
               </CardHeader>
@@ -1186,7 +1238,7 @@ export function QuizPlayer({
                           {(() => {
                             try {
                               const userMatches = JSON.parse(
-                                currentResult.userAnswerContent
+                                currentResult.userAnswerContent,
                               ) as Record<string, string>;
                               const correctMatches =
                                 typeof currentResult.correctAnswers[0]
@@ -1202,12 +1254,12 @@ export function QuizPlayer({
                                       // Find the pair that matches the left text
                                       const leftPair =
                                         currentQ.question.pairs?.find(
-                                          (p) => p.left === leftText
+                                          (p) => p.left === leftText,
                                         );
                                       // Find the pair that matches the right text
                                       const rightPair =
                                         currentQ.question.pairs?.find(
-                                          (p) => p.right === rightText
+                                          (p) => p.right === rightText,
                                         );
                                       // Check if this match is correct
                                       const correctRightText =
@@ -1222,7 +1274,7 @@ export function QuizPlayer({
                                             "p-3 rounded-lg border-2",
                                             isMatchCorrect
                                               ? "bg-green-50 border-green-300"
-                                              : "bg-red-50 border-red-300"
+                                              : "bg-red-50 border-red-300",
                                           )}
                                         >
                                           <div className="flex items-center gap-2">
@@ -1238,7 +1290,7 @@ export function QuizPlayer({
                                           </div>
                                         </div>
                                       );
-                                    }
+                                    },
                                   )}
                                 </div>
                               );
@@ -1257,7 +1309,7 @@ export function QuizPlayer({
                             "p-4 rounded-lg border-2",
                             currentResult.isCorrect
                               ? "bg-green-50 border-green-300"
-                              : "bg-red-50 border-red-300"
+                              : "bg-red-50 border-red-300",
                           )}
                         >
                           <p className="text-base">
@@ -1267,7 +1319,7 @@ export function QuizPlayer({
                                 (opt) =>
                                   opt.id ===
                                   (currentResult.userAnswerId ||
-                                    currentResult.userAnswerContent)
+                                    currentResult.userAnswerContent),
                               )?.text || currentResult.userAnswerContent
                               : currentResult.userAnswerContent || "No answer"}
                           </p>
@@ -1291,7 +1343,7 @@ export function QuizPlayer({
                               currentResult.correctAnswers[0].content as Record<
                                 string,
                                 string
-                              >
+                              >,
                             ).map(([left, right]) => (
                               <div
                                 key={left}
@@ -1397,7 +1449,7 @@ export function QuizPlayer({
                             ? "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300"
                             : result
                               ? "bg-red-100 text-red-700 hover:bg-red-200 border border-red-300"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300",
                       )}
                     >
                       <div
@@ -1409,7 +1461,7 @@ export function QuizPlayer({
                               ? "bg-green-600 text-white"
                               : result
                                 ? "bg-red-600 text-white"
-                                : "bg-gray-400 text-white"
+                                : "bg-gray-400 text-white",
                         )}
                       >
                         {index + 1}
@@ -1477,7 +1529,7 @@ export function QuizPlayer({
               {currentPosition.type === "transition" ? (
                 (() => {
                   const transition = getTransitionForPosition(
-                    currentPosition.questionIndex
+                    currentPosition.questionIndex,
                   );
                   if (!transition) {
                     // If no transition, go to first question
@@ -1569,7 +1621,19 @@ export function QuizPlayer({
                     <Alert className="mb-4 border-blue-200 bg-blue-50">
                       <AlertCircle className="h-4 w-4 text-blue-600" />
                       <AlertDescription className="text-blue-800">
-                        <strong>Resuming {isBaselineTest ? "Baseline Test" : isHomework ? "Homework" : "Quiz"}:</strong> You have already answered {lockedQuestions.size} question{lockedQuestions.size !== 1 ? 's' : ''}. Those answers are locked and cannot be changed. Continue from where you left off.
+                        <strong>
+                          Resuming{" "}
+                          {isBaselineTest
+                            ? "Baseline Test"
+                            : isHomework
+                              ? "Homework"
+                              : "Quiz"}
+                          :
+                        </strong>{" "}
+                        You have already answered {lockedQuestions.size}{" "}
+                        question{lockedQuestions.size !== 1 ? "s" : ""}. Those
+                        answers are locked and cannot be changed. Continue from
+                        where you left off.
                       </AlertDescription>
                     </Alert>
                   )}
@@ -1608,7 +1672,9 @@ export function QuizPlayer({
                           handleAnswerChange(currentQ.question.id, value)
                         }
                         disabled={
-                          showResults || isCurrentQuestionSubmitted || isCurrentQuestionLocked
+                          showResults ||
+                          isCurrentQuestionSubmitted ||
+                          isCurrentQuestionLocked
                         }
                       >
                         <div className="space-y-3">
@@ -1617,7 +1683,7 @@ export function QuizPlayer({
                               answers[currentQ.question.id] === option.id;
                             const isCorrect =
                               currentResult?.correctAnswers?.some(
-                                (ans) => ans.id === option.id
+                                (ans) => ans.id === option.id,
                               ) || false;
                             const showCorrectness = showCorrectnessForCurrent;
 
@@ -1640,15 +1706,25 @@ export function QuizPlayer({
                                   !isCorrect &&
                                   "border-gray-200",
                                   (showResults || isCurrentQuestionSubmitted) &&
-                                  "cursor-default"
+                                  "cursor-default",
                                 )}
                               >
                                 <RadioGroupItem
                                   value={option.id}
                                   id={option.id}
-                                  disabled={showResults || isCurrentQuestionSubmitted || isCurrentQuestionLocked}
+                                  disabled={
+                                    showResults ||
+                                    isCurrentQuestionSubmitted ||
+                                    isCurrentQuestionLocked
+                                  }
                                 />
-                                <span className="flex-1">{option.text}</span>
+                                <span className="flex-1">
+                                  <MathPreview
+                                    content={option.text}
+                                    renderMarkdown={true}
+                                    className="text-textGray whitespace-pre-wrap"
+                                  />
+                                </span>
                                 {showCorrectness && isCorrect && (
                                   <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
                                 )}
@@ -1679,7 +1755,9 @@ export function QuizPlayer({
                             handleAnswerChange(currentQ.question.id, matches)
                           }
                           disabled={
-                            showResults || isCurrentQuestionSubmitted || isCurrentQuestionLocked
+                            showResults ||
+                            isCurrentQuestionSubmitted ||
+                            isCurrentQuestionLocked
                           }
                         />
                         {isImmediateFeedback &&
@@ -1689,7 +1767,7 @@ export function QuizPlayer({
                             (answers[currentQ.question.id] as Record<
                               string,
                               string
-                            >) || {}
+                            >) || {},
                           ).length > 0 && (
                             <Button
                               onClick={() => {
@@ -1697,7 +1775,7 @@ export function QuizPlayer({
                                 if (ans == null) return;
                                 const payload = serializeQuizAnswerForApi(
                                   currentQ,
-                                  ans
+                                  ans,
                                 );
                                 submitQuestion(
                                   {
@@ -1706,10 +1784,11 @@ export function QuizPlayer({
                                   },
                                   {
                                     onSuccess: (res) => {
-                                      const result = parseQuizQuestionSubmitResponse(
-                                        currentQ.question.id,
-                                        res
-                                      );
+                                      const result =
+                                        parseQuizQuestionSubmitResponse(
+                                          currentQ.question.id,
+                                          res,
+                                        );
                                       if (result) {
                                         setImmediateQuestionResults((prev) => ({
                                           ...prev,
@@ -1719,15 +1798,17 @@ export function QuizPlayer({
                                     },
                                     onError: () => {
                                       toast.error(
-                                        "Failed to submit answer. Please try again."
+                                        "Failed to submit answer. Please try again.",
                                       );
                                     },
-                                  }
+                                  },
                                 );
                               }}
                               disabled={isSubmittingQuestion}
                             >
-                              {isSubmittingQuestion ? "Submitting..." : "Submit answer"}
+                              {isSubmittingQuestion
+                                ? "Submitting..."
+                                : "Submit answer"}
                             </Button>
                           )}
                       </>
@@ -1775,7 +1856,8 @@ export function QuizPlayer({
                             <Button
                               onClick={() => {
                                 const ans = answers[currentQ.question.id];
-                                if (ans == null || typeof ans !== "string") return;
+                                if (ans == null || typeof ans !== "string")
+                                  return;
                                 submitQuestion(
                                   {
                                     questionId: currentQ.question.id,
@@ -1783,10 +1865,11 @@ export function QuizPlayer({
                                   },
                                   {
                                     onSuccess: (res) => {
-                                      const result = parseQuizQuestionSubmitResponse(
-                                        currentQ.question.id,
-                                        res
-                                      );
+                                      const result =
+                                        parseQuizQuestionSubmitResponse(
+                                          currentQ.question.id,
+                                          res,
+                                        );
                                       if (result) {
                                         setImmediateQuestionResults((prev) => ({
                                           ...prev,
@@ -1796,10 +1879,10 @@ export function QuizPlayer({
                                     },
                                     onError: () => {
                                       toast.error(
-                                        "Failed to submit answer. Please try again."
+                                        "Failed to submit answer. Please try again.",
                                       );
                                     },
-                                  }
+                                  },
                                 );
                               }}
                               disabled={isSubmittingQuestion}
@@ -1819,7 +1902,9 @@ export function QuizPlayer({
                         <div className="flex items-center gap-2">
                           <Badge
                             variant={
-                              currentResult.isCorrect ? "default" : "destructive"
+                              currentResult.isCorrect
+                                ? "default"
+                                : "destructive"
                             }
                             className="flex items-center gap-2"
                           >
@@ -1841,30 +1926,37 @@ export function QuizPlayer({
                             <div>
                               <p className="text-sm font-medium text-green-700 mb-2">
                                 Correct Answer
-                                {currentResult.correctAnswers.length > 1 ? "s" : ""}
+                                {currentResult.correctAnswers.length > 1
+                                  ? "s"
+                                  : ""}
                                 :
                               </p>
                               <div className="p-3 bg-green-50 rounded-lg border border-green-300">
                                 {currentQ.question.type === "matching_pairs" &&
-                                  typeof currentResult.correctAnswers[0]?.content ===
-                                  "object" ? (
+                                  typeof currentResult.correctAnswers[0]
+                                    ?.content === "object" ? (
                                   <div className="space-y-2">
                                     {Object.entries(
                                       currentResult.correctAnswers[0]
-                                        .content as Record<string, string>
+                                        .content as Record<string, string>,
                                     ).map(([left, right]) => (
                                       <div
                                         key={left}
                                         className="p-2 bg-white rounded border border-green-200"
                                       >
-                                        <span className="font-medium">{left}</span> →{" "}
-                                        <span>{right}</span>
+                                        <span className="font-medium">
+                                          {left}
+                                        </span>{" "}
+                                        → <span>{right}</span>
                                       </div>
                                     ))}
                                   </div>
                                 ) : (
                                   <p className="text-sm text-green-900 whitespace-pre-wrap">
-                                    {getCorrectAnswerText(currentQ, currentResult)}
+                                    {getCorrectAnswerText(
+                                      currentQ,
+                                      currentResult,
+                                    )}
                                   </p>
                                 )}
                               </div>
@@ -1872,12 +1964,16 @@ export function QuizPlayer({
                           )}
                         {currentResult.feedback && (
                           <div>
-                            <p className="text-sm font-medium mb-2">Feedback:</p>
+                            <p className="text-sm font-medium mb-2">
+                              Feedback:
+                            </p>
                             <Alert className="border-amber-200 bg-amber-50">
                               <AlertCircle className="h-4 w-4 text-amber-600" />
                               <AlertDescription>
                                 <p className="text-amber-800 whitespace-pre-wrap">
-                                  {parseQuizFeedbackText(currentResult.feedback)}
+                                  {parseQuizFeedbackText(
+                                    currentResult.feedback,
+                                  )}
                                 </p>
                               </AlertDescription>
                             </Alert>
@@ -1910,7 +2006,10 @@ export function QuizPlayer({
                       {currentQuestionIndex === questions.length - 1 ? (
                         <Button
                           onClick={() => {
-                            if (isImmediateFeedback && allQuestionsSubmittedInImmediateMode) {
+                            if (
+                              isImmediateFeedback &&
+                              allQuestionsSubmittedInImmediateMode
+                            ) {
                               setShowSubmitDialog(true);
                               return;
                             }
@@ -1926,9 +2025,14 @@ export function QuizPlayer({
                               setShowSubmitDialog(true);
                             }
                           }}
-                          disabled={isSubmittingQuiz || isSubmittingHomework || isSubmittingBaselineTest}
+                          disabled={
+                            isSubmittingQuiz ||
+                            isSubmittingHomework ||
+                            isSubmittingBaselineTest
+                          }
                         >
-                          {isImmediateFeedback && allQuestionsSubmittedInImmediateMode
+                          {isImmediateFeedback &&
+                            allQuestionsSubmittedInImmediateMode
                             ? "Finish quiz"
                             : currentQ.explanation &&
                               answers[currentQ.question.id] &&
@@ -1968,7 +2072,7 @@ export function QuizPlayer({
                     currentPosition.type === "transition" &&
                       currentPosition.questionIndex === 0
                       ? "bg-green-500 text-white hover:bg-green-600"
-                      : "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300"
+                      : "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300",
                   )}
                   data-testid="transition-nav-0"
                 >
@@ -2014,7 +2118,7 @@ export function QuizPlayer({
                             currentPosition.questionIndex === index
                             ? "bg-green-500 text-white hover:bg-green-600"
                             : "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300",
-                          isDisabled && "opacity-50 cursor-not-allowed"
+                          isDisabled && "opacity-50 cursor-not-allowed",
                         )}
                         disabled={isDisabled}
                         data-testid={`transition-nav-${index}`}
@@ -2038,7 +2142,7 @@ export function QuizPlayer({
                             : isAnswered
                               ? "bg-primaryBlue/20 text-primaryBlue hover:bg-primaryBlue/30 border border-primaryBlue/30"
                               : "bg-muted hover:bg-muted/80 border border-muted-foreground/20",
-                        isDisabled && "opacity-50 cursor-not-allowed"
+                        isDisabled && "opacity-50 cursor-not-allowed",
                       )}
                       disabled={isDisabled}
                       data-testid={`question-nav-${index + 1}`}
@@ -2054,7 +2158,7 @@ export function QuizPlayer({
                                 : "bg-red-600 text-white"
                               : isAnswered
                                 ? "bg-primaryBlue text-white"
-                                : "bg-muted-foreground/20 text-muted-foreground"
+                                : "bg-muted-foreground/20 text-muted-foreground",
                         )}
                       >
                         {index + 1}
@@ -2087,7 +2191,7 @@ export function QuizPlayer({
                           isCurrentExplanation
                             ? "bg-blue-500 text-white hover:bg-blue-600"
                             : "bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300",
-                          isDisabled && "opacity-50 cursor-not-allowed"
+                          isDisabled && "opacity-50 cursor-not-allowed",
                         )}
                         disabled={isDisabled}
                         data-testid={`explanation-nav-${index}`}
