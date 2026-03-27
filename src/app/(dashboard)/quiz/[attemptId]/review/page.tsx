@@ -232,9 +232,7 @@ export default function QuizAttemptReviewPage() {
   const currentQ = questionsWithResults[currentQuestionIndex];
   const currentResult = currentQ?.result;
   const lessonTitle =
-    (quizData as any)?.lessonTitle ||
-    (quizData as any)?.lesson?.title ||
-    "---";
+    (quizData as any)?.sectionName || "---";
   const quizName = quizData?.title || "Quiz";
   const quizDescription = quizData?.description || "---";
 
@@ -267,15 +265,14 @@ export default function QuizAttemptReviewPage() {
                   <p className="text-muted-foreground text-xs mb-1">Lesson</p>
                   <p className="font-medium">{lessonTitle}</p>
                 </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-muted-foreground text-xs mb-1">Quiz Name</p>
-                  <p className="font-medium">{quizName}</p>
-                </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-muted-foreground text-xs mb-1">
-                    Quiz Description
+                <div className="rounded-lg border bg-muted/30 p-3 md:col-span-2">
+                  <p className="text-muted-foreground text-xs mb-1">Quiz</p>
+                  <p className="font-medium line-clamp-2">
+                    {quizName}
+                    {quizDescription && quizDescription !== "---"
+                      ? ` - ${quizDescription}`
+                      : ""}
                   </p>
-                  <p className="font-medium line-clamp-2">{quizDescription}</p>
                 </div>
               </div>
             </CardHeader>
@@ -464,17 +461,21 @@ export default function QuizAttemptReviewPage() {
                               : "bg-red-50 border-red-300"
                           )}
                         >
-                          <p className="text-base">
-                            {currentQ.question.type === "multiple_choice" ||
-                              currentQ.question.type === "true_false"
-                              ? currentQ.question.options?.find(
-                                (opt: any) =>
-                                  opt.id ===
-                                  (currentResult.userAnswerId ||
-                                    currentResult.userAnswerContent)
-                              )?.text || currentResult.userAnswerContent
-                              : currentResult.userAnswerContent || "No answer"}
-                          </p>
+                          <MathPreview
+                            content={String(
+                              currentQ.question.type === "multiple_choice" ||
+                                currentQ.question.type === "true_false"
+                                ? currentQ.question.options?.find(
+                                  (opt: any) =>
+                                    opt.id ===
+                                    (currentResult.userAnswerId ||
+                                      currentResult.userAnswerContent)
+                                )?.text || currentResult.userAnswerContent
+                                : currentResult.userAnswerContent || "No answer"
+                            )}
+                            className="text-base text-textGray whitespace-pre-wrap"
+                            renderMarkdown={true}
+                          />
                         </div>
                       )}
                     </div>

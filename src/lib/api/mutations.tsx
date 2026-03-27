@@ -1573,7 +1573,8 @@ export const usePatchVideoLessonProgress = (
       return data;
     },
     onError: (error: AxiosError) => {
-      handleErrorMessage(error);
+      // handleErrorMessage(error);
+      console.log(error);
     },
   });
 };
