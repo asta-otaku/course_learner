@@ -550,7 +550,7 @@ export default function QuizAttemptReviewPage() {
                   {currentResult?.feedback && (
                     <div>
                       <p className="text-base font-medium mb-2">
-                        Tutor Additional Feedback:
+                        Feedback:
                       </p>
                       <Alert className="border-yellow-200 bg-yellow-50">
                         <AlertCircle className="h-4 w-4 text-yellow-600" />

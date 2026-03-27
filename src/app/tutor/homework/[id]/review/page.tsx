@@ -847,7 +847,7 @@ function FeedbackSection({
       <div className="flex items-center justify-between mb-2">
         <Label className="text-base font-medium flex items-center gap-2">
           <MessageSquare className="h-4 w-4" />
-          Tutor Additional Feedback:
+          Feedback:
         </Label>
         {!isEditing && (
           <Button
