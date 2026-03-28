@@ -206,12 +206,12 @@ export default function NewCurriculumPage() {
                       setFormData({ ...formData, subscriptionPlanId: value })
                     }
                   >
-                    <SelectTrigger id="subscriptionPlan">
+                    <SelectTrigger id="subscriptionPlan" className="capitalize">
                       <SelectValue placeholder="Select subscription plan" />
                     </SelectTrigger>
                     <SelectContent>
                       {subscriptionPlans.map((plan) => (
-                        <SelectItem key={plan.id} value={plan.id}>
+                        <SelectItem key={plan.offerType} value={plan.offerType} className="capitalize">
                           {plan.offerType}
                         </SelectItem>
                       ))}

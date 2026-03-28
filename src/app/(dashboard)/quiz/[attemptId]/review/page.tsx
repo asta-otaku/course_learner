@@ -315,7 +315,7 @@ export default function QuizAttemptReviewPage() {
                   <AlertCircle className="h-8 w-8 text-orange-600" />
                   <div>
                     <p className="text-sm text-orange-600 font-medium">
-                      Passing score
+                      Pass Mark
                     </p>
                     <p className="text-2xl font-bold text-orange-900">
                       {passingScore}

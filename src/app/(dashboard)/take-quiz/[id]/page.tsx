@@ -181,7 +181,7 @@ export default function TakeQuizPage() {
                   {quiz?.passingScore !== undefined && (
                     <div className="p-4 bg-green-50 rounded-lg">
                       <h4 className="font-semibold text-gray-900 mb-1">
-                        Passing Score
+                        Pass Mark
                       </h4>
                       <p className="text-gray-700">
                         {Math.round(Number(quiz.passingScore)).toLocaleString()}%
