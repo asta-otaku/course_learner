@@ -42,12 +42,10 @@ export default function NewCurriculumPage() {
     subscriptionPlanId: "",
     learningObjectives: [],
     prerequisites: [],
-    tags: [],
     visibility: "PUBLIC",
   });
   const [objectiveInput, setObjectiveInput] = useState("");
   const [prerequisiteInput, setPrerequisiteInput] = useState("");
-  const [tagInput, setTagInput] = useState("");
 
   // Use the mutation hook
   const { mutate: createCurriculum, isPending: isCreating } =
@@ -118,29 +116,12 @@ export default function NewCurriculumPage() {
     }
   };
 
-  const addTag = () => {
-    if (tagInput.trim() && !(formData.tags || []).includes(tagInput.trim())) {
-      setFormData({
-        ...formData,
-        tags: [...(formData.tags || []), tagInput.trim()],
-      });
-      setTagInput("");
-    }
-  };
-
   const removePrerequisite = (index: number) => {
     setFormData({
       ...formData,
       prerequisites: (formData.prerequisites || []).filter(
         (_, i) => i !== index
       ),
-    });
-  };
-
-  const removeTag = (index: number) => {
-    setFormData({
-      ...formData,
-      tags: (formData.tags || []).filter((_, i) => i !== index),
     });
   };
 
@@ -211,7 +192,7 @@ export default function NewCurriculumPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {subscriptionPlans.map((plan) => (
-                        <SelectItem key={plan.offerType} value={plan.offerType} className="capitalize">
+                        <SelectItem key={plan.id} value={plan.id} className="capitalize">
                           {plan.offerType}
                         </SelectItem>
                       ))}
@@ -318,55 +299,6 @@ export default function NewCurriculumPage() {
                         </div>
                       )
                     )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Tags</CardTitle>
-                <CardDescription>
-                  Add tags to help categorize and search for this curriculum
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    placeholder="Add a tag..."
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addTag();
-                      }
-                    }}
-                  />
-                  <Button type="button" onClick={addTag} size="icon">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {(formData.tags || []).length > 0 && (
-                  <div className="space-y-2">
-                    {(formData.tags || []).map((tag, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className="flex-1 justify-between"
-                        >
-                          {tag}
-                          <button
-                            type="button"
-                            onClick={() => removeTag(index)}
-                            className="ml-2"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      </div>
-                    ))}
                   </div>
                 )}
               </CardContent>
