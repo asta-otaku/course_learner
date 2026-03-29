@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ProfileLoader from "../profile-loader";
+import { Trophy } from "lucide-react";
 
 function Home() {
   const {
@@ -226,7 +227,7 @@ function Home() {
               ))
             ) : (
               <div className="text-center py-8 text-textSubtitle">
-                No lessons found
+                Well done! You have completed every lesson!
               </div>
             )}
           </div>

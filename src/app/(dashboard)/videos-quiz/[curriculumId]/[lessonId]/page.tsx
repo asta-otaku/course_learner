@@ -62,7 +62,7 @@ export default function LessonPage() {
     if (!video || !activeProfile?.id) return;
     if (isCompleted) return;
     const now = Date.now();
-    if (!force && now - lastSentRef.current < 2000) return; // throttle ~2s
+    if (!force && now - lastSentRef.current < 10000) return; // throttle ~10s
     const watchedPosition = Math.max(0, Math.floor(video.currentTime || 0));
     lastSentRef.current = now;
     patchProgress({ childId: activeProfile.id, watchedPosition });

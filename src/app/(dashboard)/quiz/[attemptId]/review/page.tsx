@@ -232,7 +232,7 @@ export default function QuizAttemptReviewPage() {
   const currentQ = questionsWithResults[currentQuestionIndex];
   const currentResult = currentQ?.result;
   const lessonTitle =
-    (quizData as any)?.sectionName || "---";
+    (quizData as any)?.lessonName || "---";
   const quizName = quizData?.title || "Quiz";
   const quizDescription = quizData?.description || "---";
 

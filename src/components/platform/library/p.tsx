@@ -68,7 +68,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
   }, [curriculaList]);
 
   // Determine the actual selected curriculum ID
-  // Use profile's selectedCurriculumId, or default to first curriculum
+  // Use device-level selectedCurriculumId from localStorage, or default to first curriculum
   const selectedCurriculum = useMemo(() => {
     if (profileSelectedCurriculumId) {
       return profileSelectedCurriculumId;
@@ -235,7 +235,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
     if (!video || !activeProfile?.id || !progressLessonId) return;
     if (isCompleted) return;
     const now = Date.now();
-    if (!force && now - lastSentRef.current < 2000) return; // throttle ~2s
+    if (!force && now - lastSentRef.current < 10000) return; // throttle ~10s
     const watchedPosition = Math.max(0, Math.floor(video.currentTime || 0));
     lastSentRef.current = now;
     patchProgress({ childId: activeProfile.id, watchedPosition });
@@ -363,7 +363,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
 
       {/* Curriculum and Section Selectors */}
       <div className="mb-6 mt-8 flex flex-col md:flex-row gap-4 items-start md:items-center">
-        {/* Curriculum Selector Dropdown - Disabled (uses profile's selectedCurriculumId) */}
+        {/* Curriculum Selector Dropdown - Disabled (uses global selectedCurriculumId) */}
         <div className="w-full md:w-auto min-w-[200px]">
           <Select value={selectedCurriculum} disabled={true}>
             <SelectTrigger>
@@ -398,7 +398,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
               setSelectedLesson(""); // Reset lesson when section changes
               router.push(`/library/${newSectionId}`);
             }}
-            className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[200px] w-full md:w-fit"
+            className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[380px] w-full"
           >
             {sections.map((section: any, idx) => (
               <option

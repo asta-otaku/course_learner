@@ -9,10 +9,8 @@ const PROFILES_KEY = "childProfiles";
 const PROFILE_CHANGE_EVENT = "activeProfileChange";
 const PROFILES_UPDATE_EVENT = "childProfilesUpdate";
 
-// Helper function to get localStorage key for selectedCurriculumId
-const getSelectedCurriculumKey = (profileId: string | null) => {
-  return profileId ? `selectedCurriculumId_${profileId}` : null;
-};
+/** Single device-level curriculum choice (not tied to child profile or parent account). */
+const SELECTED_CURRICULUM_KEY = "selectedCurriculumId";
 
 const getDefaultProfileFromResponse = (
   profilesData: ChildProfile[]
@@ -179,27 +177,13 @@ export function useSelectedProfile() {
     }
   };
 
-  // Load selectedCurriculumId from localStorage when profile changes
-  useEffect(() => {
-    if (activeProfile?.id && typeof window !== "undefined") {
-      const key = getSelectedCurriculumKey(activeProfile.id);
-      if (key) {
-        const stored = localStorage.getItem(key);
-        if (stored) {
-          setSelectedCurriculumIdState(stored);
-        } else {
-          setSelectedCurriculumIdState("");
-        }
-      }
-    } else {
-      setSelectedCurriculumIdState("");
-    }
-  }, [activeProfile?.id]);
-
-  // Initialize from localStorage
+  // Initialize profiles and global selectedCurriculumId from localStorage
   useEffect(() => {
     loadProfiles();
-    // Set loaded after a small delay to ensure localStorage is read
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(SELECTED_CURRICULUM_KEY);
+      setSelectedCurriculumIdState(stored ?? "");
+    }
     const timer = setTimeout(() => {
       setIsLoaded(true);
     }, 0);
@@ -238,6 +222,8 @@ export function useSelectedProfile() {
           setActiveProfile(newProfile);
         } else if (e.key === PROFILES_KEY) {
           loadProfiles();
+        } else if (e.key === SELECTED_CURRICULUM_KEY) {
+          setSelectedCurriculumIdState(e.newValue ?? "");
         }
       };
 
@@ -280,14 +266,10 @@ export function useSelectedProfile() {
     }
   };
 
-  // Function to set selectedCurriculumId and persist it
   const setSelectedCurriculumId = (curriculumId: string) => {
     setSelectedCurriculumIdState(curriculumId);
-    if (activeProfile?.id && typeof window !== "undefined") {
-      const key = getSelectedCurriculumKey(activeProfile.id);
-      if (key) {
-        localStorage.setItem(key, curriculumId);
-      }
+    if (typeof window !== "undefined") {
+      localStorage.setItem(SELECTED_CURRICULUM_KEY, curriculumId);
     }
   };
 

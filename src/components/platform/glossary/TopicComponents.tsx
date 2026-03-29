@@ -121,15 +121,15 @@ export const TopicDetail = ({
           <div className="flex flex-col">
             <a
               href={video.link}
-              className="py-2 px-4 hover:bg-gray-100 rounded text-left flex items-center gap-2"
+              className="py-2 px-4 hover:text-primaryBlue rounded text-left flex items-center gap-2"
             >
               {isTutorMode ? (
                 <>
                   <PlayIcon />
-                  <span className="text-sm">Watch Video</span>
+                  <span className="text-sm hover:text-primaryBlue">Watch Video</span>
                 </>
               ) : (
-                <span className="text-sm">Watch Video</span>
+                <span className="text-sm hover:text-primaryBlue">Watch Video</span>
               )}
             </a>
             {isTutorMode && (
@@ -336,7 +336,7 @@ export const TagDetail = ({
       return (
         <Link
           href={lessonUrl}
-          className="py-2 px-4 hover:bg-gray-100 rounded text-right justify-center flex items-center gap-2 text-sm"
+          className="py-2 px-4 hover:text-primaryBlue rounded text-right justify-center flex items-center gap-2 text-sm"
         >
           Watch Video
         </Link>

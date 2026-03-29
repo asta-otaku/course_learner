@@ -1,8 +1,16 @@
+"use client";
+
 import BackArrow from "@/assets/svgs/arrowback";
 import { Course } from "@/lib/types";
 import { getCurrentTopic, slugify } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function LearningCard({
   course,
@@ -60,59 +68,76 @@ export function ProgressCard({
     : `/dashboard/${slugify(course.course)}`;
 
   return (
-    <Link href={isTutor ? `#` : href}>
-      <div className="p-2 rounded-2xl bg-[#FAFAFA] border flex flex-col gap-4">
-        <Image
-          src={course.imageUrl}
-          alt="Course Image"
-          width={100}
-          height={100}
-          className="h-[220px] w-full rounded-2xl"
-        />
-        <div className="flex justify-between items-center">
-          <div className="space-y-1">
-            <h3 className="uppercase text-textGray font-medium line-clamp-2 h-[60px]">
-              {course.course}
-            </h3>
-          </div>
-          <div className="relative w-8 h-8">
-            <svg className="w-full h-full">
-              <circle
-                cx="50%"
-                cy="50%"
-                r="12"
-                stroke="currentColor"
-                strokeWidth="3"
-                fill="none"
-                className="text-bgWhiteGray"
+    <TooltipProvider delayDuration={250}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link
+            href={isTutor ? `#` : href}
+            className="block rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primaryBlue focus-visible:ring-offset-2"
+          >
+            <div className="p-2 rounded-2xl bg-[#FAFAFA] border flex flex-col gap-4 transition-shadow hover:shadow-md">
+              <Image
+                src={course.imageUrl}
+                alt="Course Image"
+                width={100}
+                height={100}
+                className="h-[220px] w-full rounded-2xl"
               />
-              <circle
-                cx="50%"
-                cy="50%"
-                r="12"
-                stroke="currentColor"
-                strokeWidth="3"
-                fill="none"
-                className="text-bgGreen"
-                strokeDasharray="75.398"
-                strokeDashoffset={`${75.398 - (75.398 * course.progress) / 100
-                  }`}
-                strokeLinecap="round"
-              />
-            </svg>
-          </div>
-        </div>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h6 className="text-textSubtitle text-xs">Total Lessons</h6>
-            <p className="text-xs font-medium">{course.total_section}</p>
-          </div>
-          <div className="flex items-center justify-between">
-            <h6 className="text-textSubtitle text-xs">Completed Lessons</h6>
-            <p className="text-xs font-medium">{course.completed_section}</p>
-          </div>
-        </div>
-      </div>
-    </Link>
+              <div className="flex justify-between items-center">
+                <div className="space-y-1">
+                  <h3 className="uppercase text-textGray font-medium line-clamp-2 h-[60px]">
+                    {course.course}
+                  </h3>
+                </div>
+                <div className="relative w-8 h-8">
+                  <svg className="w-full h-full">
+                    <circle
+                      cx="50%"
+                      cy="50%"
+                      r="12"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      fill="none"
+                      className="text-bgWhiteGray"
+                    />
+                    <circle
+                      cx="50%"
+                      cy="50%"
+                      r="12"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      fill="none"
+                      className="text-bgGreen"
+                      strokeDasharray="75.398"
+                      strokeDashoffset={`${75.398 - (75.398 * course.progress) / 100
+                        }`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h6 className="text-textSubtitle text-xs">Total Lessons</h6>
+                  <p className="text-xs font-medium">{course.total_section}</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <h6 className="text-textSubtitle text-xs">Completed Lessons</h6>
+                  <p className="text-xs font-medium">{course.completed_section}</p>
+                </div>
+              </div>
+            </div>
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          sideOffset={10}
+          className="max-w-[min(20rem,calc(100vw-2rem))] border border-border/80 bg-white px-3.5 py-2.5 text-xs leading-relaxed text-textGray shadow-lg text-left"
+        >
+          Completed lessons is the number of lessons where the child has passed
+          all the quizzes in that lesson.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

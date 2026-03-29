@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,11 @@ export function QuizPlayer({
   const [lockedQuestions, setLockedQuestions] = useState<Set<string>>(
     new Set(),
   );
+
+  // Refs for scroll behaviour
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  const prevImmediateResultsCountRef = useRef(0);
+  const isFirstPositionRef = useRef(true);
 
   // Fetch quiz data for timeLimit and feedbackMode (needed for both regular and homework)
   const { data: quizResponse } = useGetQuiz(quizId || "");
@@ -360,8 +365,12 @@ export function QuizPlayer({
           feedback: result.feedback,
         };
 
-        // Lock this question
-        locked.add(questionId);
+        // In immediate feedback mode, lock so the question can't be re-answered.
+        // In other modes (after_completion, etc.) the answer is saved for resume
+        // but the user can still change it before final submission.
+        if (isImmediateFeedback) {
+          locked.add(questionId);
+        }
       } else {
         // This is the first unanswered question
         if (firstUnansweredIndex === -1) {
@@ -392,7 +401,7 @@ export function QuizPlayer({
     if (initialTransition && firstUnansweredIndex === 0) {
       setCurrentPosition({ type: "transition", questionIndex: 0 });
     }
-  }, [resumeResponse, attemptId, isResuming]);
+  }, [resumeResponse, attemptId, isResuming, isImmediateFeedback]);
 
   // Transform and initialize questions when fetched (non-resume flow)
   useEffect(() => {
@@ -606,6 +615,31 @@ export function QuizPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldAutoSubmit, attemptId, showResults]);
 
+  // Scroll to top of page whenever the user navigates to a different question/position
+  useEffect(() => {
+    if (isFirstPositionRef.current) {
+      isFirstPositionRef.current = false;
+      return;
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [currentPosition]);
+
+  // Scroll to the feedback section after each immediate-feedback answer submission
+  useEffect(() => {
+    const count = Object.keys(immediateQuestionResults).length;
+    if (count <= prevImmediateResultsCountRef.current) {
+      prevImmediateResultsCountRef.current = count;
+      return;
+    }
+    prevImmediateResultsCountRef.current = count;
+    if (!isImmediateFeedback) return;
+    const timer = setTimeout(() => {
+      feedbackRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [immediateQuestionResults]);
+
   const handleAnswerChange = (
     questionId: string,
     answer: string | Record<string, string>,
@@ -657,9 +691,56 @@ export function QuizPlayer({
         );
       }
     }
+
+    // Non-immediate modes: silently save MC/TF selection so resume works.
+    // Results are NOT displayed — the server just stores the answer.
+    if (
+      !isImmediateFeedback &&
+      attemptId &&
+      !lockedQuestions.has(questionId)
+    ) {
+      const q = questions.find((qu) => qu.question.id === questionId);
+      if (
+        q &&
+        (q.question.type === "multiple_choice" ||
+          q.question.type === "true_false")
+      ) {
+        const payload = serializeQuizAnswerForApi(q, answer);
+        submitQuestion(
+          { questionId, answer: payload },
+          { onSuccess: () => { }, onError: () => { } },
+        );
+      }
+    }
+  };
+
+  // Silently saves free-text / matching answers in non-immediate modes so that
+  // the server can restore them on resume. Called before any navigation.
+  const saveCurrentAnswerForResume = () => {
+    if (isImmediateFeedback || !attemptId) return;
+    if (currentPosition.type !== "question") return;
+    const q = questions[getCurrentQuestionIndex()];
+    if (!q || lockedQuestions.has(q.question.id)) return;
+    const ans = answers[q.question.id];
+    if (ans == null) return;
+    const qType = q.question.type;
+    if (
+      qType === "free_text" ||
+      qType === "short_answer" ||
+      qType === "long_answer" ||
+      qType === "coding" ||
+      qType === "matching_pairs"
+    ) {
+      const payload = serializeQuizAnswerForApi(q, ans);
+      submitQuestion(
+        { questionId: q.question.id, answer: payload },
+        { onSuccess: () => { }, onError: () => { } },
+      );
+    }
   };
 
   const handleNext = () => {
+    saveCurrentAnswerForResume();
     const currentQuestionIndex = getCurrentQuestionIndex();
 
     // If we're on a transition, move to the question
@@ -772,6 +853,7 @@ export function QuizPlayer({
     if (quizSettings.examMode && isTestMode) {
       return;
     }
+    saveCurrentAnswerForResume();
 
     // Check if there's an initial transition
     const initialTransition = getTransitionForPosition(0);
@@ -784,6 +866,7 @@ export function QuizPlayer({
   };
 
   const handleLast = () => {
+    saveCurrentAnswerForResume();
     const lastQuestionIndex = questions.length - 1;
     const lastQuestion = questions[lastQuestionIndex];
 
@@ -810,6 +893,7 @@ export function QuizPlayer({
     if (quizSettings.examMode && isTestMode) {
       return;
     }
+    saveCurrentAnswerForResume();
 
     const currentQuestionIndex = getCurrentQuestionIndex();
 
@@ -906,6 +990,7 @@ export function QuizPlayer({
     if (isImmediateFeedback && index > maxReachedQuestionIndex) {
       return;
     }
+    saveCurrentAnswerForResume();
 
     // In test mode, only allow navigation to unanswered questions or current/future questions
     if (
@@ -1119,7 +1204,7 @@ export function QuizPlayer({
   // Results Summary View
   if (showResults && submissionResults) {
     const lessonTitle =
-      (quiz as any)?.sectionName || "---";
+      (quiz as any)?.lessonName || "---";
     const quizName = quiz?.title || "Quiz";
     const quizDescription = quiz?.description || "---";
     const passPercentage = Number(quiz?.passingScore);
@@ -1511,13 +1596,11 @@ export function QuizPlayer({
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">
-                {currentPosition.type === "transition"
-                  ? currentPosition.questionIndex === 0
-                    ? "Quiz Introduction"
-                    : "Information"
-                  : currentPosition.type === "explanation"
-                    ? `${currentQ.question.title} - Explanation`
-                    : currentQ.question.title}
+                <MathPreview
+                  content={String(currentQ.question.title ?? "")}
+                  className="text-lg font-medium text-textGray whitespace-pre-wrap"
+                  renderMarkdown={true}
+                />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1611,28 +1694,6 @@ export function QuizPlayer({
                         />
                       )}
                   </div>
-
-                  {/* Resume Notice */}
-                  {isResuming && lockedQuestions.size > 0 && (
-                    <Alert className="mb-4 border-blue-200 bg-blue-50">
-                      <AlertCircle className="h-4 w-4 text-blue-600" />
-                      <AlertDescription className="text-blue-800">
-                        <strong>
-                          Resuming{" "}
-                          {isBaselineTest
-                            ? "Baseline Test"
-                            : isHomework
-                              ? "Homework"
-                              : "Quiz"}
-                          :
-                        </strong>{" "}
-                        You have already answered {lockedQuestions.size}{" "}
-                        question{lockedQuestions.size !== 1 ? "s" : ""}. Those
-                        answers are locked and cannot be changed. Continue from
-                        where you left off.
-                      </AlertDescription>
-                    </Alert>
-                  )}
 
                   {/* Test Mode Notice */}
                   {isTestMode && !isImmediateFeedback && (
@@ -1894,7 +1955,7 @@ export function QuizPlayer({
                   {/* Immediate feedback: show result, correct answer (if wrong), and feedback for all question types */}
                   {(showResults || showCorrectnessForCurrent) &&
                     currentResult && (
-                      <div className="space-y-4 mt-6 pt-6 border-t">
+                      <div ref={feedbackRef} className="space-y-4 mt-6 pt-6 border-t">
                         <div className="flex items-center gap-2">
                           <Badge
                             variant={

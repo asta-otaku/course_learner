@@ -304,28 +304,28 @@ export default function StudentPage({ id }: { id: string }) {
         </button>
 
         {/* Profile header */}
-        <div className="flex items-center justify-between w-full">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={profile.avatar || ""}
-                alt={profile.name}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    "https://via.placeholder.com/80x80?text=Avatar";
-                }}
-              />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={profile.avatar || ""}
+                  alt={profile.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      "https://via.placeholder.com/80x80?text=Avatar";
+                  }}
+                />
+              </div>
+                <div className="font-semibold text-lg text-gray-900">
+                  {profile.name}
+              </div>
             </div>
-            <div className="font-semibold text-lg text-gray-900">
-              {profile.name}
-            </div>
+            <span className="cursor-pointer" onClick={handleMessage}>
+              <MailIcon />
+            </span>
           </div>
-          <span className="cursor-pointer" onClick={handleMessage}>
-            <MailIcon />
-          </span>
-        </div>
 
         {/* ── DETAILS ─────────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-2">
@@ -337,10 +337,10 @@ export default function StudentPage({ id }: { id: string }) {
               <div className="flex items-center gap-2">
                 <span>
                   {profile.offerType === "platform" ? "Platform" : "Tuition"}
-                </span>
-                <Badge
+                  </span>
+                  <Badge
                   className={`px-2 py-0.5 rounded-full text-xs font-medium ${profile.status === "active"
-                    ? "bg-[#34C759] text-white"
+                      ? "bg-[#34C759] text-white"
                     : profile.status === "not-active"
                       ? "bg-red-500 text-white"
                       : "bg-gray-500 text-white"
@@ -351,19 +351,19 @@ export default function StudentPage({ id }: { id: string }) {
                     : profile.status === "not-active"
                       ? "Inactive"
                       : "Pending"}
-                </Badge>
+                  </Badge>
               </div>
             }
           />
           <InfoRow
             label="Joined"
             value={new Date(profile.createdAt).toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-            })}
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  })}
           />
-        </div>
+              </div>
 
         {/* ── BASELINE TEST SUMMARY ────────────────────────────────────────── */}
         <div className="flex flex-col gap-2">
@@ -453,7 +453,7 @@ export default function StudentPage({ id }: { id: string }) {
               </span>
             }
           />
-        </div>
+      </div>
 
         {/* ── CONTROLS ─────────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-3">
@@ -474,16 +474,16 @@ export default function StudentPage({ id }: { id: string }) {
             >
               <SelectTrigger className="w-20 h-7 text-xs">
                 <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
+                  </SelectTrigger>
+                  <SelectContent>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <SelectItem key={n} value={String(n)}>
                     {n}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
           {/* Pause toggle */}
           <div className="flex items-center justify-between text-sm">
@@ -656,43 +656,43 @@ export default function StudentPage({ id }: { id: string }) {
                         {section === "assigned" ? "Assigned" : "Up Next"}
                       </p>
                       {learningPathSummary[section]?.length > 0 ? (
-                        <div className="rounded-md border overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Quiz</TableHead>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Quiz</TableHead>
                                 <TableHead>Section</TableHead>
                                 <TableHead>Lesson</TableHead>
-                                <TableHead>Status</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                               {learningPathSummary[section].map((item) => (
                                 <TableRow key={item.quizId}>
                                   <TableCell className="font-medium text-sm max-w-[160px]">
-                                    <span className="line-clamp-2">
-                                      {item.quizTitle}
-                                    </span>
-                                  </TableCell>
+                            <span className="line-clamp-2">
+                              {item.quizTitle}
+                            </span>
+                          </TableCell>
                                   <TableCell className="text-sm text-gray-500">
-                                    {item.sectionTitle}
-                                  </TableCell>
+                            {item.sectionTitle}
+                          </TableCell>
                                   <TableCell className="text-sm text-gray-500">
                                     {item.lessonTitle}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge
-                                      className={`text-xs font-medium capitalize ${statusBadgeClass[item.status] ??
-                                        "bg-gray-100 text-gray-600"
-                                        }`}
-                                    >
-                                      {item.status.replace(/_/g, " ")}
-                                    </Badge>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={`text-xs font-medium capitalize ${statusBadgeClass[item.status] ??
+                                "bg-gray-100 text-gray-600"
+                                }`}
+                            >
+                              {item.status.replace(/_/g, " ")}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                         </div>
                       ) : (
                         <p className="text-sm text-gray-400 px-1">
@@ -781,10 +781,10 @@ export default function StudentPage({ id }: { id: string }) {
                       )}
                     </TableBody>
                   </Table>
-                </div>
+            </div>
               )}
-            </TabsContent>
-          </Tabs>
+          </TabsContent>
+        </Tabs>
         )}
       </div>
 

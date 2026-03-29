@@ -3,11 +3,12 @@
 import { QuizPlayer } from "@/components/resourceManagemement/quiz/quiz-player";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { usePostAttemptQuiz, usePostStartHomework, usePostStartBaselineTest } from "@/lib/api/mutations";
-import { useGetQuiz } from "@/lib/api/queries";
-import { useState } from "react";
+import { useGetQuiz, useGetResumeQuizAttempt } from "@/lib/api/queries";
+import { useState, useMemo } from "react";
 import { toast } from "react-toastify";
 import { useProfile } from "@/context/profileContext";
 
@@ -21,51 +22,83 @@ export default function TakeQuizPage() {
   const isBaselineTest = searchParams.get("isBaselineTest") === "true";
   const baselineTestId = searchParams.get("baselineTestId") ?? "";
   const resumeAttemptId = searchParams.get("attemptId") ?? null;
+  // isResuming via URL param (direct resume link for regular quizzes)
   const isResuming = Boolean(resumeAttemptId && !isHomework && !isBaselineTest);
   const router = useRouter();
+
   const finalQuizIdForFetch = isHomework ? null : id;
   const { data: quizResponse } = useGetQuiz(finalQuizIdForFetch || "");
   const quiz = quizResponse?.data;
   const timeLimit = quiz?.timeLimit;
+  const feedbackMode = quiz?.feedbackMode;
 
-  // Quiz attempt mutation (for regular quizzes)
-  const { mutate: startQuizAttempt, isPending: isStartingQuiz } =
-    usePostAttemptQuiz(id);
+  // Quiz attempt mutations
+  const { mutate: startQuizAttempt, isPending: isStartingQuiz } = usePostAttemptQuiz(id);
+  const { mutate: startHomework, isPending: isStartingHomework } = usePostStartHomework();
+  const { mutate: startBaselineTest, isPending: isStartingBaselineTest } = usePostStartBaselineTest(baselineTestId);
 
-  // Homework start mutation (for homework quizzes)
-  const { mutate: startHomework, isPending: isStartingHomework } =
-    usePostStartHomework();
-
-  // Baseline test start mutation (for baseline tests)
-  const { mutate: startBaselineTest, isPending: isStartingBaselineTest } =
-    usePostStartBaselineTest(baselineTestId);
-
-  // State to track if quiz has been started
   const [quizStarted, setQuizStarted] = useState(false);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [quizId, setQuizId] = useState<string | null>(null);
   const [quizAttemptId, setQuizAttemptId] = useState<string | null>(null);
   const [isResumingFromStart, setIsResumingFromStart] = useState(false);
 
-  // Handler for starting quiz
-  const handleStartQuiz = () => {
+  // Fetch resume data to show answered count in the notice.
+  // - URL-param case: use resumeAttemptId
+  // - After-start case: use attemptId once the server tells us it's resuming
+  const resumeQueryId = isResuming
+    ? resumeAttemptId || ""
+    : isResumingFromStart && attemptId
+    ? attemptId
+    : "";
+  const { data: resumeResponse, isLoading: isLoadingResumeData } =
+    useGetResumeQuizAttempt(resumeQueryId);
+
+  const resumedAnsweredCount = useMemo(() => {
+    const questions = resumeResponse?.data?.questions;
+    if (!Array.isArray(questions)) return 0;
+    return questions.filter((q: any) => q.isLocked || !!q.result).length;
+  }, [resumeResponse]);
+
+  // Whether we are in any kind of resume flow (before the quiz starts)
+  const isResumingDetected = isResuming || isResumingFromStart;
+
+  // Handler for the main CTA button
+  const handleStartOrResumeClick = () => {
+    // Resume via URL param — we already have the attempt ID
+    if (isResuming && resumeAttemptId) {
+      setAttemptId(resumeAttemptId);
+      setQuizId(id);
+      setQuizStarted(true);
+      return;
+    }
+
+    // Resume confirmed after the server told us it's a resume
+    if (isResumingFromStart && attemptId) {
+      setQuizStarted(true);
+      return;
+    }
+
+    // ── Fresh start flows ──────────────────────────────────────────────────
     if (isBaselineTest && baselineTestId) {
       startBaselineTest(
         { childProfileId: activeProfile?.id || "" },
         {
           onSuccess: (response) => {
             const data = response.data?.data as any;
-            const attemptIdFromResponse =
-              data?.baselineAttemptId ??
-              data?.attemptId ??
-              data?.id ??
-              data?.attempt?.id;
-            if (attemptIdFromResponse) {
-              setAttemptId(attemptIdFromResponse);
+            const resolvedAttemptId =
+              data?.baselineAttemptId ?? data?.attemptId ?? data?.id ?? data?.attempt?.id;
+            if (resolvedAttemptId) {
+              setAttemptId(resolvedAttemptId);
               setQuizAttemptId(data.quizAttemptId);
               setQuizId(id);
-              setQuizStarted(true);
-              toast.success("Baseline test started!");
+              if (data.isResuming) {
+                setIsResumingFromStart(true);
+                toast.info("Baseline test already started — review the details and resume.");
+              } else {
+                setQuizStarted(true);
+                toast.success("Baseline test started!");
+              }
             } else {
               console.error("Attempt ID not found in baseline test response");
               toast.error("Failed to start baseline test. Please try again.");
@@ -79,22 +112,23 @@ export default function TakeQuizPage() {
       );
       return;
     }
+
     if (isHomework) {
-      // Use homework start endpoint
       startHomework(
-        {
-          homeworkId: id,
-          studentId: activeProfile?.id || "",
-        },
+        { homeworkId: id, studentId: activeProfile?.id || "" },
         {
           onSuccess: (response) => {
             const homeworkData = response.data?.data as any;
             if (homeworkData?.id && homeworkData?.quizId) {
               setAttemptId(homeworkData.id);
               setQuizId(homeworkData.quizId);
-              setIsResumingFromStart(Boolean(homeworkData.isResuming));
-              setQuizStarted(true);
-              toast.success(homeworkData.isResuming ? "Resuming homework..." : "Homework started successfully!");
+              if (homeworkData.isResuming) {
+                setIsResumingFromStart(true);
+                toast.info("Homework already started — review the details and resume.");
+              } else {
+                setQuizStarted(true);
+                toast.success("Homework started successfully!");
+              }
             } else {
               console.error("Homework ID or Quiz ID not found in response");
               toast.error("Failed to start homework. Please try again.");
@@ -107,7 +141,6 @@ export default function TakeQuizPage() {
         }
       );
     } else {
-      // Use regular quiz attempt endpoint
       startQuizAttempt(
         { childId: activeProfile?.id || "" },
         {
@@ -115,9 +148,13 @@ export default function TakeQuizPage() {
             const attemptData = response.data?.data;
             if (attemptData?.id) {
               setAttemptId(attemptData.id);
-              setIsResumingFromStart(Boolean(attemptData.isResuming));
-              setQuizStarted(true);
-              toast.success(attemptData.isResuming ? "Resuming quiz..." : "Quiz started successfully!");
+              if (attemptData.isResuming) {
+                setIsResumingFromStart(true);
+                toast.info("Quiz already started — review the details and resume.");
+              } else {
+                setQuizStarted(true);
+                toast.success("Quiz started successfully!");
+              }
             } else {
               console.error("Attempt ID not found in response");
               toast.error("Failed to start quiz. Please try again.");
@@ -132,182 +169,173 @@ export default function TakeQuizPage() {
     }
   };
 
-  // If resuming an existing attempt, skip the start flow
-  if (isResuming && resumeAttemptId) {
+  // ── Quiz player ─────────────────────────────────────────────────────────
+  if (quizStarted) {
+    const finalQuizId = isHomework && quizId ? quizId : id;
+    const finalTimeLimit = isHomework ? undefined : timeLimit;
+    const finalAttemptId = isResuming && resumeAttemptId ? resumeAttemptId : attemptId;
+
     return (
       <QuizPlayer
-        quizId={id}
+        quizId={finalQuizId}
         isTestMode={isTestMode}
-        attemptId={resumeAttemptId}
-        quizAttemptId={null}
-        isHomework={false}
-        isBaselineTest={false}
-        timeLimit={timeLimit}
-        isResuming={true}
+        attemptId={finalAttemptId}
+        quizAttemptId={quizAttemptId}
+        isHomework={isHomework}
+        homeworkId={isHomework ? id : undefined}
+        isBaselineTest={isBaselineTest}
+        baselineTestId={isBaselineTest ? baselineTestId : undefined}
+        timeLimit={finalTimeLimit}
+        isResuming={isResumingFromStart || isResuming}
       />
     );
   }
 
-  // If quiz hasn't been started, show the pre-quiz UI
-  if (!quizStarted) {
-    // Format time limit: if 0, show as "Untimed"
-    const timeLimitDisplay =
-      timeLimit === 0 || !timeLimit
-        ? "Untimed (No time restriction)"
-        : `${timeLimit} minute${timeLimit !== 1 ? "s" : ""}`;
+  // ── Pre-quiz screen ──────────────────────────────────────────────────────
+  const timeLimitDisplay =
+    timeLimit === 0 || !timeLimit
+      ? "Untimed (No time restriction)"
+      : `${timeLimit} minute${timeLimit !== 1 ? "s" : ""}`;
 
-    return (
-      <div className="min-h-screen flex items-center justify-center py-12 px-4">
-        <div className="max-w-3xl w-full mx-auto">
-          <Card className="shadow-lg">
-            <CardHeader className="text-center border-b pb-6">
-              <CardTitle className="text-2xl font-semibold text-gray-900 mb-2">
-                {quiz?.title || "Quiz"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              {/* Quiz Details */}
-              <div className="space-y-4 mb-8">
-                {/* Quiz Information Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  {timeLimit !== undefined && (
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-1">
-                        Time Limit
-                      </h4>
-                      <p className="text-gray-700">{timeLimitDisplay}</p>
-                    </div>
-                  )}
-                  {quiz?.passingScore !== undefined && (
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-1">
-                        Pass Mark
-                      </h4>
-                      <p className="text-gray-700">
-                        {Math.round(Number(quiz.passingScore)).toLocaleString()}%
-                      </p>
-                    </div>
-                  )}
-                  {quiz?.questionsCount !== undefined && (
-                    <div className="p-4 bg-purple-50 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-1">
-                        Questions
-                      </h4>
-                      <p className="text-gray-700">
-                        {quiz.questionsCount} question
-                        {quiz.questionsCount !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                  )}
-                </div>
+  // Button label changes to "Resume …" when we detect a previous attempt
+  const buttonLabel = isResumingDetected
+    ? isBaselineTest
+      ? "Resume Baseline Test"
+      : isHomework
+      ? "Resume Homework"
+      : "Resume Quiz"
+    : isBaselineTest
+    ? "Start Baseline Test"
+    : isHomework
+    ? "Start Homework"
+    : "Start Quiz";
 
-                {/* Quiz Description */}
-                {quiz?.description && (
-                  <div className="p-4 bg-yellow-50 rounded-lg">
-                    <h3 className="font-semibold text-gray-900 mb-2">
-                      Quiz Description
-                    </h3>
-                    <p className="text-gray-700 whitespace-pre-wrap">
-                      {quiz.description}
+  const isPending = isStartingQuiz || isStartingHomework || isStartingBaselineTest;
+
+  // Resume notice — shown just above the CTA button
+  // immediate feedback: locked-answers warning; other modes: simple continuation message
+  const resumeNotice = isResumingDetected ? (
+    isLoadingResumeData && !resumedAnsweredCount ? (
+      "Loading your previous progress…"
+    ) : feedbackMode === "immediate" ? (
+      `You have already answered ${resumedAnsweredCount} question${resumedAnsweredCount !== 1 ? "s" : ""}. Those answers are locked and cannot be changed. Continue from where you left off.`
+    ) : (
+      `You have already answered ${resumedAnsweredCount} question${resumedAnsweredCount !== 1 ? "s" : ""}. Continue from where you left off.`
+    )
+  ) : null;
+
+  return (
+    <div className="min-h-screen flex items-center justify-center py-12 px-4">
+      <div className="max-w-3xl w-full mx-auto">
+        <Card className="shadow-lg">
+          <CardHeader className="text-center border-b pb-6">
+            <CardTitle className="text-2xl font-semibold text-gray-900 mb-2">
+              {quiz?.title || "Quiz"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {/* Quiz Details */}
+            <div className="space-y-4 mb-8">
+              {/* Quiz Information Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {timeLimit !== undefined && (
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-semibold text-gray-900 mb-1">Time Limit</h4>
+                    <p className="text-gray-700">{timeLimitDisplay}</p>
+                  </div>
+                )}
+                {quiz?.passingScore !== undefined && (
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <h4 className="font-semibold text-gray-900 mb-1">Pass Mark</h4>
+                    <p className="text-gray-700">
+                      {Math.round(Number(quiz.passingScore)).toLocaleString()}%
                     </p>
                   </div>
                 )}
+                {quiz?.questionsCount !== undefined && (
+                  <div className="p-4 bg-purple-50 rounded-lg">
+                    <h4 className="font-semibold text-gray-900 mb-1">Questions</h4>
+                    <p className="text-gray-700">
+                      {quiz.questionsCount} question{quiz.questionsCount !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                )}
+              </div>
 
-                {/* General Information */}
-                <div className="mt-6 p-4 bg-indigo-50 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-2">
-                    What to Expect
-                  </h3>
-                  {quiz?.feedbackMode === "immediate" ? (
-                    <ul className="list-disc list-inside space-y-1 text-gray-700">
-                      <li>Answer all questions carefully</li>
-                      <li>
-                        You must do each question in order
-                      </li>
-                      <li>
-                        You will get feedback after each question
-                      </li>
-                      <li>Your progress will be saved automatically</li>
-                      <li>Take your time and read each question thoroughly</li>
-                    </ul>
-                  ) : (
-                    <ul className="list-disc list-inside space-y-1 text-gray-700">
-                      <li>Answer all questions carefully</li>
-                      <li>Review your answers before submitting</li>
-                      <li>
-                        <span className="font-bold text-gray-900">
-                          Correct answers will be shown after the whole quiz is
-                          completed
-                        </span>
-                      </li>
-                      <li>Your progress will be saved automatically</li>
-                      <li>Take your time and read each question thoroughly</li>
-                    </ul>
-                  )}
+              {/* Quiz Description */}
+              {quiz?.description && (
+                <div className="p-4 bg-yellow-50 rounded-lg">
+                  <h3 className="font-semibold text-gray-900 mb-2">Quiz Description</h3>
+                  <p className="text-gray-700 whitespace-pre-wrap">{quiz.description}</p>
                 </div>
-              </div>
+              )}
 
-              {/* Action Buttons */}
-              <div className="flex gap-4 justify-center">
-                <Button
-                  onClick={() => router.back()}
-                  variant="outline"
-                  className="min-w-[120px]"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Go Back
-                </Button>
-                <Button
-                  onClick={handleStartQuiz}
-                  disabled={
-                    isStartingQuiz ||
-                    isStartingHomework ||
-                    isStartingBaselineTest ||
-                    (isBaselineTest && !baselineTestId)
-                  }
-                  className="min-w-[160px] bg-blue-600 hover:bg-blue-700"
-                  size="lg"
-                >
-                  {isStartingQuiz ||
-                    isStartingHomework ||
-                    isStartingBaselineTest ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Starting...
-                    </>
-                  ) : isBaselineTest ? (
-                    "Start Baseline Test"
-                  ) : isHomework ? (
-                    "Start Homework"
-                  ) : (
-                    "Start Quiz"
-                  )}
-                </Button>
+              {/* General Information */}
+              <div className="mt-6 p-4 bg-indigo-50 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-2">What to Expect</h3>
+                {quiz?.feedbackMode === "immediate" ? (
+                  <ul className="list-disc list-inside space-y-1 text-gray-700">
+                    <li>Answer all questions carefully</li>
+                    <li>You must do each question in order</li>
+                    <li>You will get feedback after each question</li>
+                    <li>Your progress will be saved automatically</li>
+                    <li>Take your time and read each question thoroughly</li>
+                  </ul>
+                ) : (
+                  <ul className="list-disc list-inside space-y-1 text-gray-700">
+                    <li>Answer all questions carefully</li>
+                    <li>Review your answers before submitting</li>
+                    <li>
+                      <span className="font-bold text-gray-900">
+                        Correct answers will be shown after the whole quiz is completed
+                      </span>
+                    </li>
+                    <li>Your progress will be saved automatically</li>
+                    <li>Take your time and read each question thoroughly</li>
+                  </ul>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+
+            {/* Resume Notice — just above the action buttons */}
+            {resumeNotice && (
+              <Alert className="mb-6 border-blue-200 bg-blue-50">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  <strong>Resuming:</strong> {resumeNotice}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 justify-center">
+              <Button
+                onClick={() => router.back()}
+                variant="outline"
+                className="min-w-[120px]"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Go Back
+              </Button>
+              <Button
+                onClick={handleStartOrResumeClick}
+                disabled={isPending || (isBaselineTest && !baselineTestId)}
+                className="min-w-[160px] bg-blue-600 hover:bg-blue-700"
+                size="lg"
+              >
+                {isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    {isResumingDetected ? "Resuming..." : "Starting..."}
+                  </>
+                ) : (
+                  buttonLabel
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    );
-  }
-
-  // Once quiz is started, pass control to QuizPlayer
-  // For homework, use quizId from response; for baseline/regular, use id from params (quizId)
-  const finalQuizId = isHomework && quizId ? quizId : id;
-  const finalTimeLimit = isHomework ? undefined : timeLimit;
-
-  return (
-    <QuizPlayer
-      quizId={finalQuizId}
-      isTestMode={isTestMode}
-      attemptId={attemptId}
-      quizAttemptId={quizAttemptId}
-      isHomework={isHomework}
-      homeworkId={isHomework ? id : undefined}
-      isBaselineTest={isBaselineTest}
-      baselineTestId={isBaselineTest ? baselineTestId : undefined}
-      timeLimit={finalTimeLimit}
-      isResuming={isResumingFromStart}
-    />
+    </div>
   );
 }

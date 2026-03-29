@@ -85,7 +85,7 @@ function DashboardSectionPage() {
     return defaultCurriculumId;
   }, [profileSelectedCurriculumId, defaultCurriculumId]);
 
-  // Update profile's selectedCurriculumId when default changes (if not already set)
+  // Persist default curriculum when none stored yet
   useEffect(() => {
     if (defaultCurriculumId && !profileSelectedCurriculumId) {
       setProfileSelectedCurriculumId(defaultCurriculumId);
@@ -232,7 +232,7 @@ function DashboardSectionPage() {
               setSelectedLesson("");
               router.push(`/dashboard/${newSectionId}`);
             }}
-            className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[200px] w-full md:w-fit"
+            className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[400px] w-full"
           >
             {sections.map((section: any, idx) => (
               <option
@@ -264,8 +264,8 @@ function DashboardSectionPage() {
             >
               <span
                 className={`${lesson.id === selectedLesson
-                    ? "text-primaryBlue font-semibold"
-                    : "text-textSubtitle"
+                  ? "text-primaryBlue font-semibold"
+                  : "text-textSubtitle"
                   } font-medium text-sm md:text-base max-w-[300px] whitespace-nowrap truncate inline-block`}
               >
                 {lesson.title}
@@ -289,10 +289,10 @@ function DashboardSectionPage() {
                 {/* Tutorial Video Section */}
                 <Card className="bg-primaryBlue text-white">
                   <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-white">
+                    <div className="flex items-center justify-end">
+                      {/* <CardTitle className="text-white">
                         Tutorial Video
-                      </CardTitle>
+                      </CardTitle> */}
                       <Link
                         href={`/library/${currentLesson.sectionId}/${currentLesson.id}`}
                       >
@@ -327,7 +327,7 @@ function DashboardSectionPage() {
                         {quiz.attempts && quiz.attempts.length > 0 ? (
                           <div className="space-y-4">
                             <div className="grid grid-cols-3 gap-4 text-sm font-medium text-textSubtitle border-b pb-2">
-                              <div>N/O</div>
+                              <div>Attempt</div>
                               <div>Date</div>
                               <div>Score</div>
                             </div>

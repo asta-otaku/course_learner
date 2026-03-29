@@ -140,9 +140,8 @@ export default function CourseList() {
       <div className="flex gap-6">
         {/* Sidebar - Hidden on mobile when topic selected */}
         <div
-          className={`md:max-w-xs w-full border border-dashed flex flex-col max-h-[80vh] h-fit scrollbar-hide overflow-auto ${
-            topicSlug ? "hidden md:flex" : "flex"
-          }`}
+          className={`md:max-w-xs w-full border border-dashed flex flex-col max-h-[80vh] h-fit scrollbar-hide overflow-auto ${topicSlug ? "hidden md:flex" : "flex"
+            }`}
         >
           {course.topics.map((topic, idx) => {
             const topicSlug = slugify(topic.title);
@@ -151,16 +150,14 @@ export default function CourseList() {
               <Link
                 href={href}
                 key={idx}
-                className={`border-b last-of-type:border-none border-dashed p-4 hover:bg-[#EEEEEE]/20 w-full ${
-                  pathname === href ? "bg-[#EEEEEE]" : "bg-white"
-                }`}
+                className={`border-b last-of-type:border-none border-dashed p-4 hover:bg-[#EEEEEE]/20 w-full ${pathname === href ? "bg-[#EEEEEE]" : "bg-white"
+                  }`}
               >
                 <span
-                  className={`${
-                    pathname === href
-                      ? "text-primaryBlue font-semibold"
-                      : "text-textSubtitle"
-                  } font-medium text-sm md:text-base max-w-[300px] whitespace-nowrap truncate inline-block`}
+                  className={`${pathname === href
+                    ? "text-primaryBlue font-semibold"
+                    : "text-textSubtitle"
+                    } font-medium text-sm md:text-base max-w-[300px] whitespace-nowrap truncate inline-block`}
                 >
                   {topic.title}
                 </span>
@@ -174,9 +171,8 @@ export default function CourseList() {
 
         {/* Main Content - Hidden on mobile when no topic selected */}
         <div
-          className={`w-full flex justify-center ${
-            topicSlug ? "block" : "hidden md:flex"
-          }`}
+          className={`w-full flex justify-center ${topicSlug ? "block" : "hidden md:flex"
+            }`}
         >
           <div className="space-y-6 max-w-2xl w-full">
             {/* Mobile Back Button */}
@@ -190,10 +186,10 @@ export default function CourseList() {
             )}
 
             {/* Tutorial Video Section */}
-            <div className="bg-primaryBlue rounded-2xl flex items-center gap-4 justify-between py-4 px-6">
-              <h2 className="font-medium md:text-xl text-white">
+            <div className="bg-primaryBlue rounded-2xl flex items-center gap-4 justify-end py-4 px-6">
+              {/* <h2 className="font-medium md:text-xl text-white">
                 Tutorial Video
-              </h2>
+              </h2> */}
               <Button
                 variant="outline"
                 className="rounded-full text-primaryBlue font-medium text-xs"
@@ -231,7 +227,7 @@ export default function CourseList() {
                   <thead>
                     <tr>
                       <th className="border-b border-r border-gray-200 py-3 px-4 text-textSubtitle text-xs font-medium text-left">
-                        N/O
+                        Attempt
                       </th>
                       <th className="border-b border-r border-gray-200 py-3 px-4 text-textSubtitle text-xs font-medium text-left">
                         Date
