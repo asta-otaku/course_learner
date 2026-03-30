@@ -902,7 +902,7 @@ export function parseQuizQuestionSubmitResponse(
     correctAnswers: Array.isArray(result.correctAnswers)
       ? result.correctAnswers
       : result.correctAnswers
-        ? [{ id: "", content: result.correctAnswers }]
+        ? [result.correctAnswers]   // single-object form: {id, content}
         : [],
     isCorrect: Boolean(result.isCorrect),
     pointsEarned: Number(result.pointsEarned ?? 0),

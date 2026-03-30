@@ -49,8 +49,9 @@ function DashboardSectionPage() {
   const params = useParams();
   const { activeProfile, isLoaded } = useProfile();
   const {
-    selectedCurriculumId: profileSelectedCurriculumId,
-    setSelectedCurriculumId: setProfileSelectedCurriculumId,
+    selectedCurriculumId,
+    setSelectedCurriculumId,
+    hasHydratedSelectedCurriculumId,
   } = useSelectedProfile();
   const [selectedSection, setSelectedSection] = useState("");
   const [selectedLesson, setSelectedLesson] = useState("");
@@ -79,21 +80,26 @@ function DashboardSectionPage() {
 
   // Determine the actual selected curriculum ID
   const selectedCurriculum = useMemo(() => {
-    if (profileSelectedCurriculumId) {
-      return profileSelectedCurriculumId;
+    if (selectedCurriculumId) {
+      return selectedCurriculumId;
     }
     return defaultCurriculumId;
-  }, [profileSelectedCurriculumId, defaultCurriculumId]);
+  }, [selectedCurriculumId, defaultCurriculumId]);
 
   // Persist default curriculum when none stored yet
   useEffect(() => {
-    if (defaultCurriculumId && !profileSelectedCurriculumId) {
-      setProfileSelectedCurriculumId(defaultCurriculumId);
+    if (
+      hasHydratedSelectedCurriculumId &&
+      defaultCurriculumId &&
+      !selectedCurriculumId
+    ) {
+      setSelectedCurriculumId(defaultCurriculumId);
     }
   }, [
+    hasHydratedSelectedCurriculumId,
     defaultCurriculumId,
-    profileSelectedCurriculumId,
-    setProfileSelectedCurriculumId,
+    selectedCurriculumId,
+    setSelectedCurriculumId,
   ]);
 
   const { data: library } = useGetLibrary(

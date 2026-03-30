@@ -34,8 +34,9 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
   const searchParams = useSearchParams();
   const { activeProfile, isLoaded } = useProfile();
   const {
-    selectedCurriculumId: profileSelectedCurriculumId,
-    setSelectedCurriculumId: setProfileSelectedCurriculumId,
+    selectedCurriculumId,
+    setSelectedCurriculumId,
+    hasHydratedSelectedCurriculumId,
   } = useSelectedProfile();
   const [selectedSection, setSelectedSection] = useState("");
   const [selectedLesson, setSelectedLesson] = useState("");
@@ -70,21 +71,26 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
   // Determine the actual selected curriculum ID
   // Use device-level selectedCurriculumId from localStorage, or default to first curriculum
   const selectedCurriculum = useMemo(() => {
-    if (profileSelectedCurriculumId) {
-      return profileSelectedCurriculumId;
+    if (selectedCurriculumId) {
+      return selectedCurriculumId;
     }
     return defaultCurriculumId;
-  }, [profileSelectedCurriculumId, defaultCurriculumId]);
+  }, [selectedCurriculumId, defaultCurriculumId]);
 
-  // Update profile's selectedCurriculumId when default changes (if not already set)
+  // Persist default curriculum when none stored yet
   useEffect(() => {
-    if (defaultCurriculumId && !profileSelectedCurriculumId) {
-      setProfileSelectedCurriculumId(defaultCurriculumId);
+    if (
+      hasHydratedSelectedCurriculumId &&
+      defaultCurriculumId &&
+      !selectedCurriculumId
+    ) {
+      setSelectedCurriculumId(defaultCurriculumId);
     }
   }, [
+    hasHydratedSelectedCurriculumId,
     defaultCurriculumId,
-    profileSelectedCurriculumId,
-    setProfileSelectedCurriculumId,
+    selectedCurriculumId,
+    setSelectedCurriculumId,
   ]);
 
   const { data: library } = useGetLibrary(

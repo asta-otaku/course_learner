@@ -1127,14 +1127,38 @@ export const usePostSubmitQuizQuestionDynamic = (
     mutationFn: ({
       questionId,
       answer,
+      timeSpent,
     }: {
       questionId: string;
       answer: string;
+      timeSpent?: number;
     }): Promise<ApiResponse<Quiz>> =>
       axiosInstance.post(
         `/quizzes/${id}/attempt/${attemptId}/question/${questionId}/submit`,
-        { answer },
+        { answer, timeSpent },
       ),
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchUpdateQuizQuestionDynamic = (id: string, attemptId: string) => {
+  return useMutation({
+    mutationKey: ["patch-update-quiz-question-dynamic", id, attemptId],
+    mutationFn: ({
+      questionId,
+      answer,
+      timeSpent,
+    }: {
+      questionId: string;
+      answer: string;
+      timeSpent?: number;
+    }): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.patch(`/quizzes/${id}/attempt/${attemptId}/question/${questionId}/submit`, { answer, timeSpent }),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      return data;
+    },
     onError: (error: AxiosError) => {
       handleErrorMessage(error);
     },

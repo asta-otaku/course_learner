@@ -14,6 +14,7 @@ import {
   usePostSubmitQuiz,
   usePostSubmitHomework,
   usePostSubmitQuizQuestionDynamic,
+  usePatchUpdateQuizQuestionDynamic,
   usePostSubmitBaselineTest,
 } from "@/lib/api/mutations";
 import {
@@ -95,11 +96,21 @@ export function QuizPlayer({
   const [lockedQuestions, setLockedQuestions] = useState<Set<string>>(
     new Set(),
   );
+  // Questions whose answers already exist on the server — updates go through PATCH
+  const [answeredOnServer, setAnsweredOnServer] = useState<Set<string>>(
+    new Set(),
+  );
+  // Remaining seconds from the server when resuming a timed quiz
+  const [resumeTimeLeft, setResumeTimeLeft] = useState<number | null>(null);
+  // Whether the resume API response has been processed (gates timer initialisation)
+  const [resumeDataLoaded, setResumeDataLoaded] = useState(false);
 
   // Refs for scroll behaviour
   const feedbackRef = useRef<HTMLDivElement>(null);
   const prevImmediateResultsCountRef = useRef(0);
   const isFirstPositionRef = useRef(true);
+  // Tracks when the current question was first shown — used for per-question timeSpent
+  const questionStartTimeRef = useRef<number>(Date.now());
 
   // Fetch quiz data for timeLimit and feedbackMode (needed for both regular and homework)
   const { data: quizResponse } = useGetQuiz(quizId || "");
@@ -149,9 +160,12 @@ export function QuizPlayer({
   const attemptIdForQuestionSubmit =
     isBaselineTest && quizAttemptId ? quizAttemptId : attemptId || "";
 
-  // Submit single question (for immediate feedback mode only)
+  // Submit a new single-question answer (POST)
   const { mutate: submitQuestion, isPending: isSubmittingQuestion } =
     usePostSubmitQuizQuestionDynamic(quizId, attemptIdForQuestionSubmit);
+  // Update a previously submitted single-question answer (PATCH — used on resume)
+  const { mutate: updateQuestion } =
+    usePatchUpdateQuizQuestionDynamic(quizId, attemptIdForQuestionSubmit);
 
   const getTransitionForPosition = (
     position: number,
@@ -320,6 +334,7 @@ export function QuizPlayer({
       {};
     const populatedResults: Record<string, QuizQuestionResult> = {};
     const locked = new Set<string>();
+    const serverAnsweredIds = new Set<string>();
     let firstUnansweredIndex = -1;
 
     rawQuestions.forEach((rq: any, index: number) => {
@@ -365,12 +380,14 @@ export function QuizPlayer({
           feedback: result.feedback,
         };
 
-        // In immediate feedback mode, lock so the question can't be re-answered.
-        // In other modes (after_completion, etc.) the answer is saved for resume
-        // but the user can still change it before final submission.
-        if (isImmediateFeedback) {
+        // Trust isLocked from the API — the server sets it for questions that
+        // can no longer be re-answered (e.g. immediate feedback after submission).
+        // Non-immediate modes leave questions unlocked so the user can revise.
+        if (rq.isLocked) {
           locked.add(questionId);
         }
+        // Mark as existing on the server so updates go through PATCH
+        serverAnsweredIds.add(questionId);
       } else {
         // This is the first unanswered question
         if (firstUnansweredIndex === -1) {
@@ -387,6 +404,7 @@ export function QuizPlayer({
     setAnswers(populatedAnswers);
     setImmediateQuestionResults(populatedResults);
     setLockedQuestions(locked);
+    setAnsweredOnServer(serverAnsweredIds);
     setAnsweredQuestions(
       new Set(Array.from({ length: firstUnansweredIndex }, (_, i) => i)),
     );
@@ -401,7 +419,13 @@ export function QuizPlayer({
     if (initialTransition && firstUnansweredIndex === 0) {
       setCurrentPosition({ type: "transition", questionIndex: 0 });
     }
-  }, [resumeResponse, attemptId, isResuming, isImmediateFeedback]);
+
+    // Restore the quiz timer using the server-provided remaining time (seconds)
+    if (resumeData.timeLeft !== undefined && resumeData.timeLeft !== null) {
+      setResumeTimeLeft(resumeData.timeLeft);
+    }
+    setResumeDataLoaded(true);
+  }, [resumeResponse, attemptId, isResuming]);
 
   // Transform and initialize questions when fetched (non-resume flow)
   useEffect(() => {
@@ -512,18 +536,29 @@ export function QuizPlayer({
     }
   }, [questionsResponse, attemptId]);
 
-  // Initialize timer when quiz starts
+  // Initialize (or restore) the quiz timer
   useEffect(() => {
     if (!attemptId || !actualTimeLimit) return;
+    // For resuming quizzes, wait until resume data is processed so we can use
+    // the server-provided remaining time instead of restarting from scratch.
+    if (isResuming && !resumeDataLoaded) return;
 
-    // Always start fresh with a new attempt
-    const initialTimeRemaining = actualTimeLimit * 60; // Convert minutes to seconds
-    const startTime = Date.now();
+    const totalTimeInSeconds = actualTimeLimit * 60;
 
-    setTimeRemaining(initialTimeRemaining);
-    setQuizStartTime(startTime);
+    if (isResuming && resumeTimeLeft !== null && resumeTimeLeft > 0) {
+      // Restore remaining time; back-calculate the effective quiz-start instant
+      // so the existing countdown interval stays accurate.
+      setTimeRemaining(resumeTimeLeft);
+      setQuizStartTime(
+        Date.now() - (totalTimeInSeconds - resumeTimeLeft) * 1000,
+      );
+    } else {
+      // Fresh start
+      setTimeRemaining(totalTimeInSeconds);
+      setQuizStartTime(Date.now());
+    }
     setTimeSpent(0);
-  }, [quizId, attemptId, actualTimeLimit]);
+  }, [quizId, attemptId, actualTimeLimit, isResuming, resumeDataLoaded, resumeTimeLeft]);
 
   // Timer countdown and time tracking
   useEffect(() => {
@@ -615,12 +650,13 @@ export function QuizPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldAutoSubmit, attemptId, showResults]);
 
-  // Scroll to top of page whenever the user navigates to a different question/position
+  // Scroll to top and reset per-question timer when the user navigates
   useEffect(() => {
     if (isFirstPositionRef.current) {
       isFirstPositionRef.current = false;
       return;
     }
+    questionStartTimeRef.current = Date.now();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentPosition]);
 
@@ -644,8 +680,10 @@ export function QuizPlayer({
     questionId: string,
     answer: string | Record<string, string>,
   ) => {
-    // Prevent changes to locked questions (from resume) or already submitted (immediate feedback)
+    // Prevent changes once results are showing, questions are locked (resume),
+    // or the question was already submitted in immediate-feedback mode.
     if (
+      showResults ||
       lockedQuestions.has(questionId) ||
       (isImmediateFeedback && immediateQuestionResults[questionId])
     ) {
@@ -672,10 +710,14 @@ export function QuizPlayer({
           q.question.type === "true_false")
       ) {
         const payload = serializeQuizAnswerForApi(q, answer);
+        const timeSpentSecs = Math.round(
+          (Date.now() - questionStartTimeRef.current) / 1000,
+        );
         submitQuestion(
-          { questionId, answer: payload },
+          { questionId, answer: payload, timeSpent: timeSpentSecs },
           {
             onSuccess: (res) => {
+              setAnsweredOnServer((prev) => new Set(prev).add(questionId));
               const result = parseQuizQuestionSubmitResponse(questionId, res);
               if (result) {
                 setImmediateQuestionResults((prev) => ({
@@ -694,6 +736,7 @@ export function QuizPlayer({
 
     // Non-immediate modes: silently save MC/TF selection so resume works.
     // Results are NOT displayed — the server just stores the answer.
+    // Use PATCH if the answer already exists on the server, POST otherwise.
     if (
       !isImmediateFeedback &&
       attemptId &&
@@ -706,18 +749,34 @@ export function QuizPlayer({
           q.question.type === "true_false")
       ) {
         const payload = serializeQuizAnswerForApi(q, answer);
-        submitQuestion(
-          { questionId, answer: payload },
-          { onSuccess: () => { }, onError: () => { } },
+        const timeSpentSecs = Math.round(
+          (Date.now() - questionStartTimeRef.current) / 1000,
         );
+        if (answeredOnServer.has(questionId)) {
+          updateQuestion(
+            { questionId, answer: payload, timeSpent: timeSpentSecs },
+            { onSuccess: () => {}, onError: () => {} },
+          );
+        } else {
+          submitQuestion(
+            { questionId, answer: payload, timeSpent: timeSpentSecs },
+            {
+              onSuccess: () => {
+                setAnsweredOnServer((prev) => new Set(prev).add(questionId));
+              },
+              onError: () => {},
+            },
+          );
+        }
       }
     }
   };
 
   // Silently saves free-text / matching answers in non-immediate modes so that
   // the server can restore them on resume. Called before any navigation.
+  // Uses PATCH if the answer already exists on the server, POST otherwise.
   const saveCurrentAnswerForResume = () => {
-    if (isImmediateFeedback || !attemptId) return;
+    if (showResults || isImmediateFeedback || !attemptId) return;
     if (currentPosition.type !== "question") return;
     const q = questions[getCurrentQuestionIndex()];
     if (!q || lockedQuestions.has(q.question.id)) return;
@@ -732,10 +791,26 @@ export function QuizPlayer({
       qType === "matching_pairs"
     ) {
       const payload = serializeQuizAnswerForApi(q, ans);
-      submitQuestion(
-        { questionId: q.question.id, answer: payload },
-        { onSuccess: () => { }, onError: () => { } },
+      const timeSpentSecs = Math.round(
+        (Date.now() - questionStartTimeRef.current) / 1000,
       );
+      const questionId = q.question.id;
+      if (answeredOnServer.has(questionId)) {
+        updateQuestion(
+          { questionId, answer: payload, timeSpent: timeSpentSecs },
+          { onSuccess: () => {}, onError: () => {} },
+        );
+      } else {
+        submitQuestion(
+          { questionId, answer: payload, timeSpent: timeSpentSecs },
+          {
+            onSuccess: () => {
+              setAnsweredOnServer((prev) => new Set(prev).add(questionId));
+            },
+            onError: () => {},
+          },
+        );
+      }
     }
   };
 
@@ -1834,13 +1909,21 @@ export function QuizPlayer({
                                   currentQ,
                                   ans,
                                 );
+                                const timeSpentSecs = Math.round(
+                                  (Date.now() - questionStartTimeRef.current) /
+                                    1000,
+                                );
                                 submitQuestion(
                                   {
                                     questionId: currentQ.question.id,
                                     answer: payload,
+                                    timeSpent: timeSpentSecs,
                                   },
                                   {
                                     onSuccess: (res) => {
+                                      setAnsweredOnServer((prev) =>
+                                        new Set(prev).add(currentQ.question.id),
+                                      );
                                       const result =
                                         parseQuizQuestionSubmitResponse(
                                           currentQ.question.id,
@@ -1915,13 +1998,21 @@ export function QuizPlayer({
                                 const ans = answers[currentQ.question.id];
                                 if (ans == null || typeof ans !== "string")
                                   return;
+                                const timeSpentSecs = Math.round(
+                                  (Date.now() - questionStartTimeRef.current) /
+                                    1000,
+                                );
                                 submitQuestion(
                                   {
                                     questionId: currentQ.question.id,
                                     answer: ans,
+                                    timeSpent: timeSpentSecs,
                                   },
                                   {
                                     onSuccess: (res) => {
+                                      setAnsweredOnServer((prev) =>
+                                        new Set(prev).add(currentQ.question.id),
+                                      );
                                       const result =
                                         parseQuizQuestionSubmitResponse(
                                           currentQ.question.id,

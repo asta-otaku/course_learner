@@ -27,6 +27,8 @@ export function useSelectedProfile() {
   const [isChangingProfile, setIsChangingProfile] = useState(false);
   const [selectedCurriculumId, setSelectedCurriculumIdState] =
     useState<string>("");
+  const [hasHydratedSelectedCurriculumId, setHasHydratedSelectedCurriculumId] =
+    useState(false);
 
   // Filter out inactive profiles - only show profiles where isActive is explicitly true
   const activeProfiles = useMemo(() => {
@@ -184,6 +186,7 @@ export function useSelectedProfile() {
       const stored = localStorage.getItem(SELECTED_CURRICULUM_KEY);
       setSelectedCurriculumIdState(stored ?? "");
     }
+    setHasHydratedSelectedCurriculumId(true);
     const timer = setTimeout(() => {
       setIsLoaded(true);
     }, 0);
@@ -281,5 +284,6 @@ export function useSelectedProfile() {
     isChangingProfile,
     selectedCurriculumId,
     setSelectedCurriculumId,
+    hasHydratedSelectedCurriculumId,
   };
 }

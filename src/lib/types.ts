@@ -1127,6 +1127,8 @@ export interface QuizResumeAttempt {
   attemptId: string;
   quizId: string;
   status: "in_progress" | "submitted" | "graded";
+  /** Remaining time in seconds for timed quizzes; absent for untimed ones */
+  timeLeft?: number;
   progress: {
     answeredCount: number;
     totalQuestions: number;

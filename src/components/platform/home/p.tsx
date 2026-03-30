@@ -25,6 +25,7 @@ function Home() {
     isChangingProfile,
     selectedCurriculumId: profileSelectedCurriculumId,
     setSelectedCurriculumId: setProfileSelectedCurriculumId,
+    hasHydratedSelectedCurriculumId,
   } = useSelectedProfile();
 
   // Fetch curricula first so we can resolve selectedCurriculumId for library + lessons
@@ -56,10 +57,15 @@ function Home() {
   }, [profileSelectedCurriculumId, defaultCurriculumId]);
 
   useEffect(() => {
-    if (defaultCurriculumId && !profileSelectedCurriculumId) {
+    if (
+      hasHydratedSelectedCurriculumId &&
+      defaultCurriculumId &&
+      !profileSelectedCurriculumId
+    ) {
       setProfileSelectedCurriculumId(defaultCurriculumId);
     }
   }, [
+    hasHydratedSelectedCurriculumId,
     defaultCurriculumId,
     profileSelectedCurriculumId,
     setProfileSelectedCurriculumId,
