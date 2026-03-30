@@ -404,7 +404,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
               setSelectedLesson(""); // Reset lesson when section changes
               router.push(`/library/${newSectionId}`);
             }}
-            className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[380px] w-full"
+            className="bg-white py-2 px-4 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-primaryBlue focus:border-transparent min-w-[400px] w-full"
           >
             {sections.map((section: any, idx) => (
               <option
