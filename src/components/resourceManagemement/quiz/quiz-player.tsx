@@ -107,6 +107,8 @@ export function QuizPlayer({
 
   // Refs for scroll behaviour
   const feedbackRef = useRef<HTMLDivElement>(null);
+  const questionNavContainerRef = useRef<HTMLDivElement>(null);
+  const resultsNavContainerRef = useRef<HTMLDivElement>(null);
   const prevImmediateResultsCountRef = useRef(0);
   const isFirstPositionRef = useRef(true);
   // Tracks when the current question was first shown — used for per-question timeSpent
@@ -659,6 +661,29 @@ export function QuizPlayer({
     questionStartTimeRef.current = Date.now();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentPosition]);
+
+  // Keep the current question visible inside the navigation sidebar(s)
+  useEffect(() => {
+    const idx = getCurrentQuestionIndex();
+    const questionBtnSelector = `[data-testid="question-nav-${idx + 1}"]`;
+    const resultsBtnSelector = `[data-testid="results-question-nav-${idx + 1}"]`;
+
+    const scrollNearest = (container: HTMLElement | null, selector: string) => {
+      if (!container) return;
+      const el = container.querySelector(selector) as HTMLElement | null;
+      if (!el) return;
+      // nearest prevents jumping to top/bottom unnecessarily
+      el.scrollIntoView({ block: "nearest" });
+    };
+
+    // Wait a tick for DOM updates (e.g. after submit sets results)
+    const raf = requestAnimationFrame(() => {
+      scrollNearest(questionNavContainerRef.current, questionBtnSelector);
+      scrollNearest(resultsNavContainerRef.current, resultsBtnSelector);
+    });
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPosition, showResults]);
 
   // Scroll to the feedback section after each immediate-feedback answer submission
   useEffect(() => {
@@ -1634,7 +1659,10 @@ export function QuizPlayer({
           {/* Results Navigation Sidebar */}
           <Card className="w-64 h-fit sticky top-6">
             <CardContent className="pt-6">
-              <div className="space-y-2">
+              <div
+                ref={resultsNavContainerRef}
+                className="space-y-2 max-h-[80vh] overflow-y-auto pr-1"
+              >
                 {questions.map((q, index) => {
                   const result = getQuestionResult(q.question.id);
                   const isCurrent = currentQuestionIndex === index;
@@ -1648,6 +1676,7 @@ export function QuizPlayer({
                           questionIndex: index,
                         })
                       }
+                      data-testid={`results-question-nav-${index + 1}`}
                       className={cn(
                         "w-full min-w-0 px-3 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-colors",
                         isCurrent
@@ -2268,7 +2297,10 @@ export function QuizPlayer({
             <CardTitle className="text-base">Question Navigation</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div
+              ref={questionNavContainerRef}
+              className="space-y-2 max-h-[80vh] overflow-y-auto pr-1"
+            >
               {/* Initial transition if exists */}
               {getTransitionForPosition(0) && (
                 <button
