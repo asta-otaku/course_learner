@@ -1384,108 +1384,159 @@ export function QuizPlayer({
                   {currentResult && (
                     <div>
                       <p className="text-base font-medium mb-2">Your Answer:</p>
-                      {currentQ.question.type === "matching_pairs" &&
-                        currentResult.userAnswerContent ? (
-                        <div className="p-4 bg-gray-50 rounded-lg border">
-                          {(() => {
-                            try {
-                              const userMatches = JSON.parse(
-                                currentResult.userAnswerContent,
-                              ) as Record<string, string>;
-                              const correctMatches =
-                                typeof currentResult.correctAnswers[0]
-                                  .content === "object"
-                                  ? (currentResult.correctAnswers[0]
-                                    .content as Record<string, string>)
-                                  : {};
+                      {(currentQ.question.type === "multiple_choice" ||
+                        currentQ.question.type === "true_false") &&
+                      currentQ.question.options &&
+                      currentQ.question.options.length > 0 ? (
+                        <div className="space-y-3">
+                          {currentQ.question.options.map((option) => {
+                            const selectedId =
+                              currentResult.userAnswerId ||
+                              currentResult.userAnswerContent ||
+                              "";
+                            const isSelected = selectedId === option.id;
+                            const optionWithCorrectFlag =
+                              option as unknown as { isCorrect?: boolean };
+                            const isCorrect =
+                              currentResult.correctAnswers?.some(
+                                (ans) => ans.id === option.id,
+                              ) || optionWithCorrectFlag.isCorrect === true;
+                            const showCorrectness = true;
 
-                              return (
-                                <div className="space-y-2">
-                                  {Object.entries(userMatches).map(
-                                    ([leftText, rightText]) => {
-                                      // Find the pair that matches the left text
-                                      const leftPair =
-                                        currentQ.question.pairs?.find(
-                                          (p) => p.left === leftText,
-                                        );
-                                      // Find the pair that matches the right text
-                                      const rightPair =
-                                        currentQ.question.pairs?.find(
-                                          (p) => p.right === rightText,
-                                        );
-                                      // Check if this match is correct
-                                      const correctRightText =
-                                        correctMatches[leftText];
-                                      const isMatchCorrect =
-                                        correctRightText === rightText;
-
-                                      return (
-                                        <div
-                                          key={leftText}
-                                          className={cn(
-                                            "p-3 rounded-lg border-2",
-                                            isMatchCorrect
-                                              ? "bg-green-50 border-green-300"
-                                              : "bg-red-50 border-red-300",
-                                          )}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <span className="font-medium">
-                                              {leftText} →
-                                            </span>
-                                            <span>{rightText}</span>
-                                            {isMatchCorrect ? (
-                                              <CheckCircle className="h-4 w-4 text-green-600 ml-auto" />
-                                            ) : (
-                                              <XCircle className="h-4 w-4 text-red-600 ml-auto" />
-                                            )}
-                                          </div>
-                                        </div>
-                                      );
-                                    },
+                            return (
+                              <div
+                                key={option.id}
+                                className={cn(
+                                  "flex items-start gap-3 p-3 rounded-lg border-2",
+                                  showCorrectness &&
+                                    isCorrect &&
+                                    "bg-green-50 border-green-300",
+                                  showCorrectness &&
+                                    isSelected &&
+                                    !isCorrect &&
+                                    "bg-red-50 border-red-300",
+                                  showCorrectness &&
+                                    !isSelected &&
+                                    !isCorrect &&
+                                    "border-gray-200",
+                                )}
+                              >
+                                <div
+                                  className={cn(
+                                    "mt-0.5 flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold flex-shrink-0",
+                                    isCorrect
+                                      ? "bg-green-600 text-white"
+                                      : isSelected
+                                        ? "bg-red-600 text-white"
+                                        : "bg-gray-300 text-gray-700",
                                   )}
+                                >
+                                  {isSelected ? "✓" : ""}
                                 </div>
-                              );
-                            } catch {
-                              return (
-                                <p className="text-sm text-gray-600">
-                                  {currentResult.userAnswerContent}
-                                </p>
-                              );
-                            }
-                          })()}
+                                <div className="flex-1 min-w-0">
+                                  <MathPreview
+                                    content={String(option.text ?? "")}
+                                    className="text-base text-textGray whitespace-pre-wrap"
+                                    renderMarkdown={true}
+                                  />
+                                </div>
+                                {isCorrect ? (
+                                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                ) : isSelected ? (
+                                  <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                                ) : null}
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : (
-                        <div
-                          className={cn(
-                            "p-4 rounded-lg border-2",
-                            currentResult.isCorrect
-                              ? "bg-green-50 border-green-300"
-                              : "bg-red-50 border-red-300",
-                          )}
-                        >
-                          <MathPreview
-                            content={String(
-                              currentQ.question.type === "multiple_choice" ||
-                                currentQ.question.type === "true_false"
-                                ? currentQ.question.options?.find(
-                                  (opt) =>
-                                    opt.id ===
-                                    (currentResult.userAnswerId ||
-                                      currentResult.userAnswerContent),
-                                )?.text || currentResult.userAnswerContent
-                                : currentResult.userAnswerContent || "No answer",
+                        currentQ.question.type === "matching_pairs" &&
+                        currentResult.userAnswerContent ? (
+                          <div className="p-4 bg-gray-50 rounded-lg border">
+                            {(() => {
+                              try {
+                                const userMatches = JSON.parse(
+                                  currentResult.userAnswerContent,
+                                ) as Record<string, string>;
+                                const correctMatches =
+                                  typeof currentResult.correctAnswers[0]
+                                    .content === "object"
+                                    ? (currentResult.correctAnswers[0]
+                                      .content as Record<string, string>)
+                                    : {};
+
+                                return (
+                                  <div className="space-y-2">
+                                    {Object.entries(userMatches).map(
+                                      ([leftText, rightText]) => {
+                                        const correctRightText =
+                                          correctMatches[leftText];
+                                        const isMatchCorrect =
+                                          correctRightText === rightText;
+
+                                        return (
+                                          <div
+                                            key={leftText}
+                                            className={cn(
+                                              "p-3 rounded-lg border-2",
+                                              isMatchCorrect
+                                                ? "bg-green-50 border-green-300"
+                                                : "bg-red-50 border-red-300",
+                                            )}
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-medium">
+                                                {leftText} →
+                                              </span>
+                                              <span>{rightText}</span>
+                                              {isMatchCorrect ? (
+                                                <CheckCircle className="h-4 w-4 text-green-600 ml-auto" />
+                                              ) : (
+                                                <XCircle className="h-4 w-4 text-red-600 ml-auto" />
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      },
+                                    )}
+                                  </div>
+                                );
+                              } catch {
+                                return (
+                                  <p className="text-sm text-gray-600">
+                                    {currentResult.userAnswerContent}
+                                  </p>
+                                );
+                              }
+                            })()}
+                          </div>
+                        ) : (
+                          <div
+                            className={cn(
+                              "p-4 rounded-lg border-2",
+                              currentResult.isCorrect
+                                ? "bg-green-50 border-green-300"
+                                : "bg-red-50 border-red-300",
                             )}
-                            className="text-base text-textGray whitespace-pre-wrap"
-                            renderMarkdown={true}
-                          />
-                        </div>
+                          >
+                            <MathPreview
+                              content={String(currentResult.userAnswerContent || "")}
+                              className="text-base text-textGray whitespace-pre-wrap"
+                              renderMarkdown={true}
+                            />
+                          </div>
+                        )
                       )}
                     </div>
                   )}
 
                   {/* Correct Answer */}
-                  {currentResult && !currentResult.isCorrect && (
+                  {currentResult &&
+                    (!currentResult.isCorrect ||
+                      currentQ.question.type === "free_text" ||
+                      currentQ.question.type === "short_answer" ||
+                      currentQ.question.type === "long_answer" ||
+                      currentQ.question.type === "coding") && (
                     <div>
                       <p className="text-base font-medium mb-2 text-green-700">
                         Correct Answer:
@@ -1972,6 +2023,13 @@ export function QuizPlayer({
                             isCurrentQuestionLocked ||
                             (isTestMode &&
                               answeredQuestions.has(currentQuestionIndex))
+                          }
+                          className={
+                            showCorrectnessForCurrent && currentResult
+                              ? currentResult.isCorrect
+                                ? "border-2 border-green-300 bg-green-50"
+                                : "border-2 border-red-300 bg-red-50"
+                              : undefined
                           }
                           maxLength={
                             currentQ.question.type === "short_answer" ? 500 : 5000

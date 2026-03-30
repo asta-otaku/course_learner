@@ -142,7 +142,50 @@ export default function QuizAttemptReviewPage() {
   };
 
   const getCorrectAnswerText = (question: any, result: QuizResult): string => {
-    if (result.correctAnswers.length === 0) return "No correct answer";
+    // Some attempt payloads omit correctAnswers for unanswered questions.
+    // Fall back to the question payload where possible.
+    if (!Array.isArray(result.correctAnswers) || result.correctAnswers.length === 0) {
+      if (question.type === "matching_pairs") {
+        const pairs = Array.isArray((question as any).correctAnswer)
+          ? ((question as any).correctAnswer as any[])
+          : Array.isArray((question as any).pairs)
+            ? ((question as any).pairs as any[])
+            : [];
+        if (pairs.length > 0) {
+          return pairs
+            .map((p: any) => `${String(p.left)} → ${String(p.right)}`)
+            .join("\n");
+        }
+      }
+
+      if (
+        (question.type === "multiple_choice" || question.type === "true_false") &&
+        Array.isArray(question.options)
+      ) {
+        const correctOptions = question.options.filter((opt: any) => opt?.isCorrect);
+        if (correctOptions.length > 0) {
+          return correctOptions.map((o: any) => String(o.text ?? "")).join(" or ");
+        }
+        if (typeof (question as any).correctAnswer === "string") {
+          const opt = question.options.find(
+            (o: any) => o.id === (question as any).correctAnswer
+          );
+          if (opt?.text) return String(opt.text);
+        }
+      }
+
+      const possible = Array.isArray((question as any).correctAnswers)
+        ? ((question as any).correctAnswers as any[])
+        : [];
+      if (possible.length > 0) {
+        return possible.map((a: any) => String(a)).join(" or ");
+      }
+      if ((question as any).correctAnswer != null) {
+        return String((question as any).correctAnswer);
+      }
+
+      return "No correct answer";
+    }
 
     if (
       question.type === "matching_pairs" &&
@@ -392,7 +435,65 @@ export default function QuizAttemptReviewPage() {
                   {currentResult && (
                     <div>
                       <p className="text-base font-medium mb-2">Your Answer:</p>
-                      {currentQ.question.type === "matching_pairs" &&
+                      {(currentQ.question.type === "multiple_choice" ||
+                        currentQ.question.type === "true_false") &&
+                      currentQ.question.options &&
+                      currentQ.question.options.length > 0 ? (
+                        <div className="space-y-3">
+                          {currentQ.question.options.map((option: any) => {
+                            const selectedId =
+                              currentResult.userAnswerId ||
+                              currentResult.userAnswerContent ||
+                              "";
+                            const isSelected = selectedId === option.id;
+                            const isCorrect =
+                              currentResult.correctAnswers?.some(
+                                (ans: any) => ans.id === option.id,
+                              ) || option.isCorrect === true;
+
+                            return (
+                              <div
+                                key={option.id}
+                                className={cn(
+                                  "flex items-start gap-3 p-3 rounded-lg border-2",
+                                  isCorrect && "bg-green-50 border-green-300",
+                                  isSelected &&
+                                    !isCorrect &&
+                                    "bg-red-50 border-red-300",
+                                  !isSelected &&
+                                    !isCorrect &&
+                                    "border-gray-200",
+                                )}
+                              >
+                                <div
+                                  className={cn(
+                                    "mt-0.5 flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold flex-shrink-0",
+                                    isCorrect
+                                      ? "bg-green-600 text-white"
+                                      : isSelected
+                                        ? "bg-red-600 text-white"
+                                        : "bg-gray-300 text-gray-700",
+                                  )}
+                                >
+                                  {isSelected ? "✓" : ""}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <MathPreview
+                                    content={String(option.text ?? "")}
+                                    className="text-base text-textGray whitespace-pre-wrap"
+                                    renderMarkdown={true}
+                                  />
+                                </div>
+                                {isCorrect ? (
+                                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                ) : isSelected ? (
+                                  <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : currentQ.question.type === "matching_pairs" &&
                         currentResult.userAnswerContent ? (
                         <div className="p-4 bg-gray-50 rounded-lg border">
                           {(() => {
@@ -465,13 +566,15 @@ export default function QuizAttemptReviewPage() {
                             content={String(
                               currentQ.question.type === "multiple_choice" ||
                                 currentQ.question.type === "true_false"
-                                ? currentQ.question.options?.find(
-                                  (opt: any) =>
-                                    opt.id ===
-                                    (currentResult.userAnswerId ||
-                                      currentResult.userAnswerContent)
-                                )?.text || currentResult.userAnswerContent
-                                : currentResult.userAnswerContent || "No answer"
+                                ? currentResult.userAnswerId || currentResult.userAnswerContent
+                                  ? currentQ.question.options?.find(
+                                    (opt: any) =>
+                                      opt.id ===
+                                      (currentResult.userAnswerId ||
+                                        currentResult.userAnswerContent)
+                                  )?.text || currentResult.userAnswerContent || ""
+                                  : ""
+                                : currentResult.userAnswerContent || ""
                             )}
                             className="text-base text-textGray whitespace-pre-wrap"
                             renderMarkdown={true}
@@ -482,7 +585,12 @@ export default function QuizAttemptReviewPage() {
                   )}
 
                   {/* Correct Answer */}
-                  {currentResult && !currentResult.isCorrect && (
+                  {currentResult &&
+                    (!currentResult.isCorrect ||
+                      currentQ.question.type === "free_text" ||
+                      currentQ.question.type === "short_answer" ||
+                      currentQ.question.type === "long_answer" ||
+                      currentQ.question.type === "coding") && (
                     <div>
                       <p className="text-base font-medium mb-2 text-green-700">
                         Correct Answer:
