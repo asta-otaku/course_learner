@@ -257,7 +257,6 @@ export function useSelectedProfile() {
 
   useEffect(() => {
     userTouchedCurriculumRef.current = false;
-    setSelectedCurriculumIdState("");
   }, [activeProfile?.id]);
 
   useEffect(() => {
@@ -302,22 +301,17 @@ export function useSelectedProfile() {
     };
   }, []);
 
+  // One effect: derive curriculum from the active child's row in /child-profiles (avoids batching races with a separate "clear" effect).
   useEffect(() => {
     if (!activeProfile?.id) {
       setSelectedCurriculumIdState("");
       return;
     }
-    if (!childProfilesFetched) return;
-    if (childProfilesError) {
-      setSelectedCurriculumIdState("");
+    if (!childProfilesFetched || childProfilesError) {
       return;
     }
-    if (!preferenceCurriculumIdFromApi) return;
-    setSelectedCurriculumIdState((prev) =>
-      prev === preferenceCurriculumIdFromApi
-        ? prev
-        : preferenceCurriculumIdFromApi
-    );
+    const next = preferenceCurriculumIdFromApi;
+    setSelectedCurriculumIdState(next ?? "");
   }, [
     activeProfile?.id,
     childProfilesFetched,
