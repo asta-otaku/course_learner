@@ -2,6 +2,7 @@
 
 import React from "react";
 import BackArrow from "@/assets/svgs/arrowback";
+import type { Quiz } from "@/lib/types";
 import LessonVideoPlayer from "./lessonVideoPlayer";
 import LessonQuizzes from "./lessonQuizzes";
 
@@ -20,14 +21,6 @@ interface Video {
   playbackUrl?: string;
   title?: string;
   fileName?: string;
-}
-
-interface Quiz {
-  id?: string;
-  title: string;
-  questionsCount?: number;
-  questions?: any[];
-  status: string;
 }
 
 interface LessonContentProps {

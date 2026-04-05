@@ -20,27 +20,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Play, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
+import type { ChildLesson } from "@/lib/types";
+import { isLessonFullyPassed } from "@/lib/lesson-progress";
+import { LessonCompletedCheckIcon } from "@/components/platform/library/lessonQuizzes";
 
-interface QuizAttempt {
-  id: string;
-  submittedAt: string;
-  percetage: string;
-}
-
-interface QuizWithAttempts {
-  id: string;
-  title: string;
-  attempts: QuizAttempt[];
-}
-
-interface LessonWithQuizzes {
-  id: string;
-  title: string;
-  description: string;
-  sectionId: string;
-  orderIndex: number;
-  quizzesCount: number;
-  quizAttempts?: QuizWithAttempts[];
+function formatAttemptPercentage(value: number | string | undefined): string {
+  if (value === undefined || value === null) return "0";
+  if (typeof value === "number" && !Number.isNaN(value)) {
+    return value.toFixed(0);
+  }
+  const n = parseFloat(String(value));
+  return Number.isNaN(n) ? "0" : n.toFixed(0);
 }
 
 function DashboardSectionPage() {
@@ -111,9 +101,12 @@ function DashboardSectionPage() {
     return library?.data || [];
   }, [library?.data]);
 
-  // Get lessons for selected section
+  // Get lessons for selected section (sorted by orderIndex)
   const sectionLessons = useMemo(() => {
-    return (lessons?.data || []) as unknown as LessonWithQuizzes[];
+    const raw = (lessons?.data || []) as ChildLesson[];
+    return [...raw].sort(
+      (a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)
+    );
   }, [lessons?.data]);
 
   // Get current lesson
@@ -244,29 +237,38 @@ function DashboardSectionPage() {
           className={`md:max-w-xs w-full border border-dashed flex flex-col max-h-[80vh] h-fit scrollbar-hide overflow-auto ${selectedLesson ? "hidden md:flex" : "flex"
             }`}
         >
-          {sectionLessons.map((lesson, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                setSelectedLesson(lesson.id);
-              }}
-              className={`border-b last-of-type:border-none border-dashed p-4 hover:bg-[#EEEEEE]/20 w-full text-left ${lesson.id === selectedLesson ? "bg-[#EEEEEE]" : "bg-white"
-                }`}
-            >
-              <span
-                className={`${lesson.id === selectedLesson
-                  ? "text-primaryBlue font-semibold"
-                  : "text-textSubtitle"
-                  } font-medium text-sm md:text-base max-w-[300px] whitespace-nowrap truncate inline-block`}
+          {sectionLessons.map((lesson, idx) => {
+            const qc = lesson.quizzesCount ?? lesson.totalQuizzes ?? 0;
+            const lessonPassed = isLessonFullyPassed(lesson);
+            return (
+              <button
+                key={lesson.id || idx}
+                onClick={() => {
+                  setSelectedLesson(lesson.id);
+                }}
+                className={`flex w-full gap-3 border-b border-dashed p-4 text-left last-of-type:border-none hover:bg-[#EEEEEE]/20 ${lesson.id === selectedLesson ? "bg-[#EEEEEE]" : "bg-white"
+                  }`}
               >
-                {lesson.title}
-              </span>
-              <p className="text-textSubtitle text-sm font-inter mt-2">
-                {lesson.quizzesCount || 0} Quiz
-                {lesson.quizzesCount !== 1 ? "zes" : ""}
-              </p>
-            </button>
-          ))}
+                <div className="min-w-0 flex-1">
+                  <span
+                    className={`${lesson.id === selectedLesson
+                      ? "font-semibold text-primaryBlue"
+                      : "text-textSubtitle"
+                      } inline-block max-w-full truncate text-sm font-medium md:text-base`}
+                  >
+                    {lesson.title}
+                  </span>
+                  <p className="mt-2 font-inter text-sm text-textSubtitle">
+                    {qc} Quiz
+                    {qc !== 1 ? "zes" : ""}
+                  </p>
+                </div>
+                {lessonPassed ? (
+                  <LessonCompletedCheckIcon className="mt-0.5 self-start" />
+                ) : null}
+              </button>
+            );
+          })}
         </div>
 
         {/* Second Column - Lesson Content */}
@@ -299,71 +301,94 @@ function DashboardSectionPage() {
                 {/* Quiz Sections */}
                 {currentLesson.quizAttempts &&
                   currentLesson.quizAttempts.length > 0 ? (
-                  currentLesson.quizAttempts.map((quiz: any) => (
-                    <Card key={quiz.id}>
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle>{quiz.title}</CardTitle>
-                          <Link href={`/take-quiz/${quiz.id}`}>
-                            <Button
-                              variant="default"
-                              className="bg-primaryBlue"
-                            >
-                              Attempt Quiz
-                            </Button>
-                          </Link>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        {quiz.attempts && quiz.attempts.length > 0 ? (
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-3 gap-4 text-sm font-medium text-textSubtitle border-b pb-2">
-                              <div>Attempt</div>
-                              <div>Date</div>
-                              <div>Score</div>
-                            </div>
-                            {quiz.attempts.map(
-                              (attempt: any, index: number) => (
-                                <div
-                                  key={attempt.id}
-                                  className="grid grid-cols-3 gap-4 items-center py-2 border-b last:border-none"
+                  [...currentLesson.quizAttempts]
+                    .sort(
+                      (a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)
+                    )
+                    .map((quiz) => {
+                      const resumeLabel =
+                        quiz.quizAttemptId != null
+                          ? "Resume Quiz"
+                          : "Attempt Quiz";
+                      return (
+                        <Card key={quiz.id}>
+                          <CardHeader>
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                <CardTitle className="text-base">
+                                  {quiz.title}
+                                </CardTitle>
+                                {quiz.passed ? (
+                                  <span
+                                    className="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-0.5 text-xs font-medium text-emerald-600"
+                                    aria-label="Passed"
+                                  >
+                                    Passed
+                                  </span>
+                                ) : null}
+                              </div>
+                              <Link
+                                href={`/take-quiz/${quiz.id}`}
+                                className="shrink-0"
+                              >
+                                <Button
+                                  variant="default"
+                                  className="bg-primaryBlue"
                                 >
-                                  <div className="text-sm font-medium">
-                                    Attempt {index + 1}
-                                  </div>
-                                  <div className="text-sm text-textSubtitle">
-                                    {format(
-                                      new Date(attempt.submittedAt),
-                                      "dd-MM-yyyy"
-                                    )}
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium">
-                                      {parseFloat(attempt.percentage).toFixed(
-                                        0
-                                      )}
-                                      %
-                                    </span>
-                                    <Link
-                                      href={`/quiz/${attempt.id}/review`}
-                                      className="flex items-center gap-1 text-primaryBlue text-sm font-medium hover:underline"
-                                    >
-                                      View Breakdown
-                                      <ChevronRight className="h-4 w-4" />
-                                    </Link>
-                                  </div>
+                                  {resumeLabel}
+                                </Button>
+                              </Link>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            {quiz.attempts && quiz.attempts.length > 0 ? (
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-3 gap-4 border-b pb-2 text-sm font-medium text-textSubtitle">
+                                  <div>Attempt</div>
+                                  <div>Date</div>
+                                  <div>Score</div>
                                 </div>
-                              )
+                                {quiz.attempts.map((attempt, index: number) => (
+                                  <div
+                                    key={attempt.id}
+                                    className="grid grid-cols-3 gap-4 items-center border-b py-2 last:border-none"
+                                  >
+                                    <div className="text-sm font-medium">
+                                      Attempt {index + 1}
+                                    </div>
+                                    <div className="text-sm text-textSubtitle">
+                                      {format(
+                                        new Date(attempt.submittedAt),
+                                        "dd-MM-yyyy"
+                                      )}
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-medium">
+                                        {formatAttemptPercentage(
+                                          attempt.percentage
+                                        )}
+                                        %
+                                      </span>
+                                      <Link
+                                        href={`/quiz/${attempt.id}/review`}
+                                        className="flex items-center gap-1 text-sm font-medium text-primaryBlue hover:underline"
+                                      >
+                                        View Breakdown
+                                        <ChevronRight className="h-4 w-4" />
+                                      </Link>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="py-4 text-center text-sm text-textSubtitle">
+                                No attempts yet
+                              </p>
                             )}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-textSubtitle text-center py-4">
-                            No attempts yet
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))
+                          </CardContent>
+                        </Card>
+                      );
+                    })
                 ) : (
                   <Card>
                     <CardContent className="py-8 text-center text-textSubtitle">

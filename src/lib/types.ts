@@ -61,6 +61,11 @@ export interface Quiz {
   metadata?: any;
   questions?: QuizQuestion[];
   questionsCount?: number; // Number of questions in the quiz
+  /** Present when quizzes are fetched with childId — whether the child has met the passing score. */
+  passed?: boolean;
+  /** In-progress attempt id; when set, UI may offer "Resume Quiz". */
+  quizAttemptId?: string | null;
+  orderIndex?: number;
   status?: "draft" | "published" | "archived";
   feedbackMode?:
     | "immediate"
@@ -893,6 +898,20 @@ export interface LibraryCurriculum {
   progress: LibrarySectionProgress;
 }
 
+/** Quiz row on child lesson payloads (dashboard / library) with attempt history. */
+export interface ChildLessonQuizSummary {
+  id: string;
+  title: string;
+  orderIndex?: number;
+  quizAttemptId?: string | null;
+  passed?: boolean;
+  attempts?: Array<{
+    id: string;
+    submittedAt: string;
+    percentage: number | string;
+  }>;
+}
+
 export interface ChildLesson {
   id: string;
   title: string;
@@ -905,6 +924,9 @@ export interface ChildLesson {
   completionPercentage: number;
   lessonCompleted: boolean;
   sectionId: string;
+  quizzesCount?: number;
+  /** When API returns nested quiz progress (e.g. dashboard lessons). */
+  quizAttempts?: ChildLessonQuizSummary[];
 }
 
 export interface Chat {
@@ -1042,6 +1064,8 @@ export interface Section {
     id: string;
     title: string;
     orderIndex: number;
+    /** When provided by API, lesson is fully completed (e.g. all quizzes passed). */
+    lessonCompleted?: boolean;
   }[];
 }
 

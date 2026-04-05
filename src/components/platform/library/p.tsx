@@ -98,7 +98,8 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
     lessonIdForFetch || ""
   );
   const { data: lessonQuizzes } = useGetQuizzesForLesson(
-    lessonIdForFetch || ""
+    lessonIdForFetch || "",
+    activeProfile?.id || ""
   );
 
   // Progress patch mutation (child video progress)

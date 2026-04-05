@@ -763,11 +763,16 @@ export const useGetLessonById = (id: string) => {
   });
 };
 
-export const useGetQuizzesForLesson = (lessonId: string) => {
+export const useGetQuizzesForLesson = (lessonId: string, childId?: string) => {
   return useQuery({
-    queryKey: ["quizzes-for-lesson", lessonId],
+    queryKey: ["quizzes-for-lesson", lessonId, childId ?? ""],
     queryFn: async (): Promise<APIGetResponse<Quiz[]>> => {
-      const response = await axiosInstance.get(`/lesson/${lessonId}/quizzes`);
+      const q = childId
+        ? `?childId=${encodeURIComponent(childId)}`
+        : "";
+      const response = await axiosInstance.get(
+        `/lesson/${lessonId}/quizzes${q}`
+      );
       return response.data;
     },
     enabled: !!lessonId,
