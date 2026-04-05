@@ -14,14 +14,14 @@ import {
   useGetCurrentUser,
 } from "@/lib/api/queries";
 import { usePostMessage } from "@/lib/api/mutations";
-import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useProfile } from "@/context/profileContext";
 import { Message } from "@/lib/types";
 import { useSocketContext } from "@/context/SocketContext";
 
 const MessagingPlatform = () => {
   const pathname = usePathname();
   const isTutorMode = pathname.includes("tutor");
-  const { activeProfile } = useSelectedProfile();
+  const { activeProfile } = useProfile();
   const [page, setPage] = useState(1);
   const [limit, _] = useState(100);
 

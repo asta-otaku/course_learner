@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useProfile } from "@/context/profileContext";
-import { useSelectedProfile } from "@/hooks/use-selectedProfile";
 import BackArrow from "@/assets/svgs/arrowback";
 import {
   useGetLibrary,
@@ -32,12 +31,12 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
-  const { activeProfile, isLoaded } = useProfile();
   const {
+    activeProfile,
+    isLoaded,
     selectedCurriculumId,
-    setSelectedCurriculumId,
     hasHydratedSelectedCurriculumId,
-  } = useSelectedProfile();
+  } = useProfile();
   const [selectedSection, setSelectedSection] = useState("");
   const [selectedLesson, setSelectedLesson] = useState("");
   const [user, setUser] = React.useState<any>({});
@@ -68,29 +67,15 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
     return "";
   }, [curriculaList]);
 
-  // Determine the actual selected curriculum ID
-  // Use device-level selectedCurriculumId from localStorage, or default to first curriculum
+  // Selected curriculum comes from child profile preferences (see ProfileProvider / useProfile)
   const selectedCurriculum = useMemo(() => {
-    if (selectedCurriculumId) {
-      return selectedCurriculumId;
-    }
+    if (!hasHydratedSelectedCurriculumId) return "";
+    if (selectedCurriculumId) return selectedCurriculumId;
     return defaultCurriculumId;
-  }, [selectedCurriculumId, defaultCurriculumId]);
-
-  // Persist default curriculum when none stored yet
-  useEffect(() => {
-    if (
-      hasHydratedSelectedCurriculumId &&
-      defaultCurriculumId &&
-      !selectedCurriculumId
-    ) {
-      setSelectedCurriculumId(defaultCurriculumId);
-    }
   }, [
     hasHydratedSelectedCurriculumId,
-    defaultCurriculumId,
     selectedCurriculumId,
-    setSelectedCurriculumId,
+    defaultCurriculumId,
   ]);
 
   const { data: library } = useGetLibrary(
@@ -369,7 +354,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
 
       {/* Curriculum and Section Selectors */}
       <div className="mb-6 mt-8 flex flex-col md:flex-row gap-4 items-start md:items-center">
-        {/* Curriculum Selector Dropdown - Disabled (uses global selectedCurriculumId) */}
+        {/* Curriculum mirrors active child profile preference (set on Home) */}
         <div className="w-full md:w-auto min-w-[200px]">
           <Select value={selectedCurriculum} disabled={true}>
             <SelectTrigger>

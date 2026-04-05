@@ -6,7 +6,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import BackArrow from "@/assets/svgs/arrowback";
-import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useProfile } from "@/context/profileContext";
 import { useGetCurricula, useGetLibrary } from "@/lib/api/queries";
 
 export default function CourseList() {
@@ -14,9 +14,9 @@ export default function CourseList() {
   const router = useRouter();
   const {
     activeProfile,
-    selectedCurriculumId: profileSelectedCurriculumId,
-    setSelectedCurriculumId: setProfileSelectedCurriculumId,
-  } = useSelectedProfile();
+    selectedCurriculumId: persistedCurriculumId,
+    hasHydratedSelectedCurriculumId,
+  } = useProfile();
 
   const { data: curriculaData } = useGetCurricula({
     offerType: activeProfile?.offerType || "",
@@ -35,18 +35,13 @@ export default function CourseList() {
   }, [curriculaList]);
 
   const selectedCurriculumId = useMemo(() => {
-    if (profileSelectedCurriculumId) return profileSelectedCurriculumId;
+    if (!hasHydratedSelectedCurriculumId) return "";
+    if (persistedCurriculumId) return persistedCurriculumId;
     return defaultCurriculumId;
-  }, [profileSelectedCurriculumId, defaultCurriculumId]);
-
-  useEffect(() => {
-    if (defaultCurriculumId && !profileSelectedCurriculumId) {
-      setProfileSelectedCurriculumId(defaultCurriculumId);
-    }
   }, [
+    hasHydratedSelectedCurriculumId,
+    persistedCurriculumId,
     defaultCurriculumId,
-    profileSelectedCurriculumId,
-    setProfileSelectedCurriculumId,
   ]);
 
   const { data: library } = useGetLibrary(

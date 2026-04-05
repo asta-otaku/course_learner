@@ -3,6 +3,7 @@ import { axiosInstance } from "../services/axiosInstance";
 import { toast } from "react-toastify";
 import { AxiosError } from "axios";
 import {
+  APIGetResponse,
   ApiResponse,
   SignUpData,
   LoginData,
@@ -10,6 +11,7 @@ import {
   ForgotPasswordData,
   ResetPasswordData,
   ChangePasswordData,
+  ChildProfile,
   CreateChildProfileData,
   DetailedChildProfile,
   CreateSubscriptionData,
@@ -296,6 +298,45 @@ export const usePatchChildProfile = () => {
         queryKey: ["child-profiles"],
       });
       return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchChildPofilePreference = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-child-profile-preference"],
+    mutationFn: (data: {
+      childProfileId: string;
+      selectedCurriculumId: string;
+    }): Promise<ApiResponse<DetailedChildProfile>> =>
+      axiosInstance.patch(`/child-profiles/${data.childProfileId}/preferences`, {
+        selectedCurriculumId: data.selectedCurriculumId,
+      }),
+    onSuccess: (_response, variables) => {
+      queryClient.setQueryData<APIGetResponse<ChildProfile[]>>(
+        ["child-profiles"],
+        (old) => {
+          if (!old?.data || !Array.isArray(old.data)) return old;
+          return {
+            ...old,
+            data: old.data.map((p: ChildProfile) =>
+              String(p.id) === String(variables.childProfileId)
+                ? {
+                    ...p,
+                    preferences: {
+                      ...(p.preferences ?? {}),
+                      selectedCurriculumId: variables.selectedCurriculumId,
+                    },
+                  }
+                : p
+            ),
+          };
+        }
+      );
     },
     onError: (error: AxiosError) => {
       handleErrorMessage(error);

@@ -141,6 +141,8 @@ export interface QuizPlayerQuestionItem {
 export interface QuizPlayerQuestion {
   id: string;
   order: number;
+  /** Points for this quiz item (from API transform). */
+  points?: number;
   explanation?: string;
   correct_feedback?: string;
   incorrect_feedback?: string;
@@ -188,6 +190,7 @@ export interface QuizSubmissionResults {
   totalPoints: number;
   percentage: number;
   results: QuizQuestionResult[];
+  /** Total time on the quiz in seconds (submit response and UI). */
   timeSpent: number;
 }
 
@@ -482,6 +485,10 @@ export interface ChildProfile {
   tutorFirstName: string;
   tutorLastName: string;
   status: string;
+  /** Present on `/child-profiles` API responses */
+  preferences?: {
+    selectedCurriculumId: string | null;
+  } | null;
 }
 
 export interface ParentProfile {

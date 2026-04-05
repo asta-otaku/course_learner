@@ -857,7 +857,7 @@ export function buildQuizSubmissionResults(
     totalPoints: resultData.totalPoints || 0,
     percentage: resultData.percentage || 0,
     results: resultData.results || [],
-    timeSpent: resultData.timeSpent || 0,
+    timeSpent: Number(resultData.timeSpent) || 0,
   };
 }
 

@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useProfile } from "@/context/profileContext";
-import { useSelectedProfile } from "@/hooks/use-selectedProfile";
 import {
   useGetLibrary,
   useGetChildLessons,
@@ -47,12 +46,12 @@ interface LessonWithQuizzes {
 function DashboardSectionPage() {
   const router = useRouter();
   const params = useParams();
-  const { activeProfile, isLoaded } = useProfile();
   const {
+    activeProfile,
+    isLoaded,
     selectedCurriculumId,
-    setSelectedCurriculumId,
     hasHydratedSelectedCurriculumId,
-  } = useSelectedProfile();
+  } = useProfile();
   const [selectedSection, setSelectedSection] = useState("");
   const [selectedLesson, setSelectedLesson] = useState("");
   const [user, setUser] = React.useState<any>({});
@@ -78,28 +77,14 @@ function DashboardSectionPage() {
     return "";
   }, [curriculaList]);
 
-  // Determine the actual selected curriculum ID
   const selectedCurriculum = useMemo(() => {
-    if (selectedCurriculumId) {
-      return selectedCurriculumId;
-    }
+    if (!hasHydratedSelectedCurriculumId) return "";
+    if (selectedCurriculumId) return selectedCurriculumId;
     return defaultCurriculumId;
-  }, [selectedCurriculumId, defaultCurriculumId]);
-
-  // Persist default curriculum when none stored yet
-  useEffect(() => {
-    if (
-      hasHydratedSelectedCurriculumId &&
-      defaultCurriculumId &&
-      !selectedCurriculumId
-    ) {
-      setSelectedCurriculumId(defaultCurriculumId);
-    }
   }, [
     hasHydratedSelectedCurriculumId,
-    defaultCurriculumId,
     selectedCurriculumId,
-    setSelectedCurriculumId,
+    defaultCurriculumId,
   ]);
 
   const { data: library } = useGetLibrary(

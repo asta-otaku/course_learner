@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useMemo, useEffect } from "react";
+import React, { useMemo } from "react";
 // import Streak from "./streaks";
 import LearningCard, { ProgressCard } from "./learningCard";
-import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useProfile } from "@/context/profileContext";
 import {
   useGetLibrary,
   useGetChildLastAccessedLessons,
@@ -23,10 +23,10 @@ function Home() {
   const {
     activeProfile,
     isChangingProfile,
-    selectedCurriculumId: profileSelectedCurriculumId,
-    setSelectedCurriculumId: setProfileSelectedCurriculumId,
+    selectedCurriculumId: persistedCurriculumId,
+    setSelectedCurriculumId: setPersistedCurriculumId,
     hasHydratedSelectedCurriculumId,
-  } = useSelectedProfile();
+  } = useProfile();
 
   // Fetch curricula first so we can resolve selectedCurriculumId for library + lessons
   const { data: curriculaData } = useGetCurricula({
@@ -50,25 +50,13 @@ function Home() {
   }, [reversedCurriculaList]);
 
   const selectedCurriculumId = useMemo(() => {
-    if (profileSelectedCurriculumId) {
-      return profileSelectedCurriculumId;
-    }
+    if (!hasHydratedSelectedCurriculumId) return "";
+    if (persistedCurriculumId) return persistedCurriculumId;
     return defaultCurriculumId;
-  }, [profileSelectedCurriculumId, defaultCurriculumId]);
-
-  useEffect(() => {
-    if (
-      hasHydratedSelectedCurriculumId &&
-      defaultCurriculumId &&
-      !profileSelectedCurriculumId
-    ) {
-      setProfileSelectedCurriculumId(defaultCurriculumId);
-    }
   }, [
     hasHydratedSelectedCurriculumId,
+    persistedCurriculumId,
     defaultCurriculumId,
-    profileSelectedCurriculumId,
-    setProfileSelectedCurriculumId,
   ]);
 
   const { data: library } = useGetLibrary(
@@ -187,7 +175,7 @@ function Home() {
               <Select
                 value={selectedCurriculumId}
                 onValueChange={(value) => {
-                  setProfileSelectedCurriculumId(value);
+                  setPersistedCurriculumId(value);
                 }}
               >
                 <SelectTrigger>

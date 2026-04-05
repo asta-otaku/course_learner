@@ -79,7 +79,8 @@ export function QuizPlayer({
     Record<string, string | Record<string, string>>
   >({});
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
-  const [timeSpent, setTimeSpent] = useState<number>(0); // Time spent in minutes
+  /** Whole-quiz elapsed time (seconds), aligned with the countdown clock. */
+  const [quizElapsedSeconds, setQuizElapsedSeconds] = useState(0);
   const [quizStartTime, setQuizStartTime] = useState<number | null>(null);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [questions, setQuestions] = useState<QuizPlayerQuestion[]>([]);
@@ -110,8 +111,9 @@ export function QuizPlayer({
   const questionNavContainerRef = useRef<HTMLDivElement>(null);
   const resultsNavContainerRef = useRef<HTMLDivElement>(null);
   const prevImmediateResultsCountRef = useRef(0);
-  const isFirstPositionRef = useRef(true);
-  // Tracks when the current question was first shown — used for per-question timeSpent
+  // Dedupes per-question timer resets (see effect below)
+  const lastPerQuestionTimingKeyRef = useRef<string | null>(null);
+  // Tracks when the current question / step was first shown — used for per-question timeSpent
   const questionStartTimeRef = useRef<number>(Date.now());
 
   // Fetch quiz data for timeLimit and feedbackMode (needed for both regular and homework)
@@ -422,9 +424,16 @@ export function QuizPlayer({
       setCurrentPosition({ type: "transition", questionIndex: 0 });
     }
 
-    // Restore the quiz timer using the server-provided remaining time (seconds)
-    if (resumeData.timeLeft !== undefined && resumeData.timeLeft !== null) {
-      setResumeTimeLeft(resumeData.timeLeft);
+    // Resume API always sends timeLeft in seconds (remaining wall time for the quiz).
+    const resumeRaw =
+      resumeData.timeLeft ??
+      (resumeData as { progress?: { timeLeft?: unknown } }).progress
+        ?.timeLeft;
+    if (resumeRaw !== undefined && resumeRaw !== null) {
+      const secs = Math.max(0, Math.floor(Number(resumeRaw)));
+      if (!Number.isNaN(secs)) {
+        setResumeTimeLeft(secs);
+      }
     }
     setResumeDataLoaded(true);
   }, [resumeResponse, attemptId, isResuming]);
@@ -548,8 +557,7 @@ export function QuizPlayer({
     const totalTimeInSeconds = actualTimeLimit * 60;
 
     if (isResuming && resumeTimeLeft !== null && resumeTimeLeft > 0) {
-      // Restore remaining time; back-calculate the effective quiz-start instant
-      // so the existing countdown interval stays accurate.
+      // resumeTimeLeft is seconds from the backend; keep countdown + elapsed in sync.
       setTimeRemaining(resumeTimeLeft);
       setQuizStartTime(
         Date.now() - (totalTimeInSeconds - resumeTimeLeft) * 1000,
@@ -559,7 +567,7 @@ export function QuizPlayer({
       setTimeRemaining(totalTimeInSeconds);
       setQuizStartTime(Date.now());
     }
-    setTimeSpent(0);
+    setQuizElapsedSeconds(0);
   }, [quizId, attemptId, actualTimeLimit, isResuming, resumeDataLoaded, resumeTimeLeft]);
 
   // Timer countdown and time tracking
@@ -572,8 +580,8 @@ export function QuizPlayer({
       // Calculate elapsed time in seconds
       const elapsed = (Date.now() - quizStartTime) / 1000;
 
-      // Update time spent in minutes (rounded down)
-      setTimeSpent(Math.floor(elapsed / 60));
+      // Same elapsed basis as remaining time (avoids mismatch with the countdown)
+      setQuizElapsedSeconds(Math.max(0, Math.floor(elapsed)));
 
       // Calculate remaining time
       const totalTimeInSeconds = actualTimeLimit * 60;
@@ -652,15 +660,29 @@ export function QuizPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldAutoSubmit, attemptId, showResults]);
 
-  // Scroll to top and reset per-question timer when the user navigates
+  // Reset per-question time when the learner enters a new step (question, explanation,
+  // or transition). Also re-arms when questions first load so time on Q1 does not
+  // include loading, and idle time on Q2 counts from navigation even if the learner
+  // waits before answering.
   useEffect(() => {
-    if (isFirstPositionRef.current) {
-      isFirstPositionRef.current = false;
-      return;
-    }
+    if (questions.length === 0) return;
+
+    const posKey =
+      currentPosition.type === "transition"
+        ? `transition-${currentPosition.questionIndex}`
+        : `${currentPosition.type}-${currentPosition.questionIndex}`;
+    const dedupeKey = `${attemptId ?? ""}:${posKey}`;
+
+    if (lastPerQuestionTimingKeyRef.current === dedupeKey) return;
+
+    const hadPrevious = lastPerQuestionTimingKeyRef.current !== null;
+    lastPerQuestionTimingKeyRef.current = dedupeKey;
     questionStartTimeRef.current = Date.now();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [currentPosition]);
+
+    if (hadPrevious) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [attemptId, currentPosition, questions.length]);
 
   // Keep the current question visible inside the navigation sidebar(s)
   useEffect(() => {
@@ -780,7 +802,7 @@ export function QuizPlayer({
         if (answeredOnServer.has(questionId)) {
           updateQuestion(
             { questionId, answer: payload, timeSpent: timeSpentSecs },
-            { onSuccess: () => {}, onError: () => {} },
+            { onSuccess: () => { }, onError: () => { } },
           );
         } else {
           submitQuestion(
@@ -789,7 +811,7 @@ export function QuizPlayer({
               onSuccess: () => {
                 setAnsweredOnServer((prev) => new Set(prev).add(questionId));
               },
-              onError: () => {},
+              onError: () => { },
             },
           );
         }
@@ -823,7 +845,7 @@ export function QuizPlayer({
       if (answeredOnServer.has(questionId)) {
         updateQuestion(
           { questionId, answer: payload, timeSpent: timeSpentSecs },
-          { onSuccess: () => {}, onError: () => {} },
+          { onSuccess: () => { }, onError: () => { } },
         );
       } else {
         submitQuestion(
@@ -832,7 +854,7 @@ export function QuizPlayer({
             onSuccess: () => {
               setAnsweredOnServer((prev) => new Set(prev).add(questionId));
             },
-            onError: () => {},
+            onError: () => { },
           },
         );
       }
@@ -1146,12 +1168,25 @@ export function QuizPlayer({
       }
     }
 
+    // Match the countdown (and avoid being up to ~1s short if submit lands between ticks)
+    const elapsedSecondsForSubmit =
+      quizStartTime != null && actualTimeLimit
+        ? Math.max(
+            0,
+            Math.min(
+              actualTimeLimit * 60,
+              Math.round((Date.now() - quizStartTime) / 1000),
+            ),
+          )
+        : quizElapsedSeconds;
+
     const submissionData: {
       answers: Record<string, string | Record<string, string>>;
-      timeSpent?: number; // Time spent in minutes
+      /** Whole-quiz time in seconds (matches API response `timeSpent`) */
+      timeSpent?: number;
     } = {
       answers: submissionAnswers,
-      timeSpent: timeSpent, // Include time spent in minutes
+      timeSpent: elapsedSecondsForSubmit,
     };
 
     const handleSubmissionSuccess = (resultData: any) => {
@@ -1301,8 +1336,42 @@ export function QuizPlayer({
     questions.length > 0 &&
     questions.every((q) => immediateQuestionResults[q.question.id]);
 
+  const questionTitleTrim = String(currentQ.question.title ?? "").trim();
+  const questionContentTrim = String(currentQ.question.content ?? "").trim();
+  const showDistinctQuestionTitleInHeader =
+    questionTitleTrim.length > 0 &&
+    questionTitleTrim !== questionContentTrim &&
+    !questionContentTrim.startsWith(questionTitleTrim);
+
   // Results Summary View
   if (showResults && submissionResults) {
+    const normalizeSubmissionQuestionResult = (
+      r: QuizQuestionResult,
+      fallbackPoints: number,
+    ): QuizQuestionResult => ({
+      ...r,
+      correctAnswers: Array.isArray(r.correctAnswers) ? r.correctAnswers : [],
+      pointsEarned: Number(r.pointsEarned) || 0,
+      pointsPossible: Number(r.pointsPossible) || fallbackPoints,
+    });
+
+    const reviewQuestionResult = currentResult
+      ? normalizeSubmissionQuestionResult(currentResult, currentQ.points || 1)
+      : undefined;
+
+    const mcTfUserAnswered =
+      !reviewQuestionResult ||
+      (currentQ.question.type !== "multiple_choice" &&
+        currentQ.question.type !== "true_false")
+        ? true
+        : (() => {
+            const id = reviewQuestionResult.userAnswerId;
+            if (id != null && String(id).trim() !== "") return true;
+            const c = reviewQuestionResult.userAnswerContent;
+            if (c == null) return false;
+            return String(c).trim() !== "";
+          })();
+
     const lessonTitle =
       (quiz as any)?.lessonName || "---";
     const quizName = quiz?.title || "Quiz";
@@ -1353,14 +1422,16 @@ export function QuizPlayer({
                   <CardTitle className="text-lg">
                     Question {currentQuestionIndex + 1} of {questions.length}
                   </CardTitle>
-                  {currentResult && (
+                  {reviewQuestionResult && (
                     <Badge
                       variant={
-                        currentResult.isCorrect ? "default" : "destructive"
+                        reviewQuestionResult.isCorrect
+                          ? "default"
+                          : "destructive"
                       }
                       className="flex items-center gap-2"
                     >
-                      {currentResult.isCorrect ? (
+                      {reviewQuestionResult.isCorrect ? (
                         <>
                           <CheckCircle className="h-4 w-4" />
                           Correct
@@ -1406,7 +1477,7 @@ export function QuizPlayer({
                   </div>
 
                   {/* User's Answer */}
-                  {currentResult && (
+                  {reviewQuestionResult && (
                     <div>
                       <p className="text-base font-medium mb-2">Your Answer:</p>
                       {(currentQ.question.type === "multiple_choice" ||
@@ -1414,168 +1485,182 @@ export function QuizPlayer({
                       currentQ.question.options &&
                       currentQ.question.options.length > 0 ? (
                         <div className="space-y-3">
+                          {!mcTfUserAnswered && (
+                            <Alert className="border-muted bg-muted/40">
+                              <AlertCircle className="h-4 w-4" />
+                              <AlertDescription>
+                                You did not answer this question.
+                              </AlertDescription>
+                            </Alert>
+                          )}
                           {currentQ.question.options.map((option) => {
                             const selectedId =
-                              currentResult.userAnswerId ||
-                              currentResult.userAnswerContent ||
+                              reviewQuestionResult.userAnswerId ||
+                              reviewQuestionResult.userAnswerContent ||
                               "";
-                            const isSelected = selectedId === option.id;
-                            const optionWithCorrectFlag =
-                              option as unknown as { isCorrect?: boolean };
-                            const isCorrect =
-                              currentResult.correctAnswers?.some(
-                                (ans) => ans.id === option.id,
-                              ) || optionWithCorrectFlag.isCorrect === true;
-                            const showCorrectness = true;
+                          const isSelected = selectedId === option.id;
+                          const optionWithCorrectFlag =
+                            option as unknown as { isCorrect?: boolean };
+                          const isCorrect =
+                            reviewQuestionResult.correctAnswers?.some(
+                              (ans) => ans.id === option.id,
+                            ) || optionWithCorrectFlag.isCorrect === true;
+                          const showCorrectness = true;
 
-                            return (
-                              <div
-                                key={option.id}
-                                className={cn(
-                                  "flex items-start gap-3 p-3 rounded-lg border-2",
-                                  showCorrectness &&
-                                    isCorrect &&
-                                    "bg-green-50 border-green-300",
-                                  showCorrectness &&
-                                    isSelected &&
-                                    !isCorrect &&
-                                    "bg-red-50 border-red-300",
-                                  showCorrectness &&
-                                    !isSelected &&
-                                    !isCorrect &&
-                                    "border-gray-200",
-                                )}
-                              >
-                                <div
-                                  className={cn(
-                                    "mt-0.5 flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold flex-shrink-0",
-                                    isCorrect
-                                      ? "bg-green-600 text-white"
-                                      : isSelected
-                                        ? "bg-red-600 text-white"
-                                        : "bg-gray-300 text-gray-700",
-                                  )}
-                                >
-                                  {isSelected ? "✓" : ""}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <MathPreview
-                                    content={String(option.text ?? "")}
-                                    className="text-base text-textGray whitespace-pre-wrap"
-                                    renderMarkdown={true}
-                                  />
-                                </div>
-                                {isCorrect ? (
-                                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                                ) : isSelected ? (
-                                  <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-                                ) : null}
+                          return (
+                            <div
+                              key={option.id}
+                              className={cn(
+                                "flex items-start gap-3 p-3 rounded-lg border-2",
+                                showCorrectness &&
+                                  isCorrect &&
+                                  "bg-green-50 border-green-300",
+                                showCorrectness &&
+                                  isSelected &&
+                                  !isCorrect &&
+                                  "bg-red-50 border-red-300",
+                                showCorrectness &&
+                                  !isSelected &&
+                                  !isCorrect &&
+                                  "border-gray-200",
+                              )}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <MathPreview
+                                  content={String(option.text ?? "")}
+                                  className="text-base text-textGray whitespace-pre-wrap"
+                                  renderMarkdown={true}
+                                />
                               </div>
-                            );
-                          })}
+                              {isCorrect ? (
+                                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                              ) : isSelected ? (
+                                <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : currentQ.question.type === "matching_pairs" ? (
+                      reviewQuestionResult.userAnswerContent ? (
+                        <div className="p-4 bg-gray-50 rounded-lg border">
+                          {(() => {
+                            try {
+                              const userMatches = JSON.parse(
+                                reviewQuestionResult.userAnswerContent,
+                              ) as Record<string, string>;
+                              const ca0 = reviewQuestionResult.correctAnswers[0];
+                              const correctMatches =
+                                ca0 && typeof ca0.content === "object"
+                                  ? (ca0.content as Record<string, string>)
+                                  : {};
+
+                              return (
+                                <div className="space-y-2">
+                                  {Object.entries(userMatches).map(
+                                    ([leftText, rightText]) => {
+                                      const correctRightText =
+                                        correctMatches[leftText];
+                                      const isMatchCorrect =
+                                        correctRightText === rightText;
+
+                                      return (
+                                        <div
+                                          key={leftText}
+                                          className={cn(
+                                            "p-3 rounded-lg border-2",
+                                            isMatchCorrect
+                                              ? "bg-green-50 border-green-300"
+                                              : "bg-red-50 border-red-300",
+                                          )}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-medium">
+                                              {leftText} →
+                                            </span>
+                                            <span>{rightText}</span>
+                                            {isMatchCorrect ? (
+                                              <CheckCircle className="h-4 w-4 text-green-600 ml-auto" />
+                                            ) : (
+                                              <XCircle className="h-4 w-4 text-red-600 ml-auto" />
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    },
+                                  )}
+                                </div>
+                              );
+                            } catch {
+                              return (
+                                <p className="text-sm text-gray-600">
+                                  {reviewQuestionResult.userAnswerContent}
+                                </p>
+                              );
+                            }
+                          })()}
                         </div>
                       ) : (
-                        currentQ.question.type === "matching_pairs" &&
-                        currentResult.userAnswerContent ? (
-                          <div className="p-4 bg-gray-50 rounded-lg border">
-                            {(() => {
-                              try {
-                                const userMatches = JSON.parse(
-                                  currentResult.userAnswerContent,
-                                ) as Record<string, string>;
-                                const correctMatches =
-                                  typeof currentResult.correctAnswers[0]
-                                    .content === "object"
-                                    ? (currentResult.correctAnswers[0]
-                                      .content as Record<string, string>)
-                                    : {};
-
-                                return (
-                                  <div className="space-y-2">
-                                    {Object.entries(userMatches).map(
-                                      ([leftText, rightText]) => {
-                                        const correctRightText =
-                                          correctMatches[leftText];
-                                        const isMatchCorrect =
-                                          correctRightText === rightText;
-
-                                        return (
-                                          <div
-                                            key={leftText}
-                                            className={cn(
-                                              "p-3 rounded-lg border-2",
-                                              isMatchCorrect
-                                                ? "bg-green-50 border-green-300"
-                                                : "bg-red-50 border-red-300",
-                                            )}
-                                          >
-                                            <div className="flex items-center gap-2">
-                                              <span className="font-medium">
-                                                {leftText} →
-                                              </span>
-                                              <span>{rightText}</span>
-                                              {isMatchCorrect ? (
-                                                <CheckCircle className="h-4 w-4 text-green-600 ml-auto" />
-                                              ) : (
-                                                <XCircle className="h-4 w-4 text-red-600 ml-auto" />
-                                              )}
-                                            </div>
-                                          </div>
-                                        );
-                                      },
-                                    )}
-                                  </div>
-                                );
-                              } catch {
-                                return (
-                                  <p className="text-sm text-gray-600">
-                                    {currentResult.userAnswerContent}
-                                  </p>
-                                );
-                              }
-                            })()}
-                          </div>
-                        ) : (
-                          <div
-                            className={cn(
-                              "p-4 rounded-lg border-2",
-                              currentResult.isCorrect
-                                ? "bg-green-50 border-green-300"
-                                : "bg-red-50 border-red-300",
+                        <Alert className="border-muted bg-muted/40">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            You did not answer this question.
+                          </AlertDescription>
+                        </Alert>
+                      )
+                    ) : (
+                      <div
+                        className={cn(
+                          "p-4 rounded-lg border-2",
+                          reviewQuestionResult.userAnswerContent != null &&
+                            String(reviewQuestionResult.userAnswerContent)
+                              .trim() !== ""
+                            ? reviewQuestionResult.isCorrect
+                              ? "bg-green-50 border-green-300"
+                              : "bg-red-50 border-red-300"
+                            : "bg-muted/30 border-muted",
+                        )}
+                      >
+                        {reviewQuestionResult.userAnswerContent != null &&
+                        String(reviewQuestionResult.userAnswerContent).trim() !==
+                          "" ? (
+                          <MathPreview
+                            content={String(
+                              reviewQuestionResult.userAnswerContent || "",
                             )}
-                          >
-                            <MathPreview
-                              content={String(currentResult.userAnswerContent || "")}
-                              className="text-base text-textGray whitespace-pre-wrap"
-                              renderMarkdown={true}
-                            />
-                          </div>
-                        )
-                      )}
+                            className="text-base text-textGray whitespace-pre-wrap"
+                            renderMarkdown={true}
+                          />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            You did not answer this question.
+                          </p>
+                        )}
+                      </div>
+                    )}
                     </div>
                   )}
 
                   {/* Correct Answer */}
-                  {currentResult &&
-                    (!currentResult.isCorrect ||
-                      currentQ.question.type === "free_text" ||
-                      currentQ.question.type === "short_answer" ||
-                      currentQ.question.type === "long_answer" ||
-                      currentQ.question.type === "coding") && (
+                  {reviewQuestionResult &&
+                    (!reviewQuestionResult.isCorrect ||
+                    currentQ.question.type === "free_text" ||
+                    currentQ.question.type === "short_answer" ||
+                    currentQ.question.type === "long_answer" ||
+                    currentQ.question.type === "coding") && (
                     <div>
                       <p className="text-base font-medium mb-2 text-green-700">
                         Correct Answer:
                       </p>
                       <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
                         {currentQ.question.type === "matching_pairs" &&
-                          typeof currentResult.correctAnswers[0].content ===
+                        reviewQuestionResult.correctAnswers[0] &&
+                        typeof reviewQuestionResult.correctAnswers[0].content ===
                           "object" ? (
                           <div className="space-y-2">
                             {Object.entries(
-                              currentResult.correctAnswers[0].content as Record<
-                                string,
-                                string
-                              >,
+                              reviewQuestionResult.correctAnswers[0]
+                                .content as Record<string, string>,
                             ).map(([left, right]) => (
                               <div
                                 key={left}
@@ -1588,7 +1673,10 @@ export function QuizPlayer({
                           </div>
                         ) : (
                           <p className="text-base text-green-900 whitespace-pre-wrap">
-                            {getCorrectAnswerText(currentQ, currentResult)}
+                            {getCorrectAnswerText(
+                              currentQ,
+                              reviewQuestionResult,
+                            )}
                           </p>
                         )}
                       </div>
@@ -1596,14 +1684,14 @@ export function QuizPlayer({
                   )}
 
                   {/* Feedback */}
-                  {currentResult?.feedback && (
+                  {reviewQuestionResult?.feedback && (
                     <div>
                       <p className="text-base font-medium mb-2">Feedback:</p>
                       <Alert className="border-yellow-200 bg-yellow-50">
                         <AlertCircle className="h-4 w-4 text-yellow-600" />
                         <AlertDescription>
                           <MathPreview
-                            content={currentResult.feedback}
+                            content={reviewQuestionResult.feedback}
                             className="text-yellow-800"
                             renderMarkdown={true}
                           />
@@ -1664,7 +1752,10 @@ export function QuizPlayer({
                 className="space-y-2 max-h-[80vh] overflow-y-auto pr-1"
               >
                 {questions.map((q, index) => {
-                  const result = getQuestionResult(q.question.id);
+                  const raw = getQuestionResult(q.question.id);
+                  const result = raw
+                    ? normalizeSubmissionQuestionResult(raw, q.points || 1)
+                    : undefined;
                   const isCurrent = currentQuestionIndex === index;
 
                   return (
@@ -1749,16 +1840,18 @@ export function QuizPlayer({
 
           {/* Question */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">
-                <MathPreview
-                  content={String(currentQ.question.title ?? "")}
-                  className="text-lg font-medium text-textGray whitespace-pre-wrap"
-                  renderMarkdown={true}
-                />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+            {showDistinctQuestionTitleInHeader ? (
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  <MathPreview
+                    content={questionTitleTrim}
+                    className="text-lg font-medium text-textGray whitespace-pre-wrap"
+                    renderMarkdown={true}
+                  />
+                </CardTitle>
+              </CardHeader>
+            ) : null}
+            <CardContent className={showDistinctQuestionTitleInHeader ? undefined : "pt-6"}>
               {/* Show content based on current position */}
               {currentPosition.type === "transition" ? (
                 (() => {
@@ -1991,7 +2084,7 @@ export function QuizPlayer({
                                 );
                                 const timeSpentSecs = Math.round(
                                   (Date.now() - questionStartTimeRef.current) /
-                                    1000,
+                                  1000,
                                 );
                                 submitQuestion(
                                   {
@@ -2087,7 +2180,7 @@ export function QuizPlayer({
                                   return;
                                 const timeSpentSecs = Math.round(
                                   (Date.now() - questionStartTimeRef.current) /
-                                    1000,
+                                  1000,
                                 );
                                 submitQuestion(
                                   {

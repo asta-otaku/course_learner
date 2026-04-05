@@ -132,13 +132,14 @@ export const useGetManageSubscription = (parentId?: string) => {
 };
 
 // Child Profile Queries
-export const useGetChildProfile = () => {
+export const useGetChildProfile = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ["child-profiles"],
     queryFn: async (): Promise<APIGetResponse<ChildProfile[]>> => {
       const response = await axiosInstance.get("/child-profiles");
       return response.data;
     },
+    enabled: options?.enabled !== undefined ? options.enabled : true,
   });
 };
 
@@ -660,10 +661,25 @@ export const useGetCurricula = (
     page?: number;
     limit?: number;
     offerType?: string;
-  } = {}
+  } = {},
+  options?: { enabled?: boolean }
 ) => {
+  // Primitive queryKey — avoid a new object reference each render (unstable keys → refetch loops)
+  const curriculaQueryKey = [
+    "curricula",
+    params.offerType ?? "",
+    params.searchTitle ?? "",
+    params.gradeLevel ?? "",
+    params.minGradeLevel ?? "",
+    params.maxGradeLevel ?? "",
+    params.isPublic === undefined ? "__" : String(params.isPublic),
+    params.page ?? "",
+    params.limit ?? "",
+  ] as const;
+
   return useQuery({
-    queryKey: ["curricula", params],
+    queryKey: curriculaQueryKey,
+    enabled: options?.enabled !== undefined ? options.enabled : true,
     queryFn: async (): Promise<{
       curricula: Curriculum[];
       pagination: {

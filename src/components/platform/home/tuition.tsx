@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import profileIcon from "@/assets/profileIcon.svg";
-import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useProfile } from "@/context/profileContext";
 import { Button } from "@/components/ui/button";
 import BackArrow from "@/assets/svgs/arrowback";
 import { useRouter } from "next/navigation";
@@ -26,7 +26,7 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
 };
 
 function TuitionHome() {
-  const { activeProfile } = useSelectedProfile();
+  const { activeProfile } = useProfile();
   const [showChangeRequestDialog, setShowChangeRequestDialog] = useState(false);
   const { push } = useRouter();
   const { mutateAsync: createChat } = usePostCreateChat();

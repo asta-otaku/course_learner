@@ -1,7 +1,7 @@
 "use client";
 
 import { Trophy, CheckCircle, Clock, AlertCircle } from "lucide-react";
-import { formatTimeFromMinutes } from "@/lib/utils";
+import { formatTimeSeconds } from "@/lib/utils";
 import type { QuizSubmissionResults } from "@/lib/types";
 
 export function QuizPlayerResultsStats({
@@ -47,7 +47,7 @@ export function QuizPlayerResultsStats({
         <div>
           <p className="text-sm text-purple-600 font-medium">Time Spent</p>
           <p className="text-2xl font-bold text-purple-900">
-            {isTimed ? formatTimeFromMinutes(submissionResults.timeSpent) : "---"}
+            {isTimed ? formatTimeSeconds(submissionResults.timeSpent) : "---"}
           </p>
         </div>
       </div>

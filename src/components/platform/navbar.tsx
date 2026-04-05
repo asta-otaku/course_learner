@@ -19,7 +19,7 @@ import {
   UserCircle,
   X,
 } from "lucide-react";
-import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useProfile } from "@/context/profileContext";
 import {
   useGetChildProfile,
   useGetManageSubscription,
@@ -41,10 +41,12 @@ export default function Navbar() {
     isLoaded,
     profiles,
     isChangingProfile,
-  } = useSelectedProfile();
+  } = useProfile();
   const { isAuthenticated } = useAuthGuard();
   const { data: manageData } = useGetManageSubscription();
-  const { data: childProfilesData } = useGetChildProfile();
+  const { data: childProfilesData } = useGetChildProfile({
+    enabled: isAuthenticated === true,
+  });
 
   const platformRoutes = [
     { name: "Dashboard", path: "/dashboard" },
@@ -196,21 +198,21 @@ export default function Navbar() {
                     {profile.name}
                   </DropdownMenuItem>
                 ))}
-                <DropdownMenuItem
+                {/* <DropdownMenuItem
                   onClick={() => push("/settings/profiles")}
                   className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center"
                 >
                   <PencilLine className="text-gray-400" />
                   Edit Profiles
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
                 <DropdownMenuItem className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center">
                   <UserCircle className="text-gray-400" />
                   Contact Us
                 </DropdownMenuItem>
-                <DropdownMenuItem className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center">
+                {/* <DropdownMenuItem className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center">
                   <CircleHelp className="text-gray-400" />
                   FAQ
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
                 <DropdownMenuItem
                   onClick={() => push("/settings")}
                   className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center"

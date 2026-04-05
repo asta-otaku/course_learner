@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useProfile } from "@/context/profileContext";
 import {
   useGetHomework,
   useGetChildBaselineTestEntries,
@@ -60,7 +60,7 @@ function statusDisplay(status: string | null | undefined): string {
 
 export default function HomeworkStatusPage() {
   const searchParams = useSearchParams();
-  const { activeProfile } = useSelectedProfile();
+  const { activeProfile } = useProfile();
   const childIdFromUrl = searchParams.get("childId") ?? "";
   const childIdFromProfile = activeProfile?.id ? String(activeProfile.id) : "";
   const studentId = childIdFromUrl || childIdFromProfile;
