@@ -66,7 +66,10 @@ export function useSelectedProfile() {
     isError: curriculaError,
   } = useGetCurricula(
     { offerType },
-    { enabled: !!activeProfile?.id }
+    {
+      // Must match child-profiles gate: stale activeProfile in localStorage must not hit /curriculum when logged out.
+      enabled: platformUserSignedIn && !!activeProfile?.id,
+    }
   );
 
   const appliedDefaultCurriculumForProfileRef = useRef<Set<string>>(
