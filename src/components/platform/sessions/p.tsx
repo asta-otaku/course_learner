@@ -56,7 +56,7 @@ function Sessions() {
     isLoading: availableLoading,
     error: availableError,
     refetch: refetchAvailable,
-  } = useGetAvailableSessions(activeProfile?.id || "", {
+  } = useGetAvailableSessions({
     status: filters.status === "all" ? undefined : filters.status,
     date: filters.date || undefined,
     dayOfWeek: filters.dayOfWeek === "all" ? undefined : filters.dayOfWeek,

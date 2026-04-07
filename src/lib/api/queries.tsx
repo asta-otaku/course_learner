@@ -322,7 +322,6 @@ export const useGetBookedSessions = (
 };
 
 export const useGetAvailableSessions = (
-  childId: string,
   options?: {
     status?: string;
     date?: string;
@@ -333,7 +332,7 @@ export const useGetAvailableSessions = (
   }
 ) => {
   return useQuery({
-    queryKey: ["available-sessions", childId, options],
+    queryKey: ["available-sessions", options],
     queryFn: async (): Promise<APIGetResponse<any>> => {
       const params = new URLSearchParams();
 
@@ -348,12 +347,11 @@ export const useGetAvailableSessions = (
 
       const queryString = params.toString();
       const url = queryString
-        ? `/sessions/available/${childId}?${queryString}`
-        : `/sessions/available/${childId}`;
+        ? `/sessions/available?${queryString}`
+        : `/sessions/available`;
       const response = await axiosInstance.get(url);
       return response.data;
     },
-    enabled: !!childId,
   });
 };
 
