@@ -54,9 +54,17 @@ export default function BookingDialog({
     }
   };
 
-  const sessionsForDate = availableSessions.filter(
-    (s: any) => s.sessionDate === selectedDate
-  );
+  const sessionsForDate = availableSessions.filter((s: any) => {
+    if (s.sessionDate !== selectedDate) return false;
+    // Exclude sessions starting within the next 60 minutes
+    if (s.startTime) {
+      const sessionStart = new Date(`${s.sessionDate}T${s.startTime}`);
+      const minutesUntilStart =
+        (sessionStart.getTime() - Date.now()) / 60_000;
+      if (minutesUntilStart <= 60) return false;
+    }
+    return true;
+  });
 
   // Unique time slots for the selected date (e.g. "10:00 - 11:00")
   const timeSlots = Array.from(

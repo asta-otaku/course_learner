@@ -240,6 +240,29 @@ function Sessions() {
     return bookedSessions.length === 0;
   }, [allSessions]);
 
+  // Returns the most recent Sunday at 00:00 (start of the current week)
+  const getThisWeekSunday = (): Date => {
+    const now = new Date();
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() - now.getDay());
+    sunday.setHours(0, 0, 0, 0);
+    return sunday;
+  };
+
+  // True if a non-cancelled session already ended within the current Sun–Sat week.
+  // Cancellations are excluded so they re-enable the calendar immediately.
+  const hasCompletedSessionThisWeek = useMemo(() => {
+    const thisSunday = getThisWeekSunday();
+    return previous.some((session) => {
+      if (session.status === "cancelled") return false;
+      const endTimeStr = session.timeSlot.split(" - ")[1]?.trim();
+      const sessionEnd = endTimeStr
+        ? new Date(`${session.date}T${endTimeStr}`)
+        : new Date(`${session.date}T23:59:59`);
+      return sessionEnd >= thisSunday;
+    });
+  }, [previous]);
+
   // Filter and pagination handlers
   const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -461,13 +484,18 @@ function Sessions() {
 
         <div className="col-span-1 lg:col-span-2 space-y-2">
           <p className="text-xs text-muted-foreground">
-            You can book a session up to one hour before it starts.
+            {upcoming.length > 0
+              ? "You can only book one session per week. Cancel your upcoming session to book a new one."
+              : hasCompletedSessionThisWeek
+                ? "You have already had a session this week. Booking reopens next Sunday."
+                : "You can book a session up to one hour before it starts."}
           </p>
           <Calendar
             currentMonth={currentMonth}
             onMonthChange={navigateMonth}
             onDateClick={handleDateClick}
             allSessions={allSessions}
+            disabled={upcoming.length > 0 || hasCompletedSessionThisWeek}
           />
         </div>
       </div>
