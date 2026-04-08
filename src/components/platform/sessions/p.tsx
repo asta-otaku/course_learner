@@ -5,7 +5,10 @@ import { Session } from "@/lib/types";
 import { formatDateString, formatDisplayDate } from "@/lib/utils";
 import Calendar from "./calendar";
 import BookingDialog from "./bookingDialog";
-import SessionSection, { EmptySessionsState } from "./sessionCard";
+import SessionSection, {
+  EmptySessionsState,
+  NoUpcomingSessionsState,
+} from "./sessionCard";
 import CancelSessionDialog from "@/components/admin/session-management/cancelSessionDialog";
 import { useProfile } from "@/context/profileContext";
 import {
@@ -205,6 +208,7 @@ function Sessions() {
   }, [availableSessionsData]);
 
   // Categorize by session end datetime: once end time has passed, session goes to previous (booked only)
+  // Cancelled sessions are always treated as ended so they appear in previous, not upcoming
   const { previous, upcoming } = useMemo(() => {
     const now = new Date();
     const bookedSessions = allSessions.filter(
@@ -212,6 +216,7 @@ function Sessions() {
     );
 
     const isSessionEnded = (session: Session): boolean => {
+      if (session.status === "cancelled") return true;
       const endTimeStr = session.timeSlot.split(" - ")[1]?.trim();
       if (!endTimeStr) {
         const todayStr = formatDateString(now);
@@ -394,12 +399,16 @@ function Sessions() {
             <EmptySessionsState />
           ) : (
             <>
-              <SessionSection
-                title="Upcoming sessions"
-                description="Join the meeting or cancel if needed"
-                sessions={upcoming}
-                onCancel={handleCancel}
-              />
+              {upcoming.length === 0 ? (
+                <NoUpcomingSessionsState />
+              ) : (
+                <SessionSection
+                  title="Upcoming sessions"
+                  description="Join the meeting or cancel if needed"
+                  sessions={upcoming}
+                  onCancel={handleCancel}
+                />
+              )}
 
               <SessionSection
                 title="Previous sessions"

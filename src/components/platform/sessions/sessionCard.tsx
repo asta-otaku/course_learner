@@ -172,7 +172,7 @@ const SessionCard = ({
 
 export default SessionSection;
 
-// Empty State Component
+// Empty State Component (used when the student has never booked any session)
 export const EmptySessionsState = () => {
   const pathname = usePathname();
   return (
@@ -190,3 +190,18 @@ export const EmptySessionsState = () => {
     </div>
   );
 };
+
+// No Upcoming Sessions State (used when student has previous/cancelled sessions but no upcoming ones)
+export const NoUpcomingSessionsState = () => (
+  <div className="bg-white rounded-2xl p-6 shadow-sm border text-center flex flex-col items-center">
+    <div className="bg-gray-100 p-3 rounded-full mb-3">
+      <CalendarDays className="w-8 h-8 text-gray-400" />
+    </div>
+    <h3 className="text-base font-medium text-gray-900 mb-1">
+      No upcoming sessions booked
+    </h3>
+    <p className="text-sm text-gray-500 max-w-xs">
+      Select a date on the calendar to book your next session.
+    </p>
+  </div>
+);
