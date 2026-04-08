@@ -461,24 +461,30 @@ export default function QuizAttemptReviewPage() {
                             currentResult.userAnswerId ||
                             currentResult.userAnswerContent ||
                             "";
-                          const isSelected = selectedId === option.id;
-                          const isCorrect =
-                            currentResult.correctAnswers?.some(
+                          // Match by id first; fall back to text comparison for
+                          // content-based answer values (e.g. true/false text).
+                          const isSelected =
+                            selectedId !== "" &&
+                            (selectedId === option.id ||
+                              String(option.text ?? "").trim().toLowerCase() ===
+                                String(selectedId).trim().toLowerCase());
+                          const isCorrectOption =
+                            (currentResult.correctAnswers?.some(
                               (ans: any) => ans.id === option.id,
-                            ) || option.isCorrect === true;
+                            ) ?? false) || option.isCorrect === true;
 
                           return (
                             <div
                               key={option.id}
                               className={cn(
                                 "flex items-start gap-3 p-3 rounded-lg border-2",
-                                isCorrect && "bg-green-50 border-green-300",
-                                isSelected &&
-                                  !isCorrect &&
-                                  "bg-red-50 border-red-300",
-                                !isSelected &&
-                                  !isCorrect &&
-                                  "border-gray-200",
+                                // Only colour the option the child actually selected.
+                                // The correct answer is surfaced separately below.
+                                isSelected && isCorrectOption
+                                  ? "bg-green-50 border-green-300"
+                                  : isSelected
+                                    ? "bg-red-50 border-red-300"
+                                    : "border-gray-200",
                               )}
                             >
                               <div className="flex-1 min-w-0">
@@ -488,7 +494,7 @@ export default function QuizAttemptReviewPage() {
                                   renderMarkdown={true}
                                 />
                               </div>
-                              {isCorrect ? (
+                              {isSelected && isCorrectOption ? (
                                 <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
                               ) : isSelected ? (
                                 <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />

@@ -1498,48 +1498,49 @@ export function QuizPlayer({
                               reviewQuestionResult.userAnswerId ||
                               reviewQuestionResult.userAnswerContent ||
                               "";
-                          const isSelected = selectedId === option.id;
-                          const optionWithCorrectFlag =
-                            option as unknown as { isCorrect?: boolean };
-                          const isCorrect =
-                            reviewQuestionResult.correctAnswers?.some(
-                              (ans) => ans.id === option.id,
-                            ) || optionWithCorrectFlag.isCorrect === true;
-                          const showCorrectness = true;
+                            // Match by id first; fall back to text comparison so
+                            // content-based answer values (e.g. true/false) still highlight.
+                            const isSelected =
+                              selectedId !== "" &&
+                              (selectedId === option.id ||
+                                String(option.text ?? "").trim().toLowerCase() ===
+                                  String(selectedId).trim().toLowerCase());
+                            const isCorrectOption =
+                              (reviewQuestionResult.correctAnswers?.some(
+                                (ans) => ans.id === option.id,
+                              ) ?? false) ||
+                              (option as unknown as { isCorrect?: boolean })
+                                .isCorrect === true;
 
-                          return (
-                            <div
-                              key={option.id}
-                              className={cn(
-                                "flex items-start gap-3 p-3 rounded-lg border-2",
-                                showCorrectness &&
-                                  isCorrect &&
-                                  "bg-green-50 border-green-300",
-                                showCorrectness &&
-                                  isSelected &&
-                                  !isCorrect &&
-                                  "bg-red-50 border-red-300",
-                                showCorrectness &&
-                                  !isSelected &&
-                                  !isCorrect &&
-                                  "border-gray-200",
-                              )}
-                            >
-                              <div className="flex-1 min-w-0">
-                                <MathPreview
-                                  content={String(option.text ?? "")}
-                                  className="text-base text-textGray whitespace-pre-wrap"
-                                  renderMarkdown={true}
-                                />
+                            return (
+                              <div
+                                key={option.id}
+                                className={cn(
+                                  "flex items-start gap-3 p-3 rounded-lg border-2",
+                                  // Only colour the option the child actually selected.
+                                  // The correct answer is surfaced separately below.
+                                  isSelected && isCorrectOption
+                                    ? "bg-green-50 border-green-300"
+                                    : isSelected
+                                      ? "bg-red-50 border-red-300"
+                                      : "border-gray-200",
+                                )}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <MathPreview
+                                    content={String(option.text ?? "")}
+                                    className="text-base text-textGray whitespace-pre-wrap"
+                                    renderMarkdown={true}
+                                  />
+                                </div>
+                                {isSelected && isCorrectOption ? (
+                                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                                ) : isSelected ? (
+                                  <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                ) : null}
                               </div>
-                              {isCorrect ? (
-                                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                              ) : isSelected ? (
-                                <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                              ) : null}
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
                       </div>
                     ) : currentQ.question.type === "matching_pairs" ? (
                       reviewQuestionResult.userAnswerContent ? (
