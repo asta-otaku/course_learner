@@ -16,6 +16,7 @@ const SessionSection = ({
   onConfirm,
   onComplete,
   onBook,
+  isPrevious,
 }: {
   title: string;
   description: string;
@@ -24,6 +25,7 @@ const SessionSection = ({
   onConfirm?: (session: Session) => void;
   onComplete?: (session: Session) => void;
   onBook?: (session: Session) => void;
+  isPrevious?: boolean;
 }) => {
   if (sessions.length === 0) return null;
 
@@ -42,6 +44,7 @@ const SessionSection = ({
           onConfirm={onConfirm}
           onComplete={onComplete}
           onBook={onBook}
+          isPrevious={isPrevious}
         />
       ))}
     </div>
@@ -55,28 +58,38 @@ const SessionCard = ({
   onConfirm,
   onComplete,
   onBook,
+  isPrevious,
 }: {
   session: Session;
   onCancel: (id: string) => void;
   onConfirm?: (session: Session) => void;
   onComplete?: (session: Session) => void;
   onBook?: (session: Session) => void;
+  isPrevious?: boolean;
 }) => {
   const displayDate = formatDisplayDate(session.date);
-  // Once booked, session is treated as confirmed (Join + Cancel only; no separate Confirm/Reschedule)
   const isConfirmedOrBooked =
     session.status === "confirmed" ||
     session.status === "booked" ||
     session.status === "pending";
 
-  // Only fetch meeting URL for confirmed/booked sessions
+  // Only fetch meeting URL for upcoming confirmed/booked sessions
   const { data: meetingUrlData, isLoading: isLoadingUrl } =
-    useGetSessionMeetingUrl(isConfirmedOrBooked ? session.id : "");
+    useGetSessionMeetingUrl(
+      isConfirmedOrBooked && !isPrevious ? session.id : ""
+    );
 
-  // Append role parameter to meeting URL for regular users
   const meetingUrl = meetingUrlData?.data
     ? `${meetingUrlData.data}?role=user`
     : undefined;
+
+  // Status label: skip "confirmed" entirely
+  const statusLabel =
+    session.status === "confirmed"
+      ? null
+      : session.status
+        ? session.status.charAt(0).toUpperCase() + session.status.slice(1)
+        : null;
 
   return (
     <div className="flex flex-col md:flex-row md:items-center gap-2 mb-3 last:mb-0">
@@ -99,18 +112,18 @@ const SessionCard = ({
               Issue: {session.issue}
             </div>
           )}
-          {session.status && (
+          {statusLabel && (
             <div className="text-xs">
               <span
-                className={`font-medium ${session.status === "booked" || session.status === "confirmed"
-                  ? "text-green-600"
-                  : session.status === "cancelled"
-                    ? "text-red-600"
-                    : "text-gray-600"
-                  }`}
+                className={`font-medium ${
+                  session.status === "booked"
+                    ? "text-green-600"
+                    : session.status === "cancelled"
+                      ? "text-red-600"
+                      : "text-gray-600"
+                }`}
               >
-                {session.status.charAt(0).toUpperCase() +
-                  session.status.slice(1)}
+                {statusLabel}
               </span>
             </div>
           )}
@@ -127,8 +140,8 @@ const SessionCard = ({
             </Button>
           )}
 
-          {/* Join Meeting button for confirmed/booked sessions */}
-          {isConfirmedOrBooked && (
+          {/* Join Meeting — upcoming only */}
+          {!isPrevious && isConfirmedOrBooked && (
             <>
               {isLoadingUrl ? (
                 <Button
@@ -152,8 +165,9 @@ const SessionCard = ({
             </>
           )}
 
-          {/* Cancel: show for any booked/confirmed/pending (student view: no Reschedule) */}
-          {session.status !== "cancelled" &&
+          {/* Cancel — upcoming only */}
+          {!isPrevious &&
+            session.status !== "cancelled" &&
             session.status !== "completed" &&
             session.status !== "available" && (
               <Button

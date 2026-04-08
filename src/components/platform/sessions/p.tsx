@@ -415,6 +415,7 @@ function Sessions() {
                 description="Past completed sessions"
                 sessions={previous}
                 onCancel={handleCancel}
+                isPrevious
               />
             </>
           )}
