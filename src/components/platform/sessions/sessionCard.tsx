@@ -103,10 +103,10 @@ const SessionCard = ({
             <div className="text-xs">
               <span
                 className={`font-medium ${session.status === "booked" || session.status === "confirmed"
-                    ? "text-green-600"
-                    : session.status === "cancelled"
-                      ? "text-red-600"
-                      : "text-gray-600"
+                  ? "text-green-600"
+                  : session.status === "cancelled"
+                    ? "text-red-600"
+                    : "text-gray-600"
                   }`}
               >
                 {session.status.charAt(0).toUpperCase() +
@@ -181,11 +181,10 @@ export const EmptySessionsState = () => {
         <CalendarDays className="w-12 h-12 text-blue-600" />
       </div>
       <h3 className="text-xl font-medium text-gray-900 mb-2">
-        No Sessions Booked Yet
+        No Upcoming Sessions
       </h3>
       <p className="text-gray-600 mb-6 max-w-md">
-        You haven't booked any sessions yet. Select a date on the calendar to
-        schedule your first session with a{" "}
+        You have no upcoming sessions. Select a date on the calendar to schedule a session with a{" "}
         {pathname.includes("tutor") ? "student" : "tutor"}.
       </p>
     </div>
