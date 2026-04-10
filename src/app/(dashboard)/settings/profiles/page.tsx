@@ -3,7 +3,7 @@
 import BackArrow from "@/assets/svgs/arrowback";
 import { ArrowRightIcon } from "@/assets/svgs/arrowRight";
 import EditPencilIcon from "@/assets/svgs/editPencil";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertDialog,
@@ -18,19 +18,24 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Trash2, Loader } from "lucide-react";
 import { useGetChildProfile, useGetManageSubscription } from "@/lib/api/queries";
-import { ChildProfile } from "@/lib/types";
+import { ChildProfile, UpgradeToTuitionPreviewResponse } from "@/lib/types";
 import {
   usePatchChildProfile,
   usePostChildProfiles,
   usePatchUpdateChildProfile,
   usePostTuitionSubscription,
   usePostUpgradeToTuition,
+  usePostAddTuitionPreview,
+  usePostUpgradeToTuitionPreview,
 } from "@/lib/api/mutations";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { childProfileEditSchema } from "@/lib/schema";
 import { z } from "zod";
 import { toast } from "react-toastify";
+import {
+  SubscriptionPreviewModal,
+} from "@/components/platform/subscriptions/SubscriptionPreviewModal";
 
 function Page() {
   const router = useRouter();
@@ -50,51 +55,46 @@ function Page() {
     usePostTuitionSubscription();
   const { mutateAsync: upgradeToTuition, isPending: isUpgradingToTuition } =
     usePostUpgradeToTuition();
+  const { mutateAsync: previewAddTuition, isPending: isPreviewingAdd } =
+    usePostAddTuitionPreview();
+  const { mutateAsync: previewUpgrade, isPending: isPreviewingUpgrade } =
+    usePostUpgradeToTuitionPreview();
 
-  const [profiles, setProfiles] = React.useState<ChildProfile[]>([]);
-  const [selectedProfile, setSelectedProfile] =
-    React.useState<ChildProfile | null>(null);
-  const [step, setStep] = React.useState(0);
-  const [isEditMode, setIsEditMode] = React.useState(false);
-  const [newProfilePlan, setNewProfilePlan] = React.useState<
-    "platform" | "tuition"
-  >("platform");
+  const [profiles, setProfiles] = useState<ChildProfile[]>([]);
+  const [selectedProfile, setSelectedProfile] = useState<ChildProfile | null>(null);
+  const [step, setStep] = useState(0);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [newProfilePlan, setNewProfilePlan] = useState<"platform" | "tuition">("platform");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const syncChildProfilesToLocalStorage = async (
-    activeProfileId?: string
-  ) => {
-    if (typeof window === "undefined") return;
+  // Preview modal state — populated after child profile is created
+  const [previewData, setPreviewData] = useState<UpgradeToTuitionPreviewResponse | null>(null);
+  const [pendingTuitionAction, setPendingTuitionAction] = useState<
+    "add_tuition" | "upgrade_to_tuition" | null
+  >(null);
+  const [pendingChildId, setPendingChildId] = useState<string | null>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [isConfirmingTuition, setIsConfirmingTuition] = useState(false);
 
+  const syncChildProfilesToLocalStorage = async (activeProfileId?: string) => {
+    if (typeof window === "undefined") return;
     const fresh = await refetchChildProfiles();
     const updatedProfiles: ChildProfile[] = fresh.data?.data ?? [];
-
-    // Keep localStorage aligned with the server response, so `useSelectedProfile`
-    // (which reads localStorage) reflects new/edited children immediately.
     localStorage.setItem("childProfiles", JSON.stringify(updatedProfiles));
     window.dispatchEvent(new Event("childProfilesUpdate"));
-
     if (activeProfileId) {
-      const target = updatedProfiles.find(
-        (p) => String(p.id) === String(activeProfileId)
-      );
+      const target = updatedProfiles.find((p) => String(p.id) === String(activeProfileId));
       if (target) {
         localStorage.setItem("activeProfile", JSON.stringify(target));
-        window.dispatchEvent(
-          new CustomEvent("activeProfileChange", { detail: target })
-        );
+        window.dispatchEvent(new CustomEvent("activeProfileChange", { detail: target }));
       }
     }
   };
 
-  // Initialize mutation after selectedProfile is available
   const { mutateAsync: patchUpdateChildProfile, isPending: isUpdating } =
     usePatchUpdateChildProfile(selectedProfile?.id || "");
 
-  const [avatarData, setAvatarData] = React.useState<{
-    avatar: string | null;
-    avatarFile: File | null;
-  }>({
+  const [avatarData, setAvatarData] = useState<{ avatar: string | null; avatarFile: File | null }>({
     avatar: null,
     avatarFile: null,
   });
@@ -107,30 +107,20 @@ function Page() {
     formState: { errors },
   } = useForm<z.infer<typeof childProfileEditSchema>>({
     resolver: zodResolver(childProfileEditSchema),
-    defaultValues: {
-      name: "",
-      year: "",
-    },
+    defaultValues: { name: "", year: "" },
   });
 
   const watchedName = watch("name");
-  // Keep localStorage in sync with the server so `useSelectedProfile` updates
-  // immediately after create/edit/deactivate actions (no logout needed).
 
   useEffect(() => {
-    if (childProfiles?.data) {
-      setProfiles(childProfiles.data);
-    }
+    if (childProfiles?.data) setProfiles(childProfiles.data);
   }, [childProfiles]);
 
   useEffect(() => {
     if (selectedProfile && isEditMode) {
       setValue("name", selectedProfile.name || "");
       setValue("year", selectedProfile.year || "");
-      setAvatarData({
-        avatar: selectedProfile.avatar || null,
-        avatarFile: null,
-      });
+      setAvatarData({ avatar: selectedProfile.avatar || null, avatarFile: null });
     }
   }, [selectedProfile, isEditMode, setValue]);
 
@@ -139,7 +129,6 @@ function Page() {
     setIsEditMode(false);
     setStep(1);
     setNewProfilePlan("platform");
-    // Reset form and avatar data
     setValue("name", "");
     setValue("year", "");
     setAvatarData({ avatar: null, avatarFile: null });
@@ -148,25 +137,47 @@ function Page() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
-      const imageUrl = event.target?.result as string;
-      setAvatarData({
-        avatar: imageUrl,
-        avatarFile: file,
-      });
+      setAvatarData({ avatar: event.target?.result as string, avatarFile: file });
     };
     reader.readAsDataURL(file);
   };
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
+  const triggerFileInput = () => fileInputRef.current?.click();
+
+  // Called when the user confirms the tuition preview
+  const handleConfirmTuition = async () => {
+    if (!pendingChildId || !pendingTuitionAction) return;
+    setIsConfirmingTuition(true);
+    try {
+      if (pendingTuitionAction === "add_tuition") {
+        await postTuitionSubscription({ childProfileId: pendingChildId });
+      } else {
+        await upgradeToTuition({ childProfileId: pendingChildId });
+        await postTuitionSubscription({ childProfileId: pendingChildId });
+      }
+      toast.success("Tuition added successfully!");
+      setShowPreviewModal(false);
+      await syncChildProfilesToLocalStorage(pendingChildId);
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Failed to add tuition:", error);
+    } finally {
+      setIsConfirmingTuition(false);
+    }
   };
 
-  const handleSubmitProfile = async (
-    data: z.infer<typeof childProfileEditSchema>
-  ) => {
+  // Called when user skips tuition from the preview modal ("Platform only")
+  const handleSkipTuition = async () => {
+    setShowPreviewModal(false);
+    if (pendingChildId) {
+      await syncChildProfilesToLocalStorage(pendingChildId);
+    }
+    router.push("/dashboard");
+  };
+
+  const handleSubmitProfile = async (data: z.infer<typeof childProfileEditSchema>) => {
     if (!data.name || !data.year) {
       toast.error("Please fill in all required fields");
       return;
@@ -174,39 +185,24 @@ function Page() {
 
     try {
       if (isEditMode && selectedProfile) {
-        // Update existing profile
-        const updateData: any = {
+        const updateData: { name: string; year: string; avatar?: File } = {
           name: data.name,
           year: data.year,
         };
-
-        if (avatarData.avatarFile) {
-          updateData.avatar = avatarData.avatarFile;
-        }
+        if (avatarData.avatarFile) updateData.avatar = avatarData.avatarFile;
 
         const res = await patchUpdateChildProfile(updateData);
-
         if (res.status === 200) {
           toast.success(res.data.message);
-
-          // Refresh children list + localStorage cache that `useSelectedProfile` reads.
           const storedActiveRaw = localStorage.getItem("activeProfile");
           const storedActiveId = storedActiveRaw
             ? (() => {
-              try {
-                return String(JSON.parse(storedActiveRaw)?.id);
-              } catch {
-                return null;
-              }
+              try { return String(JSON.parse(storedActiveRaw)?.id); } catch { return null; }
             })()
             : null;
-
           await syncChildProfilesToLocalStorage(
-            storedActiveId === String(selectedProfile.id)
-              ? String(selectedProfile.id)
-              : undefined
+            storedActiveId === String(selectedProfile.id) ? String(selectedProfile.id) : undefined
           );
-
           setAvatarData({ avatar: null, avatarFile: null });
           setStep(0);
           setIsEditMode(false);
@@ -230,39 +226,46 @@ function Page() {
           }
 
           if (newProfilePlan === "tuition") {
-            // Always fetch manage-subscription first for authoritative state.
+            // Determine which tuition action applies
             let state = (manageData as any)?.data?.state as string | undefined;
             if (!state) {
               const fresh = await refetchManage();
               state = (fresh.data as any)?.data?.state as string | undefined;
             }
             if (!state) {
-              toast.error(
-                "Could not confirm subscription state. Please try again."
-              );
+              toast.error("Could not confirm subscription state. Please try again.");
               return;
             }
-            const parentIsTuition =
-              state === "tuition" || state === "tuition_single";
 
-            if (parentIsTuition) {
-              await postTuitionSubscription({ childProfileId: String(createdId) });
-            } else {
-              // Ensure parent is on tuition first, then add tuition seat for child
-              await upgradeToTuition({ childProfileId: String(createdId) });
-              await postTuitionSubscription({ childProfileId: String(createdId) });
+            const parentIsTuition = state === "tuition" || state === "tuition_single";
+            const tuitionAction: "add_tuition" | "upgrade_to_tuition" = parentIsTuition
+              ? "add_tuition"
+              : "upgrade_to_tuition";
+
+            // Fetch preview first
+            try {
+              const previewRes = parentIsTuition
+                ? await previewAddTuition({ childProfileId: String(createdId) })
+                : await previewUpgrade({ childProfileId: String(createdId) });
+
+              if (previewRes.data?.data) {
+                setPendingChildId(String(createdId));
+                setPendingTuitionAction(tuitionAction);
+                setPreviewData(previewRes.data.data);
+                setShowPreviewModal(true);
+                // Don't navigate yet — wait for modal confirm/skip
+                return;
+              }
+            } catch {
+              // Preview failed — fall through to platform-only creation
             }
           }
 
+          // Platform-only or preview fetch failed
           toast.success("Profile created successfully!");
-
-          // Refresh list + switch active profile immediately so the navbar/routes update.
-          await syncChildProfilesToLocalStorage(String(createdId));
-
           setAvatarData({ avatar: null, avatarFile: null });
           setStep(0);
-
-          // Route to the new child's dashboard.
+          await syncChildProfilesToLocalStorage(String(createdId));
           router.push("/dashboard");
         }
       }
@@ -270,6 +273,8 @@ function Page() {
       console.error("Failed to save profile:", error);
     }
   };
+
+  const isPreviewLoading = isPreviewingAdd || isPreviewingUpgrade;
 
   return (
     <div className="w-full space-y-4">
@@ -289,16 +294,12 @@ function Page() {
                 <div>
                   <h1 className="text-textGray font-semibold md:text-lg">
                     {step === 1
-                      ? isEditMode
-                        ? "Edit Profile"
-                        : "Add Profile"
+                      ? isEditMode ? "Edit Profile" : "Add Profile"
                       : "Profiles"}
                   </h1>
                   <p className="text-textSubtitle text-xs -mt-0.5 font-medium">
                     {step === 1
-                      ? isEditMode
-                        ? "Update profile information"
-                        : "Create a new profile"
+                      ? isEditMode ? "Update profile information" : "Create a new profile"
                       : "Manage your profiles"}
                   </p>
                 </div>
@@ -321,10 +322,11 @@ function Page() {
                       setIsEditMode(true);
                       setStep(1);
                     }}
-                    className={`bg-bgWhiteGray border cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 relative ${profile.isActive === false
-                      ? "border-gray-300 bg-gray-50"
-                      : "border-black/20"
-                      }`}
+                    className={`bg-bgWhiteGray border cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 relative ${
+                      profile.isActive === false
+                        ? "border-gray-300 bg-gray-50"
+                        : "border-black/20"
+                    }`}
                   >
                     <div className="flex items-center gap-2">
                       {profile.avatar ? (
@@ -336,15 +338,12 @@ function Page() {
                       ) : (
                         <span className="bg-borderGray border border-black/20 w-6 h-6 rounded-full" />
                       )}
-                      <span className="text-sm font-medium text-textSubtitle">
-                        {profile.name}
-                      </span>
+                      <span className="text-sm font-medium text-textSubtitle">{profile.name}</span>
                     </div>
-
                     <div className="flex items-center gap-2">
                       {profile.isActive === false && (
                         <div className="bg-gray-50 border border-gray-200 text-gray-600 text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse"></div>
+                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse" />
                           <span className="font-medium">Deactivated</span>
                         </div>
                       )}
@@ -369,36 +368,23 @@ function Page() {
               </div>
 
               <div className="flex flex-col items-center gap-2">
-                {/* Status Badge for Deactivated Profiles */}
                 {isEditMode && selectedProfile?.isActive === false && (
                   <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-2 mb-2">
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                     Profile Deactivated
                   </div>
                 )}
-
                 <div
                   className="w-24 h-24 rounded-full bg-borderGray relative flex items-center justify-center"
                   onClick={triggerFileInput}
                 >
                   {avatarData.avatar ? (
-                    <img
-                      src={avatarData.avatar}
-                      alt="avatar"
-                      className="w-full h-full object-cover rounded-full"
-                    />
+                    <img src={avatarData.avatar} alt="avatar" className="w-full h-full object-cover rounded-full" />
                   ) : selectedProfile?.avatar && !avatarData.avatarFile ? (
-                    <img
-                      src={selectedProfile.avatar}
-                      alt="avatar"
-                      className="w-full h-full object-cover rounded-full"
-                    />
+                    <img src={selectedProfile.avatar} alt="avatar" className="w-full h-full object-cover rounded-full" />
                   ) : (
                     <span className="text-lg font-semibold">
-                      {watchedName.charAt(0) ||
-                        (selectedProfile
-                          ? selectedProfile.name.charAt(0)
-                          : "U")}
+                      {watchedName.charAt(0) || (selectedProfile ? selectedProfile.name.charAt(0) : "U")}
                     </span>
                   )}
                   <div className="absolute -bottom-6 right-0 w-10 flex items-center justify-center cursor-pointer">
@@ -406,8 +392,7 @@ function Page() {
                   </div>
                 </div>
                 <div className="font-semibold text-sm">
-                  {watchedName ||
-                    (selectedProfile ? selectedProfile.name : "New Profile")}
+                  {watchedName || (selectedProfile ? selectedProfile.name : "New Profile")}
                 </div>
               </div>
 
@@ -427,9 +412,7 @@ function Page() {
                     className="text-sm text-textSubtitle font-medium bg-transparent border-none focus:outline-none focus:ring-0 py-2 w-full"
                   />
                   {errors.name && (
-                    <span className="text-red-500 text-xs">
-                      {errors.name.message}
-                    </span>
+                    <span className="text-red-500 text-xs">{errors.name.message}</span>
                   )}
                 </div>
 
@@ -439,33 +422,23 @@ function Page() {
                     {...register("year")}
                     className="text-sm text-textSubtitle font-medium bg-transparent border-none focus:outline-none focus:ring-0 py-2 w-full cursor-pointer"
                   >
-                    <option value="" disabled>
-                      Select Year
-                    </option>
+                    <option value="" disabled>Select Year</option>
                     {Array.from({ length: 6 }, (_, i) => i + 1).map((y) => (
-                      <option key={y} value={`Year ${y}`}>
-                        Year {y}
-                      </option>
+                      <option key={y} value={`Year ${y}`}>Year {y}</option>
                     ))}
                   </select>
                   {errors.year && (
-                    <span className="text-red-500 text-xs">
-                      {errors.year.message}
-                    </span>
+                    <span className="text-red-500 text-xs">{errors.year.message}</span>
                   )}
                 </div>
 
                 {!isEditMode && (
                   <div className="py-2 border-b border-gray-200">
-                    <label className="text-xs font-medium">
-                      Plan for this child
-                    </label>
+                    <label className="text-xs font-medium">Plan for this child</label>
                     <select
                       value={newProfilePlan}
                       onChange={(e) =>
-                        setNewProfilePlan(
-                          e.target.value === "tuition" ? "tuition" : "platform"
-                        )
+                        setNewProfilePlan(e.target.value === "tuition" ? "tuition" : "platform")
                       }
                       className="text-sm text-textSubtitle font-medium bg-transparent border-none focus:outline-none focus:ring-0 py-2 w-full cursor-pointer"
                     >
@@ -474,6 +447,7 @@ function Page() {
                     </select>
                   </div>
                 )}
+
                 <div className="pt-4">
                   <button
                     type="submit"
@@ -483,13 +457,11 @@ function Page() {
                       isUpdating ||
                       isPostingTuition ||
                       isUpgradingToTuition ||
+                      isPreviewLoading ||
                       manageLoading
                     }
                   >
-                    {isPending ||
-                      isUpdating ||
-                      isPostingTuition ||
-                      isUpgradingToTuition ? (
+                    {isPending || isUpdating || isPostingTuition || isUpgradingToTuition || isPreviewLoading ? (
                       <>
                         <Loader className="w-4 h-4 animate-spin" />
                         {isEditMode ? "Updating..." : "Creating..."}
@@ -503,36 +475,26 @@ function Page() {
                 </div>
               </form>
 
-              {/* Only show Manage Account section when editing an existing profile */}
               {isEditMode && selectedProfile && (
                 <div className="w-full max-w-3xl mt-8">
-                  <h3 className="text-sm font-semibold text-black mb-2">
-                    Manage Account
-                  </h3>
-
+                  <h3 className="text-sm font-semibold text-black mb-2">Manage Account</h3>
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="text-xs font-medium text-black">
-                        {selectedProfile?.isActive === false
-                          ? "Reactivate Account"
-                          : "Deactivate Account"}
+                        {selectedProfile?.isActive === false ? "Reactivate Account" : "Deactivate Account"}
                       </div>
                       <p className="text-xs text-gray-500 mt-1 font-medium">
-                        Temporarily deactivate your profile. You can reactivate
-                        it later.
+                        Temporarily deactivate your profile. You can reactivate it later.
                       </p>
                     </div>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button
-                          className={`text-xs ${selectedProfile?.isActive === false
-                            ? "text-[#008000]"
-                            : "text-[#FF0000]"
-                            } font-semibold`}
+                          className={`text-xs ${
+                            selectedProfile?.isActive === false ? "text-[#008000]" : "text-[#FF0000]"
+                          } font-semibold`}
                         >
-                          {selectedProfile?.isActive === false
-                            ? "Restore"
-                            : "Deactivate"}
+                          {selectedProfile?.isActive === false ? "Restore" : "Deactivate"}
                         </button>
                       </AlertDialogTrigger>
                       <AlertDialogContent className="text-center px-6 py-8 max-w-md">
@@ -551,13 +513,13 @@ function Page() {
                         </AlertDialogHeader>
                         <AlertDialogFooter className="grid grid-cols-1 gap-1.5 mt-3">
                           <AlertDialogAction
-                            className={`${selectedProfile?.isActive === false
-                              ? "bg-[#008000] hover:bg-[#006600]"
-                              : "bg-[#FF0000] hover:bg-[#e60000]"
-                              } text-white rounded-full w-full py-2 text-sm font-medium`}
+                            className={`${
+                              selectedProfile?.isActive === false
+                                ? "bg-[#008000] hover:bg-[#006600]"
+                                : "bg-[#FF0000] hover:bg-[#e60000]"
+                            } text-white rounded-full w-full py-2 text-sm font-medium`}
                             onClick={async () => {
-                              const willDeactivate =
-                                selectedProfile.isActive === true;
+                              const willDeactivate = selectedProfile.isActive === true;
                               const res = await patchChildProfile({
                                 id: selectedProfile.id,
                                 deactivate: willDeactivate,
@@ -590,6 +552,21 @@ function Page() {
           ),
         }[step]
       }
+
+      {/* Tuition preview modal — shown after new profile is created */}
+      {previewData && (
+        <SubscriptionPreviewModal
+          open={showPreviewModal}
+          onOpenChange={(open) => {
+            if (!open && !isConfirmingTuition) handleSkipTuition();
+          }}
+          previewData={previewData}
+          actionType="new_child_tuition"
+          childName={watchedName || undefined}
+          onConfirm={handleConfirmTuition}
+          isConfirming={isConfirmingTuition}
+        />
+      )}
     </div>
   );
 }

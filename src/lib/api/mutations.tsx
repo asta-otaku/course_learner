@@ -39,6 +39,7 @@ import {
   QuizMasterList,
   BaselineTestEntry,
   LearningPathConfig,
+  UpgradeToTuitionPreviewResponse,
 } from "../types";
 
 // Helper function to handle error messages
@@ -326,12 +327,12 @@ export const usePatchChildPofilePreference = () => {
             data: old.data.map((p: ChildProfile) =>
               String(p.id) === String(variables.childProfileId)
                 ? {
-                    ...p,
-                    preferences: {
-                      ...(p.preferences ?? {}),
-                      selectedCurriculumId: variables.selectedCurriculumId,
-                    },
-                  }
+                  ...p,
+                  preferences: {
+                    ...(p.preferences ?? {}),
+                    selectedCurriculumId: variables.selectedCurriculumId,
+                  },
+                }
                 : p
             ),
           };
@@ -439,6 +440,24 @@ export const usePostTuitionSubscription = () => {
   });
 }
 
+export const usePostAddTuitionPreview = () => {
+  return useMutation({
+    mutationKey: ["post-add-tuition-preview"],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<UpgradeToTuitionPreviewResponse>> =>
+      axiosInstance.post("/subscriptions/tuition/preview", {
+        childProfileId: data.childProfileId,
+      }),
+    onSuccess: (data: ApiResponse<UpgradeToTuitionPreviewResponse>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+}
+
 export const useDeleteTuitionSubscription = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -466,6 +485,24 @@ export const useDeleteTuitionSubscription = () => {
   });
 }
 
+export const usePostDeleteTuitionPreview = () => {
+  return useMutation({
+    mutationKey: ["post-delete-tuition-preview"],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<UpgradeToTuitionPreviewResponse>> =>
+      axiosInstance.post("/subscriptions/tuition/remove-preview", {
+        childProfileId: data.childProfileId,
+      }),
+    onSuccess: (data: ApiResponse<UpgradeToTuitionPreviewResponse>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+}
+
 export const usePostUpgradeToTuition = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -481,6 +518,24 @@ export const usePostUpgradeToTuition = () => {
       queryClient.invalidateQueries({
         queryKey: ["manage-subscription"],
       });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+}
+
+export const usePostUpgradeToTuitionPreview = () => {
+  return useMutation({
+    mutationKey: ["post-upgrade-to-tuition-preview"],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<UpgradeToTuitionPreviewResponse>> =>
+      axiosInstance.post("/subscriptions/upgrade-to-tuition/preview", {
+        childProfileId: data.childProfileId,
+      }),
+    onSuccess: (data: ApiResponse<UpgradeToTuitionPreviewResponse>) => {
       return data;
     },
     onError: (error: AxiosError) => {

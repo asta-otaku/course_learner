@@ -460,6 +460,17 @@ export interface ManageSubscriptionResponse {
   currentPeriodEnd: string;
   trialEndsAt: string | null;
   canCancelEverything: boolean;
+  nextBilling?: {
+    amountDue: number;
+    currency: string;
+    billingDate: string;
+    breakdown: {
+      description: string;
+      amount: number;
+      currency: string;
+      periodEnd: string;
+    }[];
+  } | null;
   childSubscription: {
     childProfileId: string;
     childName: string;
@@ -468,6 +479,22 @@ export interface ManageSubscriptionResponse {
     actions: string[];
   }[];
 }
+
+export interface UpgradeToTuitionPreviewResponse {
+  currency: string,
+  dueNow: number,
+  dueNextBilling: number,
+  billingDate: string,
+  breakdown: {
+    description: string,
+    amount: number,
+    currency: string,
+    isProration: boolean,
+    periodEnd: string,
+    timing: string,
+  }[]
+}
+
 export interface CreateSubscriptionData {
   childProfileId: string;
   offerType: string;
