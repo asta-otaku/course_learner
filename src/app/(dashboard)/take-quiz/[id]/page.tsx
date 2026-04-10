@@ -37,9 +37,14 @@ export default function TakeQuizPage() {
   const { mutate: startHomework, isPending: isStartingHomework } = usePostStartHomework();
   const { mutate: startBaselineTest, isPending: isStartingBaselineTest } = usePostStartBaselineTest(baselineTestId);
 
-  const [quizStarted, setQuizStarted] = useState(false);
-  const [attemptId, setAttemptId] = useState<string | null>(null);
-  const [quizId, setQuizId] = useState<string | null>(null);
+  // When a resumeAttemptId is already in the URL, skip the pre-quiz screen.
+  const [quizStarted, setQuizStarted] = useState(() => isResuming);
+  const [attemptId, setAttemptId] = useState<string | null>(() =>
+    isResuming ? resumeAttemptId : null,
+  );
+  const [quizId, setQuizId] = useState<string | null>(() =>
+    isResuming ? id : null,
+  );
   const [quizAttemptId, setQuizAttemptId] = useState<string | null>(null);
   const [isResumingFromStart, setIsResumingFromStart] = useState(false);
 

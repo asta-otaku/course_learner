@@ -1987,10 +1987,10 @@ export function QuizPlayer({
                           {currentQ.question.options?.map((option) => {
                             const isSelected =
                               answers[currentQ.question.id] === option.id;
-                            const isCorrect =
+                            const isCorrectOption =
                               currentResult?.correctAnswers?.some(
                                 (ans) => ans.id === option.id,
-                              ) || false;
+                              ) ?? false;
                             const showCorrectness = showCorrectnessForCurrent;
 
                             return (
@@ -2000,19 +2000,16 @@ export function QuizPlayer({
                                 className={cn(
                                   "flex items-center space-x-2 p-3 rounded-lg border transition-colors w-full cursor-pointer",
                                   !showResults && "hover:bg-muted/50",
-                                  showCorrectness &&
-                                  isCorrect &&
-                                  "bg-green-50 border-green-300",
-                                  showCorrectness &&
-                                  isSelected &&
-                                  !isCorrect &&
-                                  "bg-red-50 border-red-300",
-                                  showCorrectness &&
-                                  !isSelected &&
-                                  !isCorrect &&
-                                  "border-gray-200",
+                                  // Only colour the option the child actually selected.
+                                  showCorrectness && isSelected && isCorrectOption
+                                    ? "bg-green-50 border-green-300"
+                                    : showCorrectness && isSelected
+                                      ? "bg-red-50 border-red-300"
+                                      : showCorrectness
+                                        ? "border-gray-200"
+                                        : undefined,
                                   (showResults || isCurrentQuestionSubmitted) &&
-                                  "cursor-default",
+                                    "cursor-default",
                                 )}
                               >
                                 <RadioGroupItem
@@ -2031,10 +2028,10 @@ export function QuizPlayer({
                                     className="text-textGray whitespace-pre-wrap"
                                   />
                                 </span>
-                                {showCorrectness && isCorrect && (
+                                {showCorrectness && isSelected && isCorrectOption && (
                                   <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
                                 )}
-                                {showCorrectness && isSelected && !isCorrect && (
+                                {showCorrectness && isSelected && !isCorrectOption && (
                                   <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
                                 )}
                               </Label>

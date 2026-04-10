@@ -328,7 +328,7 @@ function DashboardSectionPage() {
                                 ) : null}
                               </div>
                               <Link
-                                href={`/take-quiz/${quiz.id}`}
+                                href={`/take-quiz/${quiz.id}${quiz.quizAttemptId ? `?attemptId=${quiz.quizAttemptId}` : ""}`}
                                 className="shrink-0"
                               >
                                 <Button

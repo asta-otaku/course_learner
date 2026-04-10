@@ -74,7 +74,11 @@ export default function LessonQuizzes({
 
               <button
                 type="button"
-                onClick={() => router.push(`/take-quiz/${quiz.id}`)}
+                onClick={() =>
+                  router.push(
+                    `/take-quiz/${quiz.id}${quiz.quizAttemptId ? `?attemptId=${quiz.quizAttemptId}` : ""}`,
+                  )
+                }
                 className="z-10 flex w-full max-w-[180px] justify-center rounded-full bg-demo-gradient py-2.5 font-medium text-xs text-white shadow-demoShadow md:text-sm"
               >
                 {actionLabel}
