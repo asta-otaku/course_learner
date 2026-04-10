@@ -117,7 +117,7 @@ function TuitionHome() {
               <tbody>
                 {learningPath.map((item) => (
                   <tr
-                    key={item.id}
+                    key={item.homeworkId}
                     className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors"
                   >
                     <td className="py-4 pr-4 align-middle">
@@ -126,10 +126,10 @@ function TuitionHome() {
                       </span>
                     </td>
                     <td className="py-4 pr-4 align-middle hidden sm:table-cell text-sm text-gray-500">
-                      {item.sectionTitle}
+                      {item.sectionName}
                     </td>
                     <td className="py-4 pr-4 align-middle hidden md:table-cell text-sm text-gray-500">
-                      {item.curriculumLessonTitle}
+                      {item.lessonName}
                     </td>
                     <td className="py-4 pr-4 align-middle">
                       <span
@@ -141,7 +141,7 @@ function TuitionHome() {
                     </td>
                     <td className="py-4 text-right">
                       <Link
-                        href={`/take-quiz/${item.quizId}`}
+                        href={`/take-quiz/${item.homeworkId}?isHomework=true`}
                         className="inline-flex items-center text-sm font-medium text-primaryBlue hover:text-blue-600 transition-colors"
                       >
                         Start

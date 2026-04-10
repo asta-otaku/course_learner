@@ -523,6 +523,14 @@ export interface ChildProfile {
   } | null;
 }
 
+export interface ChildPreferences {
+  childProfileId?: string
+  selectedCurriculumId: string
+  weeklyQuota: number
+  pauseAssignments: boolean
+  pauseUntil?: string | null
+}
+
 export interface ParentProfile {
   id: number;
   howDidYouHearAboutUs: string;
@@ -1247,13 +1255,11 @@ export interface BaselineTestEntry {
 }
 
 export interface LearningPath {
-  id: string;
-  quizId: string;
   quizTitle: string;
-  curriculumLessonId: string;
-  curriculumLessonTitle: string;
-  sectionTitle: string;
-  status: string;
+  sectionName: string
+  lessonName: string
+  status: string
+  homeworkId: string
 }
 
 export interface SchemeOfWork {
@@ -1290,12 +1296,6 @@ export interface LearningHistory {
   score: number;
   status: string;
   completedAt: string;
-}
-
-export interface LearningPathConfig {
-  weeklyQuota: number;
-  isPaused: boolean;
-  pauseUntil: string | null;
 }
 
 // Export socket types

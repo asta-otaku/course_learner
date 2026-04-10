@@ -38,7 +38,7 @@ import {
   SchemeOfWork,
   LearningPathSummary,
   LearningHistory,
-  LearningPathConfig,
+  ChildPreferences,
 } from "../types";
 
 // User Queries
@@ -1279,11 +1279,11 @@ export const useGetChildLearningHistory = (childId: string) => {
   });
 }
 
-export const useGetLearningPathConfig = (childId: string) => {
+export const useGetChildPreferences = (childId: string) => {
   return useQuery({
-    queryKey: ["learning-path-config", childId],
-    queryFn: async (): Promise<APIGetResponse<LearningPathConfig>> => {
-      const response = await axiosInstance.get(`/learning-path/${childId}/config`);
+    queryKey: ["child-preferences", childId],
+    queryFn: async (): Promise<APIGetResponse<ChildPreferences>> => {
+      const response = await axiosInstance.get(`/child-profiles/${childId}/preferences`);
       return response.data;
     },
     enabled: !!childId,

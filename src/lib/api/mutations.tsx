@@ -33,13 +33,12 @@ import {
   SupportTicket,
   ChangeRequest,
   Homework,
-  HomeworkReview,
   BaselinelineTestCreateData,
   BaselineTest,
   QuizMasterList,
   BaselineTestEntry,
-  LearningPathConfig,
   UpgradeToTuitionPreviewResponse,
+  ChildPreferences,
 } from "../types";
 
 // Helper function to handle error messages
@@ -313,10 +312,13 @@ export const usePatchChildPofilePreference = () => {
     mutationFn: (data: {
       childProfileId: string;
       selectedCurriculumId: string;
-    }): Promise<ApiResponse<DetailedChildProfile>> =>
-      axiosInstance.patch(`/child-profiles/${data.childProfileId}/preferences`, {
-        selectedCurriculumId: data.selectedCurriculumId,
-      }),
+    }): Promise<ApiResponse<ChildPreferences>> =>
+      axiosInstance.patch(
+        `/child-profiles/${data.childProfileId}/preferences`,
+        {
+          selectedCurriculumId: data.selectedCurriculumId,
+        },
+      ),
     onSuccess: (_response, variables) => {
       queryClient.setQueryData<APIGetResponse<ChildProfile[]>>(
         ["child-profiles"],
@@ -333,10 +335,10 @@ export const usePatchChildPofilePreference = () => {
                     selectedCurriculumId: variables.selectedCurriculumId,
                   },
                 }
-                : p
+                : p,
             ),
           };
-        }
+        },
       );
     },
     onError: (error: AxiosError) => {
@@ -415,7 +417,7 @@ export const usePostSubscriptionBillingPortal = () => {
       handleErrorMessage(error);
     },
   });
-}
+};
 
 export const usePostTuitionSubscription = () => {
   const queryClient = useQueryClient();
@@ -438,7 +440,7 @@ export const usePostTuitionSubscription = () => {
       handleErrorMessage(error);
     },
   });
-}
+};
 
 export const usePostAddTuitionPreview = () => {
   return useMutation({
@@ -456,7 +458,7 @@ export const usePostAddTuitionPreview = () => {
       handleErrorMessage(error);
     },
   });
-}
+};
 
 export const useDeleteTuitionSubscription = () => {
   const queryClient = useQueryClient();
@@ -483,7 +485,7 @@ export const useDeleteTuitionSubscription = () => {
       handleErrorMessage(error);
     },
   });
-}
+};
 
 export const usePostDeleteTuitionPreview = () => {
   return useMutation({
@@ -501,7 +503,7 @@ export const usePostDeleteTuitionPreview = () => {
       handleErrorMessage(error);
     },
   });
-}
+};
 
 export const usePostUpgradeToTuition = () => {
   const queryClient = useQueryClient();
@@ -524,7 +526,7 @@ export const usePostUpgradeToTuition = () => {
       handleErrorMessage(error);
     },
   });
-}
+};
 
 export const usePostUpgradeToTuitionPreview = () => {
   return useMutation({
@@ -542,7 +544,7 @@ export const usePostUpgradeToTuitionPreview = () => {
       handleErrorMessage(error);
     },
   });
-}
+};
 
 // Timeslot Mutations
 export const usePostTimeslot = () => {
@@ -1239,7 +1241,10 @@ export const usePostSubmitQuizQuestionDynamic = (
   });
 };
 
-export const usePatchUpdateQuizQuestionDynamic = (id: string, attemptId: string) => {
+export const usePatchUpdateQuizQuestionDynamic = (
+  id: string,
+  attemptId: string,
+) => {
   return useMutation({
     mutationKey: ["patch-update-quiz-question-dynamic", id, attemptId],
     mutationFn: ({
@@ -1251,7 +1256,10 @@ export const usePatchUpdateQuizQuestionDynamic = (id: string, attemptId: string)
       answer: string;
       timeSpent?: number;
     }): Promise<ApiResponse<Quiz>> =>
-      axiosInstance.patch(`/quizzes/${id}/attempt/${attemptId}/question/${questionId}/submit`, { answer, timeSpent }),
+      axiosInstance.patch(
+        `/quizzes/${id}/attempt/${attemptId}/question/${questionId}/submit`,
+        { answer, timeSpent },
+      ),
     onSuccess: (data: ApiResponse<Quiz>) => {
       return data;
     },
@@ -2214,21 +2222,27 @@ export const useDeleteBaselineTestEntry = (
 };
 
 // Learning Path Config Mutations
-export const usePatchLearningPathConfig = () => {
+export const usePatchChildPreferences = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationKey: ["patch-learning-path-config"],
-    mutationFn: async ({
-      childId,
-      data,
-    }: {
-      childId: string;
-      data: Partial<LearningPathConfig>;
-    }): Promise<ApiResponse<LearningPathConfig>> =>
-      axiosInstance.patch(`/learning-path/${childId}/config`, data),
-    onSuccess: (_, { childId }) => {
+    mutationKey: ["patch-child-preferences"],
+    mutationFn: (data: {
+      childProfileId: string;
+      selectedCurriculumId: string;
+      weeklyQuota: number;
+      pauseAssignments: boolean;
+    }): Promise<ApiResponse<ChildPreferences>> =>
+      axiosInstance.patch(
+        `/child-profiles/${data.childProfileId}/preferences`,
+        {
+          selectedCurriculumId: data.selectedCurriculumId,
+          weeklyQuota: data.weeklyQuota,
+          pauseAssignments: data.pauseAssignments,
+        },
+      ),
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ["learning-path-config", childId],
+        queryKey: ["child-preferences", variables.childProfileId],
       });
     },
     onError: (error: AxiosError) => {

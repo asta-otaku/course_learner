@@ -11,10 +11,10 @@ import {
   useGetChildBaselineTest,
   useGetChildBaselineTestEntries,
   useGetYearGroups,
-  useGetLearningPathConfig,
+  useGetChildPreferences,
 } from "@/lib/api/queries";
 import {
-  usePatchLearningPathConfig,
+  usePatchChildPreferences,
   usePostAssignBaselineTest,
 } from "@/lib/api/mutations";
 import { Badge } from "@/components/ui/badge";
@@ -62,23 +62,6 @@ const statusBadgeClass: Record<string, string> = {
   passed: "bg-green-100 text-green-700",
   "forced complete": "bg-purple-100 text-purple-700",
 };
-
-/** Returns the next `count` upcoming Mondays from today */
-function getUpcomingMondays(count = 8): Date[] {
-  const result: Date[] = [];
-  const now = new Date();
-  const day = now.getDay(); // 0 = Sun
-  const daysUntil = day === 0 ? 1 : 8 - day;
-  const base = new Date(now);
-  base.setDate(now.getDate() + daysUntil);
-  base.setHours(0, 0, 0, 0);
-  for (let i = 0; i < count; i++) {
-    const m = new Date(base);
-    m.setDate(base.getDate() + i * 7);
-    result.push(m);
-  }
-  return result;
-}
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
@@ -179,28 +162,34 @@ export default function StudentPage({ id }: { id: string }) {
   const yearGroups = yearGroupsData?.data || [];
 
   // Left-panel: config (quota / pause)
-  const { data: configData } = useGetLearningPathConfig(id);
+  const { data: configData } = useGetChildPreferences(id);
   const serverConfig = configData?.data;
 
   // Local config state — synced from server
   const [quota, setQuota] = useState(2);
   const [isPaused, setIsPaused] = useState(false);
-  const [pauseUntil, setPauseUntil] = useState("");
 
   useEffect(() => {
     if (serverConfig) {
       setQuota(serverConfig.weeklyQuota ?? 2);
-      setIsPaused(serverConfig.isPaused ?? false);
-      setPauseUntil(serverConfig.pauseUntil ?? "");
+      setIsPaused(serverConfig.pauseAssignments ?? false);
     }
   }, [serverConfig]);
 
   const { mutateAsync: patchConfig, isPending: savingConfig } =
-    usePatchLearningPathConfig();
+    usePatchChildPreferences();
 
-  const saveConfig = async (patch: Partial<{ weeklyQuota: number; isPaused: boolean; pauseUntil: string | null }>) => {
+  // Always send the full payload so no field is accidentally cleared.
+  const saveConfig = async (
+    patch: Partial<{ weeklyQuota: number; pauseAssignments: boolean }>,
+  ) => {
     try {
-      await patchConfig({ childId: id, data: patch });
+      await patchConfig({
+        childProfileId: id,
+        selectedCurriculumId: serverConfig?.selectedCurriculumId ?? "",
+        weeklyQuota: patch.weeklyQuota ?? quota,
+        pauseAssignments: patch.pauseAssignments ?? isPaused,
+      });
       toast.success("Settings saved");
     } catch {
       // error handled inside mutation
@@ -277,8 +266,6 @@ export default function StudentPage({ id }: { id: string }) {
       console.error("Failed to create chat");
     }
   };
-
-  const upcomingMondays = getUpcomingMondays(8);
 
   if (isLoading) {
     return (
@@ -494,45 +481,10 @@ export default function StudentPage({ id }: { id: string }) {
               checked={isPaused}
               onCheckedChange={(checked) => {
                 setIsPaused(checked);
-                if (!checked) {
-                  setPauseUntil("");
-                  saveConfig({ isPaused: false, pauseUntil: null });
-                } else {
-                  saveConfig({ isPaused: true });
-                }
+                saveConfig({ pauseAssignments: checked });
               }}
             />
           </div>
-
-          {/* Pause-until date (Mondays only) */}
-          {isPaused && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-textSubtitle font-medium text-xs">
-                Paused until
-              </span>
-              <Select
-                value={pauseUntil}
-                onValueChange={(v) => {
-                  setPauseUntil(v);
-                  saveConfig({ pauseUntil: v });
-                }}
-              >
-                <SelectTrigger className="w-36 h-7 text-xs">
-                  <SelectValue placeholder="Select Monday" />
-                </SelectTrigger>
-                <SelectContent>
-                  {upcomingMondays.map((d) => {
-                    const iso = d.toISOString().split("T")[0];
-                    return (
-                      <SelectItem key={iso} value={iso}>
-                        {format(d, "EEE d MMM")}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
           {savingConfig && (
             <p className="text-xs text-gray-400 flex items-center gap-1">
