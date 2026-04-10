@@ -483,19 +483,22 @@ function Sessions() {
         </div>
 
         <div className="col-span-1 lg:col-span-2 space-y-2">
-          <p className="text-xs text-muted-foreground">
-            {upcoming.length > 0
-              ? "You can only book one session per week. Cancel your upcoming session to book a new one."
-              : hasCompletedSessionThisWeek
-                ? "You have already had a session this week. Booking reopens next Sunday."
-                : "You can book a session up to one hour before it starts."}
-          </p>
+          {!upcoming.length && !hasCompletedSessionThisWeek && (
+            <p className="text-xs text-muted-foreground">
+              You can book a session up to one hour before it starts.
+            </p>
+          )}
           <Calendar
             currentMonth={currentMonth}
             onMonthChange={navigateMonth}
             onDateClick={handleDateClick}
             allSessions={allSessions}
             disabled={upcoming.length > 0 || hasCompletedSessionThisWeek}
+            disabledMessage={
+              upcoming.length > 0
+                ? "You already have an upcoming session booked. Booking reopens next Sunday."
+                : "You have already had a session this week. Booking reopens next Sunday."
+            }
           />
         </div>
       </div>

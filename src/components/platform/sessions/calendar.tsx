@@ -18,12 +18,14 @@ export default function CalendarComponent({
   onDateClick,
   allSessions,
   disabled,
+  disabledMessage,
 }: {
   currentMonth: Date;
   onMonthChange: (direction: number) => void;
   onDateClick: (day: number) => void;
   allSessions: Session[];
   disabled?: boolean;
+  disabledMessage?: string;
 }) {
   const getDaysInMonth = useCallback(() => {
     const year = currentMonth.getFullYear();
@@ -132,11 +134,10 @@ export default function CalendarComponent({
           })}
         </div>
 
-        {disabled && (
+        {disabled && disabledMessage && (
           <div className="absolute inset-0 flex items-center justify-center px-4">
-            <p className="text-xs text-center text-gray-500 bg-white/80 rounded-lg px-3 py-2">
-              You already have an upcoming session booked. You can book another
-              once it&apos;s completed.
+            <p className="text-xs text-center text-blue-700 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 font-medium shadow-sm">
+              {disabledMessage}
             </p>
           </div>
         )}
