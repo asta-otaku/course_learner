@@ -57,6 +57,7 @@ export interface Quiz {
   allowReview?: boolean;
   availableFrom?: string;
   availableUntil?: string;
+  curriculumLessonId?: string;
   scheduledFor?: string | null;
   metadata?: any;
   questions?: QuizQuestion[];

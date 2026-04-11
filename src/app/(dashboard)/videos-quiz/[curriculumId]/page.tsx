@@ -126,7 +126,7 @@ export default function CurriculumLessonsPage() {
                   <p className="text-textSubtitle text-xs md:text-sm">
                     {lesson.description ||
                       section?.title ||
-                      "No description available"}
+                      ""}
                   </p>
                   <Button
                     onClick={() =>
@@ -176,9 +176,6 @@ export default function CurriculumLessonsPage() {
             <h1 className="text-lg md:text-xl lg:text-2xl font-bold max-w-[420px]">
               {section.title.toUpperCase()}
             </h1>
-            <p className="text-gray-600 leading-relaxed">
-              No description available
-            </p>
             <Image
               src={availableImages[0]}
               alt={section.title}

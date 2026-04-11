@@ -110,7 +110,7 @@ export default function LessonContent({
         <div className="space-y-2">
           <h2 className="text-2xl font-bold">{lessonData.title}</h2>
           <p className="text-textSubtitle">
-            {lessonData.description || "No description available"}
+            {lessonData.description || ""}
           </p>
         </div>
       )}

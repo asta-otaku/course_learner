@@ -158,7 +158,7 @@ export default function LessonPage() {
           <div className="space-y-2">
             <h2 className="text-2xl font-bold">{lessonTitle}</h2>
             <p className="text-textSubtitle">
-              {lessonDescription || "No description available"}
+              {lessonDescription || ""}
             </p>
           </div>
 
@@ -228,7 +228,7 @@ export default function LessonPage() {
             <div className="max-w-xl">
               <h2 className="font-semibold uppercase mb-2">Lesson Overview:</h2>
               <p className="text-gray-700">
-                {lessonDescription || "No description available"}
+                {lessonDescription || ""}
               </p>
             </div>
           </div>

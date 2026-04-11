@@ -108,8 +108,8 @@ function TuitionHome() {
               <thead>
                 <tr className="border-b border-gray-100 text-left">
                   <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider">Quiz</th>
-                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider hidden sm:table-cell">Section</th>
                   <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider hidden md:table-cell">Lesson</th>
+                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider hidden sm:table-cell">Section</th>
                   <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider">Status</th>
                   <th className="pb-3 font-medium text-gray-500 text-xs uppercase tracking-wider text-right">Action</th>
                 </tr>
@@ -125,11 +125,11 @@ function TuitionHome() {
                         {item.quizTitle}
                       </span>
                     </td>
-                    <td className="py-4 pr-4 align-middle hidden sm:table-cell text-sm text-gray-500">
-                      {item.sectionName}
-                    </td>
                     <td className="py-4 pr-4 align-middle hidden md:table-cell text-sm text-gray-500">
                       {item.lessonName}
+                    </td>
+                    <td className="py-4 pr-4 align-middle hidden sm:table-cell text-sm text-gray-500">
+                      {item.sectionName}
                     </td>
                     <td className="py-4 pr-4 align-middle">
                       <span
@@ -164,12 +164,8 @@ function TuitionHome() {
               </p>
               {childBaselineTest ? (
                 <>
-                  <p className="text-sm font-medium mt-6 mb-3">QUIZ</p>
                   <p className="text-xs text-textSubtitle mb-2">
                     {childBaselineTest.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-6">
-                    {childBaselineTest.yearGroup}
                   </p>
                   <div className="flex items-center gap-4 pb-2">
                     <Button
@@ -181,7 +177,7 @@ function TuitionHome() {
                         Start <BackArrow color="#286CFF" flipped />
                       </Link>
                     </Button>
-                    <Button
+                    {/* <Button
                       variant="link"
                       className="text-xs text-primaryBlue px-0"
                       asChild
@@ -189,12 +185,12 @@ function TuitionHome() {
                       <Link href="/baseline-results">
                         View Results <BackArrow color="#286CFF" flipped />
                       </Link>
-                    </Button>
+                    </Button> */}
                   </div>
                 </>
               ) : (
                 <>
-                  <p className="text-sm font-medium mt-6 mb-3">QUIZ</p>
+                  {/* <p className="text-sm font-medium mt-6 mb-3">QUIZ</p> */}
                   <p className="text-xs text-textSubtitle mb-4">
                     No baseline test assigned yet. Your tutor can assign one for
                     your year group.
@@ -217,13 +213,13 @@ function TuitionHome() {
             <div className="border border-[#00000033] rounded-2xl bg-white p-6 text-center">
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-base font-semibold">Tutor</h3>
-                <Button
+                {/* <Button
                   variant="link"
                   onClick={() => push("/settings/support")}
                   className="text-xs text-primaryBlue px-0"
                 >
                   Provide Feedback <BackArrow color="#286CFF" flipped />
-                </Button>
+                </Button> */}
               </div>
               <div className="flex flex-col items-center">
                 <div className="w-32 h-32 rounded-full bg-gray-200 mb-3">
@@ -242,13 +238,13 @@ function TuitionHome() {
                   Your Tutor
                 </p>
                 <div className="flex gap-2 justify-center">
-                  <Button
+                  {/* <Button
                     variant="outline"
                     className="rounded-full text-xs px-4 bg-gradient-to-tr from-[#545454] to-black text-white hover:opacity-90"
                     onClick={() => setShowChangeRequestDialog(true)}
                   >
                     Request Change
-                  </Button>
+                  </Button> */}
                   <Button
                     variant="default"
                     onClick={handleMessage}

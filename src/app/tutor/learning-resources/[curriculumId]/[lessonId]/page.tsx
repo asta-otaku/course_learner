@@ -76,11 +76,10 @@ export default function LessonPage() {
                     `/tutor/learning-resources/${curriculumId}/${l.id}`
                   )
                 }
-                className={`whitespace-nowrap uppercase ${
-                  isActive
+                className={`whitespace-nowrap uppercase ${isActive
                     ? "border-b-2 border-primaryBlue text-primaryBlue font-semibold pb-2"
                     : "text-textGray text-xs md:text-sm hover:text-gray-800"
-                }`}
+                  }`}
               >
                 Lesson {i + 1}
               </button>
@@ -94,7 +93,7 @@ export default function LessonPage() {
         <div className="space-y-2">
           <h2 className="text-2xl font-bold">{lessonTitle}</h2>
           <p className="text-textSubtitle">
-            {lessonDescription || "No description available"}
+            {lessonDescription || ""}
           </p>
         </div>
 
@@ -124,7 +123,7 @@ export default function LessonPage() {
                       );
                       try {
                         vid.currentTime = safe > 0 ? safe : 0;
-                      } catch {}
+                      } catch { }
                     }
                   }}
                   onContextMenu={(e) => e.preventDefault()}

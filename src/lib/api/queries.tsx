@@ -750,14 +750,22 @@ export const useGetCurriculum = (curriculumId?: string) => {
 };
 
 // Lesson Queries
-export const useGetLessonById = (id: string) => {
+export const useGetLessonById = (
+  id: string,
+  options?: { enabled?: boolean }
+) => {
+  const baseEnabled = !!id;
+  const enabled =
+    options?.enabled === undefined
+      ? baseEnabled
+      : baseEnabled && options.enabled;
   return useQuery({
     queryKey: ["lesson", id],
     queryFn: async (): Promise<APIGetResponse<Lesson>> => {
       const response = await axiosInstance.get(`/lesson/${id}`);
       return response.data;
     },
-    enabled: !!id,
+    enabled,
   });
 };
 
