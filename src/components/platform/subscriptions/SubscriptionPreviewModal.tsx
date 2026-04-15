@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Loader2, CalendarDays, ArrowRight, CreditCard, TrendingDown } from "lucide-react";
+import { Loader2, CalendarDays, ArrowRight, CreditCard, TrendingDown, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,11 +32,19 @@ export type PreviewActionType =
   | "add_tuition"
   | "upgrade_to_tuition"
   | "remove_tuition"
-  | "new_child_tuition";
+  | "new_child_tuition"
+  | "add_platform";
 
 const ACTION_META: Record<
   PreviewActionType,
-  { title: string; subtitle: string; badge: string; badgeColor: string; confirm: string; skip?: string }
+  {
+    title: string;
+    subtitle: string;
+    badge: string;
+    badgeColor: string;
+    confirm: string;
+    skip?: string;
+  }
 > = {
   add_tuition: {
     title: "Add Tuition",
@@ -67,12 +75,20 @@ const ACTION_META: Record<
     confirm: "Confirm & Add Tuition",
     skip: "Skip — add platform only",
   },
+  add_platform: {
+    title: "Add Child to Platform",
+    subtitle: "No billing changes — this child will be added at no extra cost.",
+    badge: "No charge",
+    badgeColor: "bg-emerald-100 text-emerald-700",
+    confirm: "Confirm & Add Child",
+  },
 };
 
 interface SubscriptionPreviewModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  previewData: UpgradeToTuitionPreviewResponse;
+  /** Not required for add_platform — pass undefined for zero-cost scenarios */
+  previewData?: UpgradeToTuitionPreviewResponse;
   actionType: PreviewActionType;
   childName?: string;
   onConfirm: () => Promise<void>;
@@ -89,13 +105,15 @@ export function SubscriptionPreviewModal({
   isConfirming,
 }: SubscriptionPreviewModalProps) {
   const meta = ACTION_META[actionType];
-  const nowItems = previewData.breakdown.filter((b) => b.timing === "now");
-  const nextItems = previewData.breakdown.filter((b) => b.timing === "next_billing");
+  const isRemoval = actionType === "remove_tuition";
+  const isPlatformAdd = actionType === "add_platform";
 
-  const dueNow = previewData.dueNow;
+  const nowItems = previewData?.breakdown.filter((b) => b.timing === "now") ?? [];
+  const nextItems = previewData?.breakdown.filter((b) => b.timing === "next_billing") ?? [];
+
+  const dueNow = previewData?.dueNow ?? 0;
   const isCredit = dueNow < 0;
   const isZero = dueNow === 0;
-  const isRemoval = actionType === "remove_tuition";
 
   const handleCancel = () => {
     if (!isConfirming) onOpenChange(false);
@@ -122,7 +140,11 @@ export function SubscriptionPreviewModal({
               </h2>
               <p className="text-[13px] text-gray-500 mt-0.5">{meta.subtitle}</p>
             </div>
-            {isRemoval ? (
+            {isPlatformAdd ? (
+              <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              </div>
+            ) : isRemoval ? (
               <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
                 <TrendingDown className="w-4 h-4 text-amber-600" />
               </div>
@@ -136,103 +158,136 @@ export function SubscriptionPreviewModal({
 
         <div className="overflow-y-auto max-h-[55vh]">
 
-          {/* ── Due now hero ─────────────────────────────────────────────── */}
-          <div className="px-6 pt-5 pb-4">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-3">
-              {isCredit ? "Credit Applied Now" : "Charged Today"}
-            </p>
+          {/* ── Zero-cost / platform-only body ───────────────────────────── */}
+          {isPlatformAdd ? (
+            <div className="px-6 py-6 space-y-4">
+              {/* Big £0 hero */}
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-3">
+                  Charged Today
+                </p>
+                <div className="flex items-end gap-2">
+                  <span className="text-4xl font-bold tracking-tight leading-none text-gray-400">
+                    £0.00
+                  </span>
+                  <span className="text-sm text-gray-400 mb-1 font-medium uppercase">GBP</span>
+                </div>
+              </div>
 
-            {/* Big amount */}
-            <div className={`flex items-end gap-2 mb-4 ${isCredit ? "text-emerald-600" : isZero ? "text-gray-400" : "text-gray-900"}`}>
-              <span className="text-4xl font-bold tracking-tight leading-none">
-                {isCredit ? "−" : ""}{formatAmount(dueNow, previewData.currency)}
-              </span>
-              <span className="text-sm text-gray-400 mb-1 font-medium uppercase">
-                {previewData.currency?.toUpperCase() ?? "GBP"}
-              </span>
+              {/* Info card */}
+              <div className="flex gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3.5">
+                <div className="w-1 shrink-0 rounded-full bg-emerald-400 self-stretch" />
+                <div className="space-y-1">
+                  <p className="text-[13px] font-semibold text-emerald-800">
+                    No billing change
+                  </p>
+                  <p className="text-[12px] text-emerald-700 leading-relaxed">
+                    Adding this child to the Platform plan is included in your current subscription. No additional charge will be made now or at your next renewal.
+                  </p>
+                </div>
+              </div>
             </div>
+          ) : (
+            <>
+              {/* ── Due now hero ─────────────────────────────────────────── */}
+              <div className="px-6 pt-5 pb-4">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-3">
+                  {isCredit ? "Credit Applied Now" : "Charged Today"}
+                </p>
 
-            {/* Line items */}
-            {nowItems.length > 0 && (
-              <div className="rounded-xl border border-black/8 overflow-hidden divide-y divide-black/5">
-                {nowItems.map((item, i) => (
-                  <div key={i} className="flex justify-between items-center gap-4 px-4 py-3 bg-white">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      {item.isProration && (
-                        <span className="shrink-0 text-[10px] font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100 rounded px-1.5 py-0.5 uppercase tracking-wide">
-                          Prorated
+                {/* Big amount */}
+                <div className={`flex items-end gap-2 mb-4 ${isCredit ? "text-emerald-600" : isZero ? "text-gray-400" : "text-gray-900"}`}>
+                  <span className="text-4xl font-bold tracking-tight leading-none">
+                    {isCredit ? "−" : ""}{formatAmount(dueNow, previewData?.currency ?? "gbp")}
+                  </span>
+                  <span className="text-sm text-gray-400 mb-1 font-medium uppercase">
+                    {previewData?.currency?.toUpperCase() ?? "GBP"}
+                  </span>
+                </div>
+
+                {/* Line items */}
+                {nowItems.length > 0 && (
+                  <div className="rounded-xl border border-black/8 overflow-hidden divide-y divide-black/5">
+                    {nowItems.map((item, i) => (
+                      <div key={i} className="flex justify-between items-center gap-4 px-4 py-3 bg-white">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {item.isProration && (
+                            <span className="shrink-0 text-[10px] font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100 rounded px-1.5 py-0.5 uppercase tracking-wide">
+                              Prorated
+                            </span>
+                          )}
+                          <span className="text-[13px] text-gray-600">{item.description}</span>
+                        </div>
+                        <span className={`text-[13px] font-semibold whitespace-nowrap tabular-nums ${item.amount < 0 ? "text-emerald-600" : "text-gray-800"}`}>
+                          {formatAmountSigned(item.amount, item.currency)}
                         </span>
-                      )}
-                      <span className="text-[13px] text-gray-600">{item.description}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between items-center px-4 py-3 bg-gray-50">
+                      <span className="text-[13px] font-semibold text-gray-700">
+                        {isCredit ? "Credit to balance" : "Total due now"}
+                      </span>
+                      <span className={`text-[14px] font-bold tabular-nums ${isCredit ? "text-emerald-600" : isZero ? "text-gray-400" : "text-gray-900"}`}>
+                        {isCredit ? "−" : ""}{formatAmount(dueNow, previewData?.currency ?? "gbp")}
+                      </span>
                     </div>
-                    <span className={`text-[13px] font-semibold whitespace-nowrap tabular-nums ${item.amount < 0 ? "text-emerald-600" : "text-gray-800"}`}>
-                      {formatAmountSigned(item.amount, item.currency)}
+                  </div>
+                )}
+
+                {nowItems.length === 0 && (
+                  <div className="rounded-xl border border-black/8 px-4 py-3 bg-white">
+                    <p className="text-[13px] text-gray-400">No immediate charges.</p>
+                  </div>
+                )}
+
+                {/* Credit note */}
+                {isCredit && (
+                  <div className="mt-3 flex gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+                    <div className="w-1 shrink-0 rounded-full bg-emerald-400 self-stretch" />
+                    <p className="text-[12px] text-emerald-800 leading-relaxed">
+                      This credit is added to your account balance and automatically applied to your next invoice.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Divider with arrow ───────────────────────────────────── */}
+              <div className="flex items-center gap-3 px-6 py-1">
+                <div className="h-px flex-1 bg-black/8" />
+                <div className="w-6 h-6 rounded-full bg-gray-100 border border-black/8 flex items-center justify-center">
+                  <ArrowRight className="w-3 h-3 text-gray-400" />
+                </div>
+                <div className="h-px flex-1 bg-black/8" />
+              </div>
+
+              {/* ── Next renewal ─────────────────────────────────────────── */}
+              <div className="px-6 pt-3 pb-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <CalendarDays className="w-3.5 h-3.5 text-gray-400" />
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+                    Next Renewal · {previewData ? formatDate(previewData.billingDate) : "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-black/8 overflow-hidden divide-y divide-black/5">
+                  {nextItems.map((item, i) => (
+                    <div key={i} className="flex justify-between items-center gap-4 px-4 py-3 bg-white">
+                      <span className="text-[13px] text-gray-600 flex-1">{item.description}</span>
+                      <span className="text-[13px] font-semibold text-gray-800 whitespace-nowrap tabular-nums">
+                        {formatAmount(item.amount, item.currency)}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center px-4 py-3 bg-gray-50">
+                    <span className="text-[13px] font-semibold text-gray-700">Total at renewal</span>
+                    <span className="text-[14px] font-bold text-gray-900 tabular-nums">
+                      {formatAmount(previewData?.dueNextBilling ?? 0, previewData?.currency ?? "gbp")}
                     </span>
                   </div>
-                ))}
-                <div className="flex justify-between items-center px-4 py-3 bg-gray-50">
-                  <span className="text-[13px] font-semibold text-gray-700">
-                    {isCredit ? "Credit to balance" : "Total due now"}
-                  </span>
-                  <span className={`text-[14px] font-bold tabular-nums ${isCredit ? "text-emerald-600" : isZero ? "text-gray-400" : "text-gray-900"}`}>
-                    {isCredit ? "−" : ""}{formatAmount(dueNow, previewData.currency)}
-                  </span>
                 </div>
               </div>
-            )}
-
-            {nowItems.length === 0 && (
-              <div className="rounded-xl border border-black/8 px-4 py-3 bg-white">
-                <p className="text-[13px] text-gray-400">No immediate charges.</p>
-              </div>
-            )}
-
-            {/* Credit note */}
-            {isCredit && (
-              <div className="mt-3 flex gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
-                <div className="w-1 shrink-0 rounded-full bg-emerald-400 self-stretch" />
-                <p className="text-[12px] text-emerald-800 leading-relaxed">
-                  This credit is added to your account balance and automatically applied to your next invoice.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* ── Divider with arrow ───────────────────────────────────────── */}
-          <div className="flex items-center gap-3 px-6 py-1">
-            <div className="h-px flex-1 bg-black/8" />
-            <div className="w-6 h-6 rounded-full bg-gray-100 border border-black/8 flex items-center justify-center">
-              <ArrowRight className="w-3 h-3 text-gray-400" />
-            </div>
-            <div className="h-px flex-1 bg-black/8" />
-          </div>
-
-          {/* ── Next renewal ─────────────────────────────────────────────── */}
-          <div className="px-6 pt-3 pb-5">
-            <div className="flex items-center gap-2 mb-3">
-              <CalendarDays className="w-3.5 h-3.5 text-gray-400" />
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-                Next Renewal · {formatDate(previewData.billingDate)}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-black/8 overflow-hidden divide-y divide-black/5">
-              {nextItems.map((item, i) => (
-                <div key={i} className="flex justify-between items-center gap-4 px-4 py-3 bg-white">
-                  <span className="text-[13px] text-gray-600 flex-1">{item.description}</span>
-                  <span className="text-[13px] font-semibold text-gray-800 whitespace-nowrap tabular-nums">
-                    {formatAmount(item.amount, item.currency)}
-                  </span>
-                </div>
-              ))}
-              <div className="flex justify-between items-center px-4 py-3 bg-gray-50">
-                <span className="text-[13px] font-semibold text-gray-700">Total at renewal</span>
-                <span className="text-[14px] font-bold text-gray-900 tabular-nums">
-                  {formatAmount(previewData.dueNextBilling, previewData.currency)}
-                </span>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
 
         {/* ── Footer actions ───────────────────────────────────────────────── */}
@@ -243,7 +298,9 @@ export function SubscriptionPreviewModal({
             className={`w-full rounded-xl font-semibold text-[14px] py-5 transition-all ${
               isRemoval
                 ? "bg-amber-500 hover:bg-amber-600 text-white"
-                : "bg-gray-900 hover:bg-gray-800 text-white"
+                : isPlatformAdd
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : "bg-gray-900 hover:bg-gray-800 text-white"
             }`}
           >
             {isConfirming ? (

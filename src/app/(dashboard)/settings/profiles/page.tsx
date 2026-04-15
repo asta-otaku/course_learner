@@ -69,8 +69,8 @@ function Page() {
 
   // Preview modal state — populated after child profile is created
   const [previewData, setPreviewData] = useState<UpgradeToTuitionPreviewResponse | null>(null);
-  const [pendingTuitionAction, setPendingTuitionAction] = useState<
-    "add_tuition" | "upgrade_to_tuition" | null
+  const [pendingModalAction, setPendingModalAction] = useState<
+    "add_tuition" | "upgrade_to_tuition" | "add_platform" | null
   >(null);
   const [pendingChildId, setPendingChildId] = useState<string | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -146,32 +146,38 @@ function Page() {
 
   const triggerFileInput = () => fileInputRef.current?.click();
 
-  // Called when the user confirms the tuition preview
-  const handleConfirmTuition = async () => {
-    if (!pendingChildId || !pendingTuitionAction) return;
+  // Called when the user confirms the modal (any scenario)
+  const handleConfirmModal = async () => {
+    if (!pendingChildId || !pendingModalAction) return;
     setIsConfirmingTuition(true);
     try {
-      if (pendingTuitionAction === "add_tuition") {
+      if (pendingModalAction === "add_tuition") {
+        // Scenario 4: already on tuition, adding another tuition seat
         await postTuitionSubscription({ childProfileId: pendingChildId });
-      } else {
+        toast.success("Tuition added successfully!");
+      } else if (pendingModalAction === "upgrade_to_tuition") {
+        // Scenario 2: upgrading from platform to tuition
         await upgradeToTuition({ childProfileId: pendingChildId });
-        await postTuitionSubscription({ childProfileId: pendingChildId });
+        toast.success("Upgraded to tuition successfully!");
+      } else {
+        // Scenario 1 / 3: add_platform — child already created, nothing else to call
+        toast.success("Profile created successfully!");
       }
-      toast.success("Tuition added successfully!");
       setShowPreviewModal(false);
       await syncChildProfilesToLocalStorage(pendingChildId);
       router.push("/dashboard");
     } catch (error) {
-      console.error("Failed to add tuition:", error);
+      console.error("Failed to confirm action:", error);
     } finally {
       setIsConfirmingTuition(false);
     }
   };
 
-  // Called when user skips tuition from the preview modal ("Platform only")
-  const handleSkipTuition = async () => {
+  // Called when user dismisses the modal (only relevant for new_child_tuition skip)
+  const handleDismissModal = async () => {
     setShowPreviewModal(false);
     if (pendingChildId) {
+      toast.success("Profile created successfully!");
       await syncChildProfilesToLocalStorage(pendingChildId);
     }
     router.push("/dashboard");
@@ -225,43 +231,62 @@ function Page() {
             return;
           }
 
-          if (newProfilePlan === "tuition") {
-            // Determine which tuition action applies
-            let state = (manageData as any)?.data?.state as string | undefined;
-            if (!state) {
-              const fresh = await refetchManage();
-              state = (fresh.data as any)?.data?.state as string | undefined;
-            }
-            if (!state) {
-              toast.error("Could not confirm subscription state. Please try again.");
-              return;
-            }
+          // Resolve current subscription state
+          let state = (manageData as any)?.data?.state as string | undefined;
+          if (!state) {
+            const fresh = await refetchManage();
+            state = (fresh.data as any)?.data?.state as string | undefined;
+          }
+          if (!state) {
+            toast.error("Could not confirm subscription state. Please try again.");
+            return;
+          }
 
-            const parentIsTuition = state === "tuition" || state === "tuition_single";
-            const tuitionAction: "add_tuition" | "upgrade_to_tuition" = parentIsTuition
-              ? "add_tuition"
-              : "upgrade_to_tuition";
+          const isCurrentlyTuition =
+            state === "tuition_single" || state === "tuition_multi";
 
-            // Fetch preview first
+          if (newProfilePlan === "platform") {
+            // Scenarios 1 & 3 — platform child on any subscription state:
+            // No billing change, show zero-cost confirmation modal
+            setPendingChildId(String(createdId));
+            setPendingModalAction("add_platform");
+            setPreviewData(null);
+            setShowPreviewModal(true);
+            return;
+          }
+
+          // newProfilePlan === "tuition" from here
+          if (isCurrentlyTuition) {
+            // Scenario 4 — already on tuition, adding another tuition seat
             try {
-              const previewRes = parentIsTuition
-                ? await previewAddTuition({ childProfileId: String(createdId) })
-                : await previewUpgrade({ childProfileId: String(createdId) });
-
+              const previewRes = await previewAddTuition({ childProfileId: String(createdId) });
               if (previewRes.data?.data) {
                 setPendingChildId(String(createdId));
-                setPendingTuitionAction(tuitionAction);
+                setPendingModalAction("add_tuition");
                 setPreviewData(previewRes.data.data);
                 setShowPreviewModal(true);
-                // Don't navigate yet — wait for modal confirm/skip
                 return;
               }
             } catch {
-              // Preview failed — fall through to platform-only creation
+              // Preview failed — fall through to navigate away
+            }
+          } else {
+            // Scenario 2 — currently on platform, upgrading to tuition
+            try {
+              const previewRes = await previewUpgrade({ childProfileId: String(createdId) });
+              if (previewRes.data?.data) {
+                setPendingChildId(String(createdId));
+                setPendingModalAction("upgrade_to_tuition");
+                setPreviewData(previewRes.data.data);
+                setShowPreviewModal(true);
+                return;
+              }
+            } catch {
+              // Preview failed — fall through to navigate away
             }
           }
 
-          // Platform-only or preview fetch failed
+          // Fallback: preview fetch failed, navigate with profile-only
           toast.success("Profile created successfully!");
           setAvatarData({ avatar: null, avatarFile: null });
           setStep(0);
@@ -553,17 +578,23 @@ function Page() {
         }[step]
       }
 
-      {/* Tuition preview modal — shown after new profile is created */}
-      {previewData && (
+      {/* Preview / confirmation modal — shown after new profile is created */}
+      {showPreviewModal && (
         <SubscriptionPreviewModal
           open={showPreviewModal}
           onOpenChange={(open) => {
-            if (!open && !isConfirmingTuition) handleSkipTuition();
+            if (!open && !isConfirmingTuition) handleDismissModal();
           }}
-          previewData={previewData}
-          actionType="new_child_tuition"
+          previewData={previewData ?? undefined}
+          actionType={
+            pendingModalAction === "add_tuition"
+              ? "new_child_tuition"
+              : pendingModalAction === "upgrade_to_tuition"
+                ? "upgrade_to_tuition"
+                : "add_platform"
+          }
           childName={watchedName || undefined}
-          onConfirm={handleConfirmTuition}
+          onConfirm={handleConfirmModal}
           isConfirming={isConfirmingTuition}
         />
       )}
