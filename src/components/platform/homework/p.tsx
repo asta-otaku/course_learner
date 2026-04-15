@@ -172,7 +172,7 @@ export default function HomeworkStatusPage() {
                           <TableHead className="font-semibold text-muted-foreground h-12">Lesson</TableHead>
                           <TableHead className="font-semibold text-muted-foreground">Quiz</TableHead>
                           <TableHead className="font-semibold text-muted-foreground">Status</TableHead>
-                          <TableHead className="font-semibold text-muted-foreground">Submission Date</TableHead>
+                          <TableHead className="font-semibold text-muted-foreground">Date Completed</TableHead>
                           <TableHead className="font-semibold text-muted-foreground text-right w-[120px]">Action</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -206,8 +206,13 @@ export default function HomeworkStatusPage() {
                               </TableCell>
                               <TableCell className="text-muted-foreground tabular-nums">
                                 {completedAt
-                                  ? formatShortDate(new Date(completedAt))
+                                  ? new Date(completedAt).toLocaleDateString("en-GB", {
+                                    weekday: "long",
+                                    day: "numeric",
+                                    month: "long",
+                                  }).replace(/(\d+) ([A-Za-z]+)/, (_, d, m) => `${d} ${m}`)
                                   : "—"}
+
                               </TableCell>
                               <TableCell className="text-right">
                                 {isMarked ? (
