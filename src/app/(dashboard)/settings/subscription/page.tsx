@@ -202,13 +202,6 @@ function Page() {
     deleteTuitionPending ||
     anyPreviewPending;
 
-  const hasActiveSubscription =
-    primarySubscription != null ||
-    (sub != null &&
-      (sub.status === "active" ||
-        sub.status === "canceled" ||
-        sub.status?.toLowerCase() === "trialing"));
-
   const handleManageSubscription = async () => {
     try {
       const res = await postBillingPortal();
@@ -480,7 +473,7 @@ function Page() {
           )}
 
           {/* ── Cancel subscription ───────────────────────────────────────── */}
-          {sub && (sub.canCancelEverything || hasActiveSubscription) && (
+          {sub?.canCancelEverything && (
             <>
               <div className="bg-white rounded-2xl border border-black/15 shadow-sm p-6">
                 <h2 className="text-textGray font-semibold text-lg mb-2">Cancel subscription</h2>
