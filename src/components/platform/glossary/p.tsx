@@ -219,12 +219,12 @@ const Glossary = () => {
           >
             Glossary
           </TabsTrigger>
-          <TabsTrigger
+          {/* <TabsTrigger
             value="libraries"
             className="data-[state=active]:text-primaryBlue data-[state=active]:border-b-2 data-[state=active]:border-primaryBlue text-sm py-2 px-4 text-textSubtitle font-medium rounded-none !shadow-none !bg-transparent"
           >
             Library
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="glossary" className="space-y-4">
