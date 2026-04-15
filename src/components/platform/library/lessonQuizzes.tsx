@@ -17,7 +17,7 @@ interface LessonQuizzesProps {
 
 export default function LessonQuizzes({
   quizzes,
-  showHeading = true,
+  showHeading = false,
   withTopDivider = true,
   className,
 }: LessonQuizzesProps) {

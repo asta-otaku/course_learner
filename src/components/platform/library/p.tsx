@@ -327,7 +327,8 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
               lessonData={lessonData || null}
               currentLesson={currentLesson || null}
               videos={videos}
-              quizzes={quizzes as any}
+              // quizzes={quizzes as any}
+              quizzes={[]}
               resumePositionSec={resumePositionSec}
               isCompleted={isCompleted}
               activeProfileId={activeProfile?.id}
