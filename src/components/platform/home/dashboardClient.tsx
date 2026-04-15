@@ -225,5 +225,12 @@ export default function DashboardClient() {
     );
   }
 
-  return offerType === "platform" ? <Home /> : <TuitionHome />;
+  return offerType === "platform" ? (
+    <Home offerTypeOverride={offerType} />
+  ) : (
+    <TuitionHome
+      offerTypeOverride={offerType}
+      activeProfileOverride={activeProfileFresh}
+    />
+  );
 }

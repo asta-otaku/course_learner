@@ -14,6 +14,7 @@ import { TutorChangeRequestDialog } from "./tutor-change-request-dialog";
 import {
   useGetChildBaselineTest,
   useGetChildBaselineTestEntries,
+  useGetCurricula,
   useGetLearningPath,
 } from "@/lib/api/queries";
 import DoubleQuote from "@/assets/svgs/doubleQuote";
@@ -25,25 +26,42 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
   completed: "bg-green-100 text-green-800",
 };
 
-function TuitionHome() {
+type TuitionHomeProps = {
+  /** Override offerType when profile data is stale on first load (post-signup). */
+  offerTypeOverride?: string;
+  /**
+   * Fresh active profile row from /child-profiles.
+   * Used to avoid stale tutor fields immediately after Stripe success.
+   */
+  activeProfileOverride?: any;
+};
+
+function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomeProps) {
   const { activeProfile } = useProfile();
+  const effectiveProfile = (activeProfileOverride ?? activeProfile) as any;
   const [showChangeRequestDialog, setShowChangeRequestDialog] = useState(false);
   const { push } = useRouter();
   const { mutateAsync: createChat } = usePostCreateChat();
 
+  // Ensure curricula endpoint receives the correct offerType on first load (post-signup),
+  // without globally forcing the query on all pages.
+  useGetCurricula({
+    offerType: offerTypeOverride ?? effectiveProfile?.offerType ?? "tuition",
+  });
+
   const { data: learningPathData, isLoading: learningPathLoading } =
-    useGetLearningPath(activeProfile?.id || "");
+    useGetLearningPath(effectiveProfile?.id || "");
   const learningPath = (learningPathData?.data || []) as LearningPath[];
 
   // Fetch baseline test for this child (API returns a single object)
   const { data: baselineTestResponse } = useGetChildBaselineTest(
-    activeProfile?.id || ""
+    effectiveProfile?.id || ""
   );
   const childBaselineTest = baselineTestResponse?.data ?? null;
 
   // Baseline attempts: if any attempt has submittedAt, baseline is "complete" → hide the block
   const { data: baselineAttemptsResponse } = useGetChildBaselineTestEntries(
-    activeProfile?.id || ""
+    effectiveProfile?.id || ""
   );
   const hasCompletedBaseline = useMemo(() => {
     const attempts = baselineAttemptsResponse?.data || [];
@@ -52,19 +70,19 @@ function TuitionHome() {
 
   const handleMessage = async () => {
     if (
-      !activeProfile?.tutorId ||
-      !activeProfile?.id ||
-      !activeProfile?.tutorFirstName ||
-      !activeProfile?.tutorLastName ||
-      !activeProfile?.name
+      !effectiveProfile?.tutorId ||
+      !effectiveProfile?.id ||
+      !effectiveProfile?.tutorFirstName ||
+      !effectiveProfile?.tutorLastName ||
+      !effectiveProfile?.name
     )
       return;
     const chat = await createChat({
-      tutorId: activeProfile?.tutorId,
-      childId: activeProfile?.id,
+      tutorId: effectiveProfile?.tutorId,
+      childId: effectiveProfile?.id,
       tutorName:
-        activeProfile?.tutorFirstName + " " + activeProfile?.tutorLastName,
-      childName: activeProfile?.name,
+        effectiveProfile?.tutorFirstName + " " + effectiveProfile?.tutorLastName,
+      childName: effectiveProfile?.name,
     });
     if (chat.status === 201) {
       toast.success(chat.data.message);
@@ -79,7 +97,7 @@ function TuitionHome() {
         <div className="flex items-center gap-2">
           <div className="flex flex-col gap-1 items-start">
             <p className="font-medium text-lg text-textSubtitle ml-1">
-              Welcome, <span className="text-textGray capitalize font-semibold">{activeProfile?.name}</span>
+              Welcome, <span className="text-textGray capitalize font-semibold">{effectiveProfile?.name}</span>
             </p>
           </div>
         </div>
@@ -209,7 +227,7 @@ function TuitionHome() {
             </div>
           )}
           {/* Tutor Info */}
-          {activeProfile?.tutorId && (
+          {effectiveProfile?.tutorId && (
             <div className="border border-[#00000033] rounded-2xl bg-white p-6 text-center">
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-base font-semibold">Tutor</h3>
@@ -232,7 +250,7 @@ function TuitionHome() {
                   />
                 </div>
                 <p className="font-medium text-sm">
-                  {activeProfile?.tutorFirstName} {activeProfile?.tutorLastName}
+                  {effectiveProfile?.tutorFirstName} {effectiveProfile?.tutorLastName}
                 </p>
                 <p className="text-xs text-muted-foreground mb-8 font-medium">
                   Your Tutor
@@ -260,14 +278,14 @@ function TuitionHome() {
       </div>
 
       {/* Tutor Change Request Dialog */}
-      {activeProfile?.tutorId && (
+      {effectiveProfile?.tutorId && (
         <TutorChangeRequestDialog
           open={showChangeRequestDialog}
           onOpenChange={setShowChangeRequestDialog}
-          childProfileId={activeProfile.id}
-          childName={activeProfile.name}
-          currentTutorId={activeProfile.tutorId}
-          currentTutorName={`${activeProfile.tutorFirstName} ${activeProfile.tutorLastName}`}
+          childProfileId={effectiveProfile.id}
+          childName={effectiveProfile.name}
+          currentTutorId={effectiveProfile.tutorId}
+          currentTutorName={`${effectiveProfile.tutorFirstName} ${effectiveProfile.tutorLastName}`}
         />
       )}
     </div>

@@ -19,7 +19,12 @@ import {
 import ProfileLoader from "../profile-loader";
 import { Trophy } from "lucide-react";
 
-function Home() {
+type HomeProps = {
+  /** Override offerType when profile data is stale on first load (post-signup). */
+  offerTypeOverride?: string;
+};
+
+function Home({ offerTypeOverride }: HomeProps) {
   const {
     activeProfile,
     isChangingProfile,
@@ -30,7 +35,7 @@ function Home() {
 
   // Fetch curricula first so we can resolve selectedCurriculumId for library + lessons
   const { data: curriculaData } = useGetCurricula({
-    offerType: activeProfile?.offerType || "",
+    offerType: offerTypeOverride ?? activeProfile?.offerType ?? "",
   });
 
   const curriculaList = useMemo(() => {
