@@ -23,19 +23,49 @@ import { Quiz } from "@/lib/types";
 export default function AssignHomeworkForm({
   onBack,
   onAssign,
+  fixedStudentId,
+  fixedStudentLabel,
+  initialQuiz,
+  hideQuizPicker,
+  embedded,
 }: {
   onBack: () => void;
   onAssign?: () => void;
+  /** When provided, student is preselected and student picker is hidden. */
+  fixedStudentId?: string;
+  /** Optional label for fixed student (avoids needing to fetch students). */
+  fixedStudentLabel?: { name: string; year?: string | number };
+  /** Optional initial quiz (so the quiz shows as selected immediately). */
+  initialQuiz?: {
+    id: string;
+    title?: string;
+    description?: string;
+    questionsCount?: number;
+  };
+  /** When true, hides the quiz selector UI (quiz is still assigned via `initialQuiz`). */
+  hideQuizPicker?: boolean;
+  /** When true, renders without the full-page layout/back button. */
+  embedded?: boolean;
 }) {
   const [studentSearch, setStudentSearch] = useState("");
-  const [student, setStudent] = useState<string | null>(null);
-  const [quiz, setQuiz] = useState<string>("");
+  const [student, setStudent] = useState<string | null>(() => fixedStudentId ?? null);
+  const [quiz, setQuiz] = useState<string>(() => initialQuiz?.id ?? "");
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [studentDropdownOpen, setStudentDropdownOpen] = useState(false);
   const [quizSearch, setQuizSearch] = useState("");
   const [quizDropdownOpen, setQuizDropdownOpen] = useState(false);
   const [quizPage, setQuizPage] = useState(1);
-  const [accumulatedQuizzes, setAccumulatedQuizzes] = useState<Quiz[]>([]);
+  const [accumulatedQuizzes, setAccumulatedQuizzes] = useState<Quiz[]>(() => {
+    if (!initialQuiz) return [];
+    return [
+      {
+        id: initialQuiz.id,
+        title: initialQuiz.title ?? "Quiz",
+        description: initialQuiz.description,
+        questionsCount: initialQuiz.questionsCount,
+      } as Quiz,
+    ];
+  });
 
   // Get tutor profile to fetch tutor ID
   const { data: tutorProfileResponse, isLoading: isLoadingProfile } =
@@ -139,8 +169,8 @@ export default function AssignHomeworkForm({
       toast.success("Homework assigned successfully!");
 
       // Reset form
-      setStudent(null);
-      setQuiz("");
+      setStudent(fixedStudentId ?? null);
+      setQuiz(initialQuiz?.id ?? "");
       setDate(undefined);
       setStudentSearch("");
       setStudentDropdownOpen(false);
@@ -160,175 +190,197 @@ export default function AssignHomeworkForm({
   };
 
   return (
-    <div className="flex flex-col items-center min-h-[80vh] justify-center px-4">
-      <div className="w-full max-w-xl mx-auto">
-        <button
-          onClick={onBack}
-          className="mb-8 text-gray-500 flex items-center gap-2"
-        >
-          <BackArrow />{" "}
-        </button>
-        <h2 className="text-2xl font-medium mb-8">Assign Homework</h2>
-        <div className="space-y-8">
+    <div
+      className={
+        embedded
+          ? "w-full"
+          : "flex flex-col items-center min-h-[80vh] justify-center px-4"
+      }
+    >
+      <div className={embedded ? "w-full" : "w-full max-w-xl mx-auto"}>
+        {!embedded ? (
+          <>
+            <button
+              onClick={onBack}
+              className="mb-8 text-gray-500 flex items-center gap-2"
+            >
+              <BackArrow />{" "}
+            </button>
+            <h2 className="text-2xl font-medium mb-8">Assign Homework</h2>
+          </>
+        ) : null}
+        <div className={embedded ? "space-y-6" : "space-y-8"}>
           {/* Student Dropdown */}
-          <div>
-            <label className="block mb-2 font-medium">Student</label>
-            <div className="relative">
-              <button
-                type="button"
-                className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center justify-between focus:outline-none text-base"
-                onClick={() => setStudentDropdownOpen((v) => !v)}
-                disabled={isLoadingStudents || isLoadingProfile}
-              >
-                {student ? (
-                  <span>
-                    {students.find((s) => s.id === student)?.name}
-                    <span className="block text-xs text-gray-400">
-                      Year {students.find((s) => s.id === student)?.year}
-                    </span>
-                  </span>
-                ) : (
-                  <span className="text-gray-400">
-                    {isLoadingStudents
-                      ? "Loading students..."
-                      : "Select a student"}
-                  </span>
-                )}
-                {isLoadingStudents ? (
-                  <Loader2 className="h-5 w-5 ml-auto animate-spin" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 ml-auto" />
-                )}
-              </button>
-              {studentDropdownOpen && !isLoadingStudents && (
-                <div className="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg z-10 max-h-72 overflow-y-auto border border-gray-100">
-                  <div className="p-4 pb-2">
-                    <div className="relative">
-                      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        placeholder="Search"
-                        value={studentSearch}
-                        onChange={(e) => setStudentSearch(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 focus:outline-none shadow-none bg-white rounded-xl"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    {filteredStudents.length === 0 && (
-                      <div className="p-4 text-gray-400 text-center">
-                        No students found
-                      </div>
-                    )}
-                    {filteredStudents.map((s) => (
-                      <button
-                        key={s.id}
-                        className="w-full text-left px-6 py-4 hover:bg-gray-100 focus:bg-gray-100 border-b last:border-b-0 border-gray-100"
-                        onClick={() => {
-                          setStudent(s.id);
-                          setStudentDropdownOpen(false);
-                          setStudentSearch("");
-                        }}
-                      >
-                        <div className="font-medium">{s.name}</div>
-                        <div className="text-xs text-gray-400">
-                          Year {s.year}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          {/* Quiz Dropdown */}
-          <div>
-            <label className="block mb-2 font-medium">Quiz</label>
-            <div className="relative">
-              <button
-                type="button"
-                className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center justify-between focus:outline-none text-base"
-                onClick={() => setQuizDropdownOpen((v) => !v)}
-                disabled={isLoadingQuizzes && !accumulatedQuizzes.length}
-              >
-                {selectedQuiz ? (
-                  <span>
-                    <span className="text-black">{selectedQuiz.title}</span>
-                    {selectedQuiz.description && (
-                      <span className="block text-xs text-gray-400">
-                        {selectedQuiz.description}
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  <span className="text-gray-400">Select a quiz</span>
-                )}
-                {isLoadingQuizzes && !accumulatedQuizzes.length ? (
-                  <Loader2 className="h-5 w-5 ml-auto animate-spin" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 ml-auto" />
-                )}
-              </button>
-              {quizDropdownOpen && (
-                <div
-                  ref={quizDropdownRef}
-                  className="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg z-10 max-h-72 overflow-y-auto border border-gray-100"
+          {!fixedStudentId ? (
+            <div>
+              <label className="block mb-2 font-medium">Student</label>
+              <div className="relative">
+                <button
+                  type="button"
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center justify-between focus:outline-none text-base"
+                  onClick={() => setStudentDropdownOpen((v) => !v)}
+                  disabled={isLoadingStudents || isLoadingProfile}
                 >
-                  <div className="p-4 pb-2 sticky top-0 bg-white z-20">
-                    <div className="relative">
-                      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        placeholder="Search quizzes"
-                        value={quizSearch}
-                        onChange={(e) => {
-                          setQuizSearch(e.target.value);
-                        }}
-                        className="w-full pl-9 pr-4 py-2 focus:outline-none shadow-none bg-white rounded-xl"
-                      />
+                  {student ? (
+                    <span>
+                      {students.find((s) => s.id === student)?.name}
+                      <span className="block text-xs text-gray-400">
+                        Year {students.find((s) => s.id === student)?.year}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">
+                      {isLoadingStudents ? "Loading students..." : "Select a student"}
+                    </span>
+                  )}
+                  {isLoadingStudents ? (
+                    <Loader2 className="h-5 w-5 ml-auto animate-spin" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 ml-auto" />
+                  )}
+                </button>
+                {studentDropdownOpen && !isLoadingStudents && (
+                  <div className="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg z-10 max-h-72 overflow-y-auto border border-gray-100">
+                    <div className="p-4 pb-2">
+                      <div className="relative">
+                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Search"
+                          value={studentSearch}
+                          onChange={(e) => setStudentSearch(e.target.value)}
+                          className="w-full pl-9 pr-4 py-2 focus:outline-none shadow-none bg-white rounded-xl"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      {filteredStudents.length === 0 && (
+                        <div className="p-4 text-gray-400 text-center">
+                          No students found
+                        </div>
+                      )}
+                      {filteredStudents.map((s) => (
+                        <button
+                          key={s.id}
+                          className="w-full text-left px-6 py-4 hover:bg-gray-100 focus:bg-gray-100 border-b last:border-b-0 border-gray-100"
+                          onClick={() => {
+                            setStudent(s.id);
+                            setStudentDropdownOpen(false);
+                            setStudentSearch("");
+                          }}
+                        >
+                          <div className="font-medium">{s.name}</div>
+                          <div className="text-xs text-gray-400">Year {s.year}</div>
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <div>
-                    {accumulatedQuizzes.length === 0 && !isLoadingQuizzes && (
-                      <div className="p-4 text-gray-400 text-center">
-                        No quizzes found
-                      </div>
-                    )}
-                    {accumulatedQuizzes.map((q) => (
-                      <button
-                        key={q.id}
-                        className="w-full text-left px-6 py-4 hover:bg-gray-100 focus:bg-gray-100 border-b last:border-b-0 border-gray-100"
-                        onClick={() => {
-                          setQuiz(q.id || "");
-                          setQuizDropdownOpen(false);
-                        }}
-                      >
-                        <div className="font-medium">{q.title}</div>
-                        {q.description && (
-                          <div className="text-xs text-gray-400 line-clamp-1">
-                            {q.description}
-                          </div>
-                        )}
-                        {q.questionsCount !== undefined && (
-                          <div className="text-xs text-gray-400 mt-1">
-                            {q.questionsCount} questions
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                    {isLoadingQuizzes && (
-                      <div className="p-4 text-center">
-                        <Loader2 className="h-5 w-5 animate-spin mx-auto text-gray-400" />
-                      </div>
-                    )}
-                    {quizPagination?.hasNextPage && !isLoadingQuizzes && (
-                      <div className="p-2 text-center text-xs text-gray-400">
-                        Scroll for more
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div>
+              <label className="block mb-2 font-medium">Student</label>
+              <div className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-left text-base">
+                <div className="font-medium text-gray-900">
+                  {fixedStudentLabel?.name ?? "Selected"}
+                </div>
+                {fixedStudentLabel?.year !== undefined && fixedStudentLabel?.year !== null ? (
+                  <div className="text-xs text-gray-400">Year {fixedStudentLabel.year}</div>
+                ) : null}
+              </div>
+            </div>
+          )}
+          {/* Quiz Dropdown */}
+          {!hideQuizPicker ? (
+            <div>
+              <label className="block mb-2 font-medium">Quiz</label>
+              <div className="relative">
+                <button
+                  type="button"
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center justify-between focus:outline-none text-base"
+                  onClick={() => setQuizDropdownOpen((v) => !v)}
+                  disabled={isLoadingQuizzes && !accumulatedQuizzes.length}
+                >
+                  {selectedQuiz ? (
+                    <span>
+                      <span className="text-black">{selectedQuiz.title}</span>
+                      {selectedQuiz.description && (
+                        <span className="block text-xs text-gray-400">
+                          {selectedQuiz.description}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">Select a quiz</span>
+                  )}
+                  {isLoadingQuizzes && !accumulatedQuizzes.length ? (
+                    <Loader2 className="h-5 w-5 ml-auto animate-spin" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 ml-auto" />
+                  )}
+                </button>
+                {quizDropdownOpen && (
+                  <div
+                    ref={quizDropdownRef}
+                    className="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg z-10 max-h-72 overflow-y-auto border border-gray-100"
+                  >
+                    <div className="p-4 pb-2 sticky top-0 bg-white z-20">
+                      <div className="relative">
+                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Search quizzes"
+                          value={quizSearch}
+                          onChange={(e) => {
+                            setQuizSearch(e.target.value);
+                          }}
+                          className="w-full pl-9 pr-4 py-2 focus:outline-none shadow-none bg-white rounded-xl"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      {accumulatedQuizzes.length === 0 && !isLoadingQuizzes && (
+                        <div className="p-4 text-gray-400 text-center">
+                          No quizzes found
+                        </div>
+                      )}
+                      {accumulatedQuizzes.map((q) => (
+                        <button
+                          key={q.id}
+                          className="w-full text-left px-6 py-4 hover:bg-gray-100 focus:bg-gray-100 border-b last:border-b-0 border-gray-100"
+                          onClick={() => {
+                            setQuiz(q.id || "");
+                            setQuizDropdownOpen(false);
+                          }}
+                        >
+                          <div className="font-medium">{q.title}</div>
+                          {q.description && (
+                            <div className="text-xs text-gray-400 line-clamp-1">
+                              {q.description}
+                            </div>
+                          )}
+                          {q.questionsCount !== undefined && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              {q.questionsCount} questions
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                      {isLoadingQuizzes && (
+                        <div className="p-4 text-center">
+                          <Loader2 className="h-5 w-5 animate-spin mx-auto text-gray-400" />
+                        </div>
+                      )}
+                      {quizPagination?.hasNextPage && !isLoadingQuizzes && (
+                        <div className="p-2 text-center text-xs text-gray-400">
+                          Scroll for more
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
           {/* Date Input */}
           <div>
             <label className="block mb-2 font-medium">To be submitted</label>

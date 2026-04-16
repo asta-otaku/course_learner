@@ -49,7 +49,8 @@ import { usePostCreateChat } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { Loader2, Lock } from "lucide-react";
 import { format } from "date-fns";
-import type { LearningPathSummary } from "@/lib/types";
+import type { LearningPathSummary, SchemeOfWork } from "@/lib/types";
+import AssignHomeworkForm from "@/components/tutor/homework/assignHomework";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -201,6 +202,12 @@ export default function StudentPage({ id }: { id: string }) {
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [selectedYearGroupId, setSelectedYearGroupId] = useState("");
 
+  // Assign-quiz modal (scheme of work)
+  const [showAssignQuizDialog, setShowAssignQuizDialog] = useState(false);
+  const [schemeQuizToAssign, setSchemeQuizToAssign] = useState<SchemeOfWork | null>(
+    null
+  );
+
   const { mutateAsync: assignBaseline, isPending: assigning } =
     usePostAssignBaselineTest();
 
@@ -219,15 +226,9 @@ export default function StudentPage({ id }: { id: string }) {
     }
   };
 
-  // Group scheme of work by lesson for the Scheme of Work tab
-  const schemeGrouped = useMemo(() => {
-    const map = new Map<string, typeof schemeOfWork>();
-    for (const item of schemeOfWork) {
-      const key = item.lessonTitle;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(item);
-    }
-    return Array.from(map.entries());
+  const schemeRows = useMemo(() => {
+    const rows = (schemeOfWork || []) as SchemeOfWork[];
+    return [...rows].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
   }, [schemeOfWork]);
 
   // Progress snapshot — derived from scheme of work (inLearningPath items only)
@@ -291,28 +292,28 @@ export default function StudentPage({ id }: { id: string }) {
         </button>
 
         {/* Profile header */}
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={profile.avatar || ""}
-                  alt={profile.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      "https://via.placeholder.com/80x80?text=Avatar";
-                  }}
-                />
-              </div>
-                <div className="font-semibold text-lg text-gray-900">
-                  {profile.name}
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={profile.avatar || ""}
+                alt={profile.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src =
+                    "https://via.placeholder.com/80x80?text=Avatar";
+                }}
+              />
             </div>
-            <span className="cursor-pointer" onClick={handleMessage}>
-              <MailIcon />
-            </span>
+            <div className="font-semibold text-lg text-gray-900">
+              {profile.name}
+            </div>
           </div>
+          <span className="cursor-pointer" onClick={handleMessage}>
+            <MailIcon />
+          </span>
+        </div>
 
         {/* ── DETAILS ─────────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-2">
@@ -324,10 +325,10 @@ export default function StudentPage({ id }: { id: string }) {
               <div className="flex items-center gap-2">
                 <span>
                   {profile.offerType === "platform" ? "Platform" : "Tuition"}
-                  </span>
-                  <Badge
+                </span>
+                <Badge
                   className={`px-2 py-0.5 rounded-full text-xs font-medium ${profile.status === "active"
-                      ? "bg-[#34C759] text-white"
+                    ? "bg-[#34C759] text-white"
                     : profile.status === "not-active"
                       ? "bg-red-500 text-white"
                       : "bg-gray-500 text-white"
@@ -338,19 +339,19 @@ export default function StudentPage({ id }: { id: string }) {
                     : profile.status === "not-active"
                       ? "Inactive"
                       : "Pending"}
-                  </Badge>
+                </Badge>
               </div>
             }
           />
           <InfoRow
             label="Joined"
             value={new Date(profile.createdAt).toLocaleDateString("en-GB", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric",
-                  })}
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            })}
           />
-              </div>
+        </div>
 
         {/* ── BASELINE TEST SUMMARY ────────────────────────────────────────── */}
         <div className="flex flex-col gap-2">
@@ -440,7 +441,7 @@ export default function StudentPage({ id }: { id: string }) {
               </span>
             }
           />
-      </div>
+        </div>
 
         {/* ── CONTROLS ─────────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-3">
@@ -461,16 +462,16 @@ export default function StudentPage({ id }: { id: string }) {
             >
               <SelectTrigger className="w-20 h-7 text-xs">
                 <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
+              </SelectTrigger>
+              <SelectContent>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <SelectItem key={n} value={String(n)}>
                     {n}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Pause toggle */}
           <div className="flex items-center justify-between text-sm">
@@ -510,7 +511,7 @@ export default function StudentPage({ id }: { id: string }) {
             </p>
           </div>
         ) : (
-          <Tabs defaultValue="scheme" className="w-full">
+          <Tabs defaultValue="student-work" className="w-full">
             <TabsList className="mb-4">
               <TabsTrigger value="student-work">Student Work</TabsTrigger>
               <TabsTrigger value="scheme">Scheme of Work</TabsTrigger>
@@ -526,68 +527,72 @@ export default function StudentPage({ id }: { id: string }) {
               ) : schemeOfWork.length === 0 ? (
                 <EmptyState message="No scheme of work available for this student." />
               ) : (
-                <div className="space-y-6 overflow-y-auto max-h-[70vh] pr-1">
-                  {schemeGrouped.map(([lesson, items]) => (
-                    <div key={lesson}>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2 px-1">
-                        {lesson}
-                      </p>
-                      <div className="rounded-md border overflow-hidden">
-                        {items.map((item, idx) => {
-                          const isInPath = item.inLearningPath;
-                          const isAssigned = item.status === "assigned";
-                          const isQueue = item.status === "queue";
-                          const isCompleted = item.status === "completed";
-                          return (
-                            <div
-                              key={item.quizId}
-                              className={`flex items-center gap-3 px-4 py-3 border-b last:border-b-0 transition-colors ${!isInPath
-                                ? "opacity-40 bg-gray-50"
-                                : isAssigned
-                                  ? "bg-blue-50 border-l-4 border-l-primaryBlue"
-                                  : isQueue
-                                    ? "bg-white"
-                                    : isCompleted
-                                      ? "bg-green-50/40"
-                                      : "bg-white"
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Section</TableHead>
+                        <TableHead>Lesson</TableHead>
+                        <TableHead>Quiz title</TableHead>
+                        <TableHead>Quiz description</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {schemeRows.map((item) => {
+                        const statusLabel =
+                          String(item.status).toLowerCase() === "skipped"
+                            ? "Skipped"
+                            : "Queue";
+                        const canAssign = item.inLearningPath;
+                        return (
+                          <TableRow
+                            key={`${item.quizId}-${item.orderIndex}`}
+                            className={!item.inLearningPath ? "opacity-50" : undefined}
+                          >
+                            <TableCell className="text-sm text-gray-500">
+                              {item.sectionTitle}
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-500">
+                              {item.lessonTitle}
+                            </TableCell>
+                            <TableCell className="font-medium text-sm max-w-[220px]">
+                              <span className="line-clamp-2">{item.quizTitle}</span>
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-400 max-w-[260px]">
+                              <span className="line-clamp-2">—</span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                className={`text-xs font-medium capitalize ${
+                                  statusLabel === "Skipped"
+                                    ? "bg-gray-100 text-gray-600"
+                                    : "bg-yellow-100 text-yellow-700"
                                 }`}
-                            >
-                              <span className="text-xs text-gray-400 w-5 shrink-0 text-right font-mono">
-                                {item.orderIndex ?? idx + 1}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <p
-                                  className={`text-sm font-medium truncate ${!isInPath ? "text-gray-400" : "text-gray-900"
-                                    }`}
-                                >
-                                  {item.quizTitle}
-                                </p>
-                                <p className="text-xs text-gray-400 truncate">
-                                  {item.sectionTitle}
-                                </p>
-                              </div>
-                              {isInPath ? (
-                                <Badge
-                                  className={`text-xs font-medium capitalize shrink-0 ${statusBadgeClass[item.status] ??
-                                    "bg-gray-100 text-gray-600"
-                                    } ${isAssigned ? "ring-1 ring-blue-300" : ""}`}
-                                >
-                                  {isAssigned && (
-                                    <span className="mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                                  )}
-                                  {item.status.replace(/_/g, " ")}
-                                </Badge>
-                              ) : (
-                                <span className="text-xs text-gray-300 shrink-0">
-                                  not in path
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                              >
+                                {statusLabel}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-full"
+                                disabled={!canAssign}
+                                onClick={() => {
+                                  setSchemeQuizToAssign(item);
+                                  setShowAssignQuizDialog(true);
+                                }}
+                              >
+                                Assign Quiz
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </TabsContent>
@@ -608,43 +613,43 @@ export default function StudentPage({ id }: { id: string }) {
                         {section === "assigned" ? "Assigned" : "Up Next"}
                       </p>
                       {learningPathSummary[section]?.length > 0 ? (
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Quiz</TableHead>
+                        <div className="rounded-md border overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Quiz</TableHead>
                                 <TableHead>Section</TableHead>
                                 <TableHead>Lesson</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                                <TableHead>Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
                               {learningPathSummary[section].map((item) => (
                                 <TableRow key={item.quizId}>
                                   <TableCell className="font-medium text-sm max-w-[160px]">
-                            <span className="line-clamp-2">
-                              {item.quizTitle}
-                            </span>
-                          </TableCell>
+                                    <span className="line-clamp-2">
+                                      {item.quizTitle}
+                                    </span>
+                                  </TableCell>
                                   <TableCell className="text-sm text-gray-500">
-                            {item.sectionTitle}
-                          </TableCell>
+                                    {item.sectionTitle}
+                                  </TableCell>
                                   <TableCell className="text-sm text-gray-500">
                                     {item.lessonTitle}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              className={`text-xs font-medium capitalize ${statusBadgeClass[item.status] ??
-                                "bg-gray-100 text-gray-600"
-                                }`}
-                            >
-                              {item.status.replace(/_/g, " ")}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      className={`text-xs font-medium capitalize ${statusBadgeClass[item.status] ??
+                                        "bg-gray-100 text-gray-600"
+                                        }`}
+                                    >
+                                      {item.status.replace(/_/g, " ")}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
                         </div>
                       ) : (
                         <p className="text-sm text-gray-400 px-1">
@@ -733,10 +738,10 @@ export default function StudentPage({ id }: { id: string }) {
                       )}
                     </TableBody>
                   </Table>
-            </div>
+                </div>
               )}
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
 
@@ -873,6 +878,33 @@ export default function StudentPage({ id }: { id: string }) {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── ASSIGN QUIZ DIALOG (Scheme of Work) ──────────────────────────── */}
+      <Dialog open={showAssignQuizDialog} onOpenChange={setShowAssignQuizDialog}>
+        <DialogContent className="max-w-xl p-0 overflow-hidden">
+          <div className="border-b bg-white px-6 py-4">
+            <DialogHeader>
+              <DialogTitle>Assign Quiz</DialogTitle>
+            </DialogHeader>
+          </div>
+          <div className="bg-white px-6 py-6">
+            {schemeQuizToAssign ? (
+              <AssignHomeworkForm
+                embedded
+                hideQuizPicker
+                onBack={() => setShowAssignQuizDialog(false)}
+                onAssign={() => setShowAssignQuizDialog(false)}
+                fixedStudentId={id}
+                fixedStudentLabel={{ name: profile.name, year: profile.year }}
+                initialQuiz={{
+                  id: schemeQuizToAssign.quizId,
+                  title: schemeQuizToAssign.quizTitle,
+                }}
+              />
+            ) : null}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

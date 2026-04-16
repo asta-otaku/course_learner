@@ -2,7 +2,11 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { isUserTypeAuthenticated, getAndClearIntendedUrl } from "@/lib/services/axiosInstance";
+import {
+  isUserTypeAuthenticated,
+  getAndClearIntendedUrl,
+  resetAuthState,
+} from "@/lib/services/axiosInstance";
 import SigninForm from "./signinForm";
 
 export default function Signin() {
@@ -17,10 +21,12 @@ export default function Signin() {
     const isTutor = pathname.includes("tutor");
 
     if (isAdmin && isUserTypeAuthenticated("admin")) {
+      resetAuthState();
       // Check for intended URL first
       const intendedUrl = getAndClearIntendedUrl();
       router.push(intendedUrl || "/admin");
     } else if (isTutor && isUserTypeAuthenticated("tutor")) {
+      resetAuthState();
       // Check for intended URL first
       const intendedUrl = getAndClearIntendedUrl();
       router.push(intendedUrl || "/tutor");
