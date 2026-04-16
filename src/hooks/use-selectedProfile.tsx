@@ -41,17 +41,32 @@ export function useSelectedProfile() {
   /** Parent platform session only — avoids /child-profiles on public & sign-in (401 loops). */
   const [platformUserSignedIn, setPlatformUserSignedIn] = useState(false);
 
-  useEffect(() => {
-    setPlatformUserSignedIn(isUserTypeAuthenticated("user"));
+  const isPlatformRoute = useMemo(() => {
+    const p = pathname || "";
+    // Anything under these prefixes is not the parent platform session.
+    // Keep the profile/curricula queries off to avoid 401 retry loops.
+    if (p.startsWith("/tutor")) return false;
+    if (p.startsWith("/admin")) return false;
+    return true;
   }, [pathname]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || platformUserSignedIn) return;
+    if (!isPlatformRoute) {
+      setPlatformUserSignedIn(false);
+      return;
+    }
+    setPlatformUserSignedIn(isUserTypeAuthenticated("user"));
+  }, [isPlatformRoute, pathname]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isPlatformRoute) return;
+    if (platformUserSignedIn) return;
     const id = window.setInterval(() => {
       if (isUserTypeAuthenticated("user")) setPlatformUserSignedIn(true);
     }, 400);
     return () => window.clearInterval(id);
-  }, [platformUserSignedIn, pathname]);
+  }, [platformUserSignedIn, isPlatformRoute, pathname]);
 
   const {
     data: childProfilesResp,

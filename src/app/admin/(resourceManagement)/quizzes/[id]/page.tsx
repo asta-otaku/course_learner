@@ -23,6 +23,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useGetQuiz, useGetQuizQuestions } from "@/lib/api/queries";
 import { formatDistanceToNow } from "date-fns";
 import { useMemo, useState, useEffect } from "react";
+import { MathPreview } from "@/components/resourceManagemement/editor";
 
 // Force dynamic rendering
 export const dynamic = "force-dynamic";
@@ -345,9 +346,11 @@ export default function QuizPage() {
                           <h4 className="font-medium">
                             {index + 1}. {qq.question.title}
                           </h4>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {qq.question.content}
-                          </p>
+                          <MathPreview
+                            content={qq.question.content}
+                            className="text-sm text-muted-foreground"
+                            renderMarkdown={true}
+                          />
                         </div>
                         <Badge variant="secondary">{qq.question.type}</Badge>
                       </div>
