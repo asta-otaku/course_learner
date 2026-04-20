@@ -1260,6 +1260,7 @@ export interface LearningPath {
   sectionName: string
   lessonName: string
   status: string
+  dueAt: string;
   homeworkId: string
 }
 

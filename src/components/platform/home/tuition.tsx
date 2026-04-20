@@ -19,20 +19,10 @@ import {
 } from "@/lib/api/queries";
 import DoubleQuote from "@/assets/svgs/doubleQuote";
 import type { LearningPath } from "@/lib/types";
-
-const STATUS_BADGE_CLASS: Record<string, string> = {
-  not_started: "bg-gray-100 text-gray-600",
-  in_progress: "bg-amber-100 text-amber-800",
-  completed: "bg-green-100 text-green-800",
-};
+import { format } from "date-fns";
 
 type TuitionHomeProps = {
-  /** Override offerType when profile data is stale on first load (post-signup). */
   offerTypeOverride?: string;
-  /**
-   * Fresh active profile row from /child-profiles.
-   * Used to avoid stale tutor fields immediately after Stripe success.
-   */
   activeProfileOverride?: any;
 };
 
@@ -43,8 +33,6 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
   const { push } = useRouter();
   const { mutateAsync: createChat } = usePostCreateChat();
 
-  // Ensure curricula endpoint receives the correct offerType on first load (post-signup),
-  // without globally forcing the query on all pages.
   useGetCurricula({
     offerType: offerTypeOverride ?? effectiveProfile?.offerType ?? "tuition",
   });
@@ -128,7 +116,7 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
                   <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider">Quiz</th>
                   <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider hidden md:table-cell">Lesson</th>
                   <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider hidden sm:table-cell">Section</th>
-                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider">Status</th>
+                  <th className="pb-3 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wider">Deadline</th>
                   <th className="pb-3 font-medium text-gray-500 text-xs uppercase tracking-wider text-right">Action</th>
                 </tr>
               </thead>
@@ -143,19 +131,14 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
                         {item.quizTitle}
                       </span>
                     </td>
-                    <td className="py-4 pr-4 align-middle hidden md:table-cell text-sm text-gray-500">
+                    <td className="py-4 pr-4 align-middle hidden sm:table-cell text-sm text-gray-500">
                       {item.lessonName}
                     </td>
                     <td className="py-4 pr-4 align-middle hidden sm:table-cell text-sm text-gray-500">
                       {item.sectionName}
                     </td>
-                    <td className="py-4 pr-4 align-middle">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${STATUS_BADGE_CLASS[item.status] ?? "bg-gray-100 text-gray-600"
-                          }`}
-                      >
-                        {item.status.replace(/_/g, " ")}
-                      </span>
+                    <td className="py-4 pr-4 align-middle hidden sm:table-cell text-sm text-gray-500">
+                      {item.dueAt ? format(new Date(item.dueAt), "MMM d, yyyy") : "N/A"}
                     </td>
                     <td className="py-4 text-right">
                       <Link
