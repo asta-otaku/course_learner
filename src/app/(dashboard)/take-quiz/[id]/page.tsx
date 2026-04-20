@@ -16,7 +16,7 @@ import {
   useGetResumeQuizAttempt,
   useGetLessonById,
 } from "@/lib/api/queries";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useProfile } from "@/context/profileContext";
 import LessonVideoPlayer from "@/components/platform/library/lessonVideoPlayer";
@@ -110,13 +110,17 @@ export default function TakeQuizPage() {
     (lessonIntroFetching || Boolean(lessonTitle) || hasPlayableLessonVideo);
 
   // Fetch resume data to show answered count in the notice.
-  // - URL-param case: use resumeAttemptId
-  // - After-start case: use attemptId once the server tells us it's resuming
-  const resumeQueryId = isResuming
-    ? resumeAttemptId || ""
-    : isResumingFromStart && attemptId
-      ? attemptId
-      : "";
+  // - URL-param case (regular quiz): use resumeAttemptId
+  // - Baseline test: always use quizAttemptId — that's the quiz-level attempt that
+  //   holds previous answers (baselineAttemptId is the wrapper, not the question store)
+  // - After-start case (homework / regular): use attemptId
+  const resumeQueryId = isBaselineTest && quizAttemptId
+    ? quizAttemptId
+    : isResuming
+      ? resumeAttemptId || ""
+      : isResumingFromStart && attemptId
+        ? attemptId
+        : "";
   const { data: resumeResponse, isLoading: isLoadingResumeData } =
     useGetResumeQuizAttempt(resumeQueryId);
 
@@ -128,6 +132,35 @@ export default function TakeQuizPage() {
 
   // Whether we are in any kind of resume flow (before the quiz starts)
   const isResumingDetected = isResuming || isResumingFromStart;
+
+  // Baseline tests: once we have the quizAttemptId and the resume data has loaded,
+  // decide automatically whether to show the resume screen or start immediately.
+  // - If there are previous answers → stay on pre-quiz screen (user clicks "Resume")
+  // - If no previous answers → fresh start, proceed to the quiz right away
+  useEffect(() => {
+    if (
+      !isBaselineTest ||
+      !isResumingFromStart ||
+      isLoadingResumeData ||
+      quizStarted
+    )
+      return;
+
+    if (resumedAnsweredCount === 0) {
+      setQuizStarted(true);
+      toast.success("Baseline test started!");
+    } else {
+      toast.info(
+        "Baseline test already in progress — review the details and resume.",
+      );
+    }
+  }, [
+    isBaselineTest,
+    isResumingFromStart,
+    isLoadingResumeData,
+    resumedAnsweredCount,
+    quizStarted,
+  ]);
 
   // Handler for the main CTA button
   const handleStartOrResumeClick = () => {
@@ -161,15 +194,11 @@ export default function TakeQuizPage() {
               setAttemptId(resolvedAttemptId);
               setQuizAttemptId(data.quizAttemptId);
               setQuizId(id);
-              if (data.isResuming) {
-                setIsResumingFromStart(true);
-                toast.info(
-                  "Baseline test already started — review the details and resume.",
-                );
-              } else {
-                setQuizStarted(true);
-                toast.success("Baseline test started!");
-              }
+              // The API never returns `isResuming` for baseline tests.
+              // Always trigger the resume-data check via quizAttemptId.
+              // A useEffect below will auto-proceed if no previous answers exist,
+              // or show the resume screen when there are answered questions.
+              setIsResumingFromStart(true);
             } else {
               console.error("Attempt ID not found in baseline test response");
               toast.error("Failed to start baseline test. Please try again.");
@@ -286,8 +315,16 @@ export default function TakeQuizPage() {
         ? "Start Homework"
         : "Start Quiz";
 
+  // Also treat "checking for baseline resume data" as pending so the button
+  // keeps showing a spinner rather than flashing "Resume Baseline Test" for a
+  // fresh start while the resume endpoint is still in flight.
+  const isCheckingBaselineResume =
+    isBaselineTest && isResumingFromStart && isLoadingResumeData;
   const isPending =
-    isStartingQuiz || isStartingHomework || isStartingBaselineTest;
+    isStartingQuiz ||
+    isStartingHomework ||
+    isStartingBaselineTest ||
+    isCheckingBaselineResume;
 
   // Resume notice — shown just above the CTA button
   // immediate feedback: locked-answers warning; other modes: simple continuation message

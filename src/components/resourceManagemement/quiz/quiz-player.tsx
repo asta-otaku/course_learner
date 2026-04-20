@@ -131,12 +131,16 @@ export function QuizPlayer({
     timeLimit: actualTimeLimit,
   };
 
-  // Fetch resume data if resuming (for all quiz types: regular, baseline, homework)
+  // Fetch resume data if resuming.
+  // Baseline tests store answers against quizAttemptId (not baselineAttemptId),
+  // so we must use quizAttemptId for the resume fetch when available.
+  const resumeAttemptIdToUse =
+    isBaselineTest && quizAttemptId ? quizAttemptId : attemptId || "";
   const {
     data: resumeResponse,
     isLoading: resumeLoading,
     error: resumeError,
-  } = useGetResumeQuizAttempt(isResuming && attemptId ? attemptId : "");
+  } = useGetResumeQuizAttempt(isResuming && resumeAttemptIdToUse ? resumeAttemptIdToUse : "");
 
   // Fetch questions only when attemptId is available and NOT resuming
   // Note: The hook will only fetch when quizId is truthy, but we also need attemptId
