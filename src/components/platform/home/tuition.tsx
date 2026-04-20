@@ -13,7 +13,6 @@ import { toast } from "react-toastify";
 import { TutorChangeRequestDialog } from "./tutor-change-request-dialog";
 import {
   useGetChildBaselineTest,
-  useGetChildBaselineTestEntries,
   useGetCurricula,
   useGetLearningPath,
 } from "@/lib/api/queries";
@@ -47,14 +46,7 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
   );
   const childBaselineTest = baselineTestResponse?.data ?? null;
 
-  // Baseline attempts: if any attempt has submittedAt, baseline is "complete" → hide the block
-  const { data: baselineAttemptsResponse } = useGetChildBaselineTestEntries(
-    effectiveProfile?.id || ""
-  );
-  const hasCompletedBaseline = useMemo(() => {
-    const attempts = baselineAttemptsResponse?.data || [];
-    return attempts.some((a: { submittedAt?: string | null }) => a.submittedAt != null);
-  }, [baselineAttemptsResponse?.data]);
+
 
   const handleMessage = async () => {
     if (
@@ -158,7 +150,7 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
         {/* Right Column */}
         <div className="md:w-2/5 flex flex-col gap-2">
           {/* Baseline Test - only show when not yet completed (not started or in progress) */}
-          {!hasCompletedBaseline && (
+          {activeProfile?.status === "pending" && (
             <div className="border border-[#00000033] rounded-2xl bg-white px-6 pt-4 pb-2">
               <p className="text-base font-semibold flex items-center gap-3">
                 <DoubleQuote /> Baseline Test

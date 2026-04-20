@@ -86,6 +86,29 @@ export default function Navbar() {
         ? "platform"
         : (activeProfileFresh as any)?.offerType;
 
+  const hasResolvedAccessLevel = React.useMemo(() => {
+    // We consider access "resolved" if either:
+    // - manage subscription explicitly says platform/tuition, or
+    // - the refreshed profile row contains an offerType.
+    if (manageAccessLevel === "platform" || manageAccessLevel === "tuition")
+      return true;
+    return (activeProfileFresh as any)?.offerType != null;
+  }, [manageAccessLevel, activeProfileFresh]);
+
+  const isAccessDenied = React.useMemo(() => {
+    if (!hasResolvedAccessLevel) return false;
+    return effectiveOfferType !== "platform" && effectiveOfferType !== "tuition";
+  }, [effectiveOfferType, hasResolvedAccessLevel]);
+
+  React.useEffect(() => {
+    // Global guard for all (dashboard) routes: redirect to pricing.
+    // Allow pricing itself to avoid loops.
+    if (!isAuthenticated) return;
+    if (!isAccessDenied) return;
+    if ((pathname || "").startsWith("/pricing")) return;
+    push("/pricing");
+  }, [isAuthenticated, isAccessDenied, pathname, push]);
+
   const routes =
     effectiveOfferType === "platform" ? platformRoutes : tuitionRoutes;
 

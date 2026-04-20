@@ -2269,7 +2269,7 @@ export const usePostAssignBaselineTest = () => {
       childId: string;
       yearGroupId: string;
     }): Promise<ApiResponse<BaselineTest>> =>
-      axiosInstance.post(`/learning-path/${childId}/assign-baseline`, {
+      axiosInstance.post(`/baseline-test/assign/${childId}`, {
         yearGroupId,
       }),
     onSuccess: (_, { childId }) => {
