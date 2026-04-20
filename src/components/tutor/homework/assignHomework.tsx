@@ -27,6 +27,7 @@ export default function AssignHomeworkForm({
   fixedStudentLabel,
   initialQuiz,
   hideQuizPicker,
+  hideDueDate,
   embedded,
 }: {
   onBack: () => void;
@@ -44,6 +45,8 @@ export default function AssignHomeworkForm({
   };
   /** When true, hides the quiz selector UI (quiz is still assigned via `initialQuiz`). */
   hideQuizPicker?: boolean;
+  /** When true, removes the due date field entirely. */
+  hideDueDate?: boolean;
   /** When true, renders without the full-page layout/back button. */
   embedded?: boolean;
 }) {
@@ -154,7 +157,7 @@ export default function AssignHomeworkForm({
   const selectedQuiz = accumulatedQuizzes.find((q) => q.id === quiz);
 
   const handleAssign = async () => {
-    if (!student || !quiz || !date) {
+    if (!student || !quiz) {
       toast.error("Please fill in all fields");
       return;
     }
@@ -163,7 +166,7 @@ export default function AssignHomeworkForm({
       await postHomeworkMutation.mutateAsync({
         studentId: student,
         quizId: quiz,
-        dueAt: date.toISOString(),
+        dueAt: hideDueDate ? undefined : date?.toISOString(),
       });
 
       toast.success("Homework assigned successfully!");
@@ -382,52 +385,56 @@ export default function AssignHomeworkForm({
             </div>
           ) : null}
           {/* Date Input */}
-          <div>
-            <label className="block mb-2 font-medium">To be submitted</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={
-                    "w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center focus:outline-none text-base"
-                  }
-                >
-                  <span className={date ? "text-black" : "text-gray-400"}>
-                    {date ? format(date, "PPP") : "Pick a date"}
-                  </span>
-                  <span className="ml-auto">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-5 h-5 text-gray-400"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6.75 3v2.25M17.25 3v2.25M3.75 7.5h16.5M4.5 21h15a.75.75 0 00.75-.75V7.5a.75.75 0 00-.75-.75h-15a.75.75 0 00-.75.75v12.75c0 .414.336.75.75.75z"
-                      />
-                    </svg>
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+          {!hideDueDate ? (
+            <div>
+              <label className="block mb-2 font-medium">To be submitted</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className={
+                      "w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center focus:outline-none text-base"
+                    }
+                  >
+                    <span className={date ? "text-black" : "text-gray-400"}>
+                      {date ? format(date, "PPP") : "Pick a date"}
+                    </span>
+                    <span className="ml-auto">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 text-gray-400"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6.75 3v2.25M17.25 3v2.25M3.75 7.5h16.5M4.5 21h15a.75.75 0 00.75-.75V7.5a.75.75 0 00-.75-.75h-15a.75.75 0 00-.75.75v12.75c0 .414.336.75.75.75z"
+                        />
+                      </svg>
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          ) : null}
           <Button
             className="w-full mt-8 bg-primaryBlue text-white rounded-full py-6 text-lg font-medium shadow-none"
             onClick={handleAssign}
             disabled={
-              !student || !quiz || !date || postHomeworkMutation.isPending
+              !student ||
+              !quiz ||
+              postHomeworkMutation.isPending
             }
           >
             {postHomeworkMutation.isPending ? (

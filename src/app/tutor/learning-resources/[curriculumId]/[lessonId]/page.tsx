@@ -280,6 +280,7 @@ export default function LessonPage() {
               <AssignHomeworkForm
                 embedded
                 hideQuizPicker
+                hideDueDate
                 initialQuiz={quizForAssign}
                 onBack={() => setQuizForAssign(null)}
                 onAssign={() => setQuizForAssign(null)}

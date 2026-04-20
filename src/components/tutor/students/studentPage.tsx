@@ -894,6 +894,7 @@ export default function StudentPage({ id }: { id: string }) {
               <AssignHomeworkForm
                 embedded
                 hideQuizPicker
+                hideDueDate
                 onBack={() => setShowAssignQuizDialog(false)}
                 onAssign={() => setShowAssignQuizDialog(false)}
                 fixedStudentId={id}

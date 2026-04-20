@@ -1871,8 +1871,15 @@ export const usePostHomework = () => {
     mutationFn: (data: {
       studentId: string;
       quizId: string;
-      dueAt: string;
-    }): Promise<ApiResponse<Homework>> => axiosInstance.post("/homework", data),
+      dueAt?: string;
+    }): Promise<ApiResponse<Homework>> => {
+      const body: Record<string, unknown> = {
+        studentId: data.studentId,
+        quizId: data.quizId,
+      };
+      if (data.dueAt) body.dueAt = data.dueAt;
+      return axiosInstance.post("/homework", body);
+    },
     onSuccess: (data: ApiResponse<Homework>) => {
       queryClient.invalidateQueries({
         queryKey: ["homeworks"],
