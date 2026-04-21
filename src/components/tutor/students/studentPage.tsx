@@ -51,6 +51,7 @@ import { Loader2, Lock } from "lucide-react";
 import { format } from "date-fns";
 import type { LearningPathSummary, SchemeOfWork } from "@/lib/types";
 import AssignHomeworkForm from "@/components/tutor/homework/assignHomework";
+import { cn } from "@/lib/utils";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -565,11 +566,10 @@ export default function StudentPage({ id }: { id: string }) {
                             </TableCell>
                             <TableCell>
                               <Badge
-                                className={`text-xs font-medium capitalize ${
-                                  statusLabel === "Skipped"
-                                    ? "bg-gray-100 text-gray-600"
-                                    : "bg-yellow-100 text-yellow-700"
-                                }`}
+                                className={`text-xs font-medium capitalize ${statusLabel === "Skipped"
+                                  ? "bg-gray-100 text-gray-600"
+                                  : "bg-yellow-100 text-yellow-700"
+                                  }`}
                               >
                                 {statusLabel}
                               </Badge>
@@ -705,20 +705,77 @@ export default function StudentPage({ id }: { id: string }) {
                               </span>
                             </TableCell>
                             <TableCell className="text-sm text-gray-700">
-                              {item.score}%
+                              {(() => {
+                                const anyItem = item as unknown as Record<string, unknown>;
+                                const score =
+                                  typeof anyItem.score === "number"
+                                    ? anyItem.score
+                                    : anyItem.score != null
+                                      ? Number(anyItem.score)
+                                      : null;
+                                const total =
+                                  typeof anyItem.totalPoints === "number"
+                                    ? anyItem.totalPoints
+                                    : anyItem.totalPoints != null
+                                      ? Number(anyItem.totalPoints)
+                                      : null;
+                                const pct =
+                                  typeof anyItem.percentage === "number"
+                                    ? anyItem.percentage
+                                    : anyItem.percentage != null
+                                      ? Number(anyItem.percentage)
+                                      : null;
+                                if (
+                                  score != null &&
+                                  !Number.isNaN(score) &&
+                                  total != null &&
+                                  !Number.isNaN(total)
+                                ) {
+                                  return `${score} / ${total}${pct != null && !Number.isNaN(pct)
+                                      ? ` (${Math.round(pct)}%)`
+                                      : ""
+                                    }`;
+                                }
+                                if (pct != null && !Number.isNaN(pct)) {
+                                  return `${Math.round(pct)}%`;
+                                }
+                                return "—";
+                              })()}
                             </TableCell>
                             <TableCell>
-                              <Badge
-                                className={`text-xs font-medium capitalize ${statusBadgeClass[item.status?.toLowerCase()] ??
-                                  "bg-gray-100 text-gray-600"
-                                  }`}
-                              >
-                                {item.status}
-                              </Badge>
+                              {(() => {
+                                const statusRaw = String(item.status ?? "").trim();
+                                const statusNorm = statusRaw.toUpperCase();
+                                const isPassed = statusNorm === "PASSED";
+                                const isFailed = statusNorm === "FAILED";
+                                const label = isPassed
+                                  ? "Passed"
+                                  : isFailed
+                                    ? "Failed"
+                                    : statusRaw
+                                      ? statusRaw
+                                      : "—";
+                                if (label === "—") {
+                                  return (
+                                    <span className="text-muted-foreground/60">—</span>
+                                  );
+                                }
+                                return (
+                                  <Badge
+                                    variant={isPassed ? "default" : "destructive"}
+                                    className={cn(
+                                      "text-xs font-medium",
+                                      isPassed && "bg-emerald-600 hover:bg-emerald-600/90",
+                                    )}
+                                  >
+                                    {label}
+                                  </Badge>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell className="text-sm text-gray-500 whitespace-nowrap">
                               {item.completedAt
-                                ? format(new Date(item.completedAt), "d MMM")
+                                ? format(new Date(item.completedAt), "EEE d MMM")
                                 : "—"}
                             </TableCell>
                             <TableCell>
@@ -726,11 +783,11 @@ export default function StudentPage({ id }: { id: string }) {
                                 className="text-sm text-primaryBlue font-medium hover:underline"
                                 onClick={() =>
                                   router.push(
-                                    `/tutor/homework/${item.quizAttemptId}/review`
+                                    `/tutor/students/${id}/quizzes/${item.quizAttemptId}/review`
                                   )
                                 }
                               >
-                                View
+                                View results
                               </button>
                             </TableCell>
                           </TableRow>
