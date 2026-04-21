@@ -18,6 +18,7 @@ import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
+import { WatchLessonVideoButton } from "@/components/platform/library/watchLessonVideoButton";
 
 interface QuestionWithResults {
   id: string;
@@ -49,6 +50,10 @@ export default function BaselineReviewPage() {
   // id is the quizAttemptId
   const { data: reviewResponse, isLoading, error } = useGetQuizAttemptById(id);
   const review = reviewResponse?.data;
+  const curriculumLessonId = (review as any)?.curriculumLessonId as
+    | string
+    | null
+    | undefined;
 
   const { data: questionsResponse } = useGetQuizQuestions(review?.quizId || "");
 
@@ -202,13 +207,10 @@ export default function BaselineReviewPage() {
                 <div>
                   <CardTitle>Baseline Test Review</CardTitle>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => router.push("/baseline-results")}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Results
-                </Button>
+                <WatchLessonVideoButton
+                  curriculumLessonId={curriculumLessonId}
+                  className="bg-primaryBlue hover:bg-primaryBlue/90"
+                />
               </div>
             </CardHeader>
             <CardContent>

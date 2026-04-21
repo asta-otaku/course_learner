@@ -24,6 +24,7 @@ import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { QuestionImage } from "@/components/ui/question-image";
+import { WatchLessonVideoButton } from "@/components/platform/library/watchLessonVideoButton";
 
 interface QuestionWithResults {
   id: string;
@@ -54,6 +55,10 @@ export default function QuizAttemptReviewPage() {
 
   const { data: reviewResponse, isLoading, error } = useGetQuizAttemptById(attemptId);
   const review = reviewResponse?.data;
+  const curriculumLessonId = (review as any)?.curriculumLessonId as
+    | string
+    | null
+    | undefined;
   const { data: quizResponse } = useGetQuiz(review?.quizId || "");
   const quizData = quizResponse?.data;
 
@@ -317,7 +322,14 @@ export default function QuizAttemptReviewPage() {
           {/* Results Summary Header */}
           <Card className="mb-6">
             <CardHeader className="space-y-3">
-              <CardTitle>Quiz Review</CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>Quiz Review</CardTitle>
+                <WatchLessonVideoButton
+                  curriculumLessonId={curriculumLessonId}
+                  lessonTitle={lessonTitle}
+                  className="bg-primaryBlue hover:bg-primaryBlue/90"
+                />
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                 <div className="rounded-lg border bg-muted/30 p-3">
                   <p className="text-muted-foreground text-xs mb-1">Lesson</p>

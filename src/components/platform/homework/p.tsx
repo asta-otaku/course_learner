@@ -29,6 +29,7 @@ import {
 } from "@/lib/api/queries";
 import type { Homework } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 // Current week = Monday 00:00 of the week containing today → next Monday 00:00 (exclusive).
 function getCurrentWeekRange(): { start: Date; end: Date } {
@@ -43,10 +44,6 @@ function getCurrentWeekRange(): { start: Date; end: Date } {
   end.setDate(end.getDate() + 7); // next Monday 00:00
 
   return { start, end };
-}
-
-function formatShortDate(d: Date): string {
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
 function statusDisplay(status: string | null | undefined): string {
@@ -255,7 +252,11 @@ export default function HomeworkStatusPage() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-muted-foreground tabular-nums">
-                              {formatShortDate(new Date(b.submittedAt))}
+                              {new Date(b.submittedAt).toLocaleDateString("en-GB", {
+                                weekday: "long",
+                                day: "numeric",
+                                month: "long",
+                              }).replace(/(\d+) ([A-Za-z]+)/, (_, d, m) => `${d} ${m}`)}
                             </TableCell>
                             <TableCell className="text-right">
                               <Button
@@ -343,7 +344,11 @@ export default function HomeworkStatusPage() {
                               </TableCell>
                               <TableCell className="text-muted-foreground tabular-nums">
                                 {completedAt
-                                  ? formatShortDate(new Date(completedAt))
+                                  ? new Date(completedAt).toLocaleDateString("en-GB", {
+                                    weekday: "long",
+                                    day: "numeric",
+                                    month: "long",
+                                  }).replace(/(\d+) ([A-Za-z]+)/, (_, d, m) => `${d} ${m}`)
                                   : "—"}
                               </TableCell>
                               <TableCell className="text-right">
@@ -402,7 +407,11 @@ export default function HomeworkStatusPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-muted-foreground tabular-nums">
-                                {formatShortDate(new Date(b.submittedAt))}
+                                {new Date(b.submittedAt).toLocaleDateString("en-GB", {
+                                  weekday: "long",
+                                  day: "numeric",
+                                  month: "long",
+                                }).replace(/(\d+) ([A-Za-z]+)/, (_, d, m) => `${d} ${m}`)}
                               </TableCell>
                               <TableCell className="text-right">
                                 <Button

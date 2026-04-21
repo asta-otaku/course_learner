@@ -130,7 +130,11 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
                       {item.sectionName}
                     </td>
                     <td className="py-4 pr-4 align-middle hidden sm:table-cell text-sm text-gray-500">
-                      {item.dueAt ? format(new Date(item.dueAt), "MMM d, yyyy") : "N/A"}
+                      {item.dueAt ? new Date(item.dueAt).toLocaleDateString("en-GB", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                      }).replace(/(\d+) ([A-Za-z]+)/, (_, d, m) => `${d} ${m}`) : "—"}
                     </td>
                     <td className="py-4 text-right">
                       <Link

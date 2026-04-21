@@ -732,8 +732,8 @@ export default function StudentPage({ id }: { id: string }) {
                                   !Number.isNaN(total)
                                 ) {
                                   return `${score} / ${total}${pct != null && !Number.isNaN(pct)
-                                      ? ` (${Math.round(pct)}%)`
-                                      : ""
+                                    ? ` (${Math.round(pct)}%)`
+                                    : ""
                                     }`;
                                 }
                                 if (pct != null && !Number.isNaN(pct)) {
@@ -775,7 +775,11 @@ export default function StudentPage({ id }: { id: string }) {
                             </TableCell>
                             <TableCell className="text-sm text-gray-500 whitespace-nowrap">
                               {item.completedAt
-                                ? format(new Date(item.completedAt), "EEE d MMM")
+                                ? new Date(item.completedAt).toLocaleDateString("en-GB", {
+                                  weekday: "long",
+                                  day: "numeric",
+                                  month: "long",
+                                }).replace(/(\d+) ([A-Za-z]+)/, (_, d, m) => `${d} ${m}`)
                                 : "—"}
                             </TableCell>
                             <TableCell>
