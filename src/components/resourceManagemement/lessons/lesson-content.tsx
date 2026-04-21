@@ -16,18 +16,7 @@ interface LessonContentProps {
 
 export function LessonContent({ content }: LessonContentProps) {
   if (!content) {
-    return (
-      <Card>
-        <CardContent className="py-12">
-          <div className="text-center">
-            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              No content has been added to this lesson yet.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   return (

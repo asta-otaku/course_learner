@@ -119,7 +119,6 @@ export function LessonForm({
     defaultValues: {
       title: lesson?.title || "",
       sectionId: lesson?.sectionId || "",
-      orderIndex: lesson?.orderIndex || 0,
       objectives: lesson?.objectives || [],
       tags: lesson?.tags || [],
       isActive: lesson?.isActive ?? true,
@@ -469,8 +468,6 @@ export function LessonForm({
         sectionId: data.sectionId || "",
         objectives,
         tags,
-        description: (data as any)?.description ?? (data as any)?.content ?? "",
-        content: (data as any)?.content ?? (data as any)?.description ?? "",
         quizIds: (data as any)?.quizIds ?? [],
       };
 
