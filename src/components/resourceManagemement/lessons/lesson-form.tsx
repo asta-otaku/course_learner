@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Form,
   FormControl,
@@ -415,34 +414,39 @@ export function LessonForm({
 
   const onSubmit = async (data: Partial<Lesson>) => {
     try {
-      let videoKeyName: string | undefined = (data as any).videoKeyName;
-      let removeVideo = false;
-      // Make sure duration is ready if a new file is selected
-      const ensuredDuration = await ensureVideoDuration();
+      // Strip video-related fields from the raw form data so they are never
+      // accidentally included in the payload via the spread below.
+      // We only append them explicitly when the video has actually changed.
+      const {
+        videoKeyName: _vkn,
+        videoFileName: _vfn,
+        videoFileSize: _vfs,
+        videoDuration: _vd,
+        ...restData
+      } = data as any;
+
+      let videoKeyName: string | undefined;
+      let removeVideoFlag = false;
+      let videoChanged = false;
 
       if (isEditing) {
-        // For edit mode, determine removeVideo flag
         if (hadExistingVideo && !selectedVideo && removedExistingVideo) {
-          // User removed existing video and didn't upload a new one
-          removeVideo = true;
-          videoKeyName = ""; // Clear video key when removing
+          // User explicitly removed the existing video
+          removeVideoFlag = true;
+          videoChanged = true;
         } else if (selectedVideo) {
           // User uploaded a new video (replacing or adding)
-          removeVideo = false;
           const uploadedVideoUrl = await uploadVideoToS3(selectedVideo);
           if (!uploadedVideoUrl) {
             toast.error("Upload failed");
             return;
           }
           videoKeyName = uploadedVideoUrl;
-        } else {
-          // No change to video - keep existing
-          removeVideo = false;
-          // Keep existing videoKeyName from lesson
-          videoKeyName = lesson?.videoKeyName || "";
+          videoChanged = true;
         }
+        // else: no change — videoChanged stays false, nothing is sent
       } else {
-        // For create mode, upload video if selected
+        // Create mode — upload video only if one was selected
         if (selectedVideo) {
           const uploadedVideoUrl = await uploadVideoToS3(selectedVideo);
           if (!uploadedVideoUrl) {
@@ -450,49 +454,59 @@ export function LessonForm({
             return;
           }
           videoKeyName = uploadedVideoUrl;
+          videoChanged = true;
         }
       }
 
-      // Prepare lesson data with video metadata
+      // Compute duration only when a new video is actually being attached
+      const ensuredDuration = videoChanged && selectedVideo
+        ? await ensureVideoDuration()
+        : 0;
+
+      // Base payload — video fields intentionally excluded from the spread
       const lessonData: any = {
-        ...data,
+        ...restData,
         sectionId: data.sectionId || "",
         objectives,
         tags,
-        // Map duration seconds → minutes as per schema
-        durationMinutes: Math.max(0, Math.ceil((ensuredDuration || 0) / 60)),
-        // Ensure optional fields exist if provided by form
         description: (data as any)?.description ?? (data as any)?.content ?? "",
         content: (data as any)?.content ?? (data as any)?.description ?? "",
         quizIds: (data as any)?.quizIds ?? [],
       };
 
-      // Add video-related fields
+      // Attach video fields only when something actually changed
       if (isEditing) {
-        lessonData.removeVideo = removeVideo;
-        if (!removeVideo && selectedVideo) {
-          // Only update video fields if we're uploading a new video
-          lessonData.videoKeyName = videoKeyName || "";
-          lessonData.videoFileName = videoFileName;
-          lessonData.videoFileSize = videoFileSize;
-          lessonData.videoDuration = ensuredDuration;
-        } else if (!removeVideo && !selectedVideo) {
-          // Keep existing video - don't update video fields
-          // videoKeyName stays as is from lesson
-        } else {
-          // Removing video - clear all video fields
-          lessonData.videoKeyName = "";
-          lessonData.videoFileName = "";
-          lessonData.videoFileSize = 0;
-          lessonData.videoDuration = 0;
+        lessonData.removeVideo = removeVideoFlag;
+        if (videoChanged) {
+          if (removeVideoFlag) {
+            lessonData.videoKeyName = "";
+            lessonData.videoFileName = "";
+            lessonData.videoFileSize = 0;
+            lessonData.videoDuration = 0;
+            lessonData.durationMinutes = 0;
+          } else {
+            lessonData.videoKeyName = videoKeyName || "";
+            lessonData.videoFileName = videoFileName;
+            lessonData.videoFileSize = videoFileSize;
+            lessonData.videoDuration = ensuredDuration;
+            lessonData.durationMinutes = Math.max(
+              0,
+              Math.ceil(ensuredDuration / 60)
+            );
+          }
         }
+        // No video change: skip all video fields so the backend record is untouched
       } else {
-        // Create mode - only include video fields if video was uploaded
-        if (selectedVideo) {
+        // Create mode — only attach video fields if a video was uploaded
+        if (videoChanged) {
           lessonData.videoKeyName = videoKeyName || "";
           lessonData.videoFileName = videoFileName;
           lessonData.videoFileSize = videoFileSize;
           lessonData.videoDuration = ensuredDuration;
+          lessonData.durationMinutes = Math.max(
+            0,
+            Math.ceil(ensuredDuration / 60)
+          );
         }
       }
 
@@ -657,7 +671,7 @@ export function LessonForm({
                           className={cn(
                             "px-3 py-2 cursor-pointer text-sm hover:bg-gray-100",
                             index === selectedSuggestionIndex &&
-                              "bg-blue-50 text-blue-600"
+                            "bg-blue-50 text-blue-600"
                           )}
                           onClick={() => addTag(suggestion)}
                         >
@@ -709,9 +723,9 @@ export function LessonForm({
             <div className="space-y-4">
               {/* Show existing video if available and not removed */}
               {(lesson as any)?.videos?.length > 0 &&
-              !selectedVideo &&
-              !videoPreview &&
-              !removedExistingVideo ? (
+                !selectedVideo &&
+                !videoPreview &&
+                !removedExistingVideo ? (
                 <div className="border rounded-lg p-4 bg-gray-50">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
