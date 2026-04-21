@@ -33,19 +33,19 @@ function Hero() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
             <Link
-              href="#about"
+              href="/about"
               className="font-medium font-geist hover:text-blue-200 transition-colors"
             >
               About Us
             </Link>
             <Link
-              href="#faq"
+              href="/faqs"
               className="font-medium font-geist hover:text-blue-200 transition-colors"
             >
               FAQ
             </Link>
             <Link
-              href="#contact"
+              href="/contact"
               className="font-medium font-geist hover:text-blue-200 transition-colors"
             >
               Contact Us
@@ -88,21 +88,21 @@ function Hero() {
               {/* Mobile Navigation Links */}
               <div className="space-y-4">
                 <Link
-                  href="#about"
+                  href="/about"
                   className="block font-medium font-geist hover:text-blue-200 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   About Us
                 </Link>
                 <Link
-                  href="#faq"
+                  href="/faqs"
                   className="block font-medium font-geist hover:text-blue-200 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   FAQ
                 </Link>
                 <Link
-                  href="#contact"
+                  href="/contact"
                   className="block font-medium font-geist hover:text-blue-200 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >

@@ -475,7 +475,12 @@ function SortableRow({
         className="font-medium cursor-pointer hover:text-blue-600 max-w-[200px]"
         onClick={() => onRowClick(item.quizId)}
       >
-        <span className="line-clamp-2">{item.quizTitle}</span>
+        <span className="line-clamp-1">{item.quizTitle}</span>
+        {item.quizDescription && (
+          <span className="block text-xs font-normal text-muted-foreground line-clamp-1">
+            {item.quizDescription}
+          </span>
+        )}
       </TableCell>
       <TableCell
         className="hidden sm:table-cell cursor-pointer text-sm text-muted-foreground"
