@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import profileIcon from "@/assets/profileIcon.svg";
@@ -13,12 +13,12 @@ import { toast } from "react-toastify";
 import { TutorChangeRequestDialog } from "./tutor-change-request-dialog";
 import {
   useGetChildBaselineTest,
+  useGetChildProfileById,
   useGetCurricula,
   useGetLearningPath,
 } from "@/lib/api/queries";
 import DoubleQuote from "@/assets/svgs/doubleQuote";
 import type { LearningPath } from "@/lib/types";
-import { format } from "date-fns";
 
 type TuitionHomeProps = {
   offerTypeOverride?: string;
@@ -46,7 +46,8 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
   );
   const childBaselineTest = baselineTestResponse?.data ?? null;
 
-
+  const { data: childProfileData } = useGetChildProfileById(effectiveProfile?.id || "");
+  const childProfile = childProfileData?.data ?? null;
 
   const handleMessage = async () => {
     if (
@@ -154,7 +155,7 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
         {/* Right Column */}
         <div className="md:w-2/5 flex flex-col gap-2">
           {/* Baseline Test - only show when not yet completed (not started or in progress) */}
-          {activeProfile?.status === "pending" && (
+          {childProfile?.status === "pending" && (
             <div className="border border-[#00000033] rounded-2xl bg-white px-6 pt-4 pb-2">
               <p className="text-base font-semibold flex items-center gap-3">
                 <DoubleQuote /> Baseline Test
