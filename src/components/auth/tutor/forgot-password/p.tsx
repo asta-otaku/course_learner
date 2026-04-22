@@ -22,11 +22,8 @@ function ForgotPassword() {
   const isAdmin = pathname.includes("admin");
   const isTutor = pathname.includes("tutor");
   const router = useRouter();
-  const {
-    mutate: postForgotPassword,
-    isPending,
-    isSuccess,
-  } = usePostForgotPassword();
+  const { mutateAsync: postForgotPassword, isPending } =
+    usePostForgotPassword();
 
   // Check if user is already signed in and redirect appropriately
   useEffect(() => {
@@ -52,10 +49,10 @@ function ForgotPassword() {
             Enter your registered email address ton recover your password
           </p>
           <ForgetPassword
-            onNext={(email) => {
+            onNext={async (email) => {
               setEmail(email);
-              postForgotPassword({ email });
-              if (isSuccess) {
+              const res = await postForgotPassword({ email });
+              if (res.status === 200) {
                 setStep(1);
               }
             }}

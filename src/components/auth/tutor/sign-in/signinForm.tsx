@@ -19,6 +19,7 @@ function SigninForm() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors },
   } = useForm<z.infer<typeof signinSchema>>({
     resolver: zodResolver(signinSchema),
@@ -34,28 +35,31 @@ function SigninForm() {
   const toggleVisibility = () => setPasswordVisible((v) => !v);
   const { push } = useRouter();
   const onSubmit = async (data: z.infer<typeof signinSchema>) => {
-    const res = await postLogin(data);
-    if (res.status === 200) {
-      resetAuthState();
-      localStorage.setItem(res.data.data.userRole, JSON.stringify(res.data));
-      // Set flag to initialize socket
-      localStorage.setItem("initializeSocket", "true");
-      toast.success(res.data.message);
+    try {
+      const res = await postLogin(data);
+      if (res.status === 200) {
+        resetAuthState();
+        localStorage.setItem(res.data.data.userRole, JSON.stringify(res.data));
+        localStorage.setItem("initializeSocket", "true");
+        toast.success(res.data.message);
 
-      // Check for intended URL first
-      const intendedUrl = getAndClearIntendedUrl();
-
-      if (intendedUrl) {
-        // Redirect to the intended URL
-        push(intendedUrl);
-      } else {
-        // Redirect to default path based on role
-        const redirectPath =
-          res.data.data.userRole === "parent"
-            ? "/dashboard"
-            : `/${res.data.data.userRole}`;
-        push(redirectPath);
+        const intendedUrl = getAndClearIntendedUrl();
+        if (intendedUrl) {
+          push(intendedUrl);
+        } else {
+          const redirectPath =
+            res.data.data.userRole === "parent"
+              ? "/dashboard"
+              : `/${res.data.data.userRole}`;
+          push(redirectPath);
+        }
       }
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const message =
+        err?.response?.data?.message ||
+        (status === 401 ? "Invalid email or password. Please try again." : "Something went wrong.");
+      setError("root", { message });
     }
   };
   return (
@@ -79,7 +83,7 @@ function SigninForm() {
           <Input
             {...register("email")}
             type="email"
-            className="!rounded-xl !h-11 placeholder:text-textSubtitle"
+            className={`!rounded-xl !h-11 placeholder:text-textSubtitle ${errors.email || errors.root ? "!border-red-400 focus-visible:!ring-red-300" : ""}`}
             placeholder="johndoe@example.com"
           />
           {errors.email && (
@@ -92,7 +96,7 @@ function SigninForm() {
           <Input
             {...register("password")}
             type={passwordVisible ? "text" : "password"}
-            className="!rounded-xl !h-11 placeholder:text-textSubtitle"
+            className={`!rounded-xl !h-11 placeholder:text-textSubtitle ${errors.password || errors.root ? "!border-red-400 focus-visible:!ring-red-300" : ""}`}
             placeholder="Enter Password"
           />
           <span
@@ -111,6 +115,12 @@ function SigninForm() {
             </span>
           )}
         </div>
+        {/* Root / credential error */}
+        {errors.root && (
+          <p className="text-red-500 text-sm text-center -mt-1">
+            {errors.root.message}
+          </p>
+        )}
         <Link
           href={isAdmin ? "/admin/forgot-password" : "/tutor/forgot-password"}
           className="text-right text-primaryBlue font-medium"

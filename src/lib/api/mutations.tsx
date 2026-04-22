@@ -59,12 +59,13 @@ export const usePostLogin = () => {
   return useMutation({
     mutationKey: ["post-login"],
     mutationFn: (data: LoginData): Promise<ApiResponse<AuthResponse>> =>
-      axiosInstance.post("/auth/sign-in", data),
+      axiosInstance.post("/auth/sign-in", data, { skipAuthRedirect: true }),
     onSuccess: (data: ApiResponse<AuthResponse>) => {
       return data;
     },
     onError: (error: AxiosError) => {
-      handleErrorMessage(error);
+      // @ts-ignore
+      toast.error(error.response?.data?.message || "An error occurred");
     },
   });
 };
