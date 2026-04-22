@@ -19,7 +19,10 @@ import {
 } from "@/components/ui/dialog";
 import AssignHomeworkForm from "@/components/tutor/homework/assignHomework";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
+import { QuestionImage } from "@/components/ui/question-image";
 
 export default function LessonPage() {
   const params = useParams();
@@ -67,6 +70,13 @@ export default function LessonPage() {
       question?: {
         content?: string;
         type?: string;
+        image?: string;
+        image_url?: string;
+        imageSettings?: Record<string, any>;
+        metadata?: {
+          incorrectFeedback?: string;
+          correctFeedback?: string;
+        };
         answers?: Array<{
           id: string;
           content: string;
@@ -345,6 +355,19 @@ export default function LessonPage() {
                       className="text-textGray whitespace-pre-wrap"
                     />
 
+                    {/* Question image */}
+                    {(q.question?.image || q.question?.image_url) && (
+                      <QuestionImage
+                        src={q.question.image || q.question.image_url || ""}
+                        alt="Question illustration"
+                        metadata={
+                          q.question.imageSettings
+                            ? { image_settings: q.question.imageSettings }
+                            : undefined
+                        }
+                      />
+                    )}
+
                     {q.question?.type === "matching_pairs" ? (
                       <div className="space-y-2">
                         <p className="text-sm font-medium text-green-700">
@@ -357,7 +380,8 @@ export default function LessonPage() {
                                 key={`${q.id}-pair-${i}`}
                                 className="rounded border border-green-200 bg-green-50 px-3 py-2 text-sm"
                               >
-                                <span className="font-medium">{pair.left}</span> {"->"}{" "}
+                                <span className="font-medium">{pair.left}</span>{" "}
+                                {"→"}{" "}
                                 <span>{pair.right}</span>
                               </div>
                             ))}
@@ -394,6 +418,25 @@ export default function LessonPage() {
                         ) : (
                           <p className="text-sm text-textSubtitle">No answers configured.</p>
                         )}
+                      </div>
+                    )}
+
+                    {/* Incorrect answer feedback */}
+                    {q.question?.metadata?.incorrectFeedback && (
+                      <div>
+                        <p className="text-sm font-medium mb-1.5">
+                          Incorrect answer feedback:
+                        </p>
+                        <Alert className="border-amber-200 bg-amber-50">
+                          <AlertCircle className="h-4 w-4 text-amber-600" />
+                          <AlertDescription>
+                            <MathPreview
+                              content={q.question.metadata.incorrectFeedback}
+                              renderMarkdown={true}
+                              className="text-amber-800 whitespace-pre-wrap"
+                            />
+                          </AlertDescription>
+                        </Alert>
                       </div>
                     )}
                   </div>
