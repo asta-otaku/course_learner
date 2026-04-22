@@ -32,11 +32,11 @@ export default function ContactPage() {
       <div className="bg-primaryBlue rounded-b-[2.5rem]">
         <div className="max-w-screen-2xl mx-auto text-white">
           <SiteNav active="contact" />
-          <div className="text-center py-10 md:py-14 px-4">
-            <p className="text-[#BBD0FF] font-semibold font-geist uppercase text-xs tracking-[0.2em] mb-3">
+          <div className="text-center py-7 md:py-10 px-4">
+            <p className="text-[#BBD0FF] font-semibold font-geist uppercase text-xs tracking-[0.2em] mb-2">
               Get in touch
             </p>
-            <h1 className="font-geist font-semibold text-3xl md:text-4xl lg:text-5xl leading-tight">
+            <h1 className="font-geist font-semibold text-2xl md:text-3xl lg:text-4xl leading-tight">
               Contact Us
             </h1>
           </div>

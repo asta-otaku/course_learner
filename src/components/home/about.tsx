@@ -1,15 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
 import { Button } from "../ui/button";
 import { ExternalLink, GraduationCap, Lightbulb, Music } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import SiteNav from "./siteNav";
 import Footer from "./footer";
 
@@ -32,19 +25,17 @@ const sections = [
 ];
 
 export default function AboutPage() {
-  const [linkedInOpen, setLinkedInOpen] = useState(false);
-
   return (
     <div className="bg-bgWhiteGray min-h-screen">
       {/* ── Blue header ── */}
       <div className="bg-primaryBlue rounded-b-[2.5rem]">
         <div className="max-w-screen-2xl mx-auto text-white">
           <SiteNav active="about" />
-          <div className="text-center py-10 md:py-14 px-4">
-            <p className="text-[#BBD0FF] font-semibold font-geist uppercase text-xs tracking-[0.2em] mb-3">
+          <div className="text-center py-7 md:py-10 px-4">
+            <p className="text-[#BBD0FF] font-semibold font-geist uppercase text-xs tracking-[0.2em] mb-2">
               Our Story
             </p>
-            <h1 className="font-geist font-semibold text-3xl md:text-4xl lg:text-5xl leading-tight">
+            <h1 className="font-geist font-semibold text-2xl md:text-3xl lg:text-4xl leading-tight">
               About Leap Learners
             </h1>
           </div>
@@ -100,11 +91,17 @@ export default function AboutPage() {
             </blockquote>
 
             <Button
-              onClick={() => setLinkedInOpen(true)}
+              asChild
               className="w-fit bg-demo-gradient shadow-demoShadow text-white rounded-full px-7 py-5 font-geist font-medium hover:opacity-90 transition-opacity flex items-center gap-2"
             >
-              View LinkedIn Profile
-              <ExternalLink className="w-4 h-4" />
+              <a
+                href="https://www.linkedin.com/in/iretundesoleye/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View LinkedIn Profile
+                <ExternalLink className="w-4 h-4" />
+              </a>
             </Button>
           </div>
         </div>
@@ -129,55 +126,6 @@ export default function AboutPage() {
           ))}
         </div>
       </div>
-
-      {/* ── LinkedIn dialog ── */}
-      <Dialog open={linkedInOpen} onOpenChange={setLinkedInOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="font-geist font-semibold text-lg">
-              Connect on LinkedIn
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-6 py-4">
-            <div className="relative w-24 h-24 rounded-full overflow-hidden ring-4 ring-primaryBlue/20 shadow">
-              <Image
-                src="/founder.jpeg"
-                alt="Ire"
-                fill
-                className="object-cover object-top"
-              />
-            </div>
-            <div className="text-center space-y-1">
-              <p className="font-semibold text-lg font-geist">Ire</p>
-              <p className="text-textSubtitle font-medium font-geist text-sm">
-                Mathematician · Software Engineer · Musician
-              </p>
-              <p className="text-textSubtitle font-medium font-geist text-sm">
-                Software Engineer at NatWest · Founder of Leap Learners
-              </p>
-            </div>
-            <Button
-              asChild
-              className="bg-demo-gradient shadow-demoShadow text-white rounded-full w-full py-5 font-geist font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-            >
-              <a
-                href="https://www.linkedin.com/in/iretundesoleye/"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open LinkedIn Profile
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            </Button>
-            <button
-              onClick={() => setLinkedInOpen(false)}
-              className="text-sm text-textSubtitle font-medium font-geist hover:text-gray-700 transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <Footer />
     </div>

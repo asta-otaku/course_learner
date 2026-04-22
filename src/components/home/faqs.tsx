@@ -88,12 +88,12 @@ export default function FaqsPage() {
       {/* ── Blue header ── */}
       <div className="bg-primaryBlue rounded-b-[2.5rem]">
         <div className="max-w-screen-2xl mx-auto text-white">
-          <SiteNav />
-          <div className="text-center py-10 md:py-14 px-4">
-            <p className="text-[#BBD0FF] font-semibold font-geist uppercase text-xs tracking-[0.2em] mb-3">
+          <SiteNav active="faq" />
+          <div className="text-center py-7 md:py-10 px-4">
+            <p className="text-[#BBD0FF] font-semibold font-geist uppercase text-xs tracking-[0.2em] mb-2">
               Got questions?
             </p>
-            <h1 className="font-geist font-semibold text-3xl md:text-4xl lg:text-5xl leading-tight">
+            <h1 className="font-geist font-semibold text-2xl md:text-3xl lg:text-4xl leading-tight">
               Frequently Asked Questions
             </h1>
             <p className="text-blue-100 font-geist font-medium text-sm md:text-base mt-4 max-w-xl mx-auto leading-relaxed">

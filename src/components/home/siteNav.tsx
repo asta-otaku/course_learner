@@ -7,7 +7,7 @@ import { Button } from "../ui/button";
 import { Menu, X } from "lucide-react";
 
 interface SiteNavProps {
-  active?: "about" | "contact" | "faqs";
+  active?: "about" | "contact" | "faq";
 }
 
 export default function SiteNav({ active }: SiteNavProps) {
@@ -16,17 +16,16 @@ export default function SiteNav({ active }: SiteNavProps) {
   const navLink = (
     href: string,
     label: string,
-    key: "about" | "contact" | "faqs"
+    key: "about" | "contact" | "faq"
   ) => {
     const isActive = active === key;
     return (
       <Link
         href={href}
-        className={`font-medium font-geist transition-colors ${
-          isActive
+        className={`font-medium font-geist transition-colors ${isActive
             ? "text-white border-b-2 border-white/60"
             : "hover:text-blue-200"
-        }`}
+          }`}
       >
         {label}
       </Link>
@@ -48,7 +47,7 @@ export default function SiteNav({ active }: SiteNavProps) {
       {/* Desktop nav */}
       <div className="hidden md:flex items-center gap-8">
         {navLink("/about", "About Us", "about")}
-        {navLink("/faqs", "FAQ", "faqs")}
+        {navLink("/faq", "FAQ", "faq")}
         {navLink("/contact", "Contact Us", "contact")}
       </div>
 
@@ -93,8 +92,8 @@ export default function SiteNav({ active }: SiteNavProps) {
                 About Us
               </Link>
               <Link
-                href="/faqs"
-                className={`block font-medium font-geist transition-colors ${active === "faqs" ? "text-white" : "hover:text-blue-200"}`}
+                href="/faq"
+                className={`block font-medium font-geist transition-colors ${active === "faq" ? "text-white" : "hover:text-blue-200"}`}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 FAQ
