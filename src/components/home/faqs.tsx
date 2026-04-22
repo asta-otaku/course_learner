@@ -14,70 +14,103 @@ import Footer from "./footer";
 const faqs = [
   {
     id: "faq-1",
-    question: "Quid est Leap Learners?",
+    question: "What is Leap Learners?",
     answer:
-      "Leap Learners est platform digitalis quae discipulis auxilium mathematicum praebet. Per videos animatos, quaestiones interactivas et sessiones cum tutore privato, nos certamus ut omnes pueri veram intellectum mathematicae acquirere possint — non solum memorisationem.",
+      "Leap Learners is an online maths learning platform for primary school children (Years 1–6). We combine clear, animated lessons with structured practice to help children build real understanding and confidence in maths.",
   },
   {
     id: "faq-2",
-    question: "Quid Leap Learners ab aliis diversum facit?",
+    question: "How does Leap Learners work?",
     answer:
-      "Nos non solum responsa damus — nos explicamus cur. Quaeque conceptus ex fundamentis aedificatur, ita discipuli non solum sciant quid faciant, sed etiam quomodo et cur. Praeterea, omnes contenta a mathematico et ingeniario programmandi creata sunt, qui etiam ut tutor privatus laborat.",
+      "You can choose between two options. Our Self-Directed Learning Platform gives your child full access to lessons and quizzes to work through at their own pace. Our Guided Learning programme includes a Personal Buddy who assesses your child, sets weekly work, provides feedback, and offers support when needed.",
   },
   {
     id: "faq-3",
-    question: "Sequiturne Leap Learners curriculum nationale?",
+    question: "What’s the difference between Self-Directed Learning and Guided Learning?",
     answer:
-      "Ita vero. Omnia contenta nostra ad curriculum nationale KS2 et syllabus 11+ et SATs accommodata sunt. Quaeque topic secundum ordinem logicum praesentatur, ita nullum hiatus in cognitione discipuli relinquitur.",
+      "Self-Directed Learning is ideal for parents who want to take the lead and guide their child through the platform. Guided Learning is for parents who want everything handled — with structured weekly plans, feedback, and support from a dedicated Learning Buddy.",
   },
   {
     id: "faq-4",
-    question: "Num Leap Learners discipulum meum vere adiuvabit?",
+    question: "Does Leap Learners follow the national curriculum?",
     answer:
-      "Hoc ex discipulo et ex quantitate temporis quod in platform expendit dependet. Multi discipuli nostri progressum significativum intra paucas hebdomades viderunt. Praecipua causa est quod nos non solum exercitationes damus — nos intellectum verum aedificamus.",
+      "Yes. We cover the full primary school maths curriculum, while structuring topics in a way that builds understanding and prepares children effectively for school, SATs, and 11+ exams.",
   },
   {
     id: "faq-5",
-    question: "Quam aetatem habet discipulus ad Leap Learners utendum?",
+    question: "Will this help my child improve in maths?",
     answer:
-      "Platform nostra maxime pro discipulis inter annos septem et tredecim designata est (KS2, SATs et 11+). Tamen etiam discipuli iuniores aut seniores beneficium capere possunt, praesertim si basis mathematica firmanda est.",
+      "Yes - when used consistently, Leap Learners helps children build strong foundations, close gaps in their knowledge, and develop confidence across all key topics.",
   },
   {
     id: "faq-6",
-    question: "Discipulus meus aliquam basim habet — unde incipimus?",
+    question: "Can my child use the platform on their own?",
     answer:
-      "Optimus locus incipere est cum 'baseline test' nostro, qui cognitionem currentem discipuli metitur et iter personale recommendat. Ita tempus non teritur in his quae discipulus iam scit, et focus in lacunis ponitur.",
+      "Yes. The lessons are designed to be clear and easy to follow independently. However, younger children or those who need more structure may benefit from the Guided Learning option.",
   },
   {
     id: "faq-7",
-    question: "Potestne discipulus meus Leap Learners solus uti?",
+    question: "What age is Leap Learners suitable for?",
     answer:
-      "Ita. Platform nostra sic designata est ut discipuli independenter progredi possint — videos, quaestiones et feedback automaticum eis ducent. Nihilominus, sessiones cum tutore privato magnum complementum praebent pro discipulis qui plus auxilii desiderant.",
+      "Leap Learners is designed for children in Years 1–6. The platform adapts to your child’s level, whether they are catching up, keeping up, or aiming to excel.",
   },
   {
     id: "faq-8",
-    question: "Quomodo vos recommendatis nos platform uti?",
+    question: "What happens if my child has gaps in their knowledge?",
     answer:
-      "Recommendamus ut discipuli tres vel quattuor vices per hebdomadem in platform laborent. Optimum iter est: primo video spectare, deinde quaestiones facere, et postea errores diligenter revolvere. Sessio hebdomadalis cum tutore progressum consolidare adiuvat.",
+      "Our system is designed to identify and address gaps. In Guided Learning, your child starts with a baseline assessment and is given personalised weekly work. In the platform, you can also search topics directly using the glossary.",
   },
   {
     id: "faq-9",
-    question: "Quantum Leap Learners constat?",
+    question: "How often should my child use Leap Learners?",
     answer:
-      "Habemus varias optiones subscriptionis pro familiis diversis. Pro pretio recenti et informatione de trialo gratuito decem dierum, vide paginam pretii nostrae vel scribe ad leaplearners@yahoo.com.",
+      "We recommend consistent weekly use. In Guided Learning, this is structured for you. In Self-Directed Learning, most families aim for a few sessions per week to build steady progress.",
   },
   {
     id: "faq-10",
-    question: "Discipulus meus lacunas in cognitione habet. Potestne Leap Learners hoc solvere?",
+    question: "Will my child need live tutoring sessions?",
     answer:
-      "Hoc est praecise quod nos optime facimus. Per 'baseline test' nostrum, lacunas in cognitione discipuli identificamus et iter personale creamus. Ita discipulus ex fundamentis aedificat et numquam aliquid necessarium praetermittit.",
+      "Not necessarily. Our videos and structured practice are designed to teach concepts clearly. Live sessions are available if needed, but many children progress well without frequent sessions.",
+  },
+  {
+    id: "faq-11",
+    question: "How do I track my child’s progress?",
+    answer:
+      "You can view your child’s performance through the platform dashboard. In Guided Learning, you will also receive updates on progress, feedback, and areas to improve.",
+  },
+  {
+    id: "faq-12",
+    question: "Is Leap Learners suitable for SATs and 11+ preparation?",
+    answer:
+      "Yes. Our programme builds strong foundations across all topics, helping children feel confident and prepared for both school assessments and entrance exams.",
+  },
+  {
+    id: "faq-13",
+    question: "How much does Leap Learners cost?",
+    answer:
+      "Our self directed platform costs £29.99 for up to 5 children. Guided Learning costs £69.99 for one child, and £40 for each extra child.",
   },
 ];
 
 const categories = [
-  { label: "About the Platform", ids: ["faq-1", "faq-2", "faq-3"] },
-  { label: "For Students & Parents", ids: ["faq-4", "faq-5", "faq-6", "faq-7", "faq-8"] },
-  { label: "Pricing & Getting Started", ids: ["faq-9", "faq-10"] },
+  {
+    label: "About the Platform",
+    ids: ["faq-1", "faq-2", "faq-3", "faq-4"],
+  },
+  {
+    label: "For Students & Parents",
+    ids: [
+      "faq-5",
+      "faq-6",
+      "faq-7",
+      "faq-8",
+      "faq-9",
+      "faq-10",
+      "faq-11",
+      "faq-12",
+    ],
+  },
+  { label: "Pricing", ids: ["faq-13"] },
 ];
 
 export default function FaqsPage() {
