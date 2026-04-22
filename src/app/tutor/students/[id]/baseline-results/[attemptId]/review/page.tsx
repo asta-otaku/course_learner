@@ -18,6 +18,7 @@ import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
+import { QuestionImage } from "@/components/ui/question-image";
 import { WatchLessonVideoButton } from "@/components/platform/library/watchLessonVideoButton";
 
 interface QuestionWithResults {
@@ -76,7 +77,9 @@ export default function BaselineReviewPage() {
           title: qq.question.title,
           content: qq.question.content,
           type: qq.question.type,
-          image_url: qq.question.image_url,
+          image: qq.question.image || qq.question.image_url,
+          image_url: qq.question.image_url || qq.question.image,
+          imageSettings: qq.question.imageSettings,
           explanation: qq.question.explanation,
           metadata: qq.question.metadata,
           options:
@@ -267,18 +270,17 @@ export default function BaselineReviewPage() {
                   {/* Question Content */}
                   <div>
                     <p className="text-base font-medium mb-2">Question:</p>
-                    <p className="text-base whitespace-pre-wrap">
-                      {currentQ.question.content}
-                    </p>
-                    {currentQ.question.image_url && (
-                      <div className="mt-4">
-                        <img
-                          src={currentQ.question.image_url}
-                          alt="Question illustration"
-                          className="max-w-full h-auto rounded-lg border shadow-sm"
-                          style={{ maxHeight: "400px", objectFit: "contain" }}
-                        />
-                      </div>
+                    <MathPreview
+                      content={String(currentQ.question.content ?? "")}
+                      renderMarkdown={true}
+                      className="text-base text-textGray whitespace-pre-wrap"
+                    />
+                    {(currentQ.question.image || currentQ.question.image_url) && (
+                      <QuestionImage
+                        src={currentQ.question.image || currentQ.question.image_url}
+                        alt="Question illustration"
+                        metadata={currentQ.question.imageSettings ? { image_settings: currentQ.question.imageSettings } : undefined}
+                      />
                     )}
                   </div>
 
@@ -394,9 +396,11 @@ export default function BaselineReviewPage() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-base text-green-900 whitespace-pre-wrap">
-                            {getCorrectAnswerText(currentQ.question, currentResult)}
-                          </p>
+                          <MathPreview
+                            content={getCorrectAnswerText(currentQ.question, currentResult)}
+                            renderMarkdown={true}
+                            className="text-base text-green-900 whitespace-pre-wrap"
+                          />
                         )}
                       </div>
                     </div>
@@ -450,9 +454,11 @@ export default function BaselineReviewPage() {
                       <Alert className="border-blue-200 bg-blue-50">
                         <AlertCircle className="h-4 w-4 text-blue-600" />
                         <AlertDescription>
-                          <p className="text-blue-800 whitespace-pre-wrap">
-                            {currentQ.question.explanation}
-                          </p>
+                          <MathPreview
+                            content={currentQ.question.explanation}
+                            renderMarkdown={true}
+                            className="text-blue-800 whitespace-pre-wrap"
+                          />
                         </AlertDescription>
                       </Alert>
                     </div>
