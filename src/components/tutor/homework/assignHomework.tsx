@@ -20,6 +20,10 @@ import { usePostHomework } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { Quiz } from "@/lib/types";
 
+/** Max size for portaled popovers in modals (search stays visible; list scrolls). */
+const POPOVER_PANEL_MAX = "min(28rem, 78vh)" as const;
+const POPOVER_LIST_MAX = "min(16rem, 40vh)" as const;
+
 export default function AssignHomeworkForm({
   onBack,
   onAssign,
@@ -120,13 +124,6 @@ export default function AssignHomeworkForm({
     setQuizPage(1);
   }, [quizSearch]);
 
-  // Reset search when dropdown closes
-  useEffect(() => {
-    if (!quizDropdownOpen) {
-      setQuizSearch("");
-    }
-  }, [quizDropdownOpen]);
-
   // Mutation for assigning homework
   const postHomeworkMutation = usePostHomework();
 
@@ -217,68 +214,89 @@ export default function AssignHomeworkForm({
           {!fixedStudentId ? (
             <div>
               <label className="block mb-2 font-medium">Student</label>
-              <div className="relative">
-                <button
-                  type="button"
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center justify-between focus:outline-none text-base"
-                  onClick={() => setStudentDropdownOpen((v) => !v)}
-                  disabled={isLoadingStudents || isLoadingProfile}
-                >
-                  {student ? (
-                    <span>
-                      {students.find((s) => s.id === student)?.name}
-                      <span className="block text-xs text-gray-400">
-                        Year {students.find((s) => s.id === student)?.year}
+              <Popover
+                open={studentDropdownOpen}
+                onOpenChange={(open) => {
+                  setStudentDropdownOpen(open);
+                  if (!open) setStudentSearch("");
+                }}
+              >
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center justify-between focus:outline-none text-base"
+                    disabled={isLoadingStudents || isLoadingProfile}
+                  >
+                    {student ? (
+                      <span>
+                        {students.find((s) => s.id === student)?.name}
+                        <span className="block text-xs text-gray-400">
+                          Year {students.find((s) => s.id === student)?.year}
+                        </span>
                       </span>
-                    </span>
-                  ) : (
-                    <span className="text-gray-400">
-                      {isLoadingStudents ? "Loading students..." : "Select a student"}
-                    </span>
-                  )}
-                  {isLoadingStudents ? (
-                    <Loader2 className="h-5 w-5 ml-auto animate-spin" />
-                  ) : (
-                    <ChevronDown className="h-5 w-5 ml-auto" />
-                  )}
-                </button>
-                {studentDropdownOpen && !isLoadingStudents && (
-                  <div className="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg z-10 max-h-72 overflow-y-auto border border-gray-100">
-                    <div className="p-4 pb-2">
-                      <div className="relative">
-                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                          placeholder="Search"
-                          value={studentSearch}
-                          onChange={(e) => setStudentSearch(e.target.value)}
-                          className="w-full pl-9 pr-4 py-2 focus:outline-none shadow-none bg-white rounded-xl"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      {filteredStudents.length === 0 && (
-                        <div className="p-4 text-gray-400 text-center">
-                          No students found
-                        </div>
-                      )}
-                      {filteredStudents.map((s) => (
-                        <button
-                          key={s.id}
-                          className="w-full text-left px-6 py-4 hover:bg-gray-100 focus:bg-gray-100 border-b last:border-b-0 border-gray-100"
-                          onClick={() => {
-                            setStudent(s.id);
-                            setStudentDropdownOpen(false);
-                            setStudentSearch("");
-                          }}
-                        >
-                          <div className="font-medium">{s.name}</div>
-                          <div className="text-xs text-gray-400">Year {s.year}</div>
-                        </button>
-                      ))}
+                    ) : (
+                      <span className="text-gray-400">
+                        {isLoadingStudents ? "Loading students..." : "Select a student"}
+                      </span>
+                    )}
+                    {isLoadingStudents ? (
+                      <Loader2 className="h-5 w-5 ml-auto animate-spin" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 ml-auto" />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  side="bottom"
+                  sideOffset={6}
+                  avoidCollisions={false}
+                  className="z-[200] box-border flex w-[var(--radix-popover-trigger-width)] min-w-[16rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white p-0 !shadow-lg"
+                  style={{ maxHeight: POPOVER_PANEL_MAX }}
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  <div className="shrink-0 border-b border-gray-50 p-3">
+                    <div className="relative">
+                      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search"
+                        value={studentSearch}
+                        onChange={(e) => setStudentSearch(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 focus:outline-none shadow-none bg-white rounded-xl"
+                      />
                     </div>
                   </div>
-                )}
-              </div>
+                  <div
+                    className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 [scrollbar-gutter:stable]"
+                    style={{
+                      maxHeight: POPOVER_LIST_MAX,
+                      WebkitOverflowScrolling: "touch" as const,
+                    }}
+                    onWheel={(e) => e.stopPropagation()}
+                  >
+                    {filteredStudents.length === 0 && (
+                      <div className="p-4 text-gray-400 text-center">
+                        No students found
+                      </div>
+                    )}
+                    {filteredStudents.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className="w-full text-left px-6 py-4 hover:bg-gray-100 focus:bg-gray-100 border-b last:border-b-0 border-gray-100"
+                        onClick={() => {
+                          setStudent(s.id);
+                          setStudentDropdownOpen(false);
+                          setStudentSearch("");
+                        }}
+                      >
+                        <div className="font-medium">{s.name}</div>
+                        <div className="text-xs text-gray-400">Year {s.year}</div>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           ) : (
             <div>
@@ -297,91 +315,110 @@ export default function AssignHomeworkForm({
           {!hideQuizPicker ? (
             <div>
               <label className="block mb-2 font-medium">Quiz</label>
-              <div className="relative">
-                <button
-                  type="button"
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center justify-between focus:outline-none text-base"
-                  onClick={() => setQuizDropdownOpen((v) => !v)}
-                  disabled={isLoadingQuizzes && !accumulatedQuizzes.length}
-                >
-                  {selectedQuiz ? (
-                    <span>
-                      <span className="text-black">{selectedQuiz.title}</span>
-                      {selectedQuiz.description && (
-                        <span className="block text-xs text-gray-400">
-                          {selectedQuiz.description}
-                        </span>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400">Select a quiz</span>
-                  )}
-                  {isLoadingQuizzes && !accumulatedQuizzes.length ? (
-                    <Loader2 className="h-5 w-5 ml-auto animate-spin" />
-                  ) : (
-                    <ChevronDown className="h-5 w-5 ml-auto" />
-                  )}
-                </button>
-                {quizDropdownOpen && (
-                  <div
-                    ref={quizDropdownRef}
-                    className="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg z-10 max-h-72 overflow-y-auto border border-gray-100"
+              <Popover
+                open={quizDropdownOpen}
+                onOpenChange={(open) => {
+                  setQuizDropdownOpen(open);
+                  if (!open) setQuizSearch("");
+                }}
+              >
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center justify-between focus:outline-none text-base"
+                    disabled={isLoadingQuizzes && !accumulatedQuizzes.length}
                   >
-                    <div className="p-4 pb-2 sticky top-0 bg-white z-20">
-                      <div className="relative">
-                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                          placeholder="Search quizzes"
-                          value={quizSearch}
-                          onChange={(e) => {
-                            setQuizSearch(e.target.value);
-                          }}
-                          className="w-full pl-9 pr-4 py-2 focus:outline-none shadow-none bg-white rounded-xl"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      {accumulatedQuizzes.length === 0 && !isLoadingQuizzes && (
-                        <div className="p-4 text-gray-400 text-center">
-                          No quizzes found
-                        </div>
-                      )}
-                      {accumulatedQuizzes.map((q) => (
-                        <button
-                          key={q.id}
-                          className="w-full text-left px-6 py-4 hover:bg-gray-100 focus:bg-gray-100 border-b last:border-b-0 border-gray-100"
-                          onClick={() => {
-                            setQuiz(q.id || "");
-                            setQuizDropdownOpen(false);
-                          }}
-                        >
-                          <div className="font-medium">{q.title}</div>
-                          {q.description && (
-                            <div className="text-xs text-gray-400 line-clamp-1">
-                              {q.description}
-                            </div>
-                          )}
-                          {q.questionsCount !== undefined && (
-                            <div className="text-xs text-gray-400 mt-1">
-                              {q.questionsCount} questions
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                      {isLoadingQuizzes && (
-                        <div className="p-4 text-center">
-                          <Loader2 className="h-5 w-5 animate-spin mx-auto text-gray-400" />
-                        </div>
-                      )}
-                      {quizPagination?.hasNextPage && !isLoadingQuizzes && (
-                        <div className="p-2 text-center text-xs text-gray-400">
-                          Scroll for more
-                        </div>
-                      )}
+                    {selectedQuiz ? (
+                      <span>
+                        <span className="text-black">{selectedQuiz.title}</span>
+                        {selectedQuiz.description && (
+                          <span className="block text-xs text-gray-400">
+                            {selectedQuiz.description}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">Select a quiz</span>
+                    )}
+                    {isLoadingQuizzes && !accumulatedQuizzes.length ? (
+                      <Loader2 className="h-5 w-5 ml-auto animate-spin" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 ml-auto" />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  side="bottom"
+                  sideOffset={6}
+                  avoidCollisions={false}
+                  className="z-[200] box-border flex w-[var(--radix-popover-trigger-width)] min-w-[16rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white p-0 !shadow-lg"
+                  style={{ maxHeight: POPOVER_PANEL_MAX }}
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  <div className="shrink-0 border-b border-gray-50 bg-white p-3">
+                    <div className="relative">
+                      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search quizzes"
+                        value={quizSearch}
+                        onChange={(e) => {
+                          setQuizSearch(e.target.value);
+                        }}
+                        className="w-full pl-9 pr-4 py-2 focus:outline-none shadow-none bg-white rounded-xl"
+                      />
                     </div>
                   </div>
-                )}
-              </div>
+                  <div
+                    ref={quizDropdownRef}
+                    className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 [scrollbar-gutter:stable]"
+                    style={{
+                      maxHeight: POPOVER_LIST_MAX,
+                      WebkitOverflowScrolling: "touch" as const,
+                    }}
+                    onWheel={(e) => e.stopPropagation()}
+                  >
+                    {accumulatedQuizzes.length === 0 && !isLoadingQuizzes && (
+                      <div className="p-4 text-gray-400 text-center">
+                        No quizzes found
+                      </div>
+                    )}
+                    {accumulatedQuizzes.map((q) => (
+                      <button
+                        key={q.id}
+                        type="button"
+                        className="w-full text-left px-6 py-4 hover:bg-gray-100 focus:bg-gray-100 border-b last:border-b-0 border-gray-100"
+                        onClick={() => {
+                          setQuiz(q.id || "");
+                          setQuizDropdownOpen(false);
+                        }}
+                      >
+                        <div className="font-medium">{q.title}</div>
+                        {q.description && (
+                          <div className="text-xs text-gray-400 line-clamp-1">
+                            {q.description}
+                          </div>
+                        )}
+                        {q.questionsCount !== undefined && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            {q.questionsCount} questions
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                    {isLoadingQuizzes && (
+                      <div className="p-4 text-center">
+                        <Loader2 className="h-5 w-5 animate-spin mx-auto text-gray-400" />
+                      </div>
+                    )}
+                    {quizPagination?.hasNextPage && !isLoadingQuizzes && (
+                      <div className="p-2 text-center text-xs text-gray-400">
+                        Scroll for more
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           ) : null}
           {/* Date Input */}
