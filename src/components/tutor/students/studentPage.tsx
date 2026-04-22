@@ -870,7 +870,7 @@ export default function StudentPage({ id }: { id: string }) {
                             onClick={() => {
                               setShowResultsDialog(false);
                               router.push(
-                                `/baseline-results/${attempt.quizAttemptId}/review`
+                                `/tutor/students/${id}/baseline-results/${attempt.quizAttemptId}/review`
                               );
                             }}
                           >
