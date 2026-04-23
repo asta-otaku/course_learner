@@ -13,7 +13,11 @@ import { signinSchema } from "@/lib/schema";
 import { z } from "zod";
 import { usePostLogin } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
-import { getAndClearIntendedUrl, resetAuthState } from "@/lib/services/axiosInstance";
+import {
+  getAndClearIntendedUrl,
+  getAndClearLastUnauthorizedUrl,
+  resetAuthState,
+} from "@/lib/services/axiosInstance";
 
 function SigninForm() {
   const {
@@ -44,7 +48,8 @@ function SigninForm() {
         toast.success(res.data.message);
 
         const intendedUrl = getAndClearIntendedUrl();
-        if (intendedUrl) {
+        const lastUnauthorizedUrl = getAndClearLastUnauthorizedUrl();
+        if (intendedUrl && intendedUrl !== lastUnauthorizedUrl) {
           push(intendedUrl);
         } else {
           const redirectPath =

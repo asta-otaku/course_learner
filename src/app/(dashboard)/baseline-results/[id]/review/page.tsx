@@ -1,7 +1,11 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useGetQuizAttemptById, useGetQuizQuestions } from "@/lib/api/queries";
+import {
+  useGetQuizAttemptById,
+  useGetQuizQuestions,
+  useGetManageSubscription,
+} from "@/lib/api/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
 import { WatchLessonVideoButton } from "@/components/platform/library/watchLessonVideoButton";
+import { useProfile } from "@/context/profileContext";
 import { QuestionImage } from "@/components/ui/question-image";
 
 interface QuestionWithResults {
@@ -47,6 +52,7 @@ export default function BaselineReviewPage() {
   const router = useRouter();
   const id = params.id as string;
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const { activeProfile } = useProfile();
 
   // id is the quizAttemptId
   const { data: reviewResponse, isLoading, error } = useGetQuizAttemptById(id);
@@ -55,6 +61,17 @@ export default function BaselineReviewPage() {
     | string
     | null
     | undefined;
+  const { data: manageData } = useGetManageSubscription();
+  const activeProfileId = activeProfile?.id ? String(activeProfile.id) : "";
+  const manageAccessLevel = useMemo(() => {
+    const sub = manageData?.data;
+    if (!sub?.childSubscription || !activeProfileId) return null;
+    const row = sub.childSubscription.find(
+      (r: any) => String(r.childProfileId) === String(activeProfileId),
+    );
+    return row?.accessLevel ?? null;
+  }, [manageData?.data, activeProfileId]);
+  const isTuitionOfferType = manageAccessLevel === "tuition";
 
   const { data: questionsResponse } = useGetQuizQuestions(review?.quizId || "");
 
@@ -210,10 +227,12 @@ export default function BaselineReviewPage() {
                 <div>
                   <CardTitle>Baseline Test Review</CardTitle>
                 </div>
-                <WatchLessonVideoButton
-                  curriculumLessonId={curriculumLessonId}
-                  className="bg-primaryBlue hover:bg-primaryBlue/90"
-                />
+                {isTuitionOfferType ? (
+                  <WatchLessonVideoButton
+                    curriculumLessonId={curriculumLessonId}
+                    className="bg-primaryBlue hover:bg-primaryBlue/90"
+                  />
+                ) : null}
               </div>
             </CardHeader>
             <CardContent>

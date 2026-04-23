@@ -90,6 +90,22 @@ function storeIntendedUrl(url: string) {
   }
 }
 
+// Track the last URL that produced a 401 redirect-to-login.
+function storeLastUnauthorizedUrl(url: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("lastUnauthorizedUrl", url);
+}
+
+export function getAndClearLastUnauthorizedUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  const v = localStorage.getItem("lastUnauthorizedUrl");
+  if (v) {
+    localStorage.removeItem("lastUnauthorizedUrl");
+    return v;
+  }
+  return null;
+}
+
 // Helper to get and clear the intended redirect URL
 export function getAndClearIntendedUrl(): string | null {
   if (typeof window === "undefined") return null;
@@ -114,6 +130,7 @@ function redirectToSignIn() {
   // Store current page as intended URL before redirecting
   const currentPath = window.location.pathname + window.location.search;
   storeIntendedUrl(currentPath);
+  storeLastUnauthorizedUrl(currentPath);
 
   // Determine user type and redirect accordingly
   const userType = getUserTypeFromRoute();

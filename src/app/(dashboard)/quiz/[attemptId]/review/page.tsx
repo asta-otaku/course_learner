@@ -5,6 +5,7 @@ import {
   useGetQuizAttemptById,
   useGetQuizQuestions,
   useGetQuiz,
+  useGetManageSubscription,
 } from "@/lib/api/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { QuestionImage } from "@/components/ui/question-image";
 import { WatchLessonVideoButton } from "@/components/platform/library/watchLessonVideoButton";
+import { useProfile } from "@/context/profileContext";
 
 interface QuestionWithResults {
   id: string;
@@ -52,6 +54,7 @@ export default function QuizAttemptReviewPage() {
   const router = useRouter();
   const attemptId = params.attemptId as string;
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const { activeProfile } = useProfile();
 
   const { data: reviewResponse, isLoading, error } = useGetQuizAttemptById(attemptId);
   const review = reviewResponse?.data;
@@ -59,6 +62,17 @@ export default function QuizAttemptReviewPage() {
     | string
     | null
     | undefined;
+  const { data: manageData } = useGetManageSubscription();
+  const activeProfileId = activeProfile?.id ? String(activeProfile.id) : "";
+  const manageAccessLevel = useMemo(() => {
+    const sub = manageData?.data;
+    if (!sub?.childSubscription || !activeProfileId) return null;
+    const row = sub.childSubscription.find(
+      (r: any) => String(r.childProfileId) === String(activeProfileId),
+    );
+    return row?.accessLevel ?? null;
+  }, [manageData?.data, activeProfileId]);
+  const isTuitionOfferType = manageAccessLevel === "tuition";
   const { data: quizResponse } = useGetQuiz(review?.quizId || "");
   const quizData = quizResponse?.data;
 
@@ -324,11 +338,13 @@ export default function QuizAttemptReviewPage() {
             <CardHeader className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <CardTitle>Quiz Review</CardTitle>
-                <WatchLessonVideoButton
-                  curriculumLessonId={curriculumLessonId}
-                  lessonTitle={lessonTitle}
-                  className="bg-primaryBlue hover:bg-primaryBlue/90"
-                />
+                {isTuitionOfferType ? (
+                  <WatchLessonVideoButton
+                    curriculumLessonId={curriculumLessonId}
+                    lessonTitle={lessonTitle}
+                    className="bg-primaryBlue hover:bg-primaryBlue/90"
+                  />
+                ) : null}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                 <div className="rounded-lg border bg-muted/30 p-3">

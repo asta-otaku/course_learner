@@ -15,6 +15,7 @@ import {
   useGetQuiz,
   useGetResumeQuizAttempt,
   useGetLessonById,
+  useGetManageSubscription,
 } from "@/lib/api/queries";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "react-toastify";
@@ -35,6 +36,18 @@ export default function TakeQuizPage() {
   // isResuming via URL param (direct resume link for regular quizzes)
   const isResuming = Boolean(resumeAttemptId && !isHomework && !isBaselineTest);
   const router = useRouter();
+
+  const { data: manageData } = useGetManageSubscription();
+  const activeProfileId = activeProfile?.id ? String(activeProfile.id) : "";
+  const manageAccessLevel = useMemo(() => {
+    const sub = manageData?.data;
+    if (!sub?.childSubscription || !activeProfileId) return null;
+    const row = sub.childSubscription.find(
+      (r: any) => String(r.childProfileId) === String(activeProfileId),
+    );
+    return row?.accessLevel ?? null;
+  }, [manageData?.data, activeProfileId]);
+  const isTuitionOfferType = manageAccessLevel === "tuition";
 
   const finalQuizIdForFetch = isHomework ? null : id;
   const { data: quizResponse } = useGetQuiz(finalQuizIdForFetch || "");
@@ -72,7 +85,7 @@ export default function TakeQuizPage() {
 
   const { data: lessonResponse, isFetching: lessonIntroFetching } =
     useGetLessonById(effectiveLessonId, {
-      enabled: Boolean(effectiveLessonId) && !quizStarted,
+      enabled: Boolean(effectiveLessonId) && !quizStarted && isTuitionOfferType,
     });
 
   const lessonVideos = useMemo(() => {
@@ -106,6 +119,7 @@ export default function TakeQuizPage() {
   );
 
   const showLessonHeader =
+    isTuitionOfferType &&
     Boolean(effectiveLessonId) &&
     (lessonIntroFetching || Boolean(lessonTitle) || hasPlayableLessonVideo);
 

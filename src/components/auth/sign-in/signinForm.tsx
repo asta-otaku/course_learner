@@ -13,7 +13,11 @@ import { z } from "zod";
 import { usePostLogin } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
-import { resetAuthState } from "@/lib/services/axiosInstance";
+import {
+  getAndClearIntendedUrl,
+  getAndClearLastUnauthorizedUrl,
+  resetAuthState,
+} from "@/lib/services/axiosInstance";
 
 function SigninForm({
   setStep,
@@ -47,7 +51,14 @@ function SigninForm({
           toast.success(res.data.message);
         } else {
           localStorage.setItem("user", JSON.stringify(res.data));
-          setStep(1);
+          // Avoid redirect loop: don't send them back to the page that 401'd.
+          const intendedUrl = getAndClearIntendedUrl();
+          const lastUnauthorizedUrl = getAndClearLastUnauthorizedUrl();
+          if (intendedUrl && intendedUrl !== lastUnauthorizedUrl) {
+            push(intendedUrl);
+          } else {
+            setStep(1);
+          }
           toast.success(res.data.message);
         }
       }
