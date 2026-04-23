@@ -376,12 +376,18 @@ export const usePatchChildTutor = () => {
 
 // Subscription Mutations
 export const useDeleteCancelSubscriptions = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["delete-cancel-subscriptions"],
     mutationFn: (): Promise<ApiResponse<ManageSubscriptionResponse>> =>
       axiosInstance.delete("/subscriptions"),
     onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
-      window.location.replace("/pricing");
+      queryClient.invalidateQueries({
+        queryKey: ["subscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["manage-subscription"],
+      });
       return data;
     },
     onError: (error: AxiosError) => {
