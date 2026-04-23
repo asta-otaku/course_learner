@@ -22,7 +22,7 @@ function CreateProfile({
   setData: React.Dispatch<React.SetStateAction<ChildProfile>>;
   handleAvatar: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
-  const years = Array.from({ length: 5 }, (_, i) => i + 1);
+  const years = Array.from({ length: 6 }, (_, i) => i + 1);
   const { mutateAsync: postChildProfiles, isPending } = usePostChildProfiles();
 
   const {
