@@ -90,7 +90,7 @@ function formatDate(dateStr: string | undefined): string {
 
 function getBannerMessage(
   sub: ManageSubscriptionResponse | undefined
-): string | null {
+): React.ReactNode | null {
   if (!sub) return null;
   if (isTrialingStatus(sub)) return null;
   const hasNoActive =
@@ -106,14 +106,19 @@ function getBannerMessage(
     return "No active subscription. Reactivate to continue learning.";
   }
   if (pendingEnd && sub.currentPeriodEnd) {
-    return `Your subscription will end ${formatDate(sub.currentPeriodEnd)}. You can resubscribe at the end of the period.`;
+    return (
+      <>
+        <strong>Your subscription ends on {formatDate(sub.currentPeriodEnd)} You won't
+          be charged again.</strong> You can resubscribe anytime afterwards.
+      </>
+    );
   }
   return null;
 }
 
 function getTrialInfoMessage(
   sub: ManageSubscriptionResponse | undefined
-): string | null {
+): React.ReactNode | null {
   if (!sub || !isTrialingStatus(sub)) return null;
   const end = sub.trialEndsAt ?? sub.currentPeriodEnd;
   if (!end) return "You're on a free trial. Billing period dates are shown above.";
