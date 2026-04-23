@@ -23,8 +23,8 @@ export default function SiteNav({ active }: SiteNavProps) {
       <Link
         href={href}
         className={`font-medium font-geist transition-colors ${isActive
-            ? "text-white border-b-2 border-white/60"
-            : "hover:text-blue-200"
+          ? "text-white border-b-2 border-white/60"
+          : "hover:text-blue-200"
           }`}
       >
         {label}
@@ -47,7 +47,7 @@ export default function SiteNav({ active }: SiteNavProps) {
       {/* Desktop nav */}
       <div className="hidden md:flex items-center gap-8">
         {navLink("/about", "About Us", "about")}
-        {navLink("/faq", "FAQ", "faq")}
+        {navLink("/faqs", "FAQs", "faq")}
         {navLink("/contact", "Contact Us", "contact")}
       </div>
 
@@ -92,11 +92,11 @@ export default function SiteNav({ active }: SiteNavProps) {
                 About Us
               </Link>
               <Link
-                href="/faq"
+                href="/faqs"
                 className={`block font-medium font-geist transition-colors ${active === "faq" ? "text-white" : "hover:text-blue-200"}`}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                FAQ
+                FAQs
               </Link>
               <Link
                 href="/contact"

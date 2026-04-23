@@ -42,7 +42,7 @@ function Hero() {
               href="/faqs"
               className="font-medium font-geist hover:text-blue-200 transition-colors"
             >
-              FAQ
+              FAQs
             </Link>
             <Link
               href="/contact"
@@ -99,7 +99,7 @@ function Hero() {
                   className="block font-medium font-geist hover:text-blue-200 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  FAQ
+                  FAQs
                 </Link>
                 <Link
                   href="/contact"
