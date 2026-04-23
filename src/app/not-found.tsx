@@ -1,8 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Home, ArrowLeft, BookOpen, ClipboardList } from "lucide-react";
-import { BackButton } from "@/components/not-found-back-button";
+import { Home } from "lucide-react";
 
 export default function NotFound() {
   return (
@@ -45,12 +44,12 @@ export default function NotFound() {
             404
           </p>
           <h1 className="text-xl md:text-2xl font-semibold text-textGray mt-2 font-geist">
-            Oops! This page is playing hide and seek.
+            Oops! This page doesn't exist!
           </h1>
-          <p className="text-textSubtitle text-sm md:text-base mt-3 max-w-sm mx-auto font-geist">
+          {/* <p className="text-textSubtitle text-sm md:text-base mt-3 max-w-sm mx-auto font-geist">
             We couldn&apos;t find it in our syllabus. No worries — let&apos;s
             get you back to learning.
-          </p>
+          </p> */}
 
           {/* Primary actions - Leap Learner button style */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
@@ -63,31 +62,6 @@ export default function NotFound() {
                 Back to Home
               </Link>
             </Button>
-            <BackButton />
-          </div>
-
-          {/* Looking for lessons or quizzes - kept, Leap Learner style */}
-          <div className="mt-10 p-4 rounded-2xl bg-white border border-primaryBlue/15 shadow-sm max-w-md mx-auto">
-            <p className="text-sm font-medium text-textGray font-geist flex items-center justify-center gap-2 mb-3">
-              <BookOpen className="h-4 w-4 text-primaryBlue" />
-              Looking for lessons or quizzes?
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primaryBlue/10 text-primaryBlue hover:bg-primaryBlue/20 font-medium text-sm transition-colors"
-              >
-                <ClipboardList className="h-3.5 w-3.5" />
-                Dashboard
-              </Link>
-              <Link
-                href="/library"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primaryBlue/10 text-primaryBlue hover:bg-primaryBlue/20 font-medium text-sm transition-colors"
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                Library
-              </Link>
-            </div>
           </div>
         </div>
       </main>
