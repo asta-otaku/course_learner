@@ -93,6 +93,12 @@ interface SubscriptionPreviewModalProps {
   childName?: string;
   onConfirm: () => Promise<void>;
   isConfirming: boolean;
+  /**
+   * When the secondary label is an explicit choice (e.g. "Skip — add platform only"),
+   * call this instead of `onOpenChange(false)` so the parent can distinguish Escape /
+   * overlay close from an intentional skip.
+   */
+  onSkipOptional?: () => void | Promise<void>;
 }
 
 export function SubscriptionPreviewModal({
@@ -103,6 +109,7 @@ export function SubscriptionPreviewModal({
   childName,
   onConfirm,
   isConfirming,
+  onSkipOptional,
 }: SubscriptionPreviewModalProps) {
   const meta = ACTION_META[actionType];
   const isRemoval = actionType === "remove_tuition";
@@ -117,6 +124,15 @@ export function SubscriptionPreviewModal({
 
   const handleCancel = () => {
     if (!isConfirming) onOpenChange(false);
+  };
+
+  const handleSecondary = () => {
+    if (isConfirming) return;
+    if (meta.skip && onSkipOptional) {
+      void Promise.resolve(onSkipOptional());
+      return;
+    }
+    onOpenChange(false);
   };
 
   return (
@@ -311,7 +327,7 @@ export function SubscriptionPreviewModal({
           </Button>
           <Button
             variant="ghost"
-            onClick={handleCancel}
+            onClick={handleSecondary}
             disabled={isConfirming}
             className="w-full rounded-xl text-[13px] font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 py-4"
           >

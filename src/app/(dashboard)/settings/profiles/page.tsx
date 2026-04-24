@@ -173,13 +173,39 @@ function Page() {
     }
   };
 
-  // Called when user dismisses the modal (only relevant for new_child_tuition skip)
+  /**
+   * User closed the preview without confirming (Escape, overlay, X, or "Cancel").
+   *
+   * NOTE (payment / lifecycle): The child is already persisted by POST before this modal;
+   * confirm runs billing mutations (happy path). Card failures and "child only after paid"
+   * need backend + Stripe webhook ordering — track as a separate backend issue.
+   */
   const handleDismissModal = async () => {
     setShowPreviewModal(false);
-    if (pendingChildId) {
-      toast.success("Profile created successfully!");
-      await syncChildProfilesToLocalStorage(pendingChildId);
+    const hadPending = Boolean(pendingChildId && pendingModalAction);
+    if (hadPending) {
+      toast.info(
+        "You closed billing confirmation without finishing. You can complete adding this child from Settings → Subscription when you are ready."
+      );
     }
+    setPendingChildId(null);
+    setPendingModalAction(null);
+    setPreviewData(null);
+    await syncChildProfilesToLocalStorage();
+    setStep(0);
+  };
+
+  /** Explicit "Skip — add platform only" on new-child tuition preview (not Escape). */
+  const handleSkipToPlatformOnly = async () => {
+    const childId = pendingChildId;
+    setShowPreviewModal(false);
+    setPendingChildId(null);
+    setPendingModalAction(null);
+    setPreviewData(null);
+    toast.success("Profile created — this child stays on the Platform plan.");
+    if (childId) await syncChildProfilesToLocalStorage(String(childId));
+    setAvatarData({ avatar: null, avatarFile: null });
+    setStep(0);
     router.push("/dashboard");
   };
 
@@ -214,7 +240,7 @@ function Page() {
           setIsEditMode(false);
         }
       } else {
-        // Create new profile
+        // Create new profile (POST runs before billing modal; see handleDismissModal note).
         const res = await postChildProfiles({
           name: data.name,
           year: data.year,
@@ -347,11 +373,10 @@ function Page() {
                       setIsEditMode(true);
                       setStep(1);
                     }}
-                    className={`bg-bgWhiteGray border cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 relative ${
-                      profile.isActive === false
+                    className={`bg-bgWhiteGray border cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 relative ${profile.isActive === false
                         ? "border-gray-300 bg-gray-50"
                         : "border-black/20"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       {profile.avatar ? (
@@ -515,9 +540,8 @@ function Page() {
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button
-                          className={`text-xs ${
-                            selectedProfile?.isActive === false ? "text-[#008000]" : "text-[#FF0000]"
-                          } font-semibold`}
+                          className={`text-xs ${selectedProfile?.isActive === false ? "text-[#008000]" : "text-[#FF0000]"
+                            } font-semibold`}
                         >
                           {selectedProfile?.isActive === false ? "Restore" : "Deactivate"}
                         </button>
@@ -538,11 +562,10 @@ function Page() {
                         </AlertDialogHeader>
                         <AlertDialogFooter className="grid grid-cols-1 gap-1.5 mt-3">
                           <AlertDialogAction
-                            className={`${
-                              selectedProfile?.isActive === false
+                            className={`${selectedProfile?.isActive === false
                                 ? "bg-[#008000] hover:bg-[#006600]"
                                 : "bg-[#FF0000] hover:bg-[#e60000]"
-                            } text-white rounded-full w-full py-2 text-sm font-medium`}
+                              } text-white rounded-full w-full py-2 text-sm font-medium`}
                             onClick={async () => {
                               const willDeactivate = selectedProfile.isActive === true;
                               const res = await patchChildProfile({
@@ -596,6 +619,9 @@ function Page() {
           childName={watchedName || undefined}
           onConfirm={handleConfirmModal}
           isConfirming={isConfirmingTuition}
+          onSkipOptional={
+            pendingModalAction === "add_tuition" ? handleSkipToPlatformOnly : undefined
+          }
         />
       )}
     </div>
