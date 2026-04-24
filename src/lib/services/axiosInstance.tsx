@@ -1,4 +1,5 @@
 import axios from "axios";
+import { toast } from "react-toastify";
 
 // Extend AxiosRequestConfig to include custom skipAuthRedirect property
 declare module "axios" {
@@ -19,6 +20,7 @@ export const axiosInstance = axios.create({
 // Track logout and auth states
 let isLoggingOut = false;
 let hasRedirected = false;
+let hasNavigatedBackOnForbidden = false;
 
 // Helper to determine user type based on current route
 function getUserTypeFromRoute(): "admin" | "tutor" | "user" {
@@ -360,7 +362,27 @@ axiosInstance.interceptors.response.use(
       !hasRedirected &&
       !originalRequest?.skipAuthRedirect
     ) {
-      redirectToSignIn();
+      // Forbidden: keep the user signed in, show message, and navigate back.
+      // Guard against multiple parallel 403s causing repeated back navigation.
+      if (!hasNavigatedBackOnForbidden && typeof window !== "undefined") {
+        hasNavigatedBackOnForbidden = true;
+        const msg =
+          error?.response?.data?.message ||
+          "You do not have access to that page.";
+        toast.error(String(msg));
+        setTimeout(() => {
+          try {
+            if (window.history.length > 1) {
+              window.history.back();
+            }
+          } finally {
+            // Allow future forbidden navigations after we've moved away.
+            setTimeout(() => {
+              hasNavigatedBackOnForbidden = false;
+            }, 500);
+          }
+        }, 0);
+      }
     }
 
     return Promise.reject(error);
