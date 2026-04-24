@@ -453,16 +453,6 @@ export default function TakeQuizPage() {
                 </AlertDescription>
               </Alert>
             ) : null}
-            {isHomework && homework?.message ? (
-              <div className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-left">
-                <h3 className="mb-1 font-semibold text-neutral-900">
-                  From your tutor
-                </h3>
-                <p className="whitespace-pre-wrap text-sm text-neutral-700">
-                  {homework.message}
-                </p>
-              </div>
-            ) : null}
             {/* Quiz Details */}
             <div className="mb-8 space-y-4">
               {/* Quiz Information Grid — time + pass mark row; questions full width below */}
