@@ -60,19 +60,28 @@ function isTrialingStatus(sub: ManageSubscriptionResponse | undefined): boolean 
   return sub.status.toLowerCase() === "trialing";
 }
 
+function isCanceledSubscription(sub: ManageSubscriptionResponse | undefined): boolean {
+  if (!sub?.status) return false;
+  const s = sub.status.toLowerCase();
+  return s === "canceled" || s === "cancelled";
+}
+
 function getPeriodDateLabelAndValue(
   sub: ManageSubscriptionResponse,
   fallbackEndDate: string | undefined
 ): { label: string; value: string } {
-  const endForDisplay = fallbackEndDate ?? sub.currentPeriodEnd ?? undefined;
   const trialing = isTrialingStatus(sub);
   const hasTrialEnd = Boolean(sub.trialEndsAt);
+  const endForDisplay = fallbackEndDate ?? sub.currentPeriodEnd ?? undefined;
 
   if (trialing && hasTrialEnd) {
     return {
       label: "Trial ends",
       value: formatDate(sub.trialEndsAt ?? endForDisplay),
     };
+  }
+  if (isCanceledSubscription(sub)) {
+    return { label: "Next billing", value: "—" };
   }
   return {
     label: "Next billing",
@@ -361,8 +370,10 @@ function Page() {
               )}
             </div>
 
-            {/* ── Next billing breakdown ──────────────────────────────────── */}
-            {sub.nextBilling && sub.nextBilling.breakdown.length > 0 && (
+            {/* ── Next billing breakdown (hidden when subscription is canceled) ─ */}
+            {sub.nextBilling &&
+              sub.nextBilling.breakdown.length > 0 &&
+              !isCanceledSubscription(sub) && (
               <div className="mt-5 pt-4 border-t border-black/10">
                 <p className="text-xs font-semibold text-textSubtitle uppercase tracking-wide mb-3">
                   Next billing — {formatDate(sub.nextBilling.billingDate)}
