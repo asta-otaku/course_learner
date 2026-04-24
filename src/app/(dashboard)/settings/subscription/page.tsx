@@ -60,8 +60,10 @@ function isTrialingStatus(sub: ManageSubscriptionResponse | undefined): boolean 
   return sub.status.toLowerCase() === "trialing";
 }
 
-function isCanceledSubscription(sub: ManageSubscriptionResponse | undefined): boolean {
-  if (!sub?.status) return false;
+/** No next-billing row or breakdown when Stripe status is missing or canceled. */
+function shouldSuppressNextBillingDisplay(sub: ManageSubscriptionResponse | undefined): boolean {
+  if (!sub) return true;
+  if (!sub.status) return true;
   const s = sub.status.toLowerCase();
   return s === "canceled" || s === "cancelled";
 }
@@ -80,7 +82,7 @@ function getPeriodDateLabelAndValue(
       value: formatDate(sub.trialEndsAt ?? endForDisplay),
     };
   }
-  if (isCanceledSubscription(sub)) {
+  if (shouldSuppressNextBillingDisplay(sub)) {
     return { label: "Next billing", value: "—" };
   }
   return {
@@ -98,27 +100,40 @@ function formatDate(dateStr: string | undefined): string {
 }
 
 function getBannerMessage(
-  sub: ManageSubscriptionResponse | undefined
+  sub: ManageSubscriptionResponse | undefined,
+  periodEndFallback?: string
 ): React.ReactNode | null {
   if (!sub) return null;
   if (isTrialingStatus(sub)) return null;
+  const st = sub.status?.toLowerCase();
   const hasNoActive =
     sub.state === "none" ||
     !sub.status ||
-    sub.status === "canceled" ||
+    st === "canceled" ||
+    st === "cancelled" ||
     sub.status === "past_due";
   const pendingEnd = sub.pendingCancellation;
-  if (hasNoActive && sub.currentPeriodEnd) {
-    return "No active subscription. You can resubscribe at the end of the billing period.";
+  const periodEnd = sub.currentPeriodEnd || periodEndFallback;
+
+  if (hasNoActive && periodEnd) {
+    return (
+      <>
+        Your subscription will end {formatDate(periodEnd)}. You can resubscribe at the end of
+        the period.
+      </>
+    );
   }
   if (hasNoActive) {
-    return "No active subscription. Reactivate to continue learning.";
+    return "Your subscription is not active. You can resubscribe from the pricing page.";
   }
   if (pendingEnd && sub.currentPeriodEnd) {
     return (
       <>
-        <strong>Your subscription ends on {formatDate(sub.currentPeriodEnd)} You won't
-          be charged again.</strong> You can resubscribe anytime afterwards.
+        <strong>
+          Your subscription ends on {formatDate(sub.currentPeriodEnd)}. You won&apos;t be charged
+          again.
+        </strong>{" "}
+        You can resubscribe anytime afterwards.
       </>
     );
   }
@@ -196,6 +211,11 @@ function Page() {
   );
 
   const trialBannerText = useMemo(() => getTrialInfoMessage(sub), [sub]);
+
+  const inactiveBannerText = useMemo(
+    () => getBannerMessage(sub, primarySubscription?.endDate),
+    [sub, primarySubscription?.endDate]
+  );
 
   // Preview modal state
   const [previewData, setPreviewData] = useState<UpgradeToTuitionPreviewResponse | null>(null);
@@ -363,17 +383,17 @@ function Page() {
                   <p className="text-sky-900 text-sm font-medium">{trialBannerText}</p>
                 </div>
               )}
-              {getBannerMessage(sub) && (
+              {inactiveBannerText && (
                 <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 mt-3">
-                  <p className="text-amber-800 text-sm font-medium">{getBannerMessage(sub)}</p>
+                  <p className="text-amber-800 text-sm font-medium">{inactiveBannerText}</p>
                 </div>
               )}
             </div>
 
-            {/* ── Next billing breakdown (hidden when subscription is canceled) ─ */}
+            {/* ── Next billing breakdown (hidden when status is null or canceled) ─ */}
             {sub.nextBilling &&
               sub.nextBilling.breakdown.length > 0 &&
-              !isCanceledSubscription(sub) && (
+              !shouldSuppressNextBillingDisplay(sub) && (
               <div className="mt-5 pt-4 border-t border-black/10">
                 <p className="text-xs font-semibold text-textSubtitle uppercase tracking-wide mb-3">
                   Next billing — {formatDate(sub.nextBilling.billingDate)}
