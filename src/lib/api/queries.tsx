@@ -543,6 +543,7 @@ export const useGetQuiz = (id: string) => {
       const response = await axiosInstance.get(`/quizzes/${id}`);
       return response.data;
     },
+    enabled: Boolean(id?.trim()),
   });
 };
 
@@ -1112,6 +1113,17 @@ export const useGetHomework = (childId?: string) => {
     },
   });
 };
+
+export const useGetHomeworkDetails = (id: string) => {
+  return useQuery({
+    queryKey: ["homework-details", id],
+    queryFn: async (): Promise<APIGetResponse<Homework>> => {
+      const response = await axiosInstance.get(`/homework/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
+  });
+}
 
 export const useGetHomeworkById = (id: string) => {
   return useQuery({

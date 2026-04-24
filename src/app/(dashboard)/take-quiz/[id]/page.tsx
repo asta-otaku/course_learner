@@ -13,6 +13,7 @@ import {
 } from "@/lib/api/mutations";
 import {
   useGetQuiz,
+  useGetHomeworkDetails,
   useGetResumeQuizAttempt,
   useGetLessonById,
   useGetManageSubscription,
@@ -21,6 +22,7 @@ import { useState, useMemo, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useProfile } from "@/context/profileContext";
 import LessonVideoPlayer from "@/components/platform/library/lessonVideoPlayer";
+import type { Homework } from "@/lib/types";
 
 export default function TakeQuizPage() {
   const params = useParams();
@@ -49,11 +51,37 @@ export default function TakeQuizPage() {
   }, [manageData?.data, activeProfileId]);
   const isTuitionOfferType = manageAccessLevel === "tuition";
 
-  const finalQuizIdForFetch = isHomework ? null : id;
-  const { data: quizResponse } = useGetQuiz(finalQuizIdForFetch || "");
+  const {
+    data: homeworkResponse,
+    isLoading: isHomeworkDetailsLoading,
+    isError: isHomeworkDetailsError,
+  } = useGetHomeworkDetails(isHomework ? id : "");
+  const homework = homeworkResponse?.data as Homework | undefined;
+
+  const quizFetchId = useMemo(() => {
+    if (isHomework) return (homework?.quizId ?? "").trim();
+    return (id ?? "").trim();
+  }, [isHomework, homework?.quizId, id]);
+
+  const {
+    data: quizResponse,
+    isFetching: isQuizMetadataFetching,
+    isError: isQuizMetadataError,
+  } = useGetQuiz(quizFetchId);
   const quiz = quizResponse?.data;
   const timeLimit = quiz?.timeLimit;
   const feedbackMode = quiz?.feedbackMode;
+
+  /** Homework: wait for homework details + linked quiz metadata for the pre-quiz screen. */
+  const preQuizDataLoading =
+    isHomework &&
+    !isHomeworkDetailsError &&
+    (isHomeworkDetailsLoading ||
+      !homework?.quizId ||
+      (Boolean(quizFetchId) &&
+        isQuizMetadataFetching &&
+        !quiz &&
+        !isQuizMetadataError));
 
   // Quiz attempt mutations
   const { mutate: startQuizAttempt, isPending: isStartingQuiz } =
@@ -77,11 +105,21 @@ export default function TakeQuizPage() {
   const effectiveLessonId = useMemo(() => {
     const fromUrl = lessonIdFromUrl.trim();
     if (fromUrl) return fromUrl;
+    if (isHomework) {
+      const fromHomework = homework?.curriculumLessonId?.trim();
+      if (fromHomework) return fromHomework;
+    }
     const curriculumId = quiz?.curriculumLessonId?.trim();
     if (curriculumId) return curriculumId;
     const lid = typeof quiz?.lessonId === "string" ? quiz.lessonId.trim() : "";
     return lid;
-  }, [lessonIdFromUrl, quiz?.curriculumLessonId, quiz?.lessonId]);
+  }, [
+    lessonIdFromUrl,
+    isHomework,
+    homework?.curriculumLessonId,
+    quiz?.curriculumLessonId,
+    quiz?.lessonId,
+  ]);
 
   const { data: lessonResponse, isFetching: lessonIntroFetching } =
     useGetLessonById(effectiveLessonId, {
@@ -340,6 +378,9 @@ export default function TakeQuizPage() {
     isStartingBaselineTest ||
     isCheckingBaselineResume;
 
+  const isPreQuizBlocked = preQuizDataLoading;
+  const isCtaBusy = isPending || isPreQuizBlocked;
+
   // Resume notice — shown just above the CTA button
   // immediate feedback: locked-answers warning; other modes: simple continuation message
   const resumeNotice = isResumingDetected
@@ -389,10 +430,39 @@ export default function TakeQuizPage() {
         <Card className="shadow-lg border-0 bg-white">
           <CardHeader className="border-b border-neutral-200 pb-6 text-center">
             <CardTitle className="mb-0 text-2xl font-semibold text-neutral-900">
-              {quiz?.title || "Quiz"}
+              {isHomework
+                ? homework?.quizTitle || quiz?.title || "Homework"
+                : quiz?.title || "Quiz"}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
+            {isHomework && isHomeworkDetailsError ? (
+              <Alert className="mb-6 border-red-200 bg-red-50">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-800">
+                  Could not load homework details. Please go back and try again.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {isHomework && isQuizMetadataError && !quiz ? (
+              <Alert className="mb-6 border-amber-200 bg-amber-50">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-900">
+                  Quiz details could not be loaded. You can still start; timings
+                  and pass mark may appear after you begin.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {isHomework && homework?.message ? (
+              <div className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-left">
+                <h3 className="mb-1 font-semibold text-neutral-900">
+                  From your tutor
+                </h3>
+                <p className="whitespace-pre-wrap text-sm text-neutral-700">
+                  {homework.message}
+                </p>
+              </div>
+            ) : null}
             {/* Quiz Details */}
             <div className="mb-8 space-y-4">
               {/* Quiz Information Grid — time + pass mark row; questions full width below */}
@@ -492,14 +562,22 @@ export default function TakeQuizPage() {
               </Button>
               <Button
                 onClick={handleStartOrResumeClick}
-                disabled={isPending || (isBaselineTest && !baselineTestId)}
+                disabled={
+                  isCtaBusy ||
+                  (isBaselineTest && !baselineTestId) ||
+                  (isHomework && isHomeworkDetailsError)
+                }
                 className="min-w-[160px] bg-blue-600 hover:bg-blue-700"
                 size="lg"
               >
-                {isPending ? (
+                {isCtaBusy ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    {isResumingDetected ? "Resuming..." : "Starting..."}
+                    {isPreQuizBlocked
+                      ? "Loading…"
+                      : isResumingDetected
+                        ? "Resuming..."
+                        : "Starting..."}
                   </>
                 ) : (
                   buttonLabel

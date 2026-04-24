@@ -1075,7 +1075,12 @@ export interface Homework {
   tutorName: string;
   dateSubmitted: string | null;
   dateReviewed: string | null;
+  isAutoAssigned: boolean;
+  isPassed: boolean;
   message: string;
+  quizId: string;
+  quizTitle: string;
+  curriculumLessonId: string;
 }
 
 export interface HomeworkReview {
