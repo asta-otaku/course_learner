@@ -338,7 +338,7 @@ export default function QuizAttemptReviewPage() {
             <CardHeader className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <CardTitle>Quiz Review</CardTitle>
-                {isTuitionOfferType ? (
+                {isTuitionOfferType && curriculumLessonId?.trim() ? (
                   <WatchLessonVideoButton
                     curriculumLessonId={curriculumLessonId}
                     lessonTitle={lessonTitle}

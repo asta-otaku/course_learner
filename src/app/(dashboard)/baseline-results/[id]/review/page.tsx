@@ -227,7 +227,7 @@ export default function BaselineReviewPage() {
                 <div>
                   <CardTitle>Baseline Test Review</CardTitle>
                 </div>
-                {isTuitionOfferType ? (
+                {isTuitionOfferType && curriculumLessonId?.trim() ? (
                   <WatchLessonVideoButton
                     curriculumLessonId={curriculumLessonId}
                     className="bg-primaryBlue hover:bg-primaryBlue/90"

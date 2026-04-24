@@ -19,7 +19,6 @@ import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
 import { QuestionImage } from "@/components/ui/question-image";
-import { WatchLessonVideoButton } from "@/components/platform/library/watchLessonVideoButton";
 
 interface QuestionWithResults {
   id: string;
@@ -210,10 +209,6 @@ export default function BaselineReviewPage() {
                 <div>
                   <CardTitle>Baseline Test Review</CardTitle>
                 </div>
-                <WatchLessonVideoButton
-                  curriculumLessonId={curriculumLessonId}
-                  className="bg-primaryBlue hover:bg-primaryBlue/90"
-                />
               </div>
             </CardHeader>
             <CardContent>

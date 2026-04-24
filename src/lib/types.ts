@@ -1094,6 +1094,8 @@ export interface HomeworkReview {
   percentage: number;
   results: any[];
   timeSpent: number;
+  /** When set (e.g. tuition-linked homework), links to curriculum lesson video. */
+  curriculumLessonId?: string | null;
 }
 
 export interface Section {
