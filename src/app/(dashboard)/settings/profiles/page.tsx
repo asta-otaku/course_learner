@@ -36,6 +36,11 @@ import { toast } from "react-toastify";
 import {
   SubscriptionPreviewModal,
 } from "@/components/platform/subscriptions/SubscriptionPreviewModal";
+import { ChildProfileSubscriptionBlockedDialog } from "@/components/platform/child-profiles/ChildProfileSubscriptionBlockedDialog";
+import {
+  getPeriodEndFromChildProfileRegisterError,
+  isChildProfileBlockedByCancelledSubscription,
+} from "@/lib/childProfileCreation";
 
 function Page() {
   const router = useRouter();
@@ -75,6 +80,10 @@ function Page() {
   const [pendingChildId, setPendingChildId] = useState<string | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [isConfirmingTuition, setIsConfirmingTuition] = useState(false);
+  const [showChildCreationBlocked, setShowChildCreationBlocked] = useState(false);
+  const [childCreationBlockedPeriodEnd, setChildCreationBlockedPeriodEnd] = useState<
+    string | undefined
+  >(undefined);
 
   const syncChildProfilesToLocalStorage = async (activeProfileId?: string) => {
     if (typeof window === "undefined") return;
@@ -321,6 +330,19 @@ function Page() {
         }
       }
     } catch (error) {
+      if (isChildProfileBlockedByCancelledSubscription(error)) {
+        let end = getPeriodEndFromChildProfileRegisterError(error);
+        if (!end) {
+          const fr = await refetchManage();
+          end = (fr.data as { data?: { currentPeriodEnd?: string } })?.data?.currentPeriodEnd;
+        }
+        if (!end) {
+          end = (manageData as { data?: { currentPeriodEnd?: string } })?.data?.currentPeriodEnd;
+        }
+        setChildCreationBlockedPeriodEnd(end);
+        setShowChildCreationBlocked(true);
+        return;
+      }
       console.error("Failed to save profile:", error);
     }
   };
@@ -602,6 +624,12 @@ function Page() {
       }
 
       {/* Preview / confirmation modal — shown after new profile is created */}
+      <ChildProfileSubscriptionBlockedDialog
+        open={showChildCreationBlocked}
+        onOpenChange={setShowChildCreationBlocked}
+        currentPeriodEnd={childCreationBlockedPeriodEnd}
+      />
+
       {showPreviewModal && (
         <SubscriptionPreviewModal
           open={showPreviewModal}

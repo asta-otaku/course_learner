@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "../services/axiosInstance";
 import { toast } from "react-toastify";
 import { AxiosError } from "axios";
+import { isChildProfileBlockedByCancelledSubscription } from "../childProfileCreation";
 import {
   APIGetResponse,
   ApiResponse,
@@ -243,6 +244,7 @@ export const usePostChildProfiles = () => {
       return data;
     },
     onError: (error: AxiosError) => {
+      if (isChildProfileBlockedByCancelledSubscription(error)) return;
       handleErrorMessage(error);
     },
   });

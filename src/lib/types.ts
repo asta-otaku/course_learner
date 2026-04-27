@@ -482,18 +482,18 @@ export interface ManageSubscriptionResponse {
 }
 
 export interface UpgradeToTuitionPreviewResponse {
-  currency: string,
-  dueNow: number,
-  dueNextBilling: number,
-  billingDate: string,
+  currency: string;
+  dueNow: number;
+  dueNextBilling: number;
+  billingDate: string;
   breakdown: {
-    description: string,
-    amount: number,
-    currency: string,
-    isProration: boolean,
-    periodEnd: string,
-    timing: string,
-  }[]
+    description: string;
+    amount: number;
+    currency: string;
+    isProration: boolean;
+    periodEnd: string;
+    timing: string;
+  }[];
 }
 
 export interface CreateSubscriptionData {
@@ -525,11 +525,11 @@ export interface ChildProfile {
 }
 
 export interface ChildPreferences {
-  childProfileId?: string
-  selectedCurriculumId: string
-  weeklyQuota: number
-  pauseAssignments: boolean
-  pauseUntil?: string | null
+  childProfileId?: string;
+  selectedCurriculumId: string;
+  weeklyQuota: number;
+  pauseAssignments: boolean;
+  pauseUntil?: string | null;
 }
 
 export interface ParentProfile {
@@ -1264,13 +1264,29 @@ export interface BaselineTestEntry {
 
 export interface LearningPath {
   quizTitle: string;
-  sectionName: string
-  lessonName: string
-  status: string
+  sectionName: string;
+  lessonName: string;
+  status: string;
   dueAt: string;
-  homeworkId: string
+  homeworkId: string;
 }
 
+export interface RecentHomeworkItem {
+  type: string;
+  lessonName: string;
+  quizName: string;
+  status: string;
+  dateCompleted: string;
+}
+
+export interface HistoryHomeworkItem {
+  type: string;
+  lessonName: string;
+  quizName: string;
+  score: number;
+  dateCompleted: string;
+  isPassed: boolean;
+}
 export interface SchemeOfWork {
   quizId: string;
   quizTitle: string;

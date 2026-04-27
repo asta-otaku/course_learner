@@ -15,7 +15,7 @@ import {
   useGetChildBaselineTest,
   useGetChildProfileById,
   useGetCurricula,
-  useGetLearningPath,
+  useGetHomework,
 } from "@/lib/api/queries";
 import DoubleQuote from "@/assets/svgs/doubleQuote";
 import type { LearningPath } from "@/lib/types";
@@ -36,9 +36,9 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
     offerType: offerTypeOverride ?? effectiveProfile?.offerType ?? "tuition",
   });
 
-  const { data: learningPathData, isLoading: learningPathLoading } =
-    useGetLearningPath(effectiveProfile?.id || "");
-  const learningPath = (learningPathData?.data || []) as LearningPath[];
+  const { data: homeworkData, isLoading: homeworkLoading } =
+    useGetHomework(effectiveProfile?.id || "");
+  const homework = (homeworkData?.data || []) as LearningPath[];
 
   // Fetch baseline test for this child (API returns a single object)
   const { data: baselineTestResponse } = useGetChildBaselineTest(
@@ -92,13 +92,13 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
             Your Assignments
           </h2>
 
-          {learningPathLoading ? (
+          {homeworkLoading ? (
             <div className="animate-pulse space-y-2">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="h-12 bg-gray-100 rounded" />
               ))}
             </div>
-          ) : learningPath.length === 0 ? (
+          ) : homework.length === 0 ? (
             <p className="text-sm text-gray-400 py-8">
               No assignments available.
             </p>
@@ -114,7 +114,7 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
                 </tr>
               </thead>
               <tbody>
-                {learningPath.map((item) => (
+                {homework.map((item) => (
                   <tr
                     key={item.homeworkId}
                     className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors"

@@ -39,6 +39,8 @@ import {
   LearningPathSummary,
   LearningHistory,
   ChildPreferences,
+  RecentHomeworkItem,
+  HistoryHomeworkItem,
 } from "../types";
 
 // User Queries
@@ -1103,7 +1105,7 @@ export const useGetChangeRequestById = (id: string) => {
 export const useGetHomework = (childId?: string) => {
   return useQuery({
     queryKey: ["homeworks", childId],
-    queryFn: async (): Promise<APIGetResponse<Homework[]>> => {
+    queryFn: async (): Promise<APIGetResponse<Homework[] | LearningPath[]>> => {
       const response = await axiosInstance.get(`/homework`, {
         params: {
           childId,
@@ -1122,6 +1124,28 @@ export const useGetHomeworkDetails = (id: string) => {
       return response.data;
     },
     enabled: !!id,
+  });
+}
+
+export const useGetRecentHomework = (childId: string) => {
+  return useQuery({
+    queryKey: ["recent-homework", childId],
+    queryFn: async (): Promise<APIGetResponse<RecentHomeworkItem[]>> => {
+      const response = await axiosInstance.get(`/homework/recent-works?childId=${childId}`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
+export const useGetHistoryHomework = (childId: string) => {
+  return useQuery({
+    queryKey: ["history-homework", childId],
+    queryFn: async (): Promise<APIGetResponse<HistoryHomeworkItem[]>> => {
+      const response = await axiosInstance.get(`/homework/history?childId=${childId}`);
+      return response.data;
+    },
+    enabled: !!childId,
   });
 }
 

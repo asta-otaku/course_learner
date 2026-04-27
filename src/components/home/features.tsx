@@ -94,66 +94,6 @@ function Features() {
           </Button>
         </div>
       </div>
-      <div className="bg-blue-500 w-full min-h-[254px] flex items-center rounded-3xl mt-16 relative overflow-hidden">
-        {/* Background math symbols - centered absolutely */}
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-80"
-          style={{
-            backgroundImage: `url('/always-wth.png')`,
-            left: "50%",
-            transform: "translateX(-50%)",
-          }}
-        />
-
-        {/* Content overlay */}
-        <div className="relative z-10 flex items-center justify-between h-full px-4 md:px-8 py-4 w-full">
-          {/* Left side content */}
-          <div className="text-white max-w-2xl z-10">
-            <h6 className="text-[#BBD0FF] font-semibold font-geist">
-              VIGINTI QUATTUOR/SEPTEM SUPPORTUS
-            </h6>
-            <h1 className="text-xl md:text-2xl lg:text-3xl font-geist font-semibold my-5">
-              SEMPER CUM TE
-            </h1>
-
-            <div className="space-y-3 ">
-              <div className="flex items-center gap-3">
-                <BadgeCheck className="fill-white w-4 h-4 text-primaryBlue shrink-0" />
-                <p className="leading-relaxed font-geist font-medium">
-                  Quisque Emptor Est Positus In Parvus Supportus Group
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <BadgeCheck className="fill-white w-4 h-4 text-primaryBlue shrink-0" />
-                <p className="leading-relaxed font-geist font-medium">
-                  Tu Potes Rogo Quaestio In Quisque Worksheet, Video, Vel Mock
-                  Charta Tu Es Haereo In Tu Non Habebis Quisque Quaestiones
-                  Tamen Quia Platform Est Tam Bonus
-                </p>
-              </div>
-            </div>
-          </div>
-          <Image
-            src={alwaysWithYou}
-            alt="Happy student"
-            width={0}
-            height={0}
-            className="w-fit h-auto absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 hidden xl:block opacity-90"
-          />
-
-          {/* Right side boy illustration */}
-          <div className="flex-shrink-0 ml-8 hidden xl:block">
-            <Image
-              src="/straight-boy.svg"
-              alt="Happy student"
-              width={0}
-              height={0}
-              className="w-full h-auto"
-            />
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

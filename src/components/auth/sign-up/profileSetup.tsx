@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Info, PlusCircle, X } from "lucide-react";
@@ -10,6 +10,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { childProfileSchema } from "@/lib/schema";
 import { z } from "zod";
 import { usePostChildProfiles } from "@/lib/api/mutations";
+import { useGetManageSubscription } from "@/lib/api/queries";
+import { ChildProfileSubscriptionBlockedDialog } from "@/components/platform/child-profiles/ChildProfileSubscriptionBlockedDialog";
+import {
+  getPeriodEndFromChildProfileRegisterError,
+  isChildProfileBlockedByCancelledSubscription,
+} from "@/lib/childProfileCreation";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -24,6 +30,11 @@ type ChildProfileForm = z.infer<typeof childProfileSchema>;
 
 function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
   const { mutateAsync: postChildProfiles, isPending } = usePostChildProfiles();
+  const { data: manageData, refetch: refetchManage } = useGetManageSubscription();
+  const [showChildCreationBlocked, setShowChildCreationBlocked] = useState(false);
+  const [childCreationBlockedPeriodEnd, setChildCreationBlockedPeriodEnd] = useState<
+    string | undefined
+  >(undefined);
   const {
     register,
     handleSubmit,
@@ -39,19 +50,35 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
   });
 
   const onSubmit = async (data: ChildProfileForm) => {
-    const res = await postChildProfiles({
-      ...data,
-      avatar: data.avatar as File,
-    });
-    if (res.status === 201) {
-      const createdProfile = res.data?.data;
-      if (createdProfile && typeof window !== "undefined") {
-        // Mirror profileSelection: store the child we just created for use in Subscriptions
-        localStorage.setItem("activeProfile", JSON.stringify(createdProfile));
-        localStorage.setItem("childProfiles", JSON.stringify([createdProfile]));
+    try {
+      const res = await postChildProfiles({
+        ...data,
+        avatar: data.avatar as File,
+      });
+      if (res.status === 201) {
+        const createdProfile = res.data?.data;
+        if (createdProfile && typeof window !== "undefined") {
+          // Mirror profileSelection: store the child we just created for use in Subscriptions
+          localStorage.setItem("activeProfile", JSON.stringify(createdProfile));
+          localStorage.setItem("childProfiles", JSON.stringify([createdProfile]));
+        }
+        toast.success(res.data.message);
+        setCurrentStep(2);
       }
-      toast.success(res.data.message);
-      setCurrentStep(2);
+    } catch (error) {
+      if (isChildProfileBlockedByCancelledSubscription(error)) {
+        let end = getPeriodEndFromChildProfileRegisterError(error);
+        if (!end) {
+          const fr = await refetchManage();
+          end = (fr.data as { data?: { currentPeriodEnd?: string } })?.data?.currentPeriodEnd;
+        }
+        if (!end) {
+          end = (manageData as { data?: { currentPeriodEnd?: string } })?.data?.currentPeriodEnd;
+        }
+        setChildCreationBlockedPeriodEnd(end);
+        setShowChildCreationBlocked(true);
+        return;
+      }
     }
   };
 
@@ -60,6 +87,11 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
 
   return (
     <>
+      <ChildProfileSubscriptionBlockedDialog
+        open={showChildCreationBlocked}
+        onOpenChange={setShowChildCreationBlocked}
+        currentPeriodEnd={childCreationBlockedPeriodEnd}
+      />
       <h5 className="text-textSubtitle font-medium uppercase text-sm md:text-base">
         step {currentStep + 1} out of 3
       </h5>
