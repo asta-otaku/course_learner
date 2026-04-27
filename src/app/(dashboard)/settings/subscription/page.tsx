@@ -124,7 +124,7 @@ function getBannerMessage(
     );
   }
   if (hasNoActive) {
-    return "Your subscription is not active. You can resubscribe from the pricing page.";
+    return "No active subscription. Reactivate to continue learning.";
   }
   if (pendingEnd && sub.currentPeriodEnd) {
     return (
@@ -394,28 +394,28 @@ function Page() {
             {sub.nextBilling &&
               sub.nextBilling.breakdown.length > 0 &&
               !shouldSuppressNextBillingDisplay(sub) && (
-              <div className="mt-5 pt-4 border-t border-black/10">
-                <p className="text-xs font-semibold text-textSubtitle uppercase tracking-wide mb-3">
-                  Next billing — {formatDate(sub.nextBilling.billingDate)}
-                </p>
-                <div className="space-y-2">
-                  {sub.nextBilling.breakdown.map((item, i) => (
-                    <div key={i} className="flex justify-between items-start gap-4">
-                      <span className="text-xs text-textSubtitle flex-1">{item.description}</span>
-                      <span className="text-xs font-medium text-textGray whitespace-nowrap">
-                        {formatCurrency(item.amount, item.currency)}
+                <div className="mt-5 pt-4 border-t border-black/10">
+                  <p className="text-xs font-semibold text-textSubtitle uppercase tracking-wide mb-3">
+                    Next billing — {formatDate(sub.nextBilling.billingDate)}
+                  </p>
+                  <div className="space-y-2">
+                    {sub.nextBilling.breakdown.map((item, i) => (
+                      <div key={i} className="flex justify-between items-start gap-4">
+                        <span className="text-xs text-textSubtitle flex-1">{item.description}</span>
+                        <span className="text-xs font-medium text-textGray whitespace-nowrap">
+                          {formatCurrency(item.amount, item.currency)}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="border-t border-black/10 pt-2 mt-1 flex justify-between items-center">
+                      <span className="text-xs font-semibold text-textGray">Total due</span>
+                      <span className="text-sm font-bold text-textGray">
+                        {formatCurrency(sub.nextBilling.amountDue, sub.nextBilling.currency)}
                       </span>
                     </div>
-                  ))}
-                  <div className="border-t border-black/10 pt-2 mt-1 flex justify-between items-center">
-                    <span className="text-xs font-semibold text-textGray">Total due</span>
-                    <span className="text-sm font-bold text-textGray">
-                      {formatCurrency(sub.nextBilling.amountDue, sub.nextBilling.currency)}
-                    </span>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
 
           {/* ── Children / seats table ────────────────────────────────────── */}
