@@ -145,14 +145,12 @@ function Hero() {
             className="w-full h-auto max-w-md md:max-w-none z-10"
           />
           <h2 className="text-center text-xl md:text-2xl lg:text-3xl xl:text-[40px] font-geist font-semibold max-w-[820px] leading-tight md:leading-tight w-full capitalize mt-8 md:mt-12 z-10">
-            Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam,
-            quos.
+            Master the entire KS2/11+ Maths syllabus using our animated videos,
+            worksheets and mock papers!
           </h2>
           <p className="font-geist text-sm md:text-base lg:text-lg xl:text-xl my-4 md:my-6 text-center px-4 z-10">
-            Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam,
-            quos.
-            <br className="hidden sm:block" /> Lorem ipsum dolor sit amet
-            consectetur adipisicing elit. Quisquam, quos.
+            Immerse your child in our ordered,
+            animated platform.
           </p>
 
           <Button
