@@ -144,7 +144,7 @@ export function SubscriptionPreviewModal({
                 </span>
               </div>
               <h2 className="text-[17px] font-semibold text-gray-900 leading-tight">
-                {meta.title}
+                {meta.title} for {childName}
               </h2>
               <p className="text-[13px] text-gray-500 mt-0.5">{meta.subtitle}</p>
             </div>
