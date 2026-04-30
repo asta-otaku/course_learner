@@ -109,6 +109,51 @@ export default function Navbar() {
     push("/pricing");
   }, [isAuthenticated, isAccessDenied, pathname, push]);
 
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!hasResolvedAccessLevel) return;
+    const p = pathname || "";
+
+    // Allow pricing and auth routes to avoid loops.
+    if (p.startsWith("/pricing") || p.startsWith("/sign-in")) return;
+
+    // Shared routes for all offers
+    const sharedPrefixes = ["/dashboard"];
+    if (sharedPrefixes.some((pref) => p.startsWith(pref))) return;
+
+    // Library rules:
+    // - /library (root) is platform-only
+    // - /library/... (deep links) are shared (used for direct lesson access)
+    const isLibraryRoot = p === "/library" || p === "/library/";
+    const isLibraryDeepLink = p.startsWith("/library/") && !isLibraryRoot;
+    if (isLibraryDeepLink) return;
+
+    // Offer-specific routes
+    const tuitionOnlyPrefixes = [
+      "/homework",
+      "/messages",
+      "/sessions",
+      "/independent-learning",
+    ];
+    const platformOnlyPrefixes = ["/glossary"];
+
+    if (effectiveOfferType === "platform") {
+      if (tuitionOnlyPrefixes.some((pref) => p.startsWith(pref))) {
+        push("/dashboard");
+      }
+    }
+
+    if (effectiveOfferType === "tuition") {
+      if (isLibraryRoot) {
+        push("/dashboard");
+        return;
+      }
+      if (platformOnlyPrefixes.some((pref) => p.startsWith(pref))) {
+        push("/dashboard");
+      }
+    }
+  }, [isAuthenticated, hasResolvedAccessLevel, effectiveOfferType, pathname, push]);
+
   const routes =
     effectiveOfferType === "platform" ? platformRoutes : tuitionRoutes;
 

@@ -323,7 +323,11 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
   // Handle back to tag navigation
   const handleBackToTag = () => {
     if (tag) {
-      router.push(`/glossary?tag=${tag}`);
+      if (effectiveOfferType === "platform") {
+        router.push(`/glossary?tag=${tag}`);
+      } else {
+        router.push(`/independent-learning?tag=${tag}`);
+      }
     }
   };
 
