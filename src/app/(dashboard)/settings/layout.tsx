@@ -15,7 +15,7 @@ const tabs: TabItem[] = [
   { label: "Parent Profile", path: "/settings/profile" },
   { label: "Subscription", path: "/settings/subscription" },
   { label: "Profiles", path: "/settings/profiles" },
-  { label: "Support", path: "/settings/support" },
+  // { label: "Support", path: "/settings/support" },
 ];
 
 function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -53,8 +53,8 @@ function SettingsLayout({ children }: { children: React.ReactNode }) {
                 key={tab.path}
                 onClick={() => handleTabClick(tab.path)}
                 className={`px-1 text-sm md:text-base transition-colors relative ${isActiveTab(tab.path)
-                    ? "font-bold text-primaryBlue"
-                    : "text-textSubtitle hover:text-gray-800 font-medium"
+                  ? "font-bold text-primaryBlue"
+                  : "text-textSubtitle hover:text-gray-800 font-medium"
                   }`}
               >
                 {tab.label}

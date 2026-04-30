@@ -49,9 +49,9 @@ function formatSubscriptionLabel(state: string | undefined): string {
   if (!state || state === "none") return "None";
   if (state === "platform") return "Platform (£30/month)";
   if (state === "tuition" || state === "tuition_single")
-    return "Tuition (£70 first child + £40 add-ons)";
+    return "Guided Learning (£70 first child + £40 add-ons)";
   if (state === "tuition_multi")
-    return "Tuition — multiple children (£70 first + £40 add-ons)";
+    return "Guided Learning — multiple children (£70 first + £40 add-ons)";
   return state;
 }
 
@@ -99,6 +99,13 @@ function formatDate(dateStr: string | undefined): string {
   });
 }
 
+function isFutureDate(dateStr: string | undefined): boolean {
+  if (!dateStr) return false;
+  const t = new Date(dateStr).getTime();
+  if (Number.isNaN(t)) return false;
+  return t > Date.now();
+}
+
 function getBannerMessage(
   sub: ManageSubscriptionResponse | undefined,
   periodEndFallback?: string
@@ -113,9 +120,9 @@ function getBannerMessage(
     st === "cancelled" ||
     sub.status === "past_due";
   const pendingEnd = sub.pendingCancellation;
-  const periodEnd = sub.currentPeriodEnd || periodEndFallback;
+  const periodEnd = sub.currentPeriodEnd;
 
-  if (hasNoActive && periodEnd) {
+  if (hasNoActive && periodEnd && isFutureDate(periodEnd)) {
     return (
       <>
         Your subscription will end {formatDate(periodEnd)}. You can resubscribe at the end of
@@ -152,7 +159,7 @@ function getTrialInfoMessage(
 function formatAccessLevel(accessLevel: string, accessEndsAt: string | null): string {
   const display =
     accessLevel === "tuition"
-      ? "1-to-1 Tuition"
+      ? "1-to-1 Guided Learning"
       : accessLevel === "platform"
         ? "Platform"
         : accessLevel === "locked"
@@ -454,7 +461,7 @@ function Page() {
                                 {isActing && previewDeletePending ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
                                 ) : (
-                                  "Remove Tuition"
+                                  "Remove Guided Learning"
                                 )}
                               </Button>
                             ) : row.actions?.includes("add_tuition") ? (
@@ -469,7 +476,7 @@ function Page() {
                                 {isActing && previewAddPending ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
                                 ) : (
-                                  "Add Tuition"
+                                  "Add Guided Learning"
                                 )}
                               </Button>
                             ) : row.actions?.includes("upgrade_to_tuition") ? (
@@ -484,7 +491,7 @@ function Page() {
                                 {isActing && previewUpgradePending ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
                                 ) : (
-                                  "Add Tuition"
+                                  "Add Guided Learning"
                                 )}
                               </Button>
                             ) : row.actions?.includes("choose_plan") ? (

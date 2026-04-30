@@ -47,32 +47,32 @@ const ACTION_META: Record<
   }
 > = {
   add_tuition: {
-    title: "Add Tuition",
+    title: "Add Guided Learning",
     subtitle: "Review what will be charged before confirming.",
     badge: "Upgrade",
     badgeColor: "bg-violet-100 text-violet-700",
-    confirm: "Confirm & Add Tuition",
+    confirm: "Confirm & Add Guided Learning",
   },
   upgrade_to_tuition: {
-    title: "Upgrade to Tuition",
+    title: "Upgrade to Guided Learning",
     subtitle: "Review what will be charged before confirming.",
     badge: "Upgrade",
     badgeColor: "bg-violet-100 text-violet-700",
     confirm: "Confirm Upgrade",
   },
   remove_tuition: {
-    title: "Remove Tuition",
+    title: "Remove Guided Learning",
     subtitle: "Review what will change on your next invoice.",
     badge: "Downgrade",
     badgeColor: "bg-amber-100 text-amber-700",
     confirm: "Confirm Removal",
   },
   new_child_tuition: {
-    title: "Add Tuition for New Child",
+    title: "Add Guided Learning for New Child",
     subtitle: "Review what will be charged before confirming.",
     badge: "New seat",
     badgeColor: "bg-sky-100 text-sky-700",
-    confirm: "Confirm & Add Tuition",
+    confirm: "Confirm & Add Guided Learning",
     skip: "Skip — add platform only",
   },
   add_platform: {
@@ -93,11 +93,6 @@ interface SubscriptionPreviewModalProps {
   childName?: string;
   onConfirm: () => Promise<void>;
   isConfirming: boolean;
-  /**
-   * When the secondary label is an explicit choice (e.g. "Skip — add platform only"),
-   * call this instead of `onOpenChange(false)` so the parent can distinguish Escape /
-   * overlay close from an intentional skip.
-   */
   onSkipOptional?: () => void | Promise<void>;
 }
 
@@ -150,9 +145,6 @@ export function SubscriptionPreviewModal({
               </div>
               <h2 className="text-[17px] font-semibold text-gray-900 leading-tight">
                 {meta.title}
-                {childName && (
-                  <span className="text-gray-400 font-normal"> · {childName}</span>
-                )}
               </h2>
               <p className="text-[13px] text-gray-500 mt-0.5">{meta.subtitle}</p>
             </div>
@@ -311,13 +303,12 @@ export function SubscriptionPreviewModal({
           <Button
             onClick={onConfirm}
             disabled={isConfirming}
-            className={`w-full rounded-xl font-semibold text-[14px] py-5 transition-all ${
-              isRemoval
-                ? "bg-amber-500 hover:bg-amber-600 text-white"
-                : isPlatformAdd
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                  : "bg-gray-900 hover:bg-gray-800 text-white"
-            }`}
+            className={`w-full rounded-xl font-semibold text-[14px] py-5 transition-all ${isRemoval
+              ? "bg-amber-500 hover:bg-amber-600 text-white"
+              : isPlatformAdd
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                : "bg-gray-900 hover:bg-gray-800 text-white"
+              }`}
           >
             {isConfirming ? (
               <Loader2 className="h-4 w-4 animate-spin" />
