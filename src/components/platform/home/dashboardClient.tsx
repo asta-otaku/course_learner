@@ -218,7 +218,7 @@ export default function DashboardClient() {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
           <p className="text-gray-600">
-            You do not have access to this page. Redirecting to pricing…
+            You do not have access to this page as you don't have an active subscription. Redirecting to pricing…
           </p>
         </div>
       </div>
