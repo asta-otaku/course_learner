@@ -23,7 +23,7 @@ type Step = {
 
 const SELF_DIRECTED_INTRO: Step = {
   title: "Self - Directed Learning Platform",
-  body: "Instant access to a 147 animated lessons explains the why behind the maths. You set the pace while your child builds confidence.",
+  body: "Instant access to 147 animated lessons that explain the why behind the maths. You set the pace while your child builds confidence.",
 };
 
 const SELF_DIRECTED_STEPS: Step[] = [

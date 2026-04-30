@@ -147,9 +147,8 @@ function Hero() {
           <h2 className="text-center text-3xl md:text-4xl lg:text-5xl xl:text-[60px] font-geist font-semibold max-w-[820px] leading-tight md:leading-tight w-full capitalize mt-8 md:mt-12 z-10">
             Primary School Maths That Finally Makes Sense
           </h2>
-          <p className="font-geist text-sm md:text-base lg:text-lg xl:text-xl my-4 md:my-6 text-center px-4 z-10">
-            Immerse your child in our ordered,
-            animated platform.
+          <p className="font-geist text-sm md:text-base lg:text-lg xl:text-xl my-4 md:my-6 text-center px-4 z-10 max-w-3xl mx-auto">
+            Help your child build real maths confidence, master every topic, and be ready for whatever comes next — SATs, 11+, or simply excelling in school.
           </p>
 
           <Button
