@@ -369,14 +369,21 @@ function PricingSection() {
   return (
     <div className="max-w-screen-2xl mx-auto px-4 md:px-8 lg:px-12 xl:px-16 py-20 pt-52">
       <div
-        className="rounded-3xl relative overflow-visible min-h-[600px] flex flex-col items-center justify-start mx-auto z-1"
+        className="rounded-3xl relative overflow-visible min-h-[600px] flex flex-col items-center justify-start mx-auto z-10"
         style={{
           background: `linear-gradient(to bottom, #286CFF, #286CFF40 60%, #f5f5f5 100%)`,
         }}
       >
         {/* Anime Images */}
-        <div className="absolute -top-[100px] left-0 -z-20">
-          <Image src="/pricing-boy.svg" alt="boy" width={120} height={120} />
+        <div className="absolute -top-[92px] left-4 md:left-8 z-20 h-[94px] w-[120px] overflow-hidden pointer-events-none">
+          <Image
+            src="/pricing-boy.svg"
+            alt="boy"
+            width={120}
+            height={120}
+            className="select-none"
+            priority
+          />
         </div>
 
         {/* Header */}
