@@ -34,8 +34,8 @@ function statusDisplay(status: string | null | undefined): string {
   const s = (status ?? "").trim();
   if (!s) return "—";
   // Show backend status as-is, optionally normalize casing
-  if (s.toLowerCase() === "done and marked") return "MARKED";
-  if (s.toLowerCase() === "submitted") return "AWAITING_BUDDY_REVIEW";
+  if (s.toLowerCase() === "done and marked") return "AUTO MARKED";
+  if (s.toLowerCase() === "submitted") return "NEEDS REVIEW";
   return s.toUpperCase().replace(/_/g, " ");
 }
 
@@ -128,7 +128,8 @@ export default function HomeworkStatusPage() {
                               ? anyItem.quizAttemptId
                               : null;
                           const type = String(item.type ?? "").toLowerCase();
-                          const isMarked = status === "MARKED";
+                          const isAutoMarked = status === "AUTO MARKED";
+                          const isNeedsReview = status === "NEEDS REVIEW";
                           const isTodo = status === "TO-DO";
                           return (
                             <TableRow key={`${item.type}-${idx}`} className="group">
@@ -143,10 +144,19 @@ export default function HomeworkStatusPage() {
                               </TableCell>
                               <TableCell>
                                 <Badge
-                                  variant={isMarked ? "default" : "secondary"}
+                                  variant={
+                                    isAutoMarked || isNeedsReview || isTodo
+                                      ? "default"
+                                      : "secondary"
+                                  }
                                   className={cn(
                                     "font-medium",
-                                    isMarked && "bg-primaryBlue/90"
+                                    isTodo &&
+                                      "bg-amber-500 hover:bg-amber-500/90 text-white",
+                                    isNeedsReview &&
+                                      "bg-red-600 hover:bg-red-600/90 text-white",
+                                    isAutoMarked &&
+                                      "bg-emerald-600 hover:bg-emerald-600/90 text-white"
                                   )}
                                 >
                                   {status}
@@ -169,7 +179,7 @@ export default function HomeworkStatusPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-right">
-                                {isMarked && quizAttemptId ? (
+                                {isAutoMarked && quizAttemptId ? (
                                   <Button
                                     variant="link"
                                     className="text-primaryBlue h-auto p-0 font-medium hover:underline"
