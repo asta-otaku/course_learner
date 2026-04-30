@@ -772,7 +772,6 @@ export const usePostTutorAvailability = () => {
     mutationKey: ["post-tutor-availability"],
     mutationFn: (data: {
       timeSlotIds: string[];
-      startToday: boolean;
     }): Promise<ApiResponse<TutorDetails>> =>
       axiosInstance.post("/tutor-availability/select-time-slots", data),
     onSuccess: (data: ApiResponse<TutorDetails>) => {
@@ -793,7 +792,6 @@ export const usePostDeleteTutorAvailability = (id: string) => {
     mutationKey: ["post-delete-tutor-availability"],
     mutationFn: (data: {
       timeSlotIds: string[];
-      startToday: boolean;
     }): Promise<ApiResponse<{ message: string }>> =>
       axiosInstance.delete(`/tutor-availability/${id}/slots`, { data }),
     onSuccess: (data: ApiResponse<{ message: string }>) => {
