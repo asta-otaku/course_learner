@@ -58,7 +58,7 @@ export default function Navbar() {
   const tuitionRoutes = [
     { name: "Dashboard", path: "/dashboard" },
     { name: "Homework", path: "/homework" },
-    { name: "Independent Learning", path: "/glossary" },
+    { name: "Independent Learning", path: "/independent-learning" },
     { name: "Messages", path: "/messages" },
     { name: "Sessions", path: "/sessions" },
   ];

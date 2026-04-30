@@ -5,11 +5,13 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useProfile } from "@/context/profileContext";
 import BackArrow from "@/assets/svgs/arrowback";
 import {
+  useGetChildProfile,
   useGetLibrary,
   useGetChildLessons,
   useGetLessonById,
   useGetQuizzesForLesson,
   useGetCurricula,
+  useGetManageSubscription,
 } from "@/lib/api/queries";
 import {
   Select,
@@ -21,6 +23,7 @@ import {
 import { usePatchVideoLessonProgress } from "@/lib/api/mutations";
 import LessonList from "./lessonList";
 import LessonContent from "./lessonContent";
+import { useAuthGuard } from "@/components/AuthGuard";
 
 interface LibraryProps {
   curriculumId?: string;
@@ -39,7 +42,35 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
   } = useProfile();
   const [selectedSection, setSelectedSection] = useState("");
   const [selectedLesson, setSelectedLesson] = useState("");
-  const [user, setUser] = React.useState<any>({});
+  const { isAuthenticated } = useAuthGuard();
+
+  const { data: manageData } = useGetManageSubscription();
+  const { data: childProfilesData } = useGetChildProfile({
+    enabled: isAuthenticated === true,
+  });
+
+  const activeProfileId = (activeProfile as any)?.id as string | undefined;
+  const activeProfileFresh = useMemo(() => {
+    const list = childProfilesData?.data ?? [];
+    if (!activeProfileId) return null;
+    return list.find((p) => String(p.id) === String(activeProfileId)) ?? null;
+  }, [childProfilesData?.data, activeProfileId]);
+
+  const manageAccessLevel = useMemo(() => {
+    const sub = manageData?.data;
+    if (!sub?.childSubscription || !activeProfileId) return null;
+    const row = sub.childSubscription.find(
+      (r) => String(r.childProfileId) === String(activeProfileId)
+    );
+    return row?.accessLevel ?? null;
+  }, [manageData?.data, activeProfileId]);
+
+  const effectiveOfferType =
+    manageAccessLevel === "tuition"
+      ? "tuition"
+      : manageAccessLevel === "platform"
+        ? "platform"
+        : (activeProfileFresh as any)?.offerType ?? (activeProfile as any)?.offerType;
 
   // Get curriculumId (which is actually sectionId) and lessonId from params or props
   const urlSectionId = (params?.curriculumId as string) || curriculumId;
@@ -50,7 +81,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
 
   // Fetch curricula by offerType (wait for user data to be loaded)
   const { data: curriculaData } = useGetCurricula({
-    offerType: user?.data?.offerType || activeProfile?.offerType || "",
+    offerType: effectiveOfferType || "",
   });
 
   // Get curricula list for dropdown
@@ -112,13 +143,6 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
 
   // Track last sent progress for throttling
   const lastSentRef = useRef<number>(0);
-
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const userData = JSON.parse(localStorage.getItem("user") || "{}");
-      setUser(userData);
-    }
-  }, []);
 
   // Get sections from library data (these are sections, not curricula)
   const sections = useMemo(() => {
@@ -328,7 +352,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
               currentLesson={currentLesson || null}
               videos={videos}
               // quizzes={quizzes as any}
-              quizzes={[]}
+              quizzes={effectiveOfferType === "platform" ? quizzes as any : []}
               resumePositionSec={resumePositionSec}
               isCompleted={isCompleted}
               activeProfileId={activeProfile?.id}
@@ -345,7 +369,7 @@ function Library({ curriculumId, lessonId }: LibraryProps) {
   // Normal mode (no tag) - show everything as before
   return (
     <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
-      {user?.data?.offerType === "platform" && (
+      {effectiveOfferType === "platform" && (
         <div>
           <h1 className="text-xl font-medium text-textGray">Library</h1>
           <p className="text-sm text-textSubtitle">

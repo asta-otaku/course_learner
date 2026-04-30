@@ -5,28 +5,55 @@ import { TopicCard, TagDetail } from "./TopicComponents";
 import LibraryComponent from "@/components/platform/library/p";
 import { useProfile } from "@/context/profileContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useGetTags } from "@/lib/api/queries";
+import {
+  useGetChildProfile,
+  useGetManageSubscription,
+  useGetTags,
+} from "@/lib/api/queries";
 import { useQueries } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import type { Lesson } from "@/lib/types";
 import { axiosInstance } from "@/lib/services/axiosInstance";
 import { APIGetResponse } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
+import { useAuthGuard } from "@/components/AuthGuard";
 
 const Glossary = () => {
   const { activeProfile, isLoaded } = useProfile();
-  const [user, setUser] = React.useState<any>({});
   const searchParams = useSearchParams();
+  const { isAuthenticated } = useAuthGuard();
 
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const userData = JSON.parse(localStorage.getItem("user") || "{}");
-      setUser(userData);
-    }
-  }, []);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedLetter, setSelectedLetter] = useState("A");
   const [step, setStep] = useState(0);
+
+  const { data: manageData } = useGetManageSubscription();
+  const { data: childProfilesData } = useGetChildProfile({
+    enabled: isAuthenticated === true,
+  });
+
+  const activeProfileId = (activeProfile as any)?.id as string | undefined;
+  const activeProfileFresh = useMemo(() => {
+    const list = childProfilesData?.data ?? [];
+    if (!activeProfileId) return null;
+    return list.find((p) => String(p.id) === String(activeProfileId)) ?? null;
+  }, [childProfilesData?.data, activeProfileId]);
+
+  const manageAccessLevel = useMemo(() => {
+    const sub = manageData?.data;
+    if (!sub?.childSubscription || !activeProfileId) return null;
+    const row = sub.childSubscription.find(
+      (r) => String(r.childProfileId) === String(activeProfileId)
+    );
+    return row?.accessLevel ?? null;
+  }, [manageData?.data, activeProfileId]);
+
+  const effectiveOfferType =
+    manageAccessLevel === "tuition"
+      ? "tuition"
+      : manageAccessLevel === "platform"
+        ? "platform"
+        : (activeProfileFresh as any)?.offerType ?? (activeProfile as any)?.offerType;
 
   // Fetch all tags
   const { data: tagsResponse, isLoading: isLoadingTags } = useGetTags();
@@ -123,7 +150,7 @@ const Glossary = () => {
   }
 
   // Platform subscription - original design
-  if (user?.data?.offerType === "platform") {
+  if (effectiveOfferType === "platform") {
     return (
       <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
         {
