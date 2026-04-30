@@ -79,7 +79,7 @@ function getPeriodDateLabelAndValue(
   if (trialing && hasTrialEnd) {
     return {
       label: "Trial ends",
-      value: formatDate(sub.trialEndsAt ?? endForDisplay),
+      value: "—",
     };
   }
   if (shouldSuppressNextBillingDisplay(sub)) {
@@ -153,7 +153,18 @@ function getTrialInfoMessage(
   if (!sub || !isTrialingStatus(sub)) return null;
   const end = sub.trialEndsAt ?? sub.currentPeriodEnd;
   if (!end) return "You're on a free trial. Billing period dates are shown above.";
-  return `You're on a free trial until ${formatDate(end)}.`;
+  if (!isFutureDate(end)) {
+    return "Your free trial has ended. Choose a plan to continue learning.";
+  }
+  return (
+    <>
+      <strong>
+        Your subscription ends on {formatDate(end)}. You won&apos;t be charged
+        again.
+      </strong>{" "}
+      You can resubscribe anytime afterwards.
+    </>
+  );
 }
 
 function formatAccessLevel(accessLevel: string, accessEndsAt: string | null): string {
