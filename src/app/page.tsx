@@ -6,7 +6,6 @@ import {
   isUserTypeAuthenticated,
   getAndClearIntendedUrl,
 } from "@/lib/services/axiosInstance";
-import Features from "@/components/home/features";
 import Footer from "@/components/home/footer";
 import Hero from "@/components/home/hero";
 import LevelSupport from "@/components/home/levelSupport";
@@ -38,7 +37,6 @@ export default function Home() {
       <Hero />
       <LevelSupport />
       <WhyWeAreBest />
-      <Features />
       <Testimonials />
       <Footer />
     </div>

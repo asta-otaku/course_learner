@@ -31,15 +31,15 @@ const STEPS: Step[] = [
     },
     {
         title: "Structured Quizzes That Build Confidence",
-        body: "Targeted questions that match your child’s level and help them practise until concepts stick.",
+        body: "Each lesson is followed by quizzes designed to reinforce understanding and build fluency.",
     },
     {
         title: "Progress Dashboard For Parents",
-        body: "See strengths, gaps, and next steps in one place so you always know how to support learning.",
+        body: "See exactly what your child has completed, where they’re improving, and what they need to work on next.",
     },
     {
         title: "Search Any Topic Instantly",
-        body: "Find any topic in seconds and go straight to lessons or practice when your child is ready.",
+        body: "Use the glossary to quickly find and revisit any maths topic whenever needed.",
     },
 ];
 

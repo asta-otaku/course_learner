@@ -37,7 +37,7 @@ const GUIDED_STEPS: Step[] = [
   },
   {
     title: "Weekly Work Assigned",
-    body: "Your child receives structured weekly assignments, after being taught by clear animated videos.",
+    body: "Your child receives structured weekly assignments, after being taught by clear animated videos!",
   },
   {
     title: "Feedback On Their Work",
