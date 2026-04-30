@@ -41,7 +41,7 @@ function Features() {
             onClick={() => push("/sign-in")}
             className="bg-demo-gradient shadow-demoShadow w-fit md:w-[180px] text-white rounded-full px-6 py-4 mt-5"
           >
-            Start 10 Days Trial
+            Get Started
           </Button>
         </div>
         <Image
@@ -90,7 +90,7 @@ function Features() {
             onClick={() => push("/sign-in")}
             className="bg-demo-gradient shadow-demoShadow w-fit md:w-[180px] text-white rounded-full px-6 py-4 mt-5"
           >
-            Start 10 Days Trial
+            Get Started
           </Button>
         </div>
       </div>

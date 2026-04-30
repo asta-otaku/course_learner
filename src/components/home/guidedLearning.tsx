@@ -55,11 +55,22 @@ const GUIDED_STEPS: Step[] = [
 
 function GuidedLearning() {
   const { push } = useRouter();
-  /** `null` = default intro (guildedOne, no accordion open). 0–4 = open accordion + guilded image index+2 */
-  const [openAccordion, setOpenAccordion] = useState<number | null>(null);
+  // Default open accordion = first step
+  const [openAccordion, setOpenAccordion] = useState<number>(0);
 
-  const imageIndex = openAccordion === null ? 0 : openAccordion + 1;
-  const mediaKey = `${imageIndex}-${openAccordion ?? "intro"}`;
+  // Media is driven ONLY by the accordion selection (intro text is static).
+  const imageIndex = openAccordion + 1;
+  const mediaKey = `${imageIndex}-${openAccordion}`;
+
+  const preloadImageSrcs = React.useMemo(() => {
+    const candidateStepIndices = [openAccordion - 1, openAccordion + 1].filter(
+      (i) => i >= 0 && i < GUIDED_STEPS.length
+    );
+    const imgIndices = candidateStepIndices
+      .map((i) => i + 1) // step -> image index
+      .filter((i) => i >= 0 && i < GUIDED_IMAGES.length);
+    return Array.from(new Set(imgIndices.map((i) => GUIDED_IMAGES[i])));
+  }, [openAccordion]);
 
   const goSignIn = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -67,7 +78,7 @@ function GuidedLearning() {
   };
 
   const toggle = (index: number) => {
-    setOpenAccordion((prev) => (prev === index ? null : index));
+    setOpenAccordion(index);
   };
 
   return (
@@ -78,38 +89,30 @@ function GuidedLearning() {
           openAccordion !== WEEKLY_WORK_ACCORDION_INDEX && "xl:-ml-6"
         )}
       >
+        {/* Preload adjacent step artwork for faster accordion switching */}
+        <div
+          aria-hidden="true"
+          className="absolute w-px h-px overflow-hidden opacity-0 pointer-events-none"
+        >
+          {preloadImageSrcs.map((src) => (
+            <Image key={src} src={src} alt="" width={1} height={1} sizes="1px" />
+          ))}
+        </div>
         <LearningPreviewMedia
           key={mediaKey}
           mediaKey={mediaKey}
           useVideo={openAccordion === WEEKLY_WORK_ACCORDION_INDEX}
           imageSrc={GUIDED_IMAGES[imageIndex]}
-          alt={
-            openAccordion === null
-              ? "Guided learning with a personal buddy"
-              : GUIDED_STEPS[openAccordion].title
-          }
-          priority={openAccordion === null}
+          alt={GUIDED_STEPS[openAccordion].title}
+          priority={openAccordion === 0}
           sizes="(min-width: 1024px) 70vw, 100vw"
           mediaAlign="start"
         />
       </div>
 
       <div className="min-w-0 flex flex-col justify-center w-full order-1 xl:order-2">
-        <div
-          className={cn(
-            "rounded-lg -mx-1 px-1 py-1 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#286CFF]/30 mb-2",
-            openAccordion === null && "bg-[#286CFF]/8"
-          )}
-          onClick={() => setOpenAccordion(null)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setOpenAccordion(null);
-            }
-          }}
-          tabIndex={0}
-          aria-label="Guided learning overview; select to show the default slide"
-        >
+        {/* Static intro (NOT tied to accordion/media) */}
+        <div className={cn("rounded-lg -mx-1 px-1 py-1 mb-2")}>
           <div className="inline-flex items-center gap-1.5 rounded bg-primaryBlue py-0.5 px-1.5 text-[10px] font-bold uppercase tracking-wide text-[#DFF2FF] mb-2">
             <Image src={star} alt="Star" className="w-3 h-3" />
             Most popular
@@ -135,7 +138,7 @@ function GuidedLearning() {
             onClick={goSignIn}
             className="mb-0 w-full sm:w-auto rounded-full bg-demo-gradient text-white font-semibold shadow-demoShadow hover:opacity-90 transition-opacity self-center sm:self-start"
           >
-            Start 10 Days Trials
+            Get Started
           </Button>
         </div>
 

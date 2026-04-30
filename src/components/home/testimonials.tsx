@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo } from "react";
 import Image from "next/image";
 import { BadgeCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -164,79 +164,7 @@ function MiniFaq() {
   );
 }
 
-function Arrow({
-  direction,
-  onClick,
-  disabled,
-}: {
-  direction: "left" | "right";
-  onClick: () => void;
-  disabled: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      className="w-10 h-10 flex items-center justify-center rounded-full bg-primaryBlue text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-      aria-label={direction === "left" ? "Previous testimonials" : "Next testimonials"}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <path
-          d={
-            direction === "left"
-              ? "M15 18l-6-6 6-6"
-              : "M9 6l6 6-6 6"
-          }
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </button>
-  );
-}
-
 function Testimonials() {
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const [canGoLeft, setCanGoLeft] = useState(false);
-  const [canGoRight, setCanGoRight] = useState(true);
-
-  const updateButtons = () => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    setCanGoLeft(el.scrollLeft > 0);
-    setCanGoRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
-  };
-
-  const scrollByCards = (dir: "left" | "right") => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const amount = Math.round(el.clientWidth * 0.9) * (dir === "left" ? -1 : 1);
-    el.scrollBy({ left: amount, behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    updateButtons();
-    const el = scrollerRef.current;
-    if (!el) return;
-    const onScroll = () => updateButtons();
-    el.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", updateButtons);
-    return () => {
-      el.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", updateButtons);
-    };
-  }, []);
-
   const heading = useMemo(
     () => (
       <div className="space-y-2">
@@ -275,24 +203,10 @@ function Testimonials() {
     <div className="py-16">
       <div className="flex items-start justify-between gap-6 mb-8 max-w-screen-2xl w-full mx-auto px-4 md:px-8 lg:px-12 xl:px-16">
         {heading}
-        <div className="flex gap-3 pt-2">
-          <Arrow
-            direction="left"
-            onClick={() => scrollByCards("left")}
-            disabled={!canGoLeft}
-          />
-          <Arrow
-            direction="right"
-            onClick={() => scrollByCards("right")}
-            disabled={!canGoRight}
-          />
-        </div>
       </div>
 
       <div
-        ref={scrollerRef}
-        className="w-full overflow-x-auto scrollbar-hide scroll-smooth max-w-screen-2xl mx-auto px-4 md:px-8 lg:px-12 xl:px-16 pb-20"
-        style={{ scrollSnapType: "x mandatory" }}
+        className="w-full overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory scroll-px-4 md:scroll-px-8 lg:scroll-px-12 xl:scroll-px-16 max-w-screen-2xl mx-auto px-4 md:px-8 lg:px-12 xl:px-16 pb-20"
       >
         <div className="flex gap-6 pb-2">
           {testimonials.map((t, idx) => (
@@ -301,8 +215,7 @@ function Testimonials() {
               href={TRUSTPILOT_REVIEW_URL}
               target="_blank"
               rel="noreferrer"
-              className="group relative rounded-2xl overflow-hidden shadow-md bg-[#f2f2f2] flex flex-col justify-end flex-shrink-0 h-80 w-[85%] sm:w-[60%] md:w-[45%] lg:w-[24%]"
-              style={{ scrollSnapAlign: "start" }}
+              className="group relative rounded-2xl overflow-hidden shadow-md bg-[#f2f2f2] flex flex-col justify-end flex-shrink-0 h-80 w-[85%] sm:w-[60%] md:w-[45%] lg:w-[24%] snap-start"
             >
               {t.imageSrc ? (
                 <Image

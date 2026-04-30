@@ -144,9 +144,8 @@ function Hero() {
             height={0}
             className="w-full h-auto max-w-md md:max-w-none z-10"
           />
-          <h2 className="text-center text-xl md:text-2xl lg:text-3xl xl:text-[40px] font-geist font-semibold max-w-[820px] leading-tight md:leading-tight w-full capitalize mt-8 md:mt-12 z-10">
-            Master the entire KS2/11+ Maths syllabus using our animated videos,
-            worksheets and mock papers!
+          <h2 className="text-center text-3xl md:text-4xl lg:text-5xl xl:text-[60px] font-geist font-semibold max-w-[820px] leading-tight md:leading-tight w-full capitalize mt-8 md:mt-12 z-10">
+            Primary School Maths That Finally Makes Sense
           </h2>
           <p className="font-geist text-sm md:text-base lg:text-lg xl:text-xl my-4 md:my-6 text-center px-4 z-10">
             Immerse your child in our ordered,
@@ -157,7 +156,7 @@ function Hero() {
             onClick={() => push("/sign-up")}
             className="bg-demo-gradient border-2 border-white/30 text-white rounded-full w-[180px] md:w-[200px] py-4 md:py-5 shadow-demoShadow mt-8 md:mt-12 hover:opacity-90 transition-opacity z-10"
           >
-            Start 10 Days Trials
+            Get Started
           </Button>
         </div>
       </div>

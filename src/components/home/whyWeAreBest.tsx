@@ -113,7 +113,7 @@ function WhyWeAreBest() {
           onClick={() => push("/sign-in")}
           className="bg-demo-gradient shadow-demoShadow md:w-[180px] text-white rounded-full px-6 py-4"
         >
-          Start 10 Days Trial
+          Get Started
         </Button>
       </div>
     </div>
