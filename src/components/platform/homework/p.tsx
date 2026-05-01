@@ -33,9 +33,11 @@ import { cn } from "@/lib/utils";
 function statusDisplay(status: string | null | undefined): string {
   const s = (status ?? "").trim();
   if (!s) return "—";
-  // Show backend status as-is, optionally normalize casing
-  if (s.toLowerCase() === "done and marked") return "AUTO MARKED";
-  if (s.toLowerCase() === "submitted") return "NEEDS REVIEW";
+  const lower = s.toLowerCase();
+  if (lower === "to-do" || lower === "to_do") return "To do";
+  if (lower === "submitted") return "Awaiting Buddy Review";
+  if (lower === "done and marked") return "Buddy Reviewed";
+  if (lower === "marked") return "Marked";
   return s.toUpperCase().replace(/_/g, " ");
 }
 
@@ -128,9 +130,11 @@ export default function HomeworkStatusPage() {
                               ? anyItem.quizAttemptId
                               : null;
                           const type = String(item.type ?? "").toLowerCase();
-                          const isAutoMarked = status === "AUTO MARKED";
-                          const isNeedsReview = status === "NEEDS REVIEW";
-                          const isTodo = status === "TO-DO";
+                          const isMarked = status === "Marked";
+                          const isBuddyReviewed = status === "Buddy Reviewed";
+                          const isAwaitingBuddyReview =
+                            status === "Awaiting Buddy Review";
+                          const isTodo = status === "To do";
                           return (
                             <TableRow key={`${item.type}-${idx}`} className="group">
                               <TableCell className="font-medium">
@@ -145,7 +149,10 @@ export default function HomeworkStatusPage() {
                               <TableCell>
                                 <Badge
                                   variant={
-                                    isAutoMarked || isNeedsReview || isTodo
+                                    isMarked ||
+                                    isBuddyReviewed ||
+                                    isAwaitingBuddyReview ||
+                                    isTodo
                                       ? "default"
                                       : "secondary"
                                   }
@@ -153,9 +160,9 @@ export default function HomeworkStatusPage() {
                                     "font-medium",
                                     isTodo &&
                                       "bg-amber-500 hover:bg-amber-500/90 text-white",
-                                    isNeedsReview &&
-                                      "bg-red-600 hover:bg-red-600/90 text-white",
-                                    isAutoMarked &&
+                                    isAwaitingBuddyReview &&
+                                      "bg-primaryBlue hover:bg-primaryBlue/90 text-white",
+                                    (isBuddyReviewed || isMarked) &&
                                       "bg-emerald-600 hover:bg-emerald-600/90 text-white"
                                   )}
                                 >
@@ -179,7 +186,7 @@ export default function HomeworkStatusPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-right">
-                                {isAutoMarked && quizAttemptId ? (
+                                {(isMarked || isBuddyReviewed) && quizAttemptId ? (
                                   <Button
                                     variant="link"
                                     className="text-primaryBlue h-auto p-0 font-medium hover:underline"

@@ -31,18 +31,20 @@ function HomeWorkTable({
   isLoading?: boolean;
 }) {
   const statusColors: Record<string, string> = {
-    "to-do": "bg-primaryBlue text-white",
-    submitted: "bg-green-500 text-white",
-    "done and marked": "bg-orange-400 text-white",
+    "to-do": "bg-amber-500 text-white",
+    submitted: "bg-red-600 text-white",
+    "done and marked": "bg-emerald-600 text-white",
+    marked: "bg-emerald-600 text-white",
   };
 
   const statusLabels: Record<string, string> = {
     "to-do": "TO-DO",
-    submitted: "SUBMITTED",
-    "done and marked": "DONE AND MARKED",
+    submitted: "NEEDS REVIEW",
+    "done and marked": "AUTO MARKED",
+    marked: "MARKED",
   };
 
-  const statusOptions = ["All", "to-do", "submitted", "done and marked"];
+  const statusOptions = ["All", "to-do", "submitted", "done and marked", "marked"];
   const router = useRouter();
   return (
     <div className="py-6">

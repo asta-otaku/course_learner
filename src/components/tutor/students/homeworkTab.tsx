@@ -19,13 +19,15 @@ const homeworkStatuses = [
   "to-do",
   "submitted",
   "done and marked",
+  "marked",
 ] as const;
 type HomeworkStatus = (typeof homeworkStatuses)[number];
 
 const statusLabels: Record<string, string> = {
   "to-do": "TO-DO",
-  submitted: "SUBMITTED",
-  "done and marked": "DONE AND MARKED",
+  submitted: "NEEDS REVIEW",
+  "done and marked": "AUTO MARKED",
+  marked: "MARKED",
 };
 
 function StudentHomeworkScheduleTab({ studentId }: { studentId: string }) {
@@ -45,9 +47,10 @@ function StudentHomeworkScheduleTab({ studentId }: { studentId: string }) {
         );
 
   const statusColor: Record<string, string> = {
-    "to-do": "bg-primaryBlue text-white",
-    submitted: "bg-yellow-400 text-white",
-    "done and marked": "bg-green-500 text-white",
+    "to-do": "bg-amber-500 text-white",
+    submitted: "bg-red-600 text-white",
+    "done and marked": "bg-emerald-600 text-white",
+    marked: "bg-emerald-600 text-white",
   };
 
   const actionColor = {
@@ -119,20 +122,23 @@ function StudentHomeworkScheduleTab({ studentId }: { studentId: string }) {
       ) : (
         <div className="flex flex-col gap-2">
           {filtered.map((hw, idx) => {
-            const hwStatus = hw.status?.toLowerCase();
+            const row = hw as any;
+            const hwStatus = row.status?.toLowerCase();
             const canReview =
-              hwStatus === "submitted" || hwStatus === "done and marked";
+              hwStatus === "submitted" ||
+              hwStatus === "done and marked" ||
+              hwStatus === "marked";
 
             return (
               <div
-                key={hw.id || idx}
+                key={row.id || idx}
                 className="grid grid-cols-3 border-b last:border-b-0 py-4"
               >
                 <div>
                   <div className="font-medium text-sm">Quiz Assignment</div>
                   <div className="text-xs text-muted-foreground">
-                    {hw.dueDate
-                      ? `Due ${format(new Date(hw.dueDate), "MMM d, yyyy")}`
+                    {row.dueDate
+                      ? `Due ${format(new Date(row.dueDate), "MMM d, yyyy")}`
                       : "No due date"}
                   </div>
                 </div>
@@ -143,7 +149,7 @@ function StudentHomeworkScheduleTab({ studentId }: { studentId: string }) {
                   }`}
                 >
                   {statusLabels[hwStatus as keyof typeof statusLabels] ||
-                    hw.status?.toUpperCase() ||
+                    row.status?.toUpperCase() ||
                     "UNKNOWN"}
                 </span>
                 {canReview ? (
@@ -151,7 +157,7 @@ function StudentHomeworkScheduleTab({ studentId }: { studentId: string }) {
                     variant="link"
                     className="text-xs px-0 text-primaryBlue"
                     onClick={() => {
-                      router.push(`/tutor/homework/${hw.id}/review`);
+                      router.push(`/tutor/homework/${row.id}/review`);
                     }}
                   >
                     Review <BackArrow color="#286CFF" flipped />
