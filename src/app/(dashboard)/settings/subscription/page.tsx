@@ -79,7 +79,7 @@ function getPeriodDateLabelAndValue(
   if (trialing && hasTrialEnd) {
     return {
       label: "Trial ends",
-      value: "—",
+      value: sub.pendingCancellation ? "—" : formatDate(sub.trialEndsAt ?? undefined),
     };
   }
   if (shouldSuppressNextBillingDisplay(sub)) {
@@ -97,6 +97,23 @@ function formatDate(dateStr: string | undefined): string {
     day: "numeric",
     month: "long",
   });
+}
+
+function formatDateWithOrdinal(dateStr: string | undefined): string {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "—";
+  const day = d.getDate();
+  const suffix =
+    day % 10 === 1 && day % 100 !== 11
+      ? "st"
+      : day % 10 === 2 && day % 100 !== 12
+        ? "nd"
+        : day % 10 === 3 && day % 100 !== 13
+          ? "rd"
+          : "th";
+  const month = d.toLocaleDateString("en-GB", { month: "long" });
+  return `${day}${suffix} ${month}`;
 }
 
 function isFutureDate(dateStr: string | undefined): boolean {
@@ -151,20 +168,13 @@ function getTrialInfoMessage(
   sub: ManageSubscriptionResponse | undefined
 ): React.ReactNode | null {
   if (!sub || !isTrialingStatus(sub)) return null;
+  if (sub.pendingCancellation) return null;
   const end = sub.trialEndsAt ?? sub.currentPeriodEnd;
   if (!end) return "You're on a free trial. Billing period dates are shown above.";
   if (!isFutureDate(end)) {
     return "Your free trial has ended. Choose a plan to continue learning.";
   }
-  return (
-    <>
-      <strong>
-        Your subscription ends on {formatDate(end)}. You won&apos;t be charged
-        again.
-      </strong>{" "}
-      You can resubscribe anytime afterwards.
-    </>
-  );
+  return `You're on a free trial until ${formatDateWithOrdinal(end)}.`;
 }
 
 function formatAccessLevel(accessLevel: string, accessEndsAt: string | null): string {
