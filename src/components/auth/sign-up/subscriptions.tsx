@@ -7,9 +7,21 @@ import { useGetSubscriptionPlans } from "@/lib/api/queries";
 import { usePostSubscriptionCheckout } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { SubscriptionPlan } from "@/lib/types";
+import { BadgeCheck } from "lucide-react";
+
+type Feature = { text: string; strong?: boolean };
+
+function offerTypeLabel(offerType: string | undefined): string {
+  const t = (offerType ?? "").toLowerCase();
+  if (t === "platform") return "THE PLATFORM";
+  if (t === "tuition") return "GUIDED LEARNING";
+  return (offerType ?? "").toUpperCase();
+}
 
 function formatPriceDisplay(plan: SubscriptionPlan): string {
-  if (plan.offerType === "tuition") return "£70/month";
+  // Match landing page wording exactly (ignore raw API amount display).
+  if (plan.offerType === "platform") return "£29.99/month";
+  if (plan.offerType === "tuition") return "£69.99/month";
   const { amount, currency, interval, intervalCount, tiers } = plan;
   const symbol = currency === "gbp" ? "£" : currency?.toUpperCase() === "GBP" ? "£" : currency || "£";
   const perInterval = intervalCount === 1 ? `/${interval}` : `/${intervalCount} ${interval}s`;
@@ -28,22 +40,32 @@ function formatPriceDisplay(plan: SubscriptionPlan): string {
   return "";
 }
 
-const DEFAULT_FEATURES: Record<string, string[]> = {
+const DEFAULT_FEATURES: Record<string, Feature[]> = {
   platform: [
-    "Access to the learning platform and core resources for your child.",
-    "Progress tracking and parent dashboard to follow their journey.",
-    "Engaging activities and content aligned to their level.",
+    { text: "Full access to 147+ animated maths lessons" },
+    { text: "Interactive quizzes for every topic" },
+    { text: "Personal dashboard to track progress" },
+    { text: "Search any topic instantly with the glossary" },
+    { text: "Up to 5 child profiles included (one subscription)", strong: true },
   ],
   tuition: [
-    "Everything in Platform, plus one-to-one tuition sessions with qualified tutors.",
-    "Personalised lesson plans and regular feedback on your child’s progress.",
-    "Flexible scheduling to fit your family and dedicated support for their goals.",
+    { text: "Personal Learning Buddy to guide your child" },
+    { text: "Baseline assessment to identify gaps" },
+    { text: "Structured weekly assignments (with lesson videos)" },
+    { text: "Feedback provided on completed work" },
+    { text: "Direct messaging support when needed" },
+    { text: "Bookable 1-to-1 video sessions" },
+    { text: "Full platform access included", strong: true },
+    { text: "Add up to 5 children on the platform (included)", strong: true },
+    { text: "Additional Guided Learning child: £40 each", strong: true },
   ],
 };
 
-function planToFeatures(plan: SubscriptionPlan): string[] {
+function planToFeatures(plan: SubscriptionPlan): Feature[] {
   const fromMeta = plan.metadata?.features;
-  if (Array.isArray(fromMeta) && fromMeta.length > 0) return fromMeta;
+  if (Array.isArray(fromMeta) && fromMeta.length > 0) {
+    return fromMeta.map((t) => ({ text: String(t) }));
+  }
   const defaults = DEFAULT_FEATURES[plan.offerType?.toLowerCase()];
   if (defaults?.length) return defaults;
   return [];
@@ -114,7 +136,7 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
             {plans.map((plan) => (
               <Card
                 key={plan.offerType}
-                title={plan.displayName || plan.offerType}
+                title={offerTypeLabel(plan.offerType)}
                 priceDisplay={formatPriceDisplay(plan)}
                 features={planToFeatures(plan)}
                 offerType={plan.offerType}
@@ -143,47 +165,76 @@ function Card({
 }: {
   title: string;
   priceDisplay: string;
-  features: string[];
+  features: Feature[];
   offerType: string;
   onSelect: () => void;
   isPending?: boolean;
   isSelected?: boolean;
 }) {
   const isLoading = Boolean(isPending && isSelected);
+  const isMostPopular = (offerType ?? "").toLowerCase() === "tuition";
+  const isPlatform = (offerType ?? "").toLowerCase() === "platform";
   return (
-    <div className="min-h-[60vh] max-h-[80vh] grow bg-white p-[5px] max-w-[300px] min-w-[300px] md:max-w-[380px] w-full rounded-3xl space-y-6 cursor-pointer">
-      <div className="bg-bgWhiteGray rounded-2xl p-4 space-y-4">
-        <h4 className="text-textGray font-geist uppercase font-medium">
-          {title}
-        </h4>
-        <h2 className="text-textGray font-geist font-medium text-2xl md:text-3xl leading-tight">
+    <div className="bg-white rounded-2xl shadow-lg p-1.5 flex-1 max-w-[380px] w-full pb-24">
+      <div
+        className={[
+          "p-4 rounded-xl font-geist space-y-4",
+          isPlatform ? "bg-primaryBlue text-white" : "bg-bgWhiteGray text-textGray",
+        ].join(" ")}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold">{title}</h2>
+          {!isPlatform && isMostPopular ? (
+            <span className="shrink-0 rounded-full bg-black text-white px-3 py-1 text-[10px] font-semibold">
+              Most Popular
+            </span>
+          ) : null}
+        </div>
+
+        <h1 className="font-semibold text-xl md:text-2xl lg:text-3xl">
           {priceDisplay}
-        </h2>
-        <Button
+        </h1>
+
+        <p
+          className={[
+            "text-xs font-semibold font-geist",
+            isPlatform ? "text-[#5FBCFF]" : "text-textSubtitle",
+          ].join(" ")}
+        >
+          10 DAYS FREE TRIAL INCLUDED
+        </p>
+
+        <button
           onClick={onSelect}
           disabled={isPending}
-          className="w-full flex gap-2 mt-6 py-5 rounded-[999px] font-medium text-sm bg-demo-gradient text-white shadow-demoShadow"
+          className={[
+            "w-full py-3 rounded-full shadow-demoShadow border border-white/10 text-xs font-semibold",
+            "bg-demo-gradient",
+            isPlatform ? "" : "text-white",
+            isPending ? "opacity-70 cursor-not-allowed" : "",
+          ].join(" ")}
         >
           {isLoading ? "Redirecting…" : "Get Started"}
-        </Button>
+        </button>
       </div>
-      <p className="font-geist text-textSubtitle text-xs font-medium text-center uppercase">
-        The {title} plan includes
-      </p>
-      <ul className="list-disc list-inside space-y-2">
+
+      <div className="flex h-8 items-center justify-center relative my-5">
+        <div className="absolute top-2 w-[90%] mx-auto h-2 border-b z-0" />
+        <h2 className="text-textSubtitle font-medium text-xs uppercase font-geist z-10 bg-white px-2">
+          {title} INCLUDES
+        </h2>
+      </div>
+
+      <ul className="space-y-3 mb-6 px-2">
         {features.map((feature, index) => (
           <li
             key={index}
-            className="text-textSubtitle text-xs font-geist flex items-center gap-2"
+            className="flex items-center gap-3 text-xs text-textSubtitle font-geist"
           >
-            <Image
-              src="/checkmark-badge.svg"
-              alt=""
-              width={0}
-              height={0}
-              className="w-4"
-            />
-            {feature}
+            <BadgeCheck className="min-w-5 min-h-5 text-white fill-primaryBlue" />
+            <span className={feature.strong ? "font-semibold" : undefined}>
+              {feature.text}
+            </span>
           </li>
         ))}
       </ul>
