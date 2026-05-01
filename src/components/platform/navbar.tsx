@@ -90,19 +90,23 @@ export default function Navbar() {
     // We consider access "resolved" if either:
     // - manage subscription explicitly says platform/tuition, or
     // - the refreshed profile row contains an offerType.
-    if (manageAccessLevel === "platform" || manageAccessLevel === "tuition")
+    // Also treat "locked" as resolved (explicitly no seat assigned).
+    if (
+      manageAccessLevel === "platform" ||
+      manageAccessLevel === "tuition" ||
+      manageAccessLevel === "locked"
+    )
       return true;
     return (activeProfileFresh as any)?.offerType != null;
   }, [manageAccessLevel, activeProfileFresh]);
 
   const isAccessDenied = React.useMemo(() => {
     if (!hasResolvedAccessLevel) return false;
+    if (manageAccessLevel === "locked") return true;
     return effectiveOfferType !== "platform" && effectiveOfferType !== "tuition";
-  }, [effectiveOfferType, hasResolvedAccessLevel]);
+  }, [effectiveOfferType, hasResolvedAccessLevel, manageAccessLevel]);
 
   React.useEffect(() => {
-    // Global guard for all (dashboard) routes: redirect to pricing.
-    // Allow pricing itself to avoid loops.
     if (!isAuthenticated) return;
     if (!isAccessDenied) return;
     if ((pathname || "").startsWith("/pricing")) return;
@@ -120,10 +124,6 @@ export default function Navbar() {
     // Shared routes for all offers
     const sharedPrefixes = ["/dashboard"];
     if (sharedPrefixes.some((pref) => p.startsWith(pref))) return;
-
-    // Library rules:
-    // - /library (root) is platform-only
-    // - /library/... (deep links) are shared (used for direct lesson access)
     const isLibraryRoot = p === "/library" || p === "/library/";
     const isLibraryDeepLink = p.startsWith("/library/") && !isLibraryRoot;
     if (isLibraryDeepLink) return;
