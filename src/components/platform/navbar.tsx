@@ -337,12 +337,61 @@ export default function Navbar() {
                 </Link>
               ))}
 
-              <div className="mt-4 border-t pt-4 flex items-center gap-4">
-                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
-                  <span className="text-gray-500 text-sm font-semibold">
-                    {activeProfile?.name.slice(0, 2).toUpperCase()}
-                  </span>
-                </div>
+              <div className="mt-4 border-t pt-4 flex items-center justify-between gap-4">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-gray-100 transition">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+                        <span className="text-gray-500 text-sm font-semibold">
+                          {activeProfile?.name
+                            ?.split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </span>
+                      </div>
+                      <div className="text-left">
+                        <div className="text-sm font-semibold text-textGray">
+                          {activeProfile?.name}
+                        </div>
+                      </div>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    className="w-60 max-h-[70vh] overflow-auto scrollbar-hide p-1 mt-1 !rounded-xl shadow-lg"
+                    align="start"
+                  >
+                    <DropdownMenuItem className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center">
+                      <UserCircle className="text-gray-400" />
+                      Contact Us
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setMobileOpen(false);
+                        push("/settings");
+                      }}
+                      className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center"
+                    >
+                      <Settings className="text-gray-400" />
+                      Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="my-1" />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setMobileOpen(false);
+                        logout();
+                        if (typeof window !== "undefined") {
+                          localStorage.removeItem("selectedProfile");
+                          localStorage.removeItem("activeProfile");
+                        }
+                        push("/sign-in");
+                      }}
+                      className="px-3 py-2 text-sm cursor-pointer font-inter text-red-500 hover:bg-red-50 hover:text-red-600 rounded-sm flex gap-3 ml-3 items-center"
+                    >
+                      <LogoutIcon />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
