@@ -1194,10 +1194,53 @@ export function QuizPlayer({
     };
 
     const handleSubmissionSuccess = (resultData: any) => {
-      if (resultData) {
-        setSubmissionResults(
-          buildQuizSubmissionResults(resultData, attemptId || "", quizId),
-        );
+      // In immediate-feedback mode we already have per-question results collected
+      // during the quiz. The homework submit endpoint returns a Homework object (not
+      // scored quiz results), so we build the review from the local data instead of
+      // relying on the API response having a `results` array.
+      const immediateResultsArray = Object.values(immediateQuestionResults);
+      const hasImmediateResults =
+        isImmediateFeedback && immediateResultsArray.length > 0;
+
+      if (resultData || hasImmediateResults) {
+        let builtResults: QuizSubmissionResults;
+
+        // When API response lacks a `results` array (e.g. homework submit returns
+        // the Homework object), compute scores from per-question immediate results.
+        const apiHasResults =
+          Array.isArray(resultData?.results) && resultData.results.length > 0;
+
+        if (hasImmediateResults && !apiHasResults) {
+          const scoreEarned = immediateResultsArray.reduce(
+            (sum, r) => sum + (r.pointsEarned || 0),
+            0,
+          );
+          const totalPts = immediateResultsArray.reduce(
+            (sum, r) => sum + (r.pointsPossible || 1),
+            0,
+          );
+          const pct =
+            totalPts > 0 ? Math.round((scoreEarned / totalPts) * 100) : 0;
+
+          builtResults = {
+            attemptId:
+              resultData?.attemptId || resultData?.id || attemptId || "",
+            quizId: resultData?.quizId || quizId,
+            score: resultData?.score ?? scoreEarned,
+            totalPoints: resultData?.totalPoints ?? totalPts,
+            percentage: resultData?.percentage ?? pct,
+            results: immediateResultsArray,
+            timeSpent: Number(resultData?.timeSpent) || quizElapsedSeconds,
+          };
+        } else {
+          builtResults = buildQuizSubmissionResults(
+            resultData,
+            attemptId || "",
+            quizId,
+          );
+        }
+
+        setSubmissionResults(builtResults);
         setShowResults(true);
         setCurrentPosition({ type: "question", questionIndex: 0 });
         toast.success(successMessage);
@@ -1257,6 +1300,17 @@ export function QuizPlayer({
   const getQuestionResult = (
     questionId: string,
   ): QuizQuestionResult | undefined => {
+    // After the quiz is submitted and the review screen is showing, prefer the
+    // authoritative API result (which includes full feedback text) over the
+    // per-question immediate results that were collected during the quiz.
+    if (showResults && submissionResults) {
+      const apiResult = submissionResults.results.find(
+        (r) => r.questionId === questionId,
+      );
+      if (apiResult) return apiResult;
+    }
+    // During the quiz (before submission) in immediate-feedback mode, use the
+    // per-question results so feedback is shown right after each answer.
     if (isImmediateFeedback && immediateQuestionResults[questionId]) {
       return immediateQuestionResults[questionId];
     }
