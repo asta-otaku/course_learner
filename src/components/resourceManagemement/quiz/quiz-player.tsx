@@ -1176,12 +1176,12 @@ export function QuizPlayer({
     const elapsedSecondsForSubmit =
       quizStartTime != null && actualTimeLimit
         ? Math.max(
-            0,
-            Math.min(
-              actualTimeLimit * 60,
-              Math.round((Date.now() - quizStartTime) / 1000),
-            ),
-          )
+          0,
+          Math.min(
+            actualTimeLimit * 60,
+            Math.round((Date.now() - quizStartTime) / 1000),
+          ),
+        )
         : quizElapsedSeconds;
 
     const submissionData: {
@@ -1419,16 +1419,16 @@ export function QuizPlayer({
 
     const mcTfUserAnswered =
       !reviewQuestionResult ||
-      (currentQ.question.type !== "multiple_choice" &&
-        currentQ.question.type !== "true_false")
+        (currentQ.question.type !== "multiple_choice" &&
+          currentQ.question.type !== "true_false")
         ? true
         : (() => {
-            const id = reviewQuestionResult.userAnswerId;
-            if (id != null && String(id).trim() !== "") return true;
-            const c = reviewQuestionResult.userAnswerContent;
-            if (c == null) return false;
-            return String(c).trim() !== "";
-          })();
+          const id = reviewQuestionResult.userAnswerId;
+          if (id != null && String(id).trim() !== "") return true;
+          const c = reviewQuestionResult.userAnswerContent;
+          if (c == null) return false;
+          return String(c).trim() !== "";
+        })();
 
     const lessonTitle =
       (quiz as any)?.lessonName || "---";
@@ -1540,8 +1540,8 @@ export function QuizPlayer({
                       <p className="text-base font-medium mb-2">Your Answer:</p>
                       {(currentQ.question.type === "multiple_choice" ||
                         currentQ.question.type === "true_false") &&
-                      currentQ.question.options &&
-                      currentQ.question.options.length > 0 ? (
+                        currentQ.question.options &&
+                        currentQ.question.options.length > 0 ? (
                         <div className="space-y-3">
                           {!mcTfUserAnswered && (
                             <Alert className="border-muted bg-muted/40">
@@ -1562,7 +1562,7 @@ export function QuizPlayer({
                               selectedId !== "" &&
                               (selectedId === option.id ||
                                 String(option.text ?? "").trim().toLowerCase() ===
-                                  String(selectedId).trim().toLowerCase());
+                                String(selectedId).trim().toLowerCase());
                             const isCorrectOption =
                               (reviewQuestionResult.correctAnswers?.some(
                                 (ans) => ans.id === option.id,
@@ -1599,148 +1599,148 @@ export function QuizPlayer({
                               </div>
                             );
                           })}
-                      </div>
-                    ) : currentQ.question.type === "matching_pairs" ? (
-                      reviewQuestionResult.userAnswerContent ? (
-                        <div className="p-4 bg-gray-50 rounded-lg border">
-                          {(() => {
-                            try {
-                              const userMatches = JSON.parse(
-                                reviewQuestionResult.userAnswerContent,
-                              ) as Record<string, string>;
-                              const ca0 = reviewQuestionResult.correctAnswers[0];
-                              const correctMatches =
-                                ca0 && typeof ca0.content === "object"
-                                  ? (ca0.content as Record<string, string>)
-                                  : {};
-
-                              return (
-                                <div className="space-y-2">
-                                  {Object.entries(userMatches).map(
-                                    ([leftText, rightText]) => {
-                                      const correctRightText =
-                                        correctMatches[leftText];
-                                      const isMatchCorrect =
-                                        correctRightText === rightText;
-
-                                      return (
-                                        <div
-                                          key={leftText}
-                                          className={cn(
-                                            "p-3 rounded-lg border-2",
-                                            isMatchCorrect
-                                              ? "bg-green-50 border-green-300"
-                                              : "bg-red-50 border-red-300",
-                                          )}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <span className="font-medium">
-                                              {leftText} →
-                                            </span>
-                                            <span>{rightText}</span>
-                                            {isMatchCorrect ? (
-                                              <CheckCircle className="h-4 w-4 text-green-600 ml-auto" />
-                                            ) : (
-                                              <XCircle className="h-4 w-4 text-red-600 ml-auto" />
-                                            )}
-                                          </div>
-                                        </div>
-                                      );
-                                    },
-                                  )}
-                                </div>
-                              );
-                            } catch {
-                              return (
-                                <p className="text-sm text-gray-600">
-                                  {reviewQuestionResult.userAnswerContent}
-                                </p>
-                              );
-                            }
-                          })()}
                         </div>
-                      ) : (
-                        <Alert className="border-muted bg-muted/40">
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>
-                            You did not answer this question.
-                          </AlertDescription>
-                        </Alert>
-                      )
-                    ) : (
-                      <div
-                        className={cn(
-                          "p-4 rounded-lg border-2",
-                          reviewQuestionResult.userAnswerContent != null &&
-                            String(reviewQuestionResult.userAnswerContent)
-                              .trim() !== ""
-                            ? reviewQuestionResult.isCorrect
-                              ? "bg-green-50 border-green-300"
-                              : "bg-red-50 border-red-300"
-                            : "bg-muted/30 border-muted",
-                        )}
-                      >
-                        {reviewQuestionResult.userAnswerContent != null &&
-                        String(reviewQuestionResult.userAnswerContent).trim() !==
-                          "" ? (
-                          <MathPreview
-                            content={String(
-                              reviewQuestionResult.userAnswerContent || "",
-                            )}
-                            className="text-base text-textGray whitespace-pre-wrap"
-                            renderMarkdown={true}
-                          />
+                      ) : currentQ.question.type === "matching_pairs" ? (
+                        reviewQuestionResult.userAnswerContent ? (
+                          <div className="p-4 bg-gray-50 rounded-lg border">
+                            {(() => {
+                              try {
+                                const userMatches = JSON.parse(
+                                  reviewQuestionResult.userAnswerContent,
+                                ) as Record<string, string>;
+                                const ca0 = reviewQuestionResult.correctAnswers[0];
+                                const correctMatches =
+                                  ca0 && typeof ca0.content === "object"
+                                    ? (ca0.content as Record<string, string>)
+                                    : {};
+
+                                return (
+                                  <div className="space-y-2">
+                                    {Object.entries(userMatches).map(
+                                      ([leftText, rightText]) => {
+                                        const correctRightText =
+                                          correctMatches[leftText];
+                                        const isMatchCorrect =
+                                          correctRightText === rightText;
+
+                                        return (
+                                          <div
+                                            key={leftText}
+                                            className={cn(
+                                              "p-3 rounded-lg border-2",
+                                              isMatchCorrect
+                                                ? "bg-green-50 border-green-300"
+                                                : "bg-red-50 border-red-300",
+                                            )}
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-medium">
+                                                {leftText} →
+                                              </span>
+                                              <span>{rightText}</span>
+                                              {isMatchCorrect ? (
+                                                <CheckCircle className="h-4 w-4 text-green-600 ml-auto" />
+                                              ) : (
+                                                <XCircle className="h-4 w-4 text-red-600 ml-auto" />
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      },
+                                    )}
+                                  </div>
+                                );
+                              } catch {
+                                return (
+                                  <p className="text-sm text-gray-600">
+                                    {reviewQuestionResult.userAnswerContent}
+                                  </p>
+                                );
+                              }
+                            })()}
+                          </div>
                         ) : (
-                          <p className="text-sm text-muted-foreground">
-                            You did not answer this question.
-                          </p>
-                        )}
-                      </div>
-                    )}
+                          <Alert className="border-muted bg-muted/40">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              You did not answer this question.
+                            </AlertDescription>
+                          </Alert>
+                        )
+                      ) : (
+                        <div
+                          className={cn(
+                            "p-4 rounded-lg border-2",
+                            reviewQuestionResult.userAnswerContent != null &&
+                              String(reviewQuestionResult.userAnswerContent)
+                                .trim() !== ""
+                              ? reviewQuestionResult.isCorrect
+                                ? "bg-green-50 border-green-300"
+                                : "bg-red-50 border-red-300"
+                              : "bg-muted/30 border-muted",
+                          )}
+                        >
+                          {reviewQuestionResult.userAnswerContent != null &&
+                            String(reviewQuestionResult.userAnswerContent).trim() !==
+                            "" ? (
+                            <MathPreview
+                              content={String(
+                                reviewQuestionResult.userAnswerContent || "",
+                              )}
+                              className="text-base text-textGray whitespace-pre-wrap"
+                              renderMarkdown={true}
+                            />
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              You did not answer this question.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {/* Correct Answer */}
                   {reviewQuestionResult &&
                     (!reviewQuestionResult.isCorrect ||
-                    currentQ.question.type === "free_text" ||
-                    currentQ.question.type === "short_answer" ||
-                    currentQ.question.type === "long_answer" ||
-                    currentQ.question.type === "coding") && (
-                    <div>
-                      <p className="text-base font-medium mb-2 text-green-700">
-                        Correct Answer:
-                      </p>
-                      <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
-                        {currentQ.question.type === "matching_pairs" &&
-                        reviewQuestionResult.correctAnswers[0] &&
-                        typeof reviewQuestionResult.correctAnswers[0].content ===
-                          "object" ? (
-                          <div className="space-y-2">
-                            {Object.entries(
-                              reviewQuestionResult.correctAnswers[0]
-                                .content as Record<string, string>,
-                            ).map(([left, right]) => (
-                              <div
-                                key={left}
-                                className="p-2 bg-white rounded border border-green-200"
-                              >
-                                <span className="font-medium">{left}</span> →{" "}
-                                <span>{right}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-base text-green-900 whitespace-pre-wrap">
-                            {getCorrectAnswerText(
-                              currentQ,
-                              reviewQuestionResult,
-                            )}
-                          </p>
-                        )}
+                      currentQ.question.type === "free_text" ||
+                      currentQ.question.type === "short_answer" ||
+                      currentQ.question.type === "long_answer" ||
+                      currentQ.question.type === "coding") && (
+                      <div>
+                        <p className="text-base font-medium mb-2 text-green-700">
+                          Correct Answer:
+                        </p>
+                        <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
+                          {currentQ.question.type === "matching_pairs" &&
+                            reviewQuestionResult.correctAnswers[0] &&
+                            typeof reviewQuestionResult.correctAnswers[0].content ===
+                            "object" ? (
+                            <div className="space-y-2">
+                              {Object.entries(
+                                reviewQuestionResult.correctAnswers[0]
+                                  .content as Record<string, string>,
+                              ).map(([left, right]) => (
+                                <div
+                                  key={left}
+                                  className="p-2 bg-white rounded border border-green-200"
+                                >
+                                  <span className="font-medium">{left}</span> →{" "}
+                                  <span>{right}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-base text-green-900 whitespace-pre-wrap">
+                              {getCorrectAnswerText(
+                                currentQ,
+                                reviewQuestionResult,
+                              )}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   {/* Feedback */}
                   {reviewQuestionResult?.feedback && (
@@ -2067,7 +2067,7 @@ export function QuizPlayer({
                                         ? "border-gray-200"
                                         : undefined,
                                   (showResults || isCurrentQuestionSubmitted) &&
-                                    "cursor-default",
+                                  "cursor-default",
                                 )}
                               >
                                 <RadioGroupItem
