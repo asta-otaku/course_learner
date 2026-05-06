@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { Menu, X } from "lucide-react";
+import { useAuthGuard } from "@/components/AuthGuard";
 
 interface SiteNavProps {
   active?: "about" | "contact" | "faq";
@@ -12,6 +13,8 @@ interface SiteNavProps {
 
 export default function SiteNav({ active }: SiteNavProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isAuthenticated, isLoading } = useAuthGuard("/sign-in");
+  const hideAuthButtons = Boolean(!isLoading && isAuthenticated);
 
   const navLink = (
     href: string,
@@ -52,20 +55,25 @@ export default function SiteNav({ active }: SiteNavProps) {
       </div>
 
       {/* Desktop buttons */}
-      <div className="hidden md:flex items-center gap-4">
-        <Button
-          asChild
-          className="bg-primaryBlue text-white border-2 border-white/30 rounded-full w-[120px] py-5 shadow-demoShadow hover:bg-blue-700 transition-colors"
-        >
-          <Link href="/sign-up">Register</Link>
-        </Button>
-        <Button
-          asChild
-          className="bg-demo-gradient border-2 border-white/30 text-white rounded-full w-[120px] py-5 shadow-demoShadow hover:opacity-90 transition-opacity"
-        >
-          <Link href="/sign-in">Login</Link>
-        </Button>
-      </div>
+      {!hideAuthButtons ? (
+        <div className="hidden md:flex items-center gap-4">
+          <Button
+            asChild
+            className="bg-primaryBlue text-white border-2 border-white/30 rounded-full w-[120px] py-5 shadow-demoShadow hover:bg-blue-700 transition-colors"
+          >
+            <Link href="/sign-up">Register</Link>
+          </Button>
+          <Button
+            asChild
+            className="bg-demo-gradient border-2 border-white/30 text-white rounded-full w-[120px] py-5 shadow-demoShadow hover:opacity-90 transition-opacity"
+          >
+            <Link href="/sign-in">Login</Link>
+          </Button>
+        </div>
+      ) : (
+        // Keep center nav truly centered when buttons hidden
+        <div className="hidden md:block w-[256px]" aria-hidden="true" />
+      )}
 
       {/* Mobile menu button */}
       <button
@@ -106,24 +114,32 @@ export default function SiteNav({ active }: SiteNavProps) {
                 Contact Us
               </Link>
             </div>
-            <div className="flex flex-col gap-3 pt-4 border-t border-white/20">
-              <Button
-                asChild
-                className="bg-primaryBlue text-white border-2 border-white/30 rounded-full py-3 shadow-demoShadow hover:bg-blue-700"
-              >
-                <Link href="/sign-up" onClick={() => setIsMobileMenuOpen(false)}>
-                  Register
-                </Link>
-              </Button>
-              <Button
-                asChild
-                className="bg-demo-gradient text-white rounded-full py-3 shadow-demoShadow hover:opacity-90"
-              >
-                <Link href="/sign-in" onClick={() => setIsMobileMenuOpen(false)}>
-                  Login
-                </Link>
-              </Button>
-            </div>
+            {!hideAuthButtons ? (
+              <div className="flex flex-col gap-3 pt-4 border-t border-white/20">
+                <Button
+                  asChild
+                  className="bg-primaryBlue text-white border-2 border-white/30 rounded-full py-3 shadow-demoShadow hover:bg-blue-700"
+                >
+                  <Link
+                    href="/sign-up"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Register
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  className="bg-demo-gradient text-white rounded-full py-3 shadow-demoShadow hover:opacity-90"
+                >
+                  <Link
+                    href="/sign-in"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Login
+                  </Link>
+                </Button>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

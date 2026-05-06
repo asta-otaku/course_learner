@@ -273,7 +273,7 @@ export default function Navbar() {
                   <PencilLine className="text-gray-400" />
                   Edit Profiles
                 </DropdownMenuItem> */}
-                <DropdownMenuItem className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center">
+                <DropdownMenuItem onClick={() => push("/contact")} className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center">
                   <UserCircle className="text-gray-400" />
                   Contact Us
                 </DropdownMenuItem>
