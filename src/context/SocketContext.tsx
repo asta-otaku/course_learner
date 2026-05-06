@@ -51,16 +51,19 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   // all listeners and re-running the socket setup effect).
   const isMessagesPage = pathname?.includes("/messages");
   const isTutorMode = pathname?.includes("/tutor");
+  const isAdminRoute = pathname?.includes("/admin");
 
   const isMessagesPageRef = useRef(isMessagesPage);
   const isTutorModeRef = useRef(isTutorMode);
+  const isAdminRouteRef = useRef(isAdminRoute);
   const routerRef = useRef(router);
 
   useEffect(() => {
     isMessagesPageRef.current = isMessagesPage;
     isTutorModeRef.current = isTutorMode;
+    isAdminRouteRef.current = isAdminRoute;
     routerRef.current = router;
-  }, [isMessagesPage, isTutorMode, router]);
+  }, [isMessagesPage, isTutorMode, isAdminRoute, router]);
 
   // Function to mark messages as read
   const markAsRead = useCallback((chatId: string, subjectId: string) => {
@@ -99,6 +102,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const fetchChats = async () => {
       try {
         const { axiosInstance } = await import("@/lib/services/axiosInstance");
+
+        // Admin routes should not prefetch student chat list / join student rooms.
+        if (isAdminRouteRef.current) return;
 
         if (isTutorModeRef.current) {
           const response = await axiosInstance.get("/chat/tutor", {
