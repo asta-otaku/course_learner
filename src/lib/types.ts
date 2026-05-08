@@ -380,6 +380,8 @@ export interface Subscription {
   };
   startDate: string;
   endDate: string;
+  /** Trial end date (null when not trialing). */
+  trialEndsAt?: string | null;
   cancelAtPeriodEnd: boolean;
   trialUsed: boolean;
   pendingCancellation: boolean;

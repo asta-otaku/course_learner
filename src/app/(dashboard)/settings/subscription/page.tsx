@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "@/assets/svgs/calendar";
+import { cn } from "@/lib/utils";
 import {
   useGetManageSubscription,
   useGetSubscriptions,
@@ -60,6 +61,11 @@ function isTrialingStatus(sub: ManageSubscriptionResponse | undefined): boolean 
   return sub.status.toLowerCase() === "trialing";
 }
 
+function isTrialingSubscription(sub: Subscription | undefined): boolean {
+  if (!sub?.status) return false;
+  return sub.status.toLowerCase() === "trialing";
+}
+
 /** No next-billing row or breakdown when Stripe status is missing or canceled. */
 function shouldSuppressNextBillingDisplay(sub: ManageSubscriptionResponse | undefined): boolean {
   if (!sub) return true;
@@ -68,26 +74,36 @@ function shouldSuppressNextBillingDisplay(sub: ManageSubscriptionResponse | unde
   return s === "canceled" || s === "cancelled";
 }
 
-function getPeriodDateLabelAndValue(
-  sub: ManageSubscriptionResponse,
-  fallbackEndDate: string | undefined
+function shouldSuppressNextBillingDisplaySubscription(
+  sub: Subscription | undefined
+): boolean {
+  if (!sub) return true;
+  if (!sub.status) return true;
+  const s = sub.status.toLowerCase();
+  return s === "canceled" || s === "cancelled";
+}
+
+
+function getPeriodDateLabelAndValueFromSubscription(
+  sub: Subscription | undefined
 ): { label: string; value: string } {
-  const trialing = isTrialingStatus(sub);
-  const hasTrialEnd = Boolean(sub.trialEndsAt);
-  const endForDisplay = fallbackEndDate ?? sub.currentPeriodEnd ?? undefined;
+  if (!sub) return { label: "Next billing", value: "—" };
+  const trialing = isTrialingSubscription(sub);
+  const trialEndsAt = (sub as any).trialEndsAt as string | null | undefined;
+  const hasTrialEnd = Boolean(trialEndsAt);
 
   if (trialing && hasTrialEnd) {
     return {
       label: "Trial ends",
-      value: sub.pendingCancellation ? "—" : formatDate(sub.trialEndsAt ?? undefined),
+      value: sub.pendingCancellation ? "—" : formatDate(trialEndsAt ?? undefined),
     };
   }
-  if (shouldSuppressNextBillingDisplay(sub)) {
+  if (shouldSuppressNextBillingDisplaySubscription(sub)) {
     return { label: "Next billing", value: "—" };
   }
   return {
     label: "Next billing",
-    value: formatDate(endForDisplay),
+    value: sub.cancelAtPeriodEnd ? "—" : formatDate((sub as any).endDate ?? undefined),
   };
 }
 
@@ -123,21 +139,35 @@ function isFutureDate(dateStr: string | undefined): boolean {
   return t > Date.now();
 }
 
-function getBannerMessage(
-  sub: ManageSubscriptionResponse | undefined,
-  periodEndFallback?: string
+function getBannerMessageFromSubscription(
+  sub: Subscription | undefined
 ): React.ReactNode | null {
   if (!sub) return null;
-  if (isTrialingStatus(sub)) return null;
+  const isTrialing = isTrialingSubscription(sub);
+
   const st = sub.status?.toLowerCase();
   const hasNoActive =
-    sub.state === "none" ||
     !sub.status ||
     st === "canceled" ||
     st === "cancelled" ||
-    sub.status === "past_due";
-  const pendingEnd = sub.pendingCancellation;
-  const periodEnd = sub.currentPeriodEnd;
+    st === "past_due";
+  const pendingEnd = Boolean(sub.pendingCancellation || sub.cancelAtPeriodEnd);
+  const periodEnd = sub.endDate ?? undefined;
+
+  // Trial subscriptions that were canceled should show the same "ends on" banner,
+  // using the trial end / period end date from the subscriptions endpoint.
+  if (isTrialing && pendingEnd && periodEnd && isFutureDate(periodEnd)) {
+    return (
+      <>
+        <strong>
+          Your subscription ends on {formatDate(periodEnd)}. You won&apos;t be charged
+          again.
+        </strong>{" "}
+        You can resubscribe anytime afterwards.
+      </>
+    );
+  }
+  if (isTrialing) return null;
 
   if (hasNoActive && periodEnd && isFutureDate(periodEnd)) {
     return (
@@ -150,11 +180,11 @@ function getBannerMessage(
   if (hasNoActive) {
     return "No active subscription. Reactivate to continue learning.";
   }
-  if (pendingEnd && sub.currentPeriodEnd) {
+  if (pendingEnd && periodEnd) {
     return (
       <>
         <strong>
-          Your subscription ends on {formatDate(sub.currentPeriodEnd)}. You won&apos;t be charged
+          Your subscription ends on {formatDate(periodEnd)}. You won&apos;t be charged
           again.
         </strong>{" "}
         You can resubscribe anytime afterwards.
@@ -164,12 +194,14 @@ function getBannerMessage(
   return null;
 }
 
-function getTrialInfoMessage(
-  sub: ManageSubscriptionResponse | undefined
+
+function getTrialInfoMessageFromSubscription(
+  sub: Subscription | undefined
 ): React.ReactNode | null {
-  if (!sub || !isTrialingStatus(sub)) return null;
+  if (!sub || !isTrialingSubscription(sub)) return null;
   if (sub.pendingCancellation) return null;
-  const end = sub.trialEndsAt ?? sub.currentPeriodEnd;
+  const trialEndsAt = (sub as any).trialEndsAt as string | null | undefined;
+  const end = trialEndsAt ?? sub.endDate;
   if (!end) return "You're on a free trial. Billing period dates are shown above.";
   if (!isFutureDate(end)) {
     return "Your free trial has ended. Choose a plan to continue learning.";
@@ -231,18 +263,18 @@ function Page() {
   const sub = manageData?.data as ManageSubscriptionResponse | undefined;
 
   const periodLine = useMemo(
-    () =>
-      sub
-        ? getPeriodDateLabelAndValue(sub, primarySubscription?.endDate)
-        : { label: "Next billing" as const, value: "—" },
-    [sub, primarySubscription?.endDate]
+    () => getPeriodDateLabelAndValueFromSubscription(primarySubscription),
+    [primarySubscription]
   );
 
-  const trialBannerText = useMemo(() => getTrialInfoMessage(sub), [sub]);
+  const trialBannerText = useMemo(
+    () => getTrialInfoMessageFromSubscription(primarySubscription),
+    [primarySubscription]
+  );
 
   const inactiveBannerText = useMemo(
-    () => getBannerMessage(sub, primarySubscription?.endDate),
-    [sub, primarySubscription?.endDate]
+    () => getBannerMessageFromSubscription(primarySubscription),
+    [primarySubscription]
   );
 
   // Preview modal state
@@ -412,8 +444,28 @@ function Page() {
                 </div>
               )}
               {inactiveBannerText && (
-                <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 mt-3">
-                  <p className="text-amber-800 text-sm font-medium">{inactiveBannerText}</p>
+                <div
+                  className={cn(
+                    "rounded-xl px-4 py-3 mt-3 border",
+                    isTrialingSubscription(primarySubscription) &&
+                      (primarySubscription?.pendingCancellation ||
+                        primarySubscription?.cancelAtPeriodEnd)
+                      ? "bg-sky-50 border-sky-200"
+                      : "bg-amber-50 border-amber-200",
+                  )}
+                >
+                  <p
+                    className={cn(
+                      "text-sm font-medium",
+                      isTrialingSubscription(primarySubscription) &&
+                        (primarySubscription?.pendingCancellation ||
+                          primarySubscription?.cancelAtPeriodEnd)
+                        ? "text-sky-900"
+                        : "text-amber-800",
+                    )}
+                  >
+                    {inactiveBannerText}
+                  </p>
                 </div>
               )}
             </div>
