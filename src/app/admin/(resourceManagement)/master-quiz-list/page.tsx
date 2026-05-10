@@ -356,9 +356,16 @@ function EntryDialog({
                         }
                         onClick={(e) => e.stopPropagation()}
                       />
-                      <span className="text-sm line-clamp-1">
-                        {otherItem.quizTitle}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm line-clamp-1">
+                          {otherItem.quizTitle}
+                        </p>
+                        {otherItem.quizDescription && (
+                          <p className="text-sm text-muted-foreground line-clamp-1">
+                            {otherItem.quizDescription}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -1234,6 +1234,8 @@ export interface QuizMasterList {
     curriculumLessonId: string;
     quizId: string;
     quizTitle: string;
+    /** Present when API returns quiz metadata for list rows / dialogs */
+    quizDescription?: string | null;
     quizOrder: number;
     yearGroupId: string;
     yearGroupName: string;
