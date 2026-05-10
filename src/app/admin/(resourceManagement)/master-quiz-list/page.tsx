@@ -360,9 +360,9 @@ function EntryDialog({
                         <p className="font-medium text-sm line-clamp-1">
                           {otherItem.quizTitle}
                         </p>
-                        {otherItem.quizDescription && (
+                        {otherItem.description && (
                           <p className="text-sm text-muted-foreground line-clamp-1">
-                            {otherItem.quizDescription}
+                            {otherItem.description}
                           </p>
                         )}
                       </div>
@@ -1221,11 +1221,10 @@ function BulkAddDialog({
                 <button
                   key={lesson.id}
                   type="button"
-                  className={`w-full text-left flex items-center space-x-2 p-2.5 border rounded-md hover:bg-muted/50 transition-colors ${
-                    selectedCurriculumLessonId === lesson.id
+                  className={`w-full text-left flex items-center space-x-2 p-2.5 border rounded-md hover:bg-muted/50 transition-colors ${selectedCurriculumLessonId === lesson.id
                       ? "bg-primary/10 border-primary ring-2 ring-primary/20"
                       : "border-border"
-                  }`}
+                    }`}
                   onClick={() => setSelectedCurriculumLessonId(lesson.id)}
                 >
                   <div className="flex-shrink-0">
