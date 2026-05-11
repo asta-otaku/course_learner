@@ -1731,12 +1731,11 @@ export function QuizPlayer({
                               ))}
                             </div>
                           ) : (
-                            <p className="text-base text-green-900 whitespace-pre-wrap">
-                              {getCorrectAnswerText(
-                                currentQ,
-                                reviewQuestionResult,
-                              )}
-                            </p>
+                            <MathPreview
+                              content={getCorrectAnswerText(currentQ, reviewQuestionResult)}
+                              renderMarkdown={true}
+                              className="text-base text-green-900 whitespace-pre-wrap"
+                            />
                           )}
                         </div>
                       </div>

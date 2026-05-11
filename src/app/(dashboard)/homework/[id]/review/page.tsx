@@ -442,12 +442,11 @@ export default function HomeworkReviewPage() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-base text-green-900 whitespace-pre-wrap">
-                            {getCorrectAnswerText(
-                              currentQ.question,
-                              currentResult
-                            )}
-                          </p>
+                          <MathPreview
+                            content={getCorrectAnswerText(currentQ.question, currentResult)}
+                            renderMarkdown={true}
+                            className="text-base text-green-900 whitespace-pre-wrap"
+                          />
                         )}
                       </div>
                     </div>
