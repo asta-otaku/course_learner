@@ -77,7 +77,6 @@ import {
   useDeleteQuizFromMasterList,
   useDeleteQuizzesFromMasterList,
   usePostReorderMasterList,
-  usePatchRefreshMasterList,
   usePostBaselineTestEntry,
   usePatchBaselineTestEntry,
   useDeleteBaselineTestEntry,
@@ -623,9 +622,6 @@ export default function MasterQuizListPage() {
     useDeleteQuizzesFromMasterList(selectedYearGroup);
   const { mutate: reorderList, isPending: isReordering } =
     usePostReorderMasterList(selectedYearGroup);
-  const { mutate: refreshList, isPending: isRefreshing } =
-    usePatchRefreshMasterList(selectedYearGroup);
-
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -715,16 +711,6 @@ export default function MasterQuizListPage() {
         onError: () => toast.error("Failed to remove quizzes"),
       }
     );
-  };
-
-  const handleRefresh = () => {
-    refreshList(undefined, {
-      onSuccess: () => {
-        toast.success("Master list refreshed");
-        refetchMasterList();
-      },
-      onError: () => toast.error("Failed to refresh master list"),
-    });
   };
 
   const handleManageEntry = (item: any) => {
@@ -831,12 +817,9 @@ export default function MasterQuizListPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleRefresh}
-                disabled={!selectedYearGroup || isRefreshing}
+                onClick={() => router.refresh()}
               >
-                <RefreshCw
-                  className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
-                />
+                <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
             </div>
@@ -1222,8 +1205,8 @@ function BulkAddDialog({
                   key={lesson.id}
                   type="button"
                   className={`w-full text-left flex items-center space-x-2 p-2.5 border rounded-md hover:bg-muted/50 transition-colors ${selectedCurriculumLessonId === lesson.id
-                      ? "bg-primary/10 border-primary ring-2 ring-primary/20"
-                      : "border-border"
+                    ? "bg-primary/10 border-primary ring-2 ring-primary/20"
+                    : "border-border"
                     }`}
                   onClick={() => setSelectedCurriculumLessonId(lesson.id)}
                 >
