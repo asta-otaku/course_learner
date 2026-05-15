@@ -7,7 +7,7 @@ import { useGetAllParents, useGetTutors } from "@/lib/api/queries";
 
 // Helper function for plan type colors
 export const getPlanTypeColors = (planType: string) => {
-  return planType === "Offer 2" || planType === "Offer Two"
+  return planType === "tuition"
     ? "bg-green-50 text-[#34C759]"
     : "bg-orange-50 text-[#C77234]";
 };
@@ -18,10 +18,10 @@ export const getStatistics = (
   newUsers: number,
   unassignedUsers: number
 ) => [
-  { label: "Registered Users", value: registeredUsers },
-  { label: "New Users", value: newUsers },
-  { label: "Unassigned Users", value: unassignedUsers },
-];
+    { label: "Registered Users", value: registeredUsers },
+    { label: "New Users", value: newUsers },
+    { label: "Unassigned Users", value: unassignedUsers },
+  ];
 
 // Helper function to check if user is new (created within last month)
 export const isNewUser = (createdAt: string) => {
@@ -52,8 +52,8 @@ function UserManagement() {
   // Create grouped data structure with parents and their children
   const groupedUserData =
     parentsData?.data?.map((parent: any) => {
-      const planType = parent.offerType === "Offer Two" ? "Offer 2" : "Offer 1";
-      const canAssignTutor = planType === "Offer 2";
+      const planType = parent.offerType === "tuition" ? "tuition" : "platform";
+      const canAssignTutor = parent.offerType === "tuition";
 
       return {
         parentId: parent.id,

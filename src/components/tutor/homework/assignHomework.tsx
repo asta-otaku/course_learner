@@ -20,22 +20,59 @@ import { usePostHomework } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { Quiz } from "@/lib/types";
 
+/** Max size for portaled popovers in modals (search stays visible; list scrolls). */
+const POPOVER_PANEL_MAX = "min(28rem, 78vh)" as const;
+const POPOVER_LIST_MAX = "min(16rem, 40vh)" as const;
+
 export default function AssignHomeworkForm({
   onBack,
   onAssign,
+  fixedStudentId,
+  fixedStudentLabel,
+  initialQuiz,
+  hideQuizPicker,
+  hideDueDate,
+  embedded,
 }: {
   onBack: () => void;
   onAssign?: () => void;
+  /** When provided, student is preselected and student picker is hidden. */
+  fixedStudentId?: string;
+  /** Optional label for fixed student (avoids needing to fetch students). */
+  fixedStudentLabel?: { name: string; year?: string | number };
+  /** Optional initial quiz (so the quiz shows as selected immediately). */
+  initialQuiz?: {
+    id: string;
+    title?: string;
+    description?: string;
+    questionsCount?: number;
+  };
+  /** When true, hides the quiz selector UI (quiz is still assigned via `initialQuiz`). */
+  hideQuizPicker?: boolean;
+  /** When true, removes the due date field entirely. */
+  hideDueDate?: boolean;
+  /** When true, renders without the full-page layout/back button. */
+  embedded?: boolean;
 }) {
   const [studentSearch, setStudentSearch] = useState("");
-  const [student, setStudent] = useState<string | null>(null);
-  const [quiz, setQuiz] = useState<string>("");
+  const [student, setStudent] = useState<string | null>(() => fixedStudentId ?? null);
+  const [quiz, setQuiz] = useState<string>(() => initialQuiz?.id ?? "");
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [studentDropdownOpen, setStudentDropdownOpen] = useState(false);
   const [quizSearch, setQuizSearch] = useState("");
   const [quizDropdownOpen, setQuizDropdownOpen] = useState(false);
   const [quizPage, setQuizPage] = useState(1);
-  const [accumulatedQuizzes, setAccumulatedQuizzes] = useState<Quiz[]>([]);
+  const [accumulatedQuizzes, setAccumulatedQuizzes] = useState<Quiz[]>(() => {
+    if (!initialQuiz) return [];
+    return [
+      {
+        id: initialQuiz.id,
+        title: initialQuiz.title ?? "Quiz",
+        description: initialQuiz.description,
+        questionsCount: initialQuiz.questionsCount,
+      } as Quiz,
+    ];
+  });
 
   // Get tutor profile to fetch tutor ID
   const { data: tutorProfileResponse, isLoading: isLoadingProfile } =
@@ -87,13 +124,6 @@ export default function AssignHomeworkForm({
     setQuizPage(1);
   }, [quizSearch]);
 
-  // Reset search when dropdown closes
-  useEffect(() => {
-    if (!quizDropdownOpen) {
-      setQuizSearch("");
-    }
-  }, [quizDropdownOpen]);
-
   // Mutation for assigning homework
   const postHomeworkMutation = usePostHomework();
 
@@ -124,7 +154,7 @@ export default function AssignHomeworkForm({
   const selectedQuiz = accumulatedQuizzes.find((q) => q.id === quiz);
 
   const handleAssign = async () => {
-    if (!student || !quiz || !date) {
+    if (!student || !quiz) {
       toast.error("Please fill in all fields");
       return;
     }
@@ -133,14 +163,14 @@ export default function AssignHomeworkForm({
       await postHomeworkMutation.mutateAsync({
         studentId: student,
         quizId: quiz,
-        dueAt: date.toISOString(),
+        dueAt: hideDueDate ? undefined : date?.toISOString(),
       });
 
       toast.success("Homework assigned successfully!");
 
       // Reset form
-      setStudent(null);
-      setQuiz("");
+      setStudent(fixedStudentId ?? null);
+      setQuiz(initialQuiz?.id ?? "");
       setDate(undefined);
       setStudentSearch("");
       setStudentDropdownOpen(false);
@@ -160,49 +190,72 @@ export default function AssignHomeworkForm({
   };
 
   return (
-    <div className="flex flex-col items-center min-h-[80vh] justify-center px-4">
-      <div className="w-full max-w-xl mx-auto">
-        <button
-          onClick={onBack}
-          className="mb-8 text-gray-500 flex items-center gap-2"
-        >
-          <BackArrow />{" "}
-        </button>
-        <h2 className="text-2xl font-medium mb-8">Assign Homework</h2>
-        <div className="space-y-8">
+    <div
+      className={
+        embedded
+          ? "w-full"
+          : "flex flex-col items-center min-h-[80vh] justify-center px-4"
+      }
+    >
+      <div className={embedded ? "w-full" : "w-full max-w-xl mx-auto"}>
+        {!embedded ? (
+          <>
+            <button
+              onClick={onBack}
+              className="mb-8 text-gray-500 flex items-center gap-2"
+            >
+              <BackArrow />{" "}
+            </button>
+            <h2 className="text-2xl font-medium mb-8">Assign Homework</h2>
+          </>
+        ) : null}
+        <div className={embedded ? "space-y-6" : "space-y-8"}>
           {/* Student Dropdown */}
-          <div>
-            <label className="block mb-2 font-medium">Student</label>
-            <div className="relative">
-              <button
-                type="button"
-                className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center justify-between focus:outline-none text-base"
-                onClick={() => setStudentDropdownOpen((v) => !v)}
-                disabled={isLoadingStudents || isLoadingProfile}
+          {!fixedStudentId ? (
+            <div>
+              <label className="block mb-2 font-medium">Student</label>
+              <Popover
+                open={studentDropdownOpen}
+                onOpenChange={(open) => {
+                  setStudentDropdownOpen(open);
+                  if (!open) setStudentSearch("");
+                }}
               >
-                {student ? (
-                  <span>
-                    {students.find((s) => s.id === student)?.name}
-                    <span className="block text-xs text-gray-400">
-                      Year {students.find((s) => s.id === student)?.year}
-                    </span>
-                  </span>
-                ) : (
-                  <span className="text-gray-400">
-                    {isLoadingStudents
-                      ? "Loading students..."
-                      : "Select a student"}
-                  </span>
-                )}
-                {isLoadingStudents ? (
-                  <Loader2 className="h-5 w-5 ml-auto animate-spin" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 ml-auto" />
-                )}
-              </button>
-              {studentDropdownOpen && !isLoadingStudents && (
-                <div className="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg z-10 max-h-72 overflow-y-auto border border-gray-100">
-                  <div className="p-4 pb-2">
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center justify-between focus:outline-none text-base"
+                    disabled={isLoadingStudents || isLoadingProfile}
+                  >
+                    {student ? (
+                      <span>
+                        {students.find((s) => s.id === student)?.name}
+                        <span className="block text-xs text-gray-400">
+                          Year {students.find((s) => s.id === student)?.year}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">
+                        {isLoadingStudents ? "Loading students..." : "Select a student"}
+                      </span>
+                    )}
+                    {isLoadingStudents ? (
+                      <Loader2 className="h-5 w-5 ml-auto animate-spin" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 ml-auto" />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  side="bottom"
+                  sideOffset={6}
+                  avoidCollisions={false}
+                  className="z-[200] box-border flex w-[var(--radix-popover-trigger-width)] min-w-[16rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white p-0 !shadow-lg"
+                  style={{ maxHeight: POPOVER_PANEL_MAX }}
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  <div className="shrink-0 border-b border-gray-50 p-3">
                     <div className="relative">
                       <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                       <Input
@@ -213,7 +266,14 @@ export default function AssignHomeworkForm({
                       />
                     </div>
                   </div>
-                  <div>
+                  <div
+                    className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 [scrollbar-gutter:stable]"
+                    style={{
+                      maxHeight: POPOVER_LIST_MAX,
+                      WebkitOverflowScrolling: "touch" as const,
+                    }}
+                    onWheel={(e) => e.stopPropagation()}
+                  >
                     {filteredStudents.length === 0 && (
                       <div className="p-4 text-gray-400 text-center">
                         No students found
@@ -222,6 +282,7 @@ export default function AssignHomeworkForm({
                     {filteredStudents.map((s) => (
                       <button
                         key={s.id}
+                        type="button"
                         className="w-full text-left px-6 py-4 hover:bg-gray-100 focus:bg-gray-100 border-b last:border-b-0 border-gray-100"
                         onClick={() => {
                           setStudent(s.id);
@@ -230,50 +291,72 @@ export default function AssignHomeworkForm({
                         }}
                       >
                         <div className="font-medium">{s.name}</div>
-                        <div className="text-xs text-gray-400">
-                          Year {s.year}
-                        </div>
+                        <div className="text-xs text-gray-400">Year {s.year}</div>
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
+                </PopoverContent>
+              </Popover>
             </div>
-          </div>
+          ) : (
+            <div>
+              <label className="block mb-2 font-medium">Student</label>
+              <div className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-left text-base">
+                <div className="font-medium text-gray-900">
+                  {fixedStudentLabel?.name ?? "Selected"}
+                </div>
+                {fixedStudentLabel?.year !== undefined && fixedStudentLabel?.year !== null ? (
+                  <div className="text-xs text-gray-400">Year {fixedStudentLabel.year}</div>
+                ) : null}
+              </div>
+            </div>
+          )}
           {/* Quiz Dropdown */}
-          <div>
-            <label className="block mb-2 font-medium">Quiz</label>
-            <div className="relative">
-              <button
-                type="button"
-                className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center justify-between focus:outline-none text-base"
-                onClick={() => setQuizDropdownOpen((v) => !v)}
-                disabled={isLoadingQuizzes && !accumulatedQuizzes.length}
+          {!hideQuizPicker ? (
+            <div>
+              <label className="block mb-2 font-medium">Quiz</label>
+              <Popover
+                open={quizDropdownOpen}
+                onOpenChange={(open) => {
+                  setQuizDropdownOpen(open);
+                  if (!open) setQuizSearch("");
+                }}
               >
-                {selectedQuiz ? (
-                  <span>
-                    <span className="text-black">{selectedQuiz.title}</span>
-                    {selectedQuiz.description && (
-                      <span className="block text-xs text-gray-400">
-                        {selectedQuiz.description}
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center justify-between focus:outline-none text-base"
+                    disabled={isLoadingQuizzes && !accumulatedQuizzes.length}
+                  >
+                    {selectedQuiz ? (
+                      <span>
+                        <span className="text-black">{selectedQuiz.title}</span>
+                        {selectedQuiz.description && (
+                          <span className="block text-xs text-gray-400">
+                            {selectedQuiz.description}
+                          </span>
+                        )}
                       </span>
+                    ) : (
+                      <span className="text-gray-400">Select a quiz</span>
                     )}
-                  </span>
-                ) : (
-                  <span className="text-gray-400">Select a quiz</span>
-                )}
-                {isLoadingQuizzes && !accumulatedQuizzes.length ? (
-                  <Loader2 className="h-5 w-5 ml-auto animate-spin" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 ml-auto" />
-                )}
-              </button>
-              {quizDropdownOpen && (
-                <div
-                  ref={quizDropdownRef}
-                  className="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg z-10 max-h-72 overflow-y-auto border border-gray-100"
+                    {isLoadingQuizzes && !accumulatedQuizzes.length ? (
+                      <Loader2 className="h-5 w-5 ml-auto animate-spin" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 ml-auto" />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  side="bottom"
+                  sideOffset={6}
+                  avoidCollisions={false}
+                  className="z-[200] box-border flex w-[var(--radix-popover-trigger-width)] min-w-[16rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white p-0 !shadow-lg"
+                  style={{ maxHeight: POPOVER_PANEL_MAX }}
+                  onOpenAutoFocus={(e) => e.preventDefault()}
                 >
-                  <div className="p-4 pb-2 sticky top-0 bg-white z-20">
+                  <div className="shrink-0 border-b border-gray-50 bg-white p-3">
                     <div className="relative">
                       <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                       <Input
@@ -286,7 +369,15 @@ export default function AssignHomeworkForm({
                       />
                     </div>
                   </div>
-                  <div>
+                  <div
+                    ref={quizDropdownRef}
+                    className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 [scrollbar-gutter:stable]"
+                    style={{
+                      maxHeight: POPOVER_LIST_MAX,
+                      WebkitOverflowScrolling: "touch" as const,
+                    }}
+                    onWheel={(e) => e.stopPropagation()}
+                  >
                     {accumulatedQuizzes.length === 0 && !isLoadingQuizzes && (
                       <div className="p-4 text-gray-400 text-center">
                         No quizzes found
@@ -295,6 +386,7 @@ export default function AssignHomeworkForm({
                     {accumulatedQuizzes.map((q) => (
                       <button
                         key={q.id}
+                        type="button"
                         className="w-full text-left px-6 py-4 hover:bg-gray-100 focus:bg-gray-100 border-b last:border-b-0 border-gray-100"
                         onClick={() => {
                           setQuiz(q.id || "");
@@ -325,57 +417,61 @@ export default function AssignHomeworkForm({
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                </PopoverContent>
+              </Popover>
             </div>
-          </div>
+          ) : null}
           {/* Date Input */}
-          <div>
-            <label className="block mb-2 font-medium">To be submitted</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={
-                    "w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center focus:outline-none text-base"
-                  }
-                >
-                  <span className={date ? "text-black" : "text-gray-400"}>
-                    {date ? format(date, "PPP") : "Pick a date"}
-                  </span>
-                  <span className="ml-auto">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-5 h-5 text-gray-400"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6.75 3v2.25M17.25 3v2.25M3.75 7.5h16.5M4.5 21h15a.75.75 0 00.75-.75V7.5a.75.75 0 00-.75-.75h-15a.75.75 0 00-.75.75v12.75c0 .414.336.75.75.75z"
-                      />
-                    </svg>
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+          {!hideDueDate ? (
+            <div>
+              <label className="block mb-2 font-medium">To be submitted</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className={
+                      "w-full rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5 text-gray-500 text-left flex items-center focus:outline-none text-base"
+                    }
+                  >
+                    <span className={date ? "text-black" : "text-gray-400"}>
+                      {date ? format(date, "PPP") : "Pick a date"}
+                    </span>
+                    <span className="ml-auto">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 text-gray-400"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6.75 3v2.25M17.25 3v2.25M3.75 7.5h16.5M4.5 21h15a.75.75 0 00.75-.75V7.5a.75.75 0 00-.75-.75h-15a.75.75 0 00-.75.75v12.75c0 .414.336.75.75.75z"
+                        />
+                      </svg>
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          ) : null}
           <Button
             className="w-full mt-8 bg-primaryBlue text-white rounded-full py-6 text-lg font-medium shadow-none"
             onClick={handleAssign}
             disabled={
-              !student || !quiz || !date || postHomeworkMutation.isPending
+              !student ||
+              !quiz ||
+              postHomeworkMutation.isPending
             }
           >
             {postHomeworkMutation.isPending ? (

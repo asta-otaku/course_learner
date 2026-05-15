@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import BackArrow from "@/assets/svgs/arrowback";
@@ -11,6 +11,9 @@ import {
   useGetQuizzesForLesson,
 } from "@/lib/api/queries";
 import { usePatchVideoLessonProgress } from "@/lib/api/mutations";
+import LessonQuizzes, {
+  LessonCompletedCheckIcon,
+} from "@/components/platform/library/lessonQuizzes";
 
 export default function LessonPage() {
   const params = useParams();
@@ -24,7 +27,7 @@ export default function LessonPage() {
     activeProfile?.offerType || ""
   );
   const { data: lessonDetail, isLoading } = useGetLessonById(lessonId);
-  const { data: lessonQuizzes } = useGetQuizzesForLesson(lessonId);
+  const { data: lessonQuizzes } = useGetQuizzesForLesson(lessonId, activeProfile?.id || "");
 
   const section = sectionData?.data;
 
@@ -62,7 +65,7 @@ export default function LessonPage() {
     if (!video || !activeProfile?.id) return;
     if (isCompleted) return;
     const now = Date.now();
-    if (!force && now - lastSentRef.current < 2000) return; // throttle ~2s
+    if (!force && now - lastSentRef.current < 10000) return; // throttle ~10s
     const watchedPosition = Math.max(0, Math.floor(video.currentTime || 0));
     lastSentRef.current = now;
     patchProgress({ childId: activeProfile.id, watchedPosition });
@@ -114,13 +117,15 @@ export default function LessonPage() {
                 onClick={() =>
                   router.push(`/videos-quiz/${curriculumId}/${l.id}`)
                 }
-                className={`whitespace-nowrap uppercase ${
-                  isActive
-                    ? "border-b-2 border-primaryBlue text-primaryBlue font-semibold pb-2"
-                    : "text-textGray text-xs md:text-sm hover:text-gray-800"
-                }`}
+                className={`flex items-center gap-2 whitespace-nowrap uppercase ${isActive
+                  ? "border-b-2 border-primaryBlue pb-2 font-semibold text-primaryBlue"
+                  : "text-xs text-textGray hover:text-gray-800 md:text-sm"
+                  }`}
               >
                 Lesson {i + 1}
+                {l.lessonCompleted ? (
+                  <LessonCompletedCheckIcon className="h-5 w-5 [&_svg]:h-3 [&_svg]:w-3" />
+                ) : null}
               </button>
             );
           })}
@@ -153,7 +158,7 @@ export default function LessonPage() {
           <div className="space-y-2">
             <h2 className="text-2xl font-bold">{lessonTitle}</h2>
             <p className="text-textSubtitle">
-              {lessonDescription || "No description available"}
+              {lessonDescription || ""}
             </p>
           </div>
 
@@ -187,7 +192,7 @@ export default function LessonPage() {
                         );
                         try {
                           vid.currentTime = safe > 0 ? safe : 0;
-                        } catch {}
+                        } catch { }
                       }
                     }}
                     onTimeUpdate={(e) => maybeSendProgress(e.currentTarget)}
@@ -223,7 +228,7 @@ export default function LessonPage() {
             <div className="max-w-xl">
               <h2 className="font-semibold uppercase mb-2">Lesson Overview:</h2>
               <p className="text-gray-700">
-                {lessonDescription || "No description available"}
+                {lessonDescription || ""}
               </p>
             </div>
           </div>
@@ -242,62 +247,11 @@ export default function LessonPage() {
           {quizzes.length === 0 ? (
             <p className="text-textSubtitle">No quizzes available</p>
           ) : (
-            <div className="flex flex-col gap-4">
-              {quizzes.map((quiz: any, index: number) => (
-                <div
-                  key={quiz.id || index}
-                  className="bg-bgOffwhite p-5 w-full rounded-2xl flex items-center justify-between gap-4 relative"
-                >
-                  <div className="space-y-4 z-10">
-                    <h3 className="text-sm md:text-base font-medium">
-                      {quiz.title}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-medium text-textSubtitle font-inter">
-                        {quiz.questionsCount || quiz.questions?.length || 0}{" "}
-                        Questions
-                      </p>
-                      <span className="p-1 rounded-full bg-borderGray" />
-                      <p className="text-xs font-medium text-textSubtitle font-inter">
-                        {quiz.status === "published" ? "Published" : "Draft"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => router.push(`/take-quiz/${quiz.id}`)}
-                    className="py-2.5 bg-demo-gradient rounded-full text-white shadow-demoShadow max-w-[180px] w-full flex justify-center font-medium text-xs md:text-sm z-10"
-                  >
-                    Take Quiz
-                  </button>
-                  <img
-                    src="/quiz-bulb.png"
-                    alt=""
-                    className="absolute bottom-0 left-[30%] z-0"
-                  />
-                  <img
-                    src="/quiz-tablet.png"
-                    alt=""
-                    className="absolute top-0 left-[42%] z-0"
-                  />
-                  <img
-                    src="/quiz-bulb-small.png"
-                    alt=""
-                    className="absolute bottom-0 left-[45%] z-0"
-                  />
-                  <img
-                    src="/quiz-bulb-top.png"
-                    alt=""
-                    className="absolute top-0 left-[58%] z-0"
-                  />
-                  <img
-                    src="/quiz-tablet-down.png"
-                    alt=""
-                    className="absolute bottom-0 left-[70%] z-0"
-                  />
-                </div>
-              ))}
-            </div>
+            <LessonQuizzes
+              quizzes={quizzes}
+              showHeading={false}
+              withTopDivider={false}
+            />
           )}
         </div>
       )}

@@ -23,14 +23,14 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, Loader2 } from "lucide-react";
 import BackArrow from "@/assets/svgs/arrowback";
 import { DateRange, dateRangeLabels } from "@/lib/types";
-import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useProfile } from "@/context/profileContext";
 import { useGetChildBaselineTestEntries } from "@/lib/api/queries";
 
 const ITEMS_PER_PAGE = 15;
 
 export default function BaselineResultsPage() {
   const { push } = useRouter();
-  const { activeProfile } = useSelectedProfile();
+  const { activeProfile } = useProfile();
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
 

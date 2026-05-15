@@ -54,7 +54,6 @@ function StepThree({ setStep }: { setStep: (step: number) => void }) {
     try {
       const response = await postTutorAvailability({
         timeSlotIds: selectedTimeslotIds,
-        startToday: false,
       });
 
       if (response.status === 201) {
@@ -169,15 +168,14 @@ function StepThree({ setStep }: { setStep: (step: number) => void }) {
                       <div
                         key={slot.id}
                         onClick={() => toggleSlot(slot.id)}
-                        className={`cursor-pointer rounded-lg py-2 text-center font-medium transition-all ${
-                          editMode
+                        className={`cursor-pointer rounded-lg py-2 text-center font-medium transition-all ${editMode
                             ? isSelected
                               ? "bg-primaryBlue text-white"
                               : "bg-gray-100 text-black hover:bg-gray-200"
                             : isSelected
-                            ? "bg-primaryBlue text-white"
-                            : "bg-gray-100 text-black"
-                        } ${!editMode ? "cursor-default" : ""}`}
+                              ? "bg-primaryBlue text-white"
+                              : "bg-gray-100 text-black"
+                          } ${!editMode ? "cursor-default" : ""}`}
                       >
                         {formatTimeSlotLabel(slot.startTime, slot.endTime)}
                       </div>

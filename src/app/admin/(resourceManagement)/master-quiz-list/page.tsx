@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   RefreshCw,
@@ -77,7 +77,6 @@ import {
   useDeleteQuizFromMasterList,
   useDeleteQuizzesFromMasterList,
   usePostReorderMasterList,
-  usePatchRefreshMasterList,
   usePostBaselineTestEntry,
   usePatchBaselineTestEntry,
   useDeleteBaselineTestEntry,
@@ -167,6 +166,27 @@ function EntryDialog({
 
   const otherItems = allItems.filter((i) => i.quizId !== item?.quizId);
 
+  /** Master-list order number (1-based); selected quizzes pinned to the top. */
+  const targetQuizRows = useMemo(() => {
+    const rows = otherItems.map((otherItem) => {
+      const indexInAll = allItems.findIndex((i) => i.quizId === otherItem.quizId);
+      return {
+        item: otherItem,
+        serialNumber: indexInAll >= 0 ? indexInAll + 1 : 0,
+      };
+    });
+
+    const selectedSet = new Set(selectedTargetQuizIds);
+    const selected = rows
+      .filter((r) => selectedSet.has(r.item.quizId))
+      .sort((a, b) => a.serialNumber - b.serialNumber);
+    const unselected = rows
+      .filter((r) => !selectedSet.has(r.item.quizId))
+      .sort((a, b) => a.serialNumber - b.serialNumber);
+
+    return { rows: [...selected, ...unselected], selectedCount: selected.length };
+  }, [otherItems, allItems, selectedTargetQuizIds]);
+
   const handleToggleTargetQuiz = (quizId: string) => {
     setSelectedTargetQuizIds((prev) =>
       prev.includes(quizId) ? prev.filter((id) => id !== quizId) : [...prev, quizId]
@@ -242,7 +262,7 @@ function EntryDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl w-full max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {entry ? "Edit Baseline Entry" : "Add Baseline Entry"}
@@ -338,29 +358,76 @@ function EntryDialog({
             {/* Target Quiz IDs (optional) */}
             {otherItems.length > 0 && (
               <div className="space-y-2">
-                <Label>Target Quizzes (optional)</Label>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label>Target Quizzes (optional)</Label>
+                  {targetQuizRows.selectedCount > 0 && (
+                    <Badge variant="secondary" className="text-xs font-normal">
+                      {targetQuizRows.selectedCount} selected
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Quizzes to target based on mastery result
+                  Quizzes to target based on mastery result. Selected items appear
+                  first with their master-list number.
                 </p>
-                <div className="max-h-40 overflow-y-auto space-y-1 border rounded-md p-2">
-                  {otherItems.map((otherItem: any) => (
-                    <div
-                      key={otherItem.quizId}
-                      className="flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer"
-                      onClick={() => handleToggleTargetQuiz(otherItem.quizId)}
-                    >
-                      <Checkbox
-                        checked={selectedTargetQuizIds.includes(otherItem.quizId)}
-                        onCheckedChange={() =>
-                          handleToggleTargetQuiz(otherItem.quizId)
-                        }
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <span className="text-sm line-clamp-1">
-                        {otherItem.quizTitle}
-                      </span>
-                    </div>
-                  ))}
+                <div className="max-h-72 overflow-y-auto space-y-1 border rounded-md p-2">
+                  {targetQuizRows.rows.map((row, index) => {
+                    const { item: otherItem, serialNumber } = row;
+                    const isSelected = selectedTargetQuizIds.includes(
+                      otherItem.quizId,
+                    );
+                    const description =
+                      otherItem.quizDescription ?? otherItem.description;
+                    const showDividerAfterSelected =
+                      targetQuizRows.selectedCount > 0 &&
+                      index === targetQuizRows.selectedCount - 1 &&
+                      index < targetQuizRows.rows.length - 1;
+
+                    return (
+                      <div key={otherItem.quizId}>
+                        <div
+                          className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-muted/50 ${
+                            isSelected
+                              ? "bg-primaryBlue/5 ring-1 ring-primaryBlue/15"
+                              : ""
+                          }`}
+                          onClick={() => handleToggleTargetQuiz(otherItem.quizId)}
+                        >
+                          <div
+                            className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center"
+                            title={`Quiz #${serialNumber} in master list`}
+                          >
+                            <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                              {serialNumber}
+                            </span>
+                          </div>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() =>
+                              handleToggleTargetQuiz(otherItem.quizId)
+                            }
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm line-clamp-1">
+                              {otherItem.quizTitle}
+                            </p>
+                            {description ? (
+                              <p className="text-sm text-muted-foreground line-clamp-1">
+                                {description}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                        {showDividerAfterSelected ? (
+                          <div
+                            className="my-2 border-t border-dashed border-muted-foreground/30"
+                            aria-hidden
+                          />
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -475,7 +542,12 @@ function SortableRow({
         className="font-medium cursor-pointer hover:text-blue-600 max-w-[200px]"
         onClick={() => onRowClick(item.quizId)}
       >
-        <span className="line-clamp-2">{item.quizTitle}</span>
+        <span className="line-clamp-1">{item.quizTitle}</span>
+        {item.quizDescription && (
+          <span className="block text-xs font-normal text-muted-foreground line-clamp-1">
+            {item.quizDescription}
+          </span>
+        )}
       </TableCell>
       <TableCell
         className="hidden sm:table-cell cursor-pointer text-sm text-muted-foreground"
@@ -611,9 +683,6 @@ export default function MasterQuizListPage() {
     useDeleteQuizzesFromMasterList(selectedYearGroup);
   const { mutate: reorderList, isPending: isReordering } =
     usePostReorderMasterList(selectedYearGroup);
-  const { mutate: refreshList, isPending: isRefreshing } =
-    usePatchRefreshMasterList(selectedYearGroup);
-
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -703,16 +772,6 @@ export default function MasterQuizListPage() {
         onError: () => toast.error("Failed to remove quizzes"),
       }
     );
-  };
-
-  const handleRefresh = () => {
-    refreshList(undefined, {
-      onSuccess: () => {
-        toast.success("Master list refreshed");
-        refetchMasterList();
-      },
-      onError: () => toast.error("Failed to refresh master list"),
-    });
   };
 
   const handleManageEntry = (item: any) => {
@@ -819,12 +878,9 @@ export default function MasterQuizListPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleRefresh}
-                disabled={!selectedYearGroup || isRefreshing}
+                onClick={() => router.refresh()}
               >
-                <RefreshCw
-                  className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
-                />
+                <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
             </div>
@@ -1209,11 +1265,10 @@ function BulkAddDialog({
                 <button
                   key={lesson.id}
                   type="button"
-                  className={`w-full text-left flex items-center space-x-2 p-2.5 border rounded-md hover:bg-muted/50 transition-colors ${
-                    selectedCurriculumLessonId === lesson.id
-                      ? "bg-primary/10 border-primary ring-2 ring-primary/20"
-                      : "border-border"
-                  }`}
+                  className={`w-full text-left flex items-center space-x-2 p-2.5 border rounded-md hover:bg-muted/50 transition-colors ${selectedCurriculumLessonId === lesson.id
+                    ? "bg-primary/10 border-primary ring-2 ring-primary/20"
+                    : "border-border"
+                    }`}
                   onClick={() => setSelectedCurriculumLessonId(lesson.id)}
                 >
                   <div className="flex-shrink-0">

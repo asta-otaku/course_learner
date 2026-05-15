@@ -8,7 +8,6 @@ import {
   Timeslot,
   SessionResponse,
   AdminSessionsResponse,
-  FullSubscriptionPlan,
   APIGetResponse,
   SubscriptionPlan,
   ParentDetails,
@@ -35,6 +34,13 @@ import {
   BaselineTestEntry,
   LearningPath,
   BaselineTestAttempt,
+  Subscription,
+  SchemeOfWork,
+  LearningPathSummary,
+  LearningHistory,
+  ChildPreferences,
+  RecentHomeworkItem,
+  HistoryHomeworkItem,
 } from "../types";
 
 // User Queries
@@ -69,19 +75,25 @@ export const useGetUserById = (id: string) => {
 };
 
 // Subscription Queries
-export const useGetSubscriptionPlans = (isUser?: boolean, id?: string) => {
+export const useGetSubscriptions = (parentId?: string) => {
+  return useQuery({
+    queryKey: ["subscriptions", parentId],
+    queryFn: async (): Promise<APIGetResponse<Subscription>> => {
+      const response = await axiosInstance.get(`/subscriptions`, {
+        params: { parentId },
+      });
+      return response.data;
+    },
+  });
+}
+
+export const useGetSubscriptionPlans = () => {
   return useQuery({
     queryKey: ["subscription-plans"],
     queryFn: async (): Promise<
-      APIGetResponse<FullSubscriptionPlan[] | SubscriptionPlan>
+      APIGetResponse<SubscriptionPlan[]>
     > => {
-      const url = isUser
-        ? "/subscriptions/user-subscription"
-        : "/subscriptions";
-      const response = await axiosInstance.get(
-        url,
-        id ? { params: { parentId: id } } : undefined
-      );
+      const response = await axiosInstance.get("/subscriptions/plans");
       return response.data;
     },
   });
@@ -106,12 +118,15 @@ export const useGetSubscriptionPlansWithIds = () => {
   });
 };
 
-export const useGetManageSubscription = () => {
+export const useGetManageSubscription = (parentId?: string) => {
   return useQuery({
-    queryKey: ["manage-subscription"],
+    queryKey: ["manage-subscription", parentId],
     queryFn: async (): Promise<APIGetResponse<ManageSubscriptionResponse>> => {
       const response = await axiosInstance.get(
-        "/subscriptions/manage-subscription"
+        "/subscriptions/manage",
+        {
+          params: { parentId },
+        }
       );
       return response.data;
     },
@@ -119,13 +134,14 @@ export const useGetManageSubscription = () => {
 };
 
 // Child Profile Queries
-export const useGetChildProfile = () => {
+export const useGetChildProfile = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ["child-profiles"],
     queryFn: async (): Promise<APIGetResponse<ChildProfile[]>> => {
       const response = await axiosInstance.get("/child-profiles");
       return response.data;
     },
+    enabled: options?.enabled !== undefined ? options.enabled : true,
   });
 };
 
@@ -308,7 +324,6 @@ export const useGetBookedSessions = (
 };
 
 export const useGetAvailableSessions = (
-  childId: string,
   options?: {
     status?: string;
     date?: string;
@@ -319,7 +334,7 @@ export const useGetAvailableSessions = (
   }
 ) => {
   return useQuery({
-    queryKey: ["available-sessions", childId, options],
+    queryKey: ["available-sessions", options],
     queryFn: async (): Promise<APIGetResponse<any>> => {
       const params = new URLSearchParams();
 
@@ -334,12 +349,11 @@ export const useGetAvailableSessions = (
 
       const queryString = params.toString();
       const url = queryString
-        ? `/sessions/available/${childId}?${queryString}`
-        : `/sessions/available/${childId}`;
+        ? `/sessions/available?${queryString}`
+        : `/sessions/available`;
       const response = await axiosInstance.get(url);
       return response.data;
     },
-    enabled: !!childId,
   });
 };
 
@@ -531,6 +545,7 @@ export const useGetQuiz = (id: string) => {
       const response = await axiosInstance.get(`/quizzes/${id}`);
       return response.data;
     },
+    enabled: Boolean(id?.trim()),
   });
 };
 
@@ -647,10 +662,25 @@ export const useGetCurricula = (
     page?: number;
     limit?: number;
     offerType?: string;
-  } = {}
+  } = {},
+  options?: { enabled?: boolean }
 ) => {
+  // Primitive queryKey — avoid a new object reference each render (unstable keys → refetch loops)
+  const curriculaQueryKey = [
+    "curricula",
+    params.offerType ?? "",
+    params.searchTitle ?? "",
+    params.gradeLevel ?? "",
+    params.minGradeLevel ?? "",
+    params.maxGradeLevel ?? "",
+    params.isPublic === undefined ? "__" : String(params.isPublic),
+    params.page ?? "",
+    params.limit ?? "",
+  ] as const;
+
   return useQuery({
-    queryKey: ["curricula", params],
+    queryKey: curriculaQueryKey,
+    enabled: options?.enabled !== undefined ? options.enabled : true,
     queryFn: async (): Promise<{
       curricula: Curriculum[];
       pagination: {
@@ -723,22 +753,35 @@ export const useGetCurriculum = (curriculumId?: string) => {
 };
 
 // Lesson Queries
-export const useGetLessonById = (id: string) => {
+export const useGetLessonById = (
+  id: string,
+  options?: { enabled?: boolean }
+) => {
+  const baseEnabled = !!id;
+  const enabled =
+    options?.enabled === undefined
+      ? baseEnabled
+      : baseEnabled && options.enabled;
   return useQuery({
     queryKey: ["lesson", id],
     queryFn: async (): Promise<APIGetResponse<Lesson>> => {
       const response = await axiosInstance.get(`/lesson/${id}`);
       return response.data;
     },
-    enabled: !!id,
+    enabled,
   });
 };
 
-export const useGetQuizzesForLesson = (lessonId: string) => {
+export const useGetQuizzesForLesson = (lessonId: string, childId?: string) => {
   return useQuery({
-    queryKey: ["quizzes-for-lesson", lessonId],
+    queryKey: ["quizzes-for-lesson", lessonId, childId ?? ""],
     queryFn: async (): Promise<APIGetResponse<Quiz[]>> => {
-      const response = await axiosInstance.get(`/lesson/${lessonId}/quizzes`);
+      const q = childId
+        ? `?childId=${encodeURIComponent(childId)}`
+        : "";
+      const response = await axiosInstance.get(
+        `/lesson/${lessonId}/quizzes${q}`
+      );
       return response.data;
     },
     enabled: !!lessonId,
@@ -841,14 +884,14 @@ export const useGetTagLessons = (tag: string) => {
 };
 
 // Child Library Queries
-export const useGetLibrary = (childId: string) => {
+export const useGetLibrary = (childId: string, curriculumId: string) => {
   return useQuery({
-    queryKey: ["library", childId],
+    queryKey: ["library", childId, curriculumId],
     queryFn: async (): Promise<APIGetResponse<LibraryCurriculum[]>> => {
-      const response = await axiosInstance.get(`/library/${childId}`);
+      const response = await axiosInstance.get(`/library/${childId}/curriculums/${curriculumId}`);
       return response.data;
     },
-    enabled: !!childId,
+    enabled: !!childId && !!curriculumId,
   });
 };
 
@@ -870,17 +913,86 @@ export const useGetChildLessons = (
   });
 };
 
-export const useGetChildLastAccessedLessons = (childId: string,
-  curriculumId: string) => {
+/**
+ * Continue-lessons / next-lesson API may return:
+ * - `ChildLesson[]`
+ * - a single lesson object (next lesson to continue)
+ * - wrappers like `{ lessons: [...] }` or `{ nextLesson: { ... } }`
+ */
+function normalizeContinueLessonsData(data: unknown): ChildLesson[] {
+  if (data == null) return [];
+  if (Array.isArray(data)) return data as ChildLesson[];
+  if (typeof data === "object") {
+    const o = data as Record<string, unknown>;
+    for (const key of [
+      "lessons",
+      "continueLessons",
+      "lastAccessedLessons",
+      "sectionLessons",
+      "items",
+      "results",
+      "rows",
+    ] as const) {
+      const v = o[key];
+      if (Array.isArray(v)) return v as ChildLesson[];
+    }
+    if (Array.isArray(o.data)) return o.data as ChildLesson[];
+
+    const unwrap = (node: unknown): ChildLesson | null => {
+      if (!node || typeof node !== "object") return null;
+      const x = node as Record<string, unknown>;
+      if (typeof x.id === "string" && typeof x.sectionId === "string") {
+        return childLessonFromNextPayload(x);
+      }
+      return null;
+    };
+
+    const fromNext = unwrap(o.nextLesson ?? o.lesson);
+    if (fromNext) return [fromNext];
+
+    const bare = unwrap(o);
+    if (bare) return [bare];
+  }
+  return [];
+}
+
+/** Map slim "next lesson" payload to ChildLesson; missing fields get safe defaults. */
+function childLessonFromNextPayload(x: Record<string, unknown>): ChildLesson {
+  return {
+    id: x.id as string,
+    title: typeof x.title === "string" ? x.title : "",
+    description: typeof x.description === "string" ? x.description : "",
+    orderIndex: typeof x.orderIndex === "number" ? x.orderIndex : 0,
+    sectionId: x.sectionId as string,
+    watchedPosition: typeof x.watchedPosition === "number" ? x.watchedPosition : 0,
+    videoCompleted: Boolean(x.videoCompleted),
+    quizzesPassed: typeof x.quizzesPassed === "number" ? x.quizzesPassed : 0,
+    totalQuizzes: typeof x.totalQuizzes === "number" ? x.totalQuizzes : 0,
+    completionPercentage:
+      typeof x.completionPercentage === "number" ? x.completionPercentage : 0,
+    lessonCompleted: Boolean(x.lessonCompleted),
+  };
+}
+
+export const useGetChildLastAccessedLessons = (
+  childId: string,
+  curriculumId: string
+) => {
   return useQuery({
     queryKey: ["child-last-accessed-lessons", childId, curriculumId],
     queryFn: async (): Promise<APIGetResponse<ChildLesson[]>> => {
-      const response = await axiosInstance.get(`/library/${childId}/curriculums/${curriculumId}/continue-lessons`);
-      return response.data;
+      const response = await axiosInstance.get(
+        `/library/${childId}/curriculums/${curriculumId}/continue-lessons`
+      );
+      const body = response.data as APIGetResponse<unknown>;
+      return {
+        ...body,
+        data: normalizeContinueLessonsData(body?.data),
+      };
     },
     enabled: !!childId && !!curriculumId,
   });
-}
+};
 
 // Analytics Queries
 export const useGetAnalytics = () => {
@@ -993,7 +1105,7 @@ export const useGetChangeRequestById = (id: string) => {
 export const useGetHomework = (childId?: string) => {
   return useQuery({
     queryKey: ["homeworks", childId],
-    queryFn: async (): Promise<APIGetResponse<Homework[]>> => {
+    queryFn: async (): Promise<APIGetResponse<Homework[] | LearningPath[]>> => {
       const response = await axiosInstance.get(`/homework`, {
         params: {
           childId,
@@ -1003,6 +1115,39 @@ export const useGetHomework = (childId?: string) => {
     },
   });
 };
+
+export const useGetHomeworkDetails = (id: string) => {
+  return useQuery({
+    queryKey: ["homework-details", id],
+    queryFn: async (): Promise<APIGetResponse<Homework>> => {
+      const response = await axiosInstance.get(`/homework/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
+  });
+}
+
+export const useGetRecentHomework = (childId: string) => {
+  return useQuery({
+    queryKey: ["recent-homework", childId],
+    queryFn: async (): Promise<APIGetResponse<RecentHomeworkItem[]>> => {
+      const response = await axiosInstance.get(`/homework/recent-works?childId=${childId}`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
+export const useGetHistoryHomework = (childId: string) => {
+  return useQuery({
+    queryKey: ["history-homework", childId],
+    queryFn: async (): Promise<APIGetResponse<HistoryHomeworkItem[]>> => {
+      const response = await axiosInstance.get(`/homework/history?childId=${childId}`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
 
 export const useGetHomeworkById = (id: string) => {
   return useQuery({
@@ -1139,6 +1284,50 @@ export const useGetLearningPath = (childId: string, status?: string) => {
           status,
         },
       });
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
+export const useGetChildSchemeOfWork = (childId: string) => {
+  return useQuery({
+    queryKey: ["child-scheme-of-work", childId],
+    queryFn: async (): Promise<APIGetResponse<SchemeOfWork[]>> => {
+      const response = await axiosInstance.get(`/learning-path/${childId}/scheme-of-work`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
+export const useGetChildLearningPathSummary = (childId: string) => {
+  return useQuery({
+    queryKey: ["child-learning-path-summary", childId],
+    queryFn: async (): Promise<APIGetResponse<LearningPathSummary[]>> => {
+      const response = await axiosInstance.get(`/learning-path/${childId}/learning-path-summary`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
+export const useGetChildLearningHistory = (childId: string) => {
+  return useQuery({
+    queryKey: ["child-learning-history", childId],
+    queryFn: async (): Promise<APIGetResponse<LearningHistory[]>> => {
+      const response = await axiosInstance.get(`/learning-path/${childId}/history`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
+export const useGetChildPreferences = (childId: string) => {
+  return useQuery({
+    queryKey: ["child-preferences", childId],
+    queryFn: async (): Promise<APIGetResponse<ChildPreferences>> => {
+      const response = await axiosInstance.get(`/child-profiles/${childId}/preferences`);
       return response.data;
     },
     enabled: !!childId,

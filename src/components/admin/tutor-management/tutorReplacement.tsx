@@ -99,11 +99,18 @@ const TutorReplacement: React.FC<TutorReplacementProps> = ({
       toast.error("Please select a tutor");
       return;
     }
+    const assignedTutor = tutors.find((t) => t.id === selectedTutor);
+    if (!assignedTutor?.name) {
+      toast.error("Selected tutor not found");
+      return;
+    }
 
     try {
       const result = await approveMutation.mutateAsync({
         status: "approved",
         reviewNote: reviewNote || `Assigned new tutor`,
+        assignedTutorId: selectedTutor,
+        assignedTutorName: assignedTutor.name,
       });
       if (result.status === 200) {
         toast.success("Tutor change approved successfully");

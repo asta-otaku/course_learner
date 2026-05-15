@@ -1,4 +1,5 @@
 import axios from "axios";
+import { toast } from "react-toastify";
 
 // Extend AxiosRequestConfig to include custom skipAuthRedirect property
 declare module "axios" {
@@ -19,6 +20,7 @@ export const axiosInstance = axios.create({
 // Track logout and auth states
 let isLoggingOut = false;
 let hasRedirected = false;
+let hasNavigatedBackOnForbidden = false;
 
 // Helper to determine user type based on current route
 function getUserTypeFromRoute(): "admin" | "tutor" | "user" {
@@ -90,6 +92,22 @@ function storeIntendedUrl(url: string) {
   }
 }
 
+// Track the last URL that produced a 401 redirect-to-login.
+function storeLastUnauthorizedUrl(url: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("lastUnauthorizedUrl", url);
+}
+
+export function getAndClearLastUnauthorizedUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  const v = localStorage.getItem("lastUnauthorizedUrl");
+  if (v) {
+    localStorage.removeItem("lastUnauthorizedUrl");
+    return v;
+  }
+  return null;
+}
+
 // Helper to get and clear the intended redirect URL
 export function getAndClearIntendedUrl(): string | null {
   if (typeof window === "undefined") return null;
@@ -114,6 +132,7 @@ function redirectToSignIn() {
   // Store current page as intended URL before redirecting
   const currentPath = window.location.pathname + window.location.search;
   storeIntendedUrl(currentPath);
+  storeLastUnauthorizedUrl(currentPath);
 
   // Determine user type and redirect accordingly
   const userType = getUserTypeFromRoute();
@@ -343,7 +362,27 @@ axiosInstance.interceptors.response.use(
       !hasRedirected &&
       !originalRequest?.skipAuthRedirect
     ) {
-      redirectToSignIn();
+      // Forbidden: keep the user signed in, show message, and navigate back.
+      // Guard against multiple parallel 403s causing repeated back navigation.
+      if (!hasNavigatedBackOnForbidden && typeof window !== "undefined") {
+        hasNavigatedBackOnForbidden = true;
+        const msg =
+          error?.response?.data?.message ||
+          "You do not have access to that page.";
+        toast.error(String(msg));
+        setTimeout(() => {
+          try {
+            if (window.history.length > 1) {
+              window.history.back();
+            }
+          } finally {
+            // Allow future forbidden navigations after we've moved away.
+            setTimeout(() => {
+              hasNavigatedBackOnForbidden = false;
+            }, 500);
+          }
+        }, 0);
+      }
     }
 
     return Promise.reject(error);
@@ -460,29 +499,27 @@ export function setCurrentUser(user: any) {
 // Reset flags when page loads (useful for SPA navigation)
 export function resetAuthState() {
   if (typeof window !== "undefined") {
-    // Only reset if we're on auth pages
-    const currentPath = window.location.pathname;
-    const authPages = [
-      "/sign-in",
-      "/sign-up",
-      "/forgot-password",
-      "/reset-password",
-      "/admin/sign-in",
-      "/admin/sign-up",
-      "/admin/forgot-password",
-      "/tutor/sign-in",
-      "/tutor/sign-up",
-      "/tutor/forgot-password",
-    ];
-
-    if (authPages.some((page) => currentPath.includes(page))) {
-      isLoggingOut = false;
-      hasRedirected = false;
-    }
+    isLoggingOut = false;
+    hasRedirected = false;
   }
 }
 
-// Call reset when module loads
+// On module load, only auto-reset when starting on an auth page
 if (typeof window !== "undefined") {
-  resetAuthState();
+  const currentPath = window.location.pathname;
+  const authPages = [
+    "/sign-in",
+    "/sign-up",
+    "/forgot-password",
+    "/reset-password",
+    "/admin/sign-in",
+    "/admin/sign-up",
+    "/admin/forgot-password",
+    "/tutor/sign-in",
+    "/tutor/sign-up",
+    "/tutor/forgot-password",
+  ];
+  if (authPages.some((page) => currentPath.includes(page))) {
+    resetAuthState();
+  }
 }

@@ -45,7 +45,6 @@ export default function AvailabilitySetup({
     try {
       const response = await postTutorAvailability({
         timeSlotIds: selectedTimeslotIds,
-        startToday: false,
       });
       if (response.status === 201) {
         toast.success(response.data.message);
@@ -92,11 +91,10 @@ export default function AvailabilitySetup({
             <div className="flex justify-between items-center mb-2">
               <div>
                 <h3
-                  className={`font-medium ${
-                    isDaySelected(day, timeslotsData, selectedTimeslotIds)
+                  className={`font-medium ${isDaySelected(day, timeslotsData, selectedTimeslotIds)
                       ? "text-primaryBlue"
                       : "text-black"
-                  }`}
+                    }`}
                 >
                   {day}
                 </h3>
@@ -105,11 +103,10 @@ export default function AvailabilitySetup({
                 </p>
               </div>
               <div
-                className={`w-3 h-3 rounded-full border-2 ${
-                  isDaySelected(day, timeslotsData, selectedTimeslotIds)
+                className={`w-3 h-3 rounded-full border-2 ${isDaySelected(day, timeslotsData, selectedTimeslotIds)
                     ? "ring-primaryBlue ring-2 bg-primaryBlue border-white"
                     : "ring-gray-400 ring-2 bg-white border-white"
-                }`}
+                  }`}
               ></div>
             </div>
 
@@ -120,11 +117,10 @@ export default function AvailabilitySetup({
                   <div
                     key={slot.id}
                     onClick={() => toggleSlot(slot.id)}
-                    className={`cursor-pointer rounded-lg py-2 text-center font-medium ${
-                      selected
+                    className={`cursor-pointer rounded-lg py-2 text-center font-medium ${selected
                         ? "bg-primaryBlue text-white"
                         : "bg-gray-100 text-black"
-                    }`}
+                      }`}
                   >
                     {formatTimeSlotLabel(slot.startTime, slot.endTime)}
                   </div>

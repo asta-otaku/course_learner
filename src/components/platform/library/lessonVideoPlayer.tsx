@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useMemo, useRef } from "react";
 
 interface Video {
   playbackUrl?: string;
@@ -27,16 +27,20 @@ export default function LessonVideoPlayer({
 }: LessonVideoPlayerProps) {
   const videoRefs = useRef<Array<HTMLVideoElement | null>>([]);
 
-  if (videos.length === 0) {
-    return;
-  }
+  const playableVideos = useMemo(() => {
+    return (videos || []).filter(
+      (v) => Boolean(v?.fileName?.trim()) && Boolean(v?.playbackUrl?.trim())
+    );
+  }, [videos]);
+
+  if (playableVideos.length === 0) return null;
 
   return (
     <div className="space-y-6">
-      {videos.map((v, idx) => (
+      {playableVideos.map((v, idx) => (
         <div
           key={idx}
-          className="bg-gray-100 rounded-xl select-none flex items-center justify-center"
+          className="bg-black rounded-xl select-none flex items-center justify-center"
           onContextMenu={(e) => e.preventDefault()}
           onDragStart={(e) => e.preventDefault()}
         >
@@ -45,11 +49,11 @@ export default function LessonVideoPlayer({
               videoRefs.current[idx] = el;
               return;
             }}
-            src={v?.playbackUrl || ""}
+            src={v.playbackUrl || ""}
             controls
             controlsList="nodownload noremoteplayback"
             disablePictureInPicture
-            className="w-full h-full object-cover rounded-lg pointer-events-auto"
+            className="w-full h-full object-contain rounded-lg pointer-events-auto bg-black"
             preload="auto"
             onLoadedMetadata={(e) => {
               const vid = e.currentTarget;

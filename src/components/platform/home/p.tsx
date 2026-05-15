@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useMemo, useEffect } from "react";
-import profileIcon from "@/assets/profileIcon.svg";
+import React, { useMemo } from "react";
 // import Streak from "./streaks";
 import LearningCard, { ProgressCard } from "./learningCard";
-import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useProfile } from "@/context/profileContext";
 import {
   useGetLibrary,
   useGetChildLastAccessedLessons,
@@ -18,23 +17,62 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ProfileLoader from "../profile-loader";
+import { Trophy } from "lucide-react";
 
-function Home() {
+type HomeProps = {
+  /** Override offerType when profile data is stale on first load (post-signup). */
+  offerTypeOverride?: string;
+};
+
+function Home({ offerTypeOverride }: HomeProps) {
   const {
     activeProfile,
     isChangingProfile,
-    selectedCurriculumId: profileSelectedCurriculumId,
-    setSelectedCurriculumId: setProfileSelectedCurriculumId,
-  } = useSelectedProfile();
+    selectedCurriculumId: persistedCurriculumId,
+    setSelectedCurriculumId: setPersistedCurriculumId,
+    hasHydratedSelectedCurriculumId,
+  } = useProfile();
 
-  const { data: library } = useGetLibrary(activeProfile?.id || "");
+  // Fetch curricula first so we can resolve selectedCurriculumId for library + lessons
+  const { data: curriculaData } = useGetCurricula({
+    offerType: offerTypeOverride ?? activeProfile?.offerType ?? "",
+  });
 
-  // Get sections from library data (for Your Progress section only)
+  const curriculaList = useMemo(() => {
+    return curriculaData?.curricula || [];
+  }, [curriculaData?.curricula]);
+
+  const reversedCurriculaList = useMemo(() => {
+    return curriculaList.slice().reverse();
+  }, [curriculaList]);
+
+  const defaultCurriculumId = useMemo(() => {
+    if (reversedCurriculaList.length > 0) {
+      const firstCurriculum = reversedCurriculaList[0] as any;
+      return firstCurriculum.id || "";
+    }
+    return "";
+  }, [reversedCurriculaList]);
+
+  const selectedCurriculumId = useMemo(() => {
+    if (!hasHydratedSelectedCurriculumId) return "";
+    if (persistedCurriculumId) return persistedCurriculumId;
+    return defaultCurriculumId;
+  }, [
+    hasHydratedSelectedCurriculumId,
+    persistedCurriculumId,
+    defaultCurriculumId,
+  ]);
+
+  const { data: library } = useGetLibrary(
+    activeProfile?.id || "",
+    selectedCurriculumId
+  );
+
   const sections = useMemo(() => {
     return library?.data || [];
   }, [library?.data]);
 
-  // Create a mapping from sectionId to section imageUrl
   const sectionImageMap = useMemo(() => {
     const map: Record<string, string> = {};
     sections.forEach((section: any) => {
@@ -45,46 +83,6 @@ function Home() {
     return map;
   }, [sections]);
 
-  // Fetch curricula by offerType
-  const { data: curriculaData } = useGetCurricula({
-    offerType: activeProfile?.offerType || "",
-  });
-
-  // Get curricula list for dropdown
-  const curriculaList = useMemo(() => {
-    return curriculaData?.curricula || [];
-  }, [curriculaData?.curricula]);
-
-  // Get default curriculum (first one)
-  const defaultCurriculumId = useMemo(() => {
-    if (curriculaList.length > 0) {
-      const firstCurriculum = curriculaList[0] as any;
-      return firstCurriculum.id || "";
-    }
-    return "";
-  }, [curriculaList]);
-
-  // Determine the actual selected curriculum ID
-  const selectedCurriculumId = useMemo(() => {
-    // If profile has a stored curriculum ID, use it
-    if (profileSelectedCurriculumId) {
-      return profileSelectedCurriculumId;
-    }
-    // Otherwise, use default (first curriculum)
-    return defaultCurriculumId;
-  }, [profileSelectedCurriculumId, defaultCurriculumId]);
-
-  // Update profile's selectedCurriculumId when default changes (if not already set)
-  useEffect(() => {
-    if (defaultCurriculumId && !profileSelectedCurriculumId) {
-      setProfileSelectedCurriculumId(defaultCurriculumId);
-    }
-  }, [
-    defaultCurriculumId,
-    profileSelectedCurriculumId,
-    setProfileSelectedCurriculumId,
-  ]);
-
   // Fetch last accessed lessons for the selected curriculum
   const { data: lessonsData } = useGetChildLastAccessedLessons(
     activeProfile?.id || "",
@@ -93,16 +91,17 @@ function Home() {
 
   // Get selected curriculum details
   const selectedCurriculum = useMemo(() => {
-    return curriculaList.find(
+    return reversedCurriculaList.find(
       (curriculum: any) => curriculum.id === selectedCurriculumId
     ) as any;
-  }, [curriculaList, selectedCurriculumId]);
+  }, [reversedCurriculaList, selectedCurriculumId]);
 
   // Collect lessons from the selected curriculum
   const allLessons = useMemo(() => {
     const lessons: any[] = [];
-    if (lessonsData?.data && selectedCurriculum) {
-      lessonsData.data.forEach((lesson: any) => {
+    const rows = Array.isArray(lessonsData?.data) ? lessonsData.data : [];
+    if (rows.length > 0 && selectedCurriculum) {
+      rows.forEach((lesson: any) => {
         // Get section image from library data based on lesson's sectionId
         const sectionImageUrl = lesson.sectionId
           ? sectionImageMap[lesson.sectionId]
@@ -138,7 +137,7 @@ function Home() {
         topics: [
           {
             title: "Start Learning",
-            number_of_quizzes: section.progress?.totalQuizzes || 0,
+            number_of_quizzes: section.progress?.totalLessons ?? 0,
           },
         ],
         progress: section.progress?.completionPercentage || 0,
@@ -151,18 +150,13 @@ function Home() {
 
   const renderHeader = () => (
     <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
-      <div className="flex items-center gap-2">
-        <img
-          src={activeProfile?.avatar || profileIcon}
-          alt="Profile Icon"
-          width={0}
-          height={0}
-          className="rounded-full w-10 h-10 object-cover"
-        />
-        <div className="flex flex-col gap-1 items-start">
-          <p className="uppercase font-medium text-sm text-textSubtitle ml-1">
-            Welcome, <span className="text-textGray text-lg capitalize">{activeProfile?.name}</span>
-          </p>
+      <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
+        <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-1 items-start">
+            <p className="font-medium text-lg text-textSubtitle ml-1">
+              Welcome, <span className="text-textGray capitalize font-semibold">{activeProfile?.name}</span>
+            </p>
+          </div>
         </div>
       </div>
       {/* <Streak streakDays={12} /> */}
@@ -181,23 +175,20 @@ function Home() {
               <h1 className="text-textGray font-medium md:text-lg lg:text-xl capitalize">
                 continue Learning
               </h1>
-              <span className="text-xs text-textSubtitle">
-                We recommend the following baseline tests.
-              </span>
             </div>
             <div className="w-full md:w-auto min-w-[200px]">
               <Select
                 value={selectedCurriculumId}
                 onValueChange={(value) => {
-                  setProfileSelectedCurriculumId(value);
+                  setPersistedCurriculumId(value);
                 }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a curriculum..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {curriculaList.length > 0 ? (
-                    curriculaList.map((curriculum: any, index: number) => {
+                  {reversedCurriculaList.length > 0 ? (
+                    reversedCurriculaList.map((curriculum: any, index: number) => {
                       const curriculumId =
                         curriculum.id || `curriculum-${index}`;
                       return (
@@ -235,7 +226,7 @@ function Home() {
               ))
             ) : (
               <div className="text-center py-8 text-textSubtitle">
-                No lessons found
+                Well done! You have completed every lesson!
               </div>
             )}
           </div>
@@ -247,7 +238,7 @@ function Home() {
               Your Progress
             </h1>
             <span className="text-xs text-textSubtitle">
-              This shows your progress levels in each curriculum
+              This shows your progress levels in each section
             </span>
           </div>
           <div className="my-8 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">

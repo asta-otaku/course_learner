@@ -76,6 +76,32 @@ export function AuthGuard({
   return <>{fallback}</>;
 }
 
+/** Read auth state only — does not redirect (for public marketing pages). */
+export function useAuthStatus() {
+  const [isAuth, setIsAuth] = useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const check = () => {
+      try {
+        setIsAuth(isAuthenticated());
+      } catch {
+        setIsAuth(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    check();
+    const interval = setInterval(check, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return {
+    isAuthenticated: isAuth,
+    isLoading: isLoading || isAuth === null,
+  };
+}
+
 // Hook version for more flexibility
 export function useAuthGuard(redirectTo: string = "/sign-in") {
   const [isAuth, setIsAuth] = useState<boolean | null>(null);

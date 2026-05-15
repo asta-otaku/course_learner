@@ -1,5 +1,6 @@
 import Image from "next/image";
 import React from "react";
+import Link from "next/link";
 
 function Footer() {
   return (
@@ -14,51 +15,28 @@ function Footer() {
             className="w-20 h-auto"
           />
           <p className="text-textSubtitle font-medium">
-            A Mathematica experientia tu numquam obliviscor!
+            A Maths experience you'll never forget!
           </p>
         </div>
         <div className="flex flex-col md:flex-row gap-4 md:gap-8 lg:gap-12 xl:gap-16">
           <div className="flex flex-col gap-2">
             <h1 className="text-primaryBlue font-medium mb-2 uppercase">
-              Facultas
+              Support
             </h1>
-            <span className="text-textSubtitle font-medium text-xs">
-              Videos
-            </span>
-            <span className="text-textSubtitle font-medium text-xs">
-              Worksheets
-            </span>
-            <span className="text-textSubtitle font-medium text-xs">
-              Exam Charta
-            </span>
+            <Link href="/contact" className="text-textSubtitle font-medium text-xs">
+              Contact Us
+            </Link>
+            <Link href="/faqs" className="text-textSubtitle font-medium text-xs">
+              FAQs
+            </Link>
           </div>
           <div className="flex flex-col gap-2">
             <h1 className="text-primaryBlue font-medium mb-2 uppercase">
-              Supportus
+              Company
             </h1>
-            <span className="text-textSubtitle font-medium text-xs">
-              Videos
-            </span>
-            <span className="text-textSubtitle font-medium text-xs">
-              Worksheets
-            </span>
-            <span className="text-textSubtitle font-medium text-xs">
-              Exam Charta
-            </span>
-          </div>
-          <div className="flex flex-col gap-2">
-            <h1 className="text-primaryBlue font-medium mb-2 uppercase">
-              Societas
-            </h1>
-            <span className="text-textSubtitle font-medium text-xs">
-              Videos
-            </span>
-            <span className="text-textSubtitle font-medium text-xs">
-              Worksheets
-            </span>
-            <span className="text-textSubtitle font-medium text-xs">
-              Exam Charta
-            </span>
+            <Link href="/about" className="text-textSubtitle font-medium text-xs">
+              About Us
+            </Link>
           </div>
         </div>
       </div>

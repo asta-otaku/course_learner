@@ -7,7 +7,6 @@ interface SessionsListProps {
   isLoading: boolean;
   error: any;
   noSessions: boolean;
-  today: Session[];
   upcoming: Session[];
   previous: Session[];
   onCancel: (id: string) => void;
@@ -20,7 +19,6 @@ export default function SessionsList({
   isLoading,
   error,
   noSessions,
-  today,
   upcoming,
   previous,
   onCancel,
@@ -54,18 +52,9 @@ export default function SessionsList({
   return (
     <>
       <SessionSectionComponent
-        title="TODAY'S SESSION"
-        description="You can cancel or reschedule by one day only"
-        sessions={today}
-        onCancel={onCancel}
-        onReschedule={onReschedule}
-        onConfirm={onConfirm}
-        onComplete={onComplete}
-      />
-
-      <SessionSectionComponent
-        title="UPCOMING SESSIONS"
-        description="You can cancel or reschedule by one day only"
+        sectionType="upcoming"
+        title="Upcoming sessions"
+        description="Booked sessions. Join the meeting or cancel."
         sessions={upcoming}
         onCancel={onCancel}
         onReschedule={onReschedule}
@@ -74,7 +63,8 @@ export default function SessionsList({
       />
 
       <SessionSectionComponent
-        title="PREVIOUS SESSIONS"
+        sectionType="previous"
+        title="Previous sessions"
         description="Past completed sessions"
         sessions={previous}
         onCancel={onCancel}

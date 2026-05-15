@@ -1,11 +1,16 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useGetHomeworkById, useGetQuizQuestions } from "@/lib/api/queries";
+import {
+  useGetHomeworkById,
+  useGetQuizQuestions,
+  useGetManageSubscription,
+} from "@/lib/api/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
 import {
   CheckCircle,
   XCircle,
@@ -19,6 +24,8 @@ import {
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { WatchLessonVideoButton } from "@/components/platform/library/watchLessonVideoButton";
+import { useProfile } from "@/context/profileContext";
 
 interface QuestionWithResults {
   id: string;
@@ -46,9 +53,24 @@ export default function HomeworkReviewPage() {
   const router = useRouter();
   const id = params.id as string;
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const { activeProfile } = useProfile();
 
   const { data: reviewResponse, isLoading, error } = useGetHomeworkById(id);
   const review = reviewResponse?.data;
+  const curriculumLessonId = review?.curriculumLessonId;
+
+  const { data: manageData } = useGetManageSubscription();
+  const activeProfileId = activeProfile?.id ? String(activeProfile.id) : "";
+  const manageAccessLevel = useMemo(() => {
+    const sub = manageData?.data;
+    if (!sub?.childSubscription || !activeProfileId) return null;
+    const row = sub.childSubscription.find(
+      (r: { childProfileId?: string }) =>
+        String(r.childProfileId) === String(activeProfileId),
+    );
+    return row?.accessLevel ?? null;
+  }, [manageData?.data, activeProfileId]);
+  const isTuitionOfferType = manageAccessLevel === "tuition";
 
   // Fetch questions for the quiz
   const { data: questionsResponse } = useGetQuizQuestions(review?.quizId || "");
@@ -211,19 +233,23 @@ export default function HomeworkReviewPage() {
           {/* Results Summary Header */}
           <Card className="mb-6">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <CardTitle>Homework Review</CardTitle>
-                  </div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle>Homework Review</CardTitle>
+                <div className="flex items-center gap-2 shrink-0">
+                  {isTuitionOfferType && curriculumLessonId?.trim() ? (
+                    <WatchLessonVideoButton
+                      curriculumLessonId={curriculumLessonId}
+                      className="bg-primaryBlue hover:bg-primaryBlue/90"
+                    />
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push("/homework")}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Homework
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => router.push("/homework")}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Homework
-                </Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -272,10 +298,10 @@ export default function HomeworkReviewPage() {
                           Incorrect
                         </>
                       )}
-                      <span className="ml-2">
+                      {/* <span className="ml-2">
                         {currentResult.pointsEarned}/
                         {currentResult.pointsPossible} points
-                      </span>
+                      </span> */}
                     </Badge>
                   )}
                 </div>
@@ -416,12 +442,11 @@ export default function HomeworkReviewPage() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-base text-green-900 whitespace-pre-wrap">
-                            {getCorrectAnswerText(
-                              currentQ.question,
-                              currentResult
-                            )}
-                          </p>
+                          <MathPreview
+                            content={getCorrectAnswerText(currentQ.question, currentResult)}
+                            renderMarkdown={true}
+                            className="text-base text-green-900 whitespace-pre-wrap"
+                          />
                         )}
                       </div>
                     </div>
@@ -438,11 +463,15 @@ export default function HomeworkReviewPage() {
                         <Alert className="border-blue-200 bg-blue-50">
                           <AlertCircle className="h-4 w-4 text-blue-600" />
                           <AlertDescription>
-                            <p className="text-blue-800 whitespace-pre-wrap">
-                              {currentResult.isCorrect
-                                ? currentQ.question.metadata.correctFeedback
-                                : currentQ.question.metadata.incorrectFeedback}
-                            </p>
+                            <MathPreview
+                              content={String(
+                                currentResult.isCorrect
+                                  ? currentQ.question.metadata.correctFeedback
+                                  : currentQ.question.metadata.incorrectFeedback
+                              )}
+                              renderMarkdown
+                              className="text-blue-800 whitespace-pre-wrap"
+                            />
                           </AlertDescription>
                         </Alert>
                       </div>
@@ -452,30 +481,30 @@ export default function HomeworkReviewPage() {
                   {currentResult?.feedback && (
                     <div>
                       <p className="text-base font-medium mb-2">
-                        Tutor Additional Feedback:
+                        Feedback:
                       </p>
                       <Alert className="border-yellow-200 bg-yellow-50">
                         <AlertCircle className="h-4 w-4 text-yellow-600" />
                         <AlertDescription>
-                          <p className="text-yellow-800 whitespace-pre-wrap">
-                            {(() => {
+                          <MathPreview
+                            content={(() => {
                               try {
-                                const parsed = JSON.parse(
-                                  currentResult.feedback
-                                );
+                                const parsed = JSON.parse(currentResult.feedback);
                                 if (
                                   parsed &&
                                   typeof parsed === "object" &&
-                                  parsed.feedback
+                                  (parsed as any).feedback
                                 ) {
-                                  return parsed.feedback;
+                                  return String((parsed as any).feedback);
                                 }
                               } catch {
                                 // Not JSON, use as is
                               }
-                              return currentResult.feedback;
+                              return String(currentResult.feedback);
                             })()}
-                          </p>
+                            renderMarkdown
+                            className="text-yellow-800 whitespace-pre-wrap"
+                          />
                         </AlertDescription>
                       </Alert>
                     </div>

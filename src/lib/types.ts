@@ -57,10 +57,16 @@ export interface Quiz {
   allowReview?: boolean;
   availableFrom?: string;
   availableUntil?: string;
+  curriculumLessonId?: string;
   scheduledFor?: string | null;
   metadata?: any;
   questions?: QuizQuestion[];
   questionsCount?: number; // Number of questions in the quiz
+  /** Present when quizzes are fetched with childId — whether the child has met the passing score. */
+  passed?: boolean;
+  /** In-progress attempt id; when set, UI may offer "Resume Quiz". */
+  quizAttemptId?: string | null;
+  orderIndex?: number;
   status?: "draft" | "published" | "archived";
   feedbackMode?:
     | "immediate"
@@ -141,6 +147,8 @@ export interface QuizPlayerQuestionItem {
 export interface QuizPlayerQuestion {
   id: string;
   order: number;
+  /** Points for this quiz item (from API transform). */
+  points?: number;
   explanation?: string;
   correct_feedback?: string;
   incorrect_feedback?: string;
@@ -188,6 +196,7 @@ export interface QuizSubmissionResults {
   totalPoints: number;
   percentage: number;
   results: QuizQuestionResult[];
+  /** Total time on the quiz in seconds (submit response and UI). */
   timeSpent: number;
 }
 
@@ -361,13 +370,38 @@ export interface AuthResponse {
 }
 
 // Subscription Types
-export interface SubscriptionPlan {
-  description: string;
-  subscriptionId: string;
+export interface Subscription {
+  id: string;
   status: string;
-  offerType: string;
+  plan: {
+    id: string;
+    offerType: string;
+    isActive: boolean;
+  };
   startDate: string;
   endDate: string;
+  /** Trial end date (null when not trialing). */
+  trialEndsAt?: string | null;
+  cancelAtPeriodEnd: boolean;
+  trialUsed: boolean;
+  pendingCancellation: boolean;
+  /** When present, links this subscription to a child profile (e.g. tuition per child) */
+  childProfileId?: string;
+}
+export interface SubscriptionPlan {
+  offerType: string;
+  amount?: number;
+  tiers?: {
+    upTo: number | "infinity";
+    amount: number;
+  }[];
+  currency: string;
+  interval: string;
+  intervalCount: number;
+  trialPeriodDays: number;
+  displayName: string;
+  description: string;
+  metadata: Record<string, any>;
 }
 
 export interface FullSubscriptionPlan {
@@ -422,10 +456,50 @@ export interface FullSubscriptionPlan {
 }
 
 export interface ManageSubscriptionResponse {
-  url: string;
+  state: string;
+  status: string;
+  pendingCancellation: boolean;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  trialEndsAt: string | null;
+  canCancelEverything: boolean;
+  nextBilling?: {
+    amountDue: number;
+    currency: string;
+    billingDate: string;
+    breakdown: {
+      description: string;
+      amount: number;
+      currency: string;
+      periodEnd: string;
+    }[];
+  } | null;
+  childSubscription: {
+    childProfileId: string;
+    childName: string;
+    accessLevel: string;
+    accessEndsAt: string | null;
+    actions: string[];
+  }[];
+}
+
+export interface UpgradeToTuitionPreviewResponse {
+  currency: string;
+  dueNow: number;
+  dueNextBilling: number;
+  billingDate: string;
+  breakdown: {
+    description: string;
+    amount: number;
+    currency: string;
+    isProration: boolean;
+    periodEnd: string;
+    timing: string;
+  }[];
 }
 
 export interface CreateSubscriptionData {
+  childProfileId: string;
   offerType: string;
 }
 
@@ -445,6 +519,19 @@ export interface ChildProfile {
   parentLastName: string;
   tutorFirstName: string;
   tutorLastName: string;
+  status: string;
+  /** Present on `/child-profiles` API responses */
+  preferences?: {
+    selectedCurriculumId: string | null;
+  } | null;
+}
+
+export interface ChildPreferences {
+  childProfileId?: string;
+  selectedCurriculumId: string;
+  weeklyQuota: number;
+  pauseAssignments: boolean;
+  pauseUntil?: string | null;
 }
 
 export interface ParentProfile {
@@ -543,7 +630,7 @@ export interface DetailedChildProfile {
 export interface CreateChildProfileData {
   name: string;
   year: string;
-  avatar: File;
+  avatar?: File;
 }
 
 // Session Types
@@ -829,18 +916,38 @@ export interface CurriculumProgress {
   isCompleted: boolean;
 }
 
+/** Section progress from GET /library/:childId/curriculums/:curriculumId */
+export interface LibrarySectionProgress {
+  totalLessons: number;
+  completedLessons: number;
+  completionPercentage: number;
+  sectionCompleted: boolean;
+}
+
+/**
+ * Section row in child library (curriculum-scoped).
+ * Formerly modeled as a full curriculum; API now returns sections with compact progress.
+ */
 export interface LibraryCurriculum {
   id: string;
-  imageUrl: string;
   title: string;
-  description: string;
-  durationWeeks: number;
-  learningObjectives: string[];
-  prerequisites: string[];
-  lessonsCount: number;
-  createdAt: string;
   orderIndex: number;
-  progress: CurriculumProgress;
+  imageUrl: string;
+  progress: LibrarySectionProgress;
+}
+
+/** Quiz row on child lesson payloads (dashboard / library) with attempt history. */
+export interface ChildLessonQuizSummary {
+  id: string;
+  title: string;
+  orderIndex?: number;
+  quizAttemptId?: string | null;
+  passed?: boolean;
+  attempts?: Array<{
+    id: string;
+    submittedAt: string;
+    percentage: number | string;
+  }>;
 }
 
 export interface ChildLesson {
@@ -855,6 +962,9 @@ export interface ChildLesson {
   completionPercentage: number;
   lessonCompleted: boolean;
   sectionId: string;
+  quizzesCount?: number;
+  /** When API returns nested quiz progress (e.g. dashboard lessons). */
+  quizAttempts?: ChildLessonQuizSummary[];
 }
 
 export interface Chat {
@@ -967,7 +1077,12 @@ export interface Homework {
   tutorName: string;
   dateSubmitted: string | null;
   dateReviewed: string | null;
+  isAutoAssigned: boolean;
+  isPassed: boolean;
   message: string;
+  quizId: string;
+  quizTitle: string;
+  curriculumLessonId: string;
 }
 
 export interface HomeworkReview {
@@ -981,6 +1096,8 @@ export interface HomeworkReview {
   percentage: number;
   results: any[];
   timeSpent: number;
+  /** When set (e.g. tuition-linked homework), links to curriculum lesson video. */
+  curriculumLessonId?: string | null;
 }
 
 export interface Section {
@@ -992,6 +1109,8 @@ export interface Section {
     id: string;
     title: string;
     orderIndex: number;
+    /** When provided by API, lesson is fully completed (e.g. all quizzes passed). */
+    lessonCompleted?: boolean;
   }[];
 }
 
@@ -1084,6 +1203,8 @@ export interface QuizResumeAttempt {
   attemptId: string;
   quizId: string;
   status: "in_progress" | "submitted" | "graded";
+  /** Remaining time in seconds for timed quizzes; absent for untimed ones */
+  timeLeft?: number;
   progress: {
     answeredCount: number;
     totalQuestions: number;
@@ -1113,6 +1234,8 @@ export interface QuizMasterList {
     curriculumLessonId: string;
     quizId: string;
     quizTitle: string;
+    /** Present when API returns quiz metadata for list rows / dialogs */
+    quizDescription?: string | null;
     quizOrder: number;
     yearGroupId: string;
     yearGroupName: string;
@@ -1144,13 +1267,64 @@ export interface BaselineTestEntry {
 }
 
 export interface LearningPath {
-  id: string;
+  quizTitle: string;
+  sectionName: string;
+  lessonName: string;
+  status: string;
+  dueAt: string;
+  homeworkId: string;
+}
+
+export interface RecentHomeworkItem {
+  type: string;
+  lessonName: string;
+  quizName: string;
+  status: string;
+  dateCompleted: string;
+}
+
+export interface HistoryHomeworkItem {
+  type: string;
+  lessonName: string;
+  quizName: string;
+  score: number;
+  dateCompleted: string;
+  isPassed: boolean;
+}
+export interface SchemeOfWork {
   quizId: string;
   quizTitle: string;
-  curriculumLessonId: string;
-  curriculumLessonTitle: string;
   sectionTitle: string;
+  lessonTitle: string;
+  orderIndex: number;
+  inLearningPath: boolean;
   status: string;
+}
+
+export interface LearningPathSummary {
+  assigned: {
+    quizId: string;
+    quizTitle: string;
+    sectionTitle: string;
+    lessonTitle: string;
+    status: string;
+  }[];
+  upNext: {
+    quizId: string;
+    quizTitle: string;
+    sectionTitle: string;
+    lessonTitle: string;
+    status: string;
+  }[];
+}
+
+export interface LearningHistory {
+  quizAttemptId: string;
+  lessonTitle: string;
+  quizTitle: string;
+  score: number;
+  status: string;
+  completedAt: string;
 }
 
 // Export socket types

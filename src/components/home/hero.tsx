@@ -33,19 +33,19 @@ function Hero() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
             <Link
-              href="#about"
+              href="/about"
               className="font-medium font-geist hover:text-blue-200 transition-colors"
             >
               About Us
             </Link>
             <Link
-              href="#faq"
+              href="/faqs"
               className="font-medium font-geist hover:text-blue-200 transition-colors"
             >
-              FAQ
+              FAQs
             </Link>
             <Link
-              href="#contact"
+              href="/contact"
               className="font-medium font-geist hover:text-blue-200 transition-colors"
             >
               Contact Us
@@ -88,21 +88,21 @@ function Hero() {
               {/* Mobile Navigation Links */}
               <div className="space-y-4">
                 <Link
-                  href="#about"
+                  href="/about"
                   className="block font-medium font-geist hover:text-blue-200 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   About Us
                 </Link>
                 <Link
-                  href="#faq"
+                  href="/faqs"
                   className="block font-medium font-geist hover:text-blue-200 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  FAQ
+                  FAQs
                 </Link>
                 <Link
-                  href="#contact"
+                  href="/contact"
                   className="block font-medium font-geist hover:text-blue-200 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -144,22 +144,18 @@ function Hero() {
             height={0}
             className="w-full h-auto max-w-md md:max-w-none z-10"
           />
-          <h2 className="text-center text-xl md:text-2xl lg:text-3xl xl:text-[40px] font-geist font-semibold max-w-[820px] leading-tight md:leading-tight w-full capitalize mt-8 md:mt-12 z-10">
-            Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam,
-            quos.
+          <h2 className="text-center text-3xl md:text-4xl lg:text-5xl xl:text-[60px] font-geist font-semibold max-w-[820px] leading-tight md:leading-tight w-full capitalize mt-8 md:mt-12 z-10">
+            Primary School Maths That Finally Makes Sense
           </h2>
-          <p className="font-geist text-sm md:text-base lg:text-lg xl:text-xl my-4 md:my-6 text-center px-4 z-10">
-            Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam,
-            quos.
-            <br className="hidden sm:block" /> Lorem ipsum dolor sit amet
-            consectetur adipisicing elit. Quisquam, quos.
+          <p className="font-geist text-sm md:text-base lg:text-lg xl:text-xl my-4 md:my-6 text-center px-4 z-10 max-w-3xl mx-auto">
+            Help your child build real maths confidence, master every topic, and be ready for whatever comes next — SATs, 11+, or simply excelling in school.
           </p>
 
           <Button
             onClick={() => push("/sign-up")}
             className="bg-demo-gradient border-2 border-white/30 text-white rounded-full w-[180px] md:w-[200px] py-4 md:py-5 shadow-demoShadow mt-8 md:mt-12 hover:opacity-90 transition-opacity z-10"
           >
-            Start 10 Days Trials
+            Get Started
           </Button>
         </div>
       </div>

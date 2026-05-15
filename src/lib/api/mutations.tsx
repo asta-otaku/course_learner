@@ -2,7 +2,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "../services/axiosInstance";
 import { toast } from "react-toastify";
 import { AxiosError } from "axios";
+import { isChildProfileBlockedByCancelledSubscription } from "../childProfileCreation";
 import {
+  APIGetResponse,
   ApiResponse,
   SignUpData,
   LoginData,
@@ -10,6 +12,7 @@ import {
   ForgotPasswordData,
   ResetPasswordData,
   ChangePasswordData,
+  ChildProfile,
   CreateChildProfileData,
   DetailedChildProfile,
   CreateSubscriptionData,
@@ -31,11 +34,12 @@ import {
   SupportTicket,
   ChangeRequest,
   Homework,
-  HomeworkReview,
   BaselinelineTestCreateData,
   BaselineTest,
   QuizMasterList,
   BaselineTestEntry,
+  UpgradeToTuitionPreviewResponse,
+  ChildPreferences,
 } from "../types";
 
 // Helper function to handle error messages
@@ -56,12 +60,13 @@ export const usePostLogin = () => {
   return useMutation({
     mutationKey: ["post-login"],
     mutationFn: (data: LoginData): Promise<ApiResponse<AuthResponse>> =>
-      axiosInstance.post("/auth/sign-in", data),
+      axiosInstance.post("/auth/sign-in", data, { skipAuthRedirect: true }),
     onSuccess: (data: ApiResponse<AuthResponse>) => {
       return data;
     },
     onError: (error: AxiosError) => {
-      handleErrorMessage(error);
+      // @ts-ignore
+      toast.error(error.response?.data?.message || "An error occurred");
     },
   });
 };
@@ -223,7 +228,9 @@ export const usePostChildProfiles = () => {
       const formData = new FormData();
       formData.append("name", data.name);
       formData.append("year", data.year);
-      formData.append("avatar", data.avatar);
+      if (data.avatar) {
+        formData.append("avatar", data.avatar);
+      }
       return axiosInstance.post("/child-profiles/register", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -237,6 +244,7 @@ export const usePostChildProfiles = () => {
       return data;
     },
     onError: (error: AxiosError) => {
+      if (isChildProfileBlockedByCancelledSubscription(error)) return;
       handleErrorMessage(error);
     },
   });
@@ -300,6 +308,48 @@ export const usePatchChildProfile = () => {
   });
 };
 
+export const usePatchChildPofilePreference = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-child-profile-preference"],
+    mutationFn: (data: {
+      childProfileId: string;
+      selectedCurriculumId: string;
+    }): Promise<ApiResponse<ChildPreferences>> =>
+      axiosInstance.patch(
+        `/child-profiles/${data.childProfileId}/preferences`,
+        {
+          selectedCurriculumId: data.selectedCurriculumId,
+        },
+      ),
+    onSuccess: (_response, variables) => {
+      queryClient.setQueryData<APIGetResponse<ChildProfile[]>>(
+        ["child-profiles"],
+        (old) => {
+          if (!old?.data || !Array.isArray(old.data)) return old;
+          return {
+            ...old,
+            data: old.data.map((p: ChildProfile) =>
+              String(p.id) === String(variables.childProfileId)
+                ? {
+                  ...p,
+                  preferences: {
+                    ...(p.preferences ?? {}),
+                    selectedCurriculumId: variables.selectedCurriculumId,
+                  },
+                }
+                : p,
+            ),
+          };
+        },
+      );
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
 export const usePatchChildTutor = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -327,14 +377,35 @@ export const usePatchChildTutor = () => {
 };
 
 // Subscription Mutations
-export const usePostSubscription = () => {
+export const useDeleteCancelSubscriptions = () => {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationKey: ["post-subscription"],
+    mutationKey: ["delete-cancel-subscriptions"],
+    mutationFn: (): Promise<ApiResponse<ManageSubscriptionResponse>> =>
+      axiosInstance.delete("/subscriptions"),
+    onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["subscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["manage-subscription"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostSubscriptionCheckout = () => {
+  return useMutation({
+    mutationKey: ["post-subscription-checkout"],
     mutationFn: (
       data: CreateSubscriptionData,
-    ): Promise<ApiResponse<ManageSubscriptionResponse>> =>
-      axiosInstance.post("/subscriptions", data),
-    onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
+    ): Promise<ApiResponse<{ url: string }>> =>
+      axiosInstance.post("/subscriptions/checkout", data),
+    onSuccess: (data: ApiResponse<{ url: string }>) => {
       return data;
     },
     onError: (error: AxiosError) => {
@@ -343,12 +414,12 @@ export const usePostSubscription = () => {
   });
 };
 
-export const usePostTrialSubscription = () => {
+export const usePostSubscriptionBillingPortal = () => {
   return useMutation({
-    mutationKey: ["post-trial-subscription"],
-    mutationFn: (): Promise<ApiResponse<{ clientSecret: string }>> =>
-      axiosInstance.post("/subscriptions/trial-setup"),
-    onSuccess: (data: ApiResponse<{ clientSecret: string }>) => {
+    mutationKey: ["post-subscription-billing-portal"],
+    mutationFn: (): Promise<ApiResponse<{ url: string }>> =>
+      axiosInstance.post("/subscriptions/billing-portal", {}),
+    onSuccess: (data: ApiResponse<{ url: string }>) => {
       return data;
     },
     onError: (error: AxiosError) => {
@@ -357,14 +428,125 @@ export const usePostTrialSubscription = () => {
   });
 };
 
-export const useValidateTrialSubscription = () => {
+export const usePostTuitionSubscription = () => {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationKey: ["validate-trial-subscription"],
+    mutationKey: ["post-tuition-subscription"],
     mutationFn: (data: {
-      paymentMethodId: string;
-    }): Promise<ApiResponse<{ message: string }>> =>
-      axiosInstance.post("/subscriptions/validate-trial-card", data),
-    onSuccess: (data: ApiResponse<{ message: string }>) => {
+      childProfileId: string;
+    }): Promise<ApiResponse<ManageSubscriptionResponse>> =>
+      axiosInstance.post("/subscriptions/tuition", data),
+    onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["subscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["manage-subscription"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostAddTuitionPreview = () => {
+  return useMutation({
+    mutationKey: ["post-add-tuition-preview"],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<UpgradeToTuitionPreviewResponse>> =>
+      axiosInstance.post("/subscriptions/tuition/preview", {
+        childProfileId: data.childProfileId,
+      }),
+    onSuccess: (data: ApiResponse<UpgradeToTuitionPreviewResponse>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const useDeleteTuitionSubscription = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-tuition-subscription"],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<ManageSubscriptionResponse>> =>
+      axiosInstance.delete("/subscriptions/tuition", {
+        data: {
+          childProfileId: data.childProfileId,
+        },
+      }),
+    onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["subscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["manage-subscription"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostDeleteTuitionPreview = () => {
+  return useMutation({
+    mutationKey: ["post-delete-tuition-preview"],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<UpgradeToTuitionPreviewResponse>> =>
+      axiosInstance.post("/subscriptions/tuition/remove-preview", {
+        childProfileId: data.childProfileId,
+      }),
+    onSuccess: (data: ApiResponse<UpgradeToTuitionPreviewResponse>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostUpgradeToTuition = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-upgrade-to-tuition"],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<ManageSubscriptionResponse>> =>
+      axiosInstance.post("/subscriptions/upgrade-to-tuition", data),
+    onSuccess: (data: ApiResponse<ManageSubscriptionResponse>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["subscriptions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["manage-subscription"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostUpgradeToTuitionPreview = () => {
+  return useMutation({
+    mutationKey: ["post-upgrade-to-tuition-preview"],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<UpgradeToTuitionPreviewResponse>> =>
+      axiosInstance.post("/subscriptions/upgrade-to-tuition/preview", {
+        childProfileId: data.childProfileId,
+      }),
+    onSuccess: (data: ApiResponse<UpgradeToTuitionPreviewResponse>) => {
       return data;
     },
     onError: (error: AxiosError) => {
@@ -590,7 +772,6 @@ export const usePostTutorAvailability = () => {
     mutationKey: ["post-tutor-availability"],
     mutationFn: (data: {
       timeSlotIds: string[];
-      startToday: boolean;
     }): Promise<ApiResponse<TutorDetails>> =>
       axiosInstance.post("/tutor-availability/select-time-slots", data),
     onSuccess: (data: ApiResponse<TutorDetails>) => {
@@ -611,7 +792,6 @@ export const usePostDeleteTutorAvailability = (id: string) => {
     mutationKey: ["post-delete-tutor-availability"],
     mutationFn: (data: {
       timeSlotIds: string[];
-      startToday: boolean;
     }): Promise<ApiResponse<{ message: string }>> =>
       axiosInstance.delete(`/tutor-availability/${id}/slots`, { data }),
     onSuccess: (data: ApiResponse<{ message: string }>) => {
@@ -1052,14 +1232,44 @@ export const usePostSubmitQuizQuestionDynamic = (
     mutationFn: ({
       questionId,
       answer,
+      timeSpent,
     }: {
       questionId: string;
       answer: string;
+      timeSpent?: number;
     }): Promise<ApiResponse<Quiz>> =>
       axiosInstance.post(
         `/quizzes/${id}/attempt/${attemptId}/question/${questionId}/submit`,
-        { answer },
+        { answer, timeSpent },
       ),
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchUpdateQuizQuestionDynamic = (
+  id: string,
+  attemptId: string,
+) => {
+  return useMutation({
+    mutationKey: ["patch-update-quiz-question-dynamic", id, attemptId],
+    mutationFn: ({
+      questionId,
+      answer,
+      timeSpent,
+    }: {
+      questionId: string;
+      answer: string;
+      timeSpent?: number;
+    }): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.patch(
+        `/quizzes/${id}/attempt/${attemptId}/question/${questionId}/submit`,
+        { answer, timeSpent },
+      ),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      return data;
+    },
     onError: (error: AxiosError) => {
       handleErrorMessage(error);
     },
@@ -1498,7 +1708,8 @@ export const usePatchVideoLessonProgress = (
       return data;
     },
     onError: (error: AxiosError) => {
-      handleErrorMessage(error);
+      // handleErrorMessage(error);
+      console.log(error);
     },
   });
 };
@@ -1630,12 +1841,22 @@ export const usePatchUpdateTutorChangeRequest = (id: string) => {
     mutationFn: (data: {
       status: "pending" | "approved" | "rejected";
       reviewNote: string;
+      assignedTutorId?: string;
+      assignedTutorName?: string;
     }): Promise<ApiResponse<ChangeRequest>> => {
       const url =
         data.status === "approved"
           ? `/tutor-change-request/${id}/approve`
           : `/tutor-change-request/${id}/reject`;
-      return axiosInstance.patch(url, { reviewNote: data.reviewNote });
+      const body =
+        data.status === "approved"
+          ? {
+            reviewNote: data.reviewNote,
+            assignedTutorId: data.assignedTutorId ?? "",
+            assignedTutorName: data.assignedTutorName ?? "",
+          }
+          : { reviewNote: data.reviewNote };
+      return axiosInstance.patch(url, body);
     },
     onSuccess: (data: ApiResponse<ChangeRequest>) => {
       queryClient.invalidateQueries({
@@ -1657,8 +1878,15 @@ export const usePostHomework = () => {
     mutationFn: (data: {
       studentId: string;
       quizId: string;
-      dueAt: string;
-    }): Promise<ApiResponse<Homework>> => axiosInstance.post("/homework", data),
+      dueAt?: string;
+    }): Promise<ApiResponse<Homework>> => {
+      const body: Record<string, unknown> = {
+        studentId: data.studentId,
+        quizId: data.quizId,
+      };
+      if (data.dueAt) body.dueAt = data.dueAt;
+      return axiosInstance.post("/homework", body);
+    },
     onSuccess: (data: ApiResponse<Homework>) => {
       queryClient.invalidateQueries({
         queryKey: ["homeworks"],
@@ -2000,6 +2228,70 @@ export const useDeleteBaselineTestEntry = (
         queryKey: ["baseline-test-entry", baselineTestId],
       });
       return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+// Learning Path Config Mutations
+export const usePatchChildPreferences = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-child-preferences"],
+    mutationFn: (data: {
+      childProfileId: string;
+      selectedCurriculumId: string;
+      weeklyQuota: number;
+      pauseAssignments: boolean;
+    }): Promise<ApiResponse<ChildPreferences>> =>
+      axiosInstance.patch(
+        `/child-profiles/${data.childProfileId}/preferences`,
+        {
+          selectedCurriculumId: data.selectedCurriculumId,
+          weeklyQuota: data.weeklyQuota,
+          pauseAssignments: data.pauseAssignments,
+        },
+      ),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["child-preferences", variables.childProfileId],
+      });
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePostAssignBaselineTest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-assign-baseline-test"],
+    mutationFn: async ({
+      childId,
+      yearGroupId,
+    }: {
+      childId: string;
+      yearGroupId: string;
+    }): Promise<ApiResponse<BaselineTest>> =>
+      axiosInstance.post(`/baseline-test/assign/${childId}`, {
+        yearGroupId,
+      }),
+    onSuccess: (_, { childId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["child-baseline-test", childId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["child-baseline-test-entries", childId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["child-scheme-of-work", childId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["child-learning-path-summary", childId],
+      });
     },
     onError: (error: AxiosError) => {
       handleErrorMessage(error);

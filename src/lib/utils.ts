@@ -857,7 +857,7 @@ export function buildQuizSubmissionResults(
     totalPoints: resultData.totalPoints || 0,
     percentage: resultData.percentage || 0,
     results: resultData.results || [],
-    timeSpent: resultData.timeSpent || 0,
+    timeSpent: Number(resultData.timeSpent) || 0,
   };
 }
 
@@ -902,7 +902,7 @@ export function parseQuizQuestionSubmitResponse(
     correctAnswers: Array.isArray(result.correctAnswers)
       ? result.correctAnswers
       : result.correctAnswers
-        ? [{ id: "", content: result.correctAnswers }]
+        ? [result.correctAnswers]   // single-object form: {id, content}
         : [],
     isCorrect: Boolean(result.isCorrect),
     pointsEarned: Number(result.pointsEarned ?? 0),
@@ -915,7 +915,47 @@ export function getCorrectAnswerText(
   question: QuizPlayerQuestion,
   result: QuizQuestionResult
 ): string {
-  if (result.correctAnswers.length === 0) return "No correct answer";
+  // Some endpoints don't include correctAnswers for unanswered questions.
+  // Fall back to the question payload where possible.
+  if (result.correctAnswers.length === 0) {
+    const q = question.question;
+    if (q.type === "matching_pairs") {
+      const pairs = Array.isArray(q.correctAnswer)
+        ? (q.correctAnswer as any[])
+        : Array.isArray((q as any).pairs)
+          ? ((q as any).pairs as any[])
+          : [];
+      if (pairs.length > 0) {
+        return pairs
+          .map((p: any) => `${String(p.left)} → ${String(p.right)}`)
+          .join("\n");
+      }
+    }
+
+    if ((q.type === "multiple_choice" || q.type === "true_false") && q.options) {
+      const correctOptions =
+        q.options.filter((opt: any) => opt?.isCorrect) ?? [];
+      if (correctOptions.length > 0) {
+        return correctOptions.map((o: any) => String(o.text ?? "")).join(" or ");
+      }
+      if (typeof (q as any).correctAnswer === "string") {
+        const opt = q.options.find((o: any) => o.id === (q as any).correctAnswer);
+        if (opt?.text) return String(opt.text);
+      }
+    }
+
+    const possible =
+      Array.isArray((q as any).correctAnswers) ? (q as any).correctAnswers : [];
+    if (possible.length > 0) {
+      return possible.map((a: any) => String(a)).join(" or ");
+    }
+
+    if ((q as any).correctAnswer != null) {
+      return String((q as any).correctAnswer);
+    }
+
+    return "No correct answer";
+  }
   if (
     question.question.type === "matching_pairs" &&
     typeof result.correctAnswers[0].content === "object"

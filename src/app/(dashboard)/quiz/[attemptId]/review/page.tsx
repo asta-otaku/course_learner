@@ -1,11 +1,17 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useGetQuizAttemptById, useGetQuizQuestions } from "@/lib/api/queries";
+import {
+  useGetQuizAttemptById,
+  useGetQuizQuestions,
+  useGetQuiz,
+  useGetManageSubscription,
+} from "@/lib/api/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
 import {
   CheckCircle,
   XCircle,
@@ -14,16 +20,18 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  ArrowLeft,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { QuestionImage } from "@/components/ui/question-image";
+import { WatchLessonVideoButton } from "@/components/platform/library/watchLessonVideoButton";
+import { useProfile } from "@/context/profileContext";
 
 interface QuestionWithResults {
   id: string;
   question: any;
-  result: QuizResult;
+  result: QuizResult | undefined;
 }
 
 interface QuizResult {
@@ -46,9 +54,27 @@ export default function QuizAttemptReviewPage() {
   const router = useRouter();
   const attemptId = params.attemptId as string;
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const { activeProfile } = useProfile();
 
   const { data: reviewResponse, isLoading, error } = useGetQuizAttemptById(attemptId);
   const review = reviewResponse?.data;
+  const curriculumLessonId = (review as any)?.curriculumLessonId as
+    | string
+    | null
+    | undefined;
+  const { data: manageData } = useGetManageSubscription();
+  const activeProfileId = activeProfile?.id ? String(activeProfile.id) : "";
+  const manageAccessLevel = useMemo(() => {
+    const sub = manageData?.data;
+    if (!sub?.childSubscription || !activeProfileId) return null;
+    const row = sub.childSubscription.find(
+      (r: any) => String(r.childProfileId) === String(activeProfileId),
+    );
+    return row?.accessLevel ?? null;
+  }, [manageData?.data, activeProfileId]);
+  const isTuitionOfferType = manageAccessLevel === "tuition";
+  const { data: quizResponse } = useGetQuiz(review?.quizId || "");
+  const quizData = quizResponse?.data;
 
   // Fetch questions for the quiz
   const { data: questionsResponse } = useGetQuizQuestions(review?.quizId || "");
@@ -73,40 +99,45 @@ export default function QuizAttemptReviewPage() {
           title: qq.question.title,
           content: qq.question.content,
           type: qq.question.type,
-          image_url: qq.question.image_url,
+          // Support both new (image) and legacy (image_url) formats
+          image: (qq.question as any).image || qq.question.image_url,
+          image_url: qq.question.image_url || (qq.question as any).image,
+          imageSettings:
+            (qq.question as any).imageSettings ||
+            (qq.question as any).image_settings,
           explanation: qq.question.explanation,
           metadata: qq.question.metadata,
           options:
             qq.question.type === "multiple_choice" && qq.question.answers
               ? qq.question.answers
-                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                  .map((answer: any) => ({
-                    id: answer.id,
-                    text: answer.content,
-                    isCorrect: answer.isCorrect,
-                  }))
+                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                .map((answer: any) => ({
+                  id: answer.id,
+                  text: answer.content,
+                  isCorrect: answer.isCorrect,
+                }))
               : [],
           ...(qq.question.type === "true_false" && {
             options: qq.question.answers
               ? qq.question.answers
-                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                  .map((answer: any) => ({
-                    id: answer.id,
-                    text: answer.content,
-                    isCorrect: answer.isCorrect,
-                  }))
+                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                .map((answer: any) => ({
+                  id: answer.id,
+                  text: answer.content,
+                  isCorrect: answer.isCorrect,
+                }))
               : [
-                  {
-                    id: "true",
-                    text: "True",
-                    isCorrect: qq.question.metadata?.correct_answer === true,
-                  },
-                  {
-                    id: "false",
-                    text: "False",
-                    isCorrect: qq.question.metadata?.correct_answer === false,
-                  },
-                ],
+                {
+                  id: "true",
+                  text: "True",
+                  isCorrect: qq.question.metadata?.correct_answer === true,
+                },
+                {
+                  id: "false",
+                  text: "False",
+                  isCorrect: qq.question.metadata?.correct_answer === false,
+                },
+              ],
           }),
           ...(qq.question.type === "matching_pairs" && {
             pairs: (qq.question.answers?.[0]?.matchingPairs || []).map(
@@ -130,7 +161,50 @@ export default function QuizAttemptReviewPage() {
   };
 
   const getCorrectAnswerText = (question: any, result: QuizResult): string => {
-    if (result.correctAnswers.length === 0) return "No correct answer";
+    // Some attempt payloads omit correctAnswers for unanswered questions.
+    // Fall back to the question payload where possible.
+    if (!Array.isArray(result.correctAnswers) || result.correctAnswers.length === 0) {
+      if (question.type === "matching_pairs") {
+        const pairs = Array.isArray((question as any).correctAnswer)
+          ? ((question as any).correctAnswer as any[])
+          : Array.isArray((question as any).pairs)
+            ? ((question as any).pairs as any[])
+            : [];
+        if (pairs.length > 0) {
+          return pairs
+            .map((p: any) => `${String(p.left)} → ${String(p.right)}`)
+            .join("\n");
+        }
+      }
+
+      if (
+        (question.type === "multiple_choice" || question.type === "true_false") &&
+        Array.isArray(question.options)
+      ) {
+        const correctOptions = question.options.filter((opt: any) => opt?.isCorrect);
+        if (correctOptions.length > 0) {
+          return correctOptions.map((o: any) => String(o.text ?? "")).join(" or ");
+        }
+        if (typeof (question as any).correctAnswer === "string") {
+          const opt = question.options.find(
+            (o: any) => o.id === (question as any).correctAnswer
+          );
+          if (opt?.text) return String(opt.text);
+        }
+      }
+
+      const possible = Array.isArray((question as any).correctAnswers)
+        ? ((question as any).correctAnswers as any[])
+        : [];
+      if (possible.length > 0) {
+        return possible.map((a: any) => String(a)).join(" or ");
+      }
+      if ((question as any).correctAnswer != null) {
+        return String((question as any).correctAnswer);
+      }
+
+      return "No correct answer";
+    }
 
     if (
       question.type === "matching_pairs" &&
@@ -160,6 +234,24 @@ export default function QuizAttemptReviewPage() {
       .map((ans) => ans.content.toString())
       .join(" or ");
   };
+
+  const { totalEarned, totalPossible, computedPercentage } = useMemo(() => {
+    const results = review?.results ?? [];
+    const earned = results.reduce(
+      (sum: number, r: QuizResult) => sum + Number(r.pointsEarned ?? 0),
+      0
+    );
+    const possible = results.reduce(
+      (sum: number, r: QuizResult) => sum + Number(r.pointsPossible ?? 0),
+      0
+    );
+    const percentage = possible > 0 ? (earned / possible) * 100 : 0;
+    return {
+      totalEarned: earned,
+      totalPossible: possible,
+      computedPercentage: percentage,
+    };
+  }, [review?.results]);
 
   if (isLoading) {
     return (
@@ -191,7 +283,6 @@ export default function QuizAttemptReviewPage() {
               variant="outline"
               onClick={() => router.back()}
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
               Go Back
             </Button>
           </CardContent>
@@ -203,6 +294,40 @@ export default function QuizAttemptReviewPage() {
   const currentQ = questionsWithResults[currentQuestionIndex];
   const currentResult = currentQ?.result;
 
+  const mcTfUserAnswered =
+    !currentQ ||
+    !currentResult ||
+    (currentQ.question.type !== "multiple_choice" &&
+      currentQ.question.type !== "true_false")
+      ? true
+      : (() => {
+          const r = currentResult;
+          if (r.userAnswerId != null && String(r.userAnswerId).trim() !== "")
+            return true;
+          const c = r.userAnswerContent;
+          if (c == null) return false;
+          return String(c).trim() !== "";
+        })();
+  const lessonTitle =
+    (quizData as any)?.lessonName || "---";
+  const quizName = quizData?.title || "Quiz";
+  const quizDescription = quizData?.description || "---";
+
+  const finalScore = `${Math.round(totalEarned)}/${Math.round(totalPossible)}`;
+  const roundedPercentage = `${Math.round(computedPercentage)}%`;
+  const passPercentageRaw = Number(quizData?.passingScore);
+  const passingScore = (() => {
+    const pct = Number(passPercentageRaw);
+    const questions = Number(questionsWithResults.length);
+    if (!Number.isFinite(pct) || !Number.isFinite(questions) || questions <= 0) {
+      return "---";
+    }
+    const needed = Math.ceil((pct / 100) * questions);
+    return `${needed}/${questions}`;
+  })();
+  const isTimedQuiz =
+    Number(quizData?.timeLimit) > 0;
+
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="flex gap-6">
@@ -210,20 +335,31 @@ export default function QuizAttemptReviewPage() {
         <div className="flex-1">
           {/* Results Summary Header */}
           <Card className="mb-6">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <CardTitle>Quiz Review</CardTitle>
-                  </div>
+            <CardHeader className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>Quiz Review</CardTitle>
+                {isTuitionOfferType && curriculumLessonId?.trim() ? (
+                  <WatchLessonVideoButton
+                    curriculumLessonId={curriculumLessonId}
+                    lessonTitle={lessonTitle}
+                    className="bg-primaryBlue hover:bg-primaryBlue/90"
+                  />
+                ) : null}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-muted-foreground text-xs mb-1">Lesson</p>
+                  <p className="font-medium">{lessonTitle}</p>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => router.back()}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Go Back
-                </Button>
+                <div className="rounded-lg border bg-muted/30 p-3 md:col-span-2">
+                  <p className="text-muted-foreground text-xs mb-1">Quiz</p>
+                  <p className="font-medium line-clamp-2">
+                    {quizName}
+                    {quizDescription && quizDescription !== "---"
+                      ? ` - ${quizDescription}`
+                      : ""}
+                  </p>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -231,9 +367,9 @@ export default function QuizAttemptReviewPage() {
                 <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <Trophy className="h-8 w-8 text-blue-600" />
                   <div>
-                    <p className="text-sm text-blue-600 font-medium">Score</p>
+                    <p className="text-sm text-blue-600 font-medium">Final score</p>
                     <p className="text-2xl font-bold text-blue-900">
-                      {review.score}/{review.totalPoints}
+                      {finalScore}
                     </p>
                   </div>
                 </div>
@@ -244,7 +380,7 @@ export default function QuizAttemptReviewPage() {
                       Percentage
                     </p>
                     <p className="text-2xl font-bold text-green-900">
-                      {review.percentage}%
+                      {roundedPercentage}
                     </p>
                   </div>
                 </div>
@@ -255,7 +391,9 @@ export default function QuizAttemptReviewPage() {
                       Time Spent
                     </p>
                     <p className="text-2xl font-bold text-purple-900">
-                      {formatTime(review.timeSpent)}
+                      {isTimedQuiz && Number((review as any)?.timeSpent) > 0
+                        ? formatTime(Number((review as any).timeSpent))
+                        : "---"}
                     </p>
                   </div>
                 </div>
@@ -263,14 +401,10 @@ export default function QuizAttemptReviewPage() {
                   <AlertCircle className="h-8 w-8 text-orange-600" />
                   <div>
                     <p className="text-sm text-orange-600 font-medium">
-                      Correct Answers
+                      Pass Mark
                     </p>
                     <p className="text-2xl font-bold text-orange-900">
-                      {
-                        review.results.filter((r: QuizResult) => r.isCorrect)
-                          .length
-                      }
-                      /{review.results.length}
+                      {passingScore}
                     </p>
                   </div>
                 </div>
@@ -279,7 +413,7 @@ export default function QuizAttemptReviewPage() {
           </Card>
 
           {/* Current Question with Results */}
-          {currentQ && (
+          {currentQ && currentResult && (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -287,30 +421,24 @@ export default function QuizAttemptReviewPage() {
                     Question {currentQuestionIndex + 1} of{" "}
                     {questionsWithResults.length}
                   </CardTitle>
-                  {currentResult && (
-                    <Badge
-                      variant={
-                        currentResult.isCorrect ? "default" : "destructive"
-                      }
-                      className="flex items-center gap-2"
-                    >
-                      {currentResult.isCorrect ? (
-                        <>
-                          <CheckCircle className="h-4 w-4" />
-                          Correct
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="h-4 w-4" />
-                          Incorrect
-                        </>
-                      )}
-                      <span className="ml-2">
-                        {currentResult.pointsEarned}/
-                        {currentResult.pointsPossible} points
-                      </span>
-                    </Badge>
-                  )}
+                  <Badge
+                    variant={
+                      currentResult.isCorrect ? "default" : "destructive"
+                    }
+                    className="flex items-center gap-2"
+                  >
+                    {currentResult.isCorrect ? (
+                      <>
+                        <CheckCircle className="h-4 w-4" />
+                        Correct
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-4 w-4" />
+                        Incorrect
+                      </>
+                    )}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
@@ -318,38 +446,103 @@ export default function QuizAttemptReviewPage() {
                   {/* Question Content */}
                   <div>
                     <p className="text-base font-medium mb-2">Question:</p>
-                    <p className="text-base whitespace-pre-wrap">
-                      {currentQ.question.content}
-                    </p>
-                    {currentQ.question.image_url && (
-                      <div className="mt-4">
-                        <img
-                          src={currentQ.question.image_url}
-                          alt="Question illustration"
-                          className="max-w-full h-auto rounded-lg border shadow-sm"
-                          style={{ maxHeight: "400px", objectFit: "contain" }}
-                        />
-                      </div>
+                    <MathPreview
+                      content={String(currentQ.question.content ?? "")}
+                      className="text-base text-textGray whitespace-pre-wrap"
+                      renderMarkdown={true}
+                    />
+                    {(currentQ.question.image || currentQ.question.image_url) && (
+                      <QuestionImage
+                        src={
+                          currentQ.question.image ||
+                          currentQ.question.image_url ||
+                          ""
+                        }
+                        alt="Question illustration"
+                        metadata={
+                          currentQ.question.imageSettings
+                            ? { image_settings: currentQ.question.imageSettings }
+                            : undefined
+                        }
+                      />
                     )}
                   </div>
 
                   {/* User's Answer */}
-                  {currentResult && (
-                    <div>
-                      <p className="text-base font-medium mb-2">Your Answer:</p>
-                      {currentQ.question.type === "matching_pairs" &&
+                  <div>
+                    <p className="text-base font-medium mb-2">Your Answer:</p>
+                    {(currentQ.question.type === "multiple_choice" ||
+                      currentQ.question.type === "true_false") &&
+                    currentQ.question.options &&
+                    currentQ.question.options.length > 0 ? (
+                      <div className="space-y-3">
+                        {!mcTfUserAnswered && (
+                          <Alert className="border-muted bg-muted/40">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              You did not answer this question.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        {currentQ.question.options.map((option: any) => {
+                          const selectedId =
+                            currentResult.userAnswerId ||
+                            currentResult.userAnswerContent ||
+                            "";
+                          // Match by id first; fall back to text comparison for
+                          // content-based answer values (e.g. true/false text).
+                          const isSelected =
+                            selectedId !== "" &&
+                            (selectedId === option.id ||
+                              String(option.text ?? "").trim().toLowerCase() ===
+                                String(selectedId).trim().toLowerCase());
+                          const isCorrectOption =
+                            (currentResult.correctAnswers?.some(
+                              (ans: any) => ans.id === option.id,
+                            ) ?? false) || option.isCorrect === true;
+
+                          return (
+                            <div
+                              key={option.id}
+                              className={cn(
+                                "flex items-start gap-3 p-3 rounded-lg border-2",
+                                // Only colour the option the child actually selected.
+                                // The correct answer is surfaced separately below.
+                                isSelected && isCorrectOption
+                                  ? "bg-green-50 border-green-300"
+                                  : isSelected
+                                    ? "bg-red-50 border-red-300"
+                                    : "border-gray-200",
+                              )}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <MathPreview
+                                  content={String(option.text ?? "")}
+                                  className="text-base text-textGray whitespace-pre-wrap"
+                                  renderMarkdown={true}
+                                />
+                              </div>
+                              {isSelected && isCorrectOption ? (
+                                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                              ) : isSelected ? (
+                                <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : currentQ.question.type === "matching_pairs" ? (
                       currentResult.userAnswerContent ? (
                         <div className="p-4 bg-gray-50 rounded-lg border">
                           {(() => {
                             try {
                               const userMatches = JSON.parse(
-                                currentResult.userAnswerContent
+                                currentResult.userAnswerContent as string,
                               ) as Record<string, string>;
+                              const ca0 = currentResult.correctAnswers[0];
                               const correctMatches =
-                                typeof currentResult.correctAnswers[0]
-                                  .content === "object"
-                                  ? (currentResult.correctAnswers[0]
-                                      .content as Record<string, string>)
+                                ca0 && typeof ca0.content === "object"
+                                  ? (ca0.content as Record<string, string>)
                                   : {};
 
                               return (
@@ -368,7 +561,7 @@ export default function QuizAttemptReviewPage() {
                                             "p-3 rounded-lg border-2",
                                             isMatchCorrect
                                               ? "bg-green-50 border-green-300"
-                                              : "bg-red-50 border-red-300"
+                                              : "bg-red-50 border-red-300",
                                           )}
                                         >
                                           <div className="flex items-center gap-2">
@@ -384,52 +577,85 @@ export default function QuizAttemptReviewPage() {
                                           </div>
                                         </div>
                                       );
-                                    }
+                                    },
                                   )}
                                 </div>
                               );
                             } catch {
                               return (
                                 <p className="text-sm text-gray-600">
-                                  {currentResult.userAnswerContent}
+                                  {String(currentResult.userAnswerContent)}
                                 </p>
                               );
                             }
                           })()}
                         </div>
                       ) : (
-                        <div
-                          className={cn(
-                            "p-4 rounded-lg border-2",
-                            currentResult.isCorrect
+                        <Alert className="border-muted bg-muted/40">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            You did not answer this question.
+                          </AlertDescription>
+                        </Alert>
+                      )
+                    ) : (
+                      <div
+                        className={cn(
+                          "p-4 rounded-lg border-2",
+                          currentResult.userAnswerContent != null &&
+                            String(currentResult.userAnswerContent).trim() !==
+                              ""
+                            ? currentResult.isCorrect
                               ? "bg-green-50 border-green-300"
                               : "bg-red-50 border-red-300"
-                          )}
-                        >
-                          <p className="text-base">
-                            {currentQ.question.type === "multiple_choice" ||
-                            currentQ.question.type === "true_false"
-                              ? currentQ.question.options?.find(
-                                  (opt: any) =>
-                                    opt.id ===
-                                    (currentResult.userAnswerId ||
-                                      currentResult.userAnswerContent)
-                                )?.text || currentResult.userAnswerContent
-                              : currentResult.userAnswerContent || "No answer"}
+                            : "bg-muted/30 border-muted",
+                        )}
+                      >
+                        {currentResult.userAnswerContent != null &&
+                        String(currentResult.userAnswerContent).trim() !==
+                          "" ? (
+                          <MathPreview
+                            content={String(
+                              currentQ.question.type === "multiple_choice" ||
+                                currentQ.question.type === "true_false"
+                                ? currentResult.userAnswerId ||
+                                  currentResult.userAnswerContent
+                                  ? currentQ.question.options?.find(
+                                      (opt: any) =>
+                                        opt.id ===
+                                        (currentResult.userAnswerId ||
+                                          currentResult.userAnswerContent),
+                                    )?.text ||
+                                    currentResult.userAnswerContent ||
+                                    ""
+                                  : ""
+                                : currentResult.userAnswerContent || "",
+                            )}
+                            className="text-base text-textGray whitespace-pre-wrap"
+                            renderMarkdown={true}
+                          />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            You did not answer this question.
                           </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Correct Answer */}
-                  {currentResult && !currentResult.isCorrect && (
+                  {(!currentResult.isCorrect ||
+                    currentQ.question.type === "free_text" ||
+                    currentQ.question.type === "short_answer" ||
+                    currentQ.question.type === "long_answer" ||
+                    currentQ.question.type === "coding") && (
                     <div>
                       <p className="text-base font-medium mb-2 text-green-700">
                         Correct Answer:
                       </p>
                       <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
                         {currentQ.question.type === "matching_pairs" &&
+                        currentResult.correctAnswers[0] &&
                         typeof currentResult.correctAnswers[0].content ===
                           "object" ? (
                           <div className="space-y-2">
@@ -437,7 +663,7 @@ export default function QuizAttemptReviewPage() {
                               currentResult.correctAnswers[0].content as Record<
                                 string,
                                 string
-                              >
+                              >,
                             ).map(([left, right]) => (
                               <div
                                 key={left}
@@ -449,20 +675,21 @@ export default function QuizAttemptReviewPage() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-base text-green-900 whitespace-pre-wrap">
-                            {getCorrectAnswerText(
+                          <MathPreview
+                            content={getCorrectAnswerText(
                               currentQ.question,
-                              currentResult
+                              currentResult,
                             )}
-                          </p>
+                            className="text-base text-green-900 whitespace-pre-wrap"
+                            renderMarkdown={true}
+                          />
                         )}
                       </div>
                     </div>
                   )}
 
                   {/* Question Metadata Feedback */}
-                  {currentResult &&
-                    currentQ.question.metadata &&
+                  {currentQ.question.metadata &&
                     (currentResult.isCorrect
                       ? currentQ.question.metadata.correctFeedback
                       : currentQ.question.metadata.incorrectFeedback) && (
@@ -471,44 +698,50 @@ export default function QuizAttemptReviewPage() {
                         <Alert className="border-blue-200 bg-blue-50">
                           <AlertCircle className="h-4 w-4 text-blue-600" />
                           <AlertDescription>
-                            <p className="text-blue-800 whitespace-pre-wrap">
-                              {currentResult.isCorrect
-                                ? currentQ.question.metadata.correctFeedback
-                                : currentQ.question.metadata.incorrectFeedback}
-                            </p>
+                            <MathPreview
+                              content={String(
+                                currentResult.isCorrect
+                                  ? currentQ.question.metadata.correctFeedback
+                                  : currentQ.question.metadata.incorrectFeedback
+                              )}
+                              renderMarkdown
+                              className="text-blue-800 whitespace-pre-wrap"
+                            />
                           </AlertDescription>
                         </Alert>
                       </div>
                     )}
 
                   {/* Tutor Additional Feedback */}
-                  {currentResult?.feedback && (
+                  {currentResult.feedback && (
                     <div>
                       <p className="text-base font-medium mb-2">
-                        Tutor Additional Feedback:
+                        Feedback:
                       </p>
                       <Alert className="border-yellow-200 bg-yellow-50">
                         <AlertCircle className="h-4 w-4 text-yellow-600" />
                         <AlertDescription>
-                          <p className="text-yellow-800 whitespace-pre-wrap">
-                            {(() => {
+                          <MathPreview
+                            content={(() => {
                               try {
                                 const parsed = JSON.parse(
-                                  currentResult.feedback
+                                  currentResult.feedback as string,
                                 );
                                 if (
                                   parsed &&
                                   typeof parsed === "object" &&
-                                  parsed.feedback
+                                  (parsed as any).feedback
                                 ) {
-                                  return parsed.feedback;
+                                  return String((parsed as any).feedback);
                                 }
                               } catch {
                                 // Not JSON, use as is
                               }
-                              return currentResult.feedback;
+                              return String(currentResult.feedback);
                             })()}
-                          </p>
+                            renderMarkdown
+                            className="text-yellow-800 whitespace-pre-wrap"
+                          />
                         </AlertDescription>
                       </Alert>
                     </div>
@@ -521,9 +754,11 @@ export default function QuizAttemptReviewPage() {
                       <Alert className="border-blue-200 bg-blue-50">
                         <AlertCircle className="h-4 w-4 text-blue-600" />
                         <AlertDescription>
-                          <p className="text-blue-800 whitespace-pre-wrap">
-                            {currentQ.question.explanation}
-                          </p>
+                          <MathPreview
+                            content={String(currentQ.question.explanation ?? "")}
+                            className="text-blue-800 whitespace-pre-wrap"
+                            renderMarkdown={true}
+                          />
                         </AlertDescription>
                       </Alert>
                     </div>
@@ -572,10 +807,7 @@ export default function QuizAttemptReviewPage() {
 
         {/* Results Navigation Sidebar */}
         <Card className="w-64 h-fit sticky top-6">
-          <CardHeader>
-            <CardTitle className="text-base">Question Review</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="space-y-2">
               {questionsWithResults.map(
                 (q: QuestionWithResults, index: number) => {
@@ -587,7 +819,7 @@ export default function QuizAttemptReviewPage() {
                       key={q.id}
                       onClick={() => setCurrentQuestionIndex(index)}
                       className={cn(
-                        "w-full px-3 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-colors",
+                        "w-full min-w-0 px-3 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-colors",
                         isCurrent
                           ? "bg-primaryBlue text-white hover:bg-primaryBlue/90"
                           : result?.isCorrect

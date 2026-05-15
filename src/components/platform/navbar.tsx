@@ -19,7 +19,12 @@ import {
   UserCircle,
   X,
 } from "lucide-react";
-import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useProfile } from "@/context/profileContext";
+import {
+  useGetChildProfile,
+  useGetManageSubscription,
+  useGetStudentChatList,
+} from "@/lib/api/queries";
 import LogoutIcon from "@/assets/svgs/logout";
 import { useAuthGuard } from "../AuthGuard";
 import { logout } from "@/lib/services/axiosInstance";
@@ -36,16 +41,12 @@ export default function Navbar() {
     isLoaded,
     profiles,
     isChangingProfile,
-  } = useSelectedProfile();
+  } = useProfile();
   const { isAuthenticated } = useAuthGuard();
-  const [user, setUser] = React.useState<any>({});
-
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const userData = JSON.parse(localStorage.getItem("user") || "{}");
-      setUser(userData);
-    }
-  }, []);
+  const { data: manageData } = useGetManageSubscription();
+  const { data: childProfilesData } = useGetChildProfile({
+    enabled: isAuthenticated === true,
+  });
 
   const platformRoutes = [
     { name: "Dashboard", path: "/dashboard" },
@@ -57,13 +58,113 @@ export default function Navbar() {
   const tuitionRoutes = [
     { name: "Dashboard", path: "/dashboard" },
     { name: "Homework", path: "/homework" },
-    { name: "Independent Learning", path: "/glossary" },
+    { name: "Independent Learning", path: "/independent-learning" },
     { name: "Messages", path: "/messages" },
     { name: "Sessions", path: "/sessions" },
   ];
 
+  const activeProfileId = (activeProfile as any)?.id as string | undefined;
+  const activeProfileFresh = React.useMemo(() => {
+    const list = childProfilesData?.data ?? [];
+    if (!activeProfileId) return null;
+    return list.find((p) => String(p.id) === String(activeProfileId)) ?? null;
+  }, [childProfilesData?.data, activeProfileId]);
+
+  const manageAccessLevel = React.useMemo(() => {
+    const sub = manageData?.data;
+    if (!sub?.childSubscription || !activeProfileId) return null;
+    const row = sub.childSubscription.find(
+      (r) => String(r.childProfileId) === String(activeProfileId)
+    );
+    return row?.accessLevel ?? null;
+  }, [manageData?.data, activeProfileId]);
+
+  const effectiveOfferType =
+    manageAccessLevel === "tuition"
+      ? "tuition"
+      : manageAccessLevel === "platform"
+        ? "platform"
+        : (activeProfileFresh as any)?.offerType;
+
+  const hasResolvedAccessLevel = React.useMemo(() => {
+    // We consider access "resolved" if either:
+    // - manage subscription explicitly says platform/tuition, or
+    // - the refreshed profile row contains an offerType.
+    // Also treat "locked" as resolved (explicitly no seat assigned).
+    if (
+      manageAccessLevel === "platform" ||
+      manageAccessLevel === "tuition" ||
+      manageAccessLevel === "locked"
+    )
+      return true;
+    return (activeProfileFresh as any)?.offerType != null;
+  }, [manageAccessLevel, activeProfileFresh]);
+
+  const isAccessDenied = React.useMemo(() => {
+    if (!hasResolvedAccessLevel) return false;
+    if (manageAccessLevel === "locked") return true;
+    return effectiveOfferType !== "platform" && effectiveOfferType !== "tuition";
+  }, [effectiveOfferType, hasResolvedAccessLevel, manageAccessLevel]);
+
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!isAccessDenied) return;
+    if ((pathname || "").startsWith("/pricing")) return;
+    push("/pricing");
+  }, [isAuthenticated, isAccessDenied, pathname, push]);
+
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!hasResolvedAccessLevel) return;
+    const p = pathname || "";
+
+    // Allow pricing and auth routes to avoid loops.
+    if (p.startsWith("/pricing") || p.startsWith("/sign-in")) return;
+
+    // Shared routes for all offers
+    const sharedPrefixes = ["/dashboard"];
+    if (sharedPrefixes.some((pref) => p.startsWith(pref))) return;
+    const isLibraryRoot = p === "/library" || p === "/library/";
+    const isLibraryDeepLink = p.startsWith("/library/") && !isLibraryRoot;
+    if (isLibraryDeepLink) return;
+
+    // Offer-specific routes
+    const tuitionOnlyPrefixes = [
+      "/homework",
+      "/messages",
+      "/sessions",
+      "/independent-learning",
+    ];
+    const platformOnlyPrefixes = ["/glossary"];
+
+    if (effectiveOfferType === "platform") {
+      if (tuitionOnlyPrefixes.some((pref) => p.startsWith(pref))) {
+        push("/dashboard");
+      }
+    }
+
+    if (effectiveOfferType === "tuition") {
+      if (isLibraryRoot) {
+        push("/dashboard");
+        return;
+      }
+      if (platformOnlyPrefixes.some((pref) => p.startsWith(pref))) {
+        push("/dashboard");
+      }
+    }
+  }, [isAuthenticated, hasResolvedAccessLevel, effectiveOfferType, pathname, push]);
+
   const routes =
-    user?.data?.offerType === "Offer One" ? platformRoutes : tuitionRoutes;
+    effectiveOfferType === "platform" ? platformRoutes : tuitionRoutes;
+
+  const showMessagesLink = routes.some((r) => r.path === "/messages");
+  const { data: chatListData } = useGetStudentChatList({
+    childId: showMessagesLink ? activeProfile?.id || "" : "",
+  });
+  const messageCount = (chatListData?.data || []).reduce(
+    (sum, c) => sum + (c.unreadCount || 0),
+    0
+  );
 
   if (!isAuthenticated) {
     return null;
@@ -114,13 +215,14 @@ export default function Navbar() {
               <Link
                 key={route.name}
                 href={route.path}
-                className={`font-medium text-sm md:text-base ${
-                  pathname.startsWith(route.path)
-                    ? "text-blue-500"
-                    : "text-textSubtitle"
-                } hover:text-blue-500 transition`}
+                className={`font-medium text-sm md:text-base ${pathname.startsWith(route.path)
+                  ? "text-blue-500"
+                  : "text-textSubtitle"
+                  } hover:text-blue-500 transition`}
               >
-                {route.name}
+                {route.path === "/messages" && messageCount > 0
+                  ? `${route.name} (${messageCount})`
+                  : route.name}
               </Link>
             ))}
           </div>
@@ -164,21 +266,21 @@ export default function Navbar() {
                     {profile.name}
                   </DropdownMenuItem>
                 ))}
-                <DropdownMenuItem
+                {/* <DropdownMenuItem
                   onClick={() => push("/settings/profiles")}
                   className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center"
                 >
                   <PencilLine className="text-gray-400" />
                   Edit Profiles
-                </DropdownMenuItem>
-                <DropdownMenuItem className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center">
+                </DropdownMenuItem> */}
+                <DropdownMenuItem onClick={() => push("/contact")} className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center">
                   <UserCircle className="text-gray-400" />
                   Contact Us
                 </DropdownMenuItem>
-                <DropdownMenuItem className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center">
+                {/* <DropdownMenuItem className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center">
                   <CircleHelp className="text-gray-400" />
                   FAQ
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
                 <DropdownMenuItem
                   onClick={() => push("/settings")}
                   className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center"
@@ -224,22 +326,72 @@ export default function Navbar() {
                   key={route.name}
                   href={route.path}
                   onClick={() => setMobileOpen(false)}
-                  className={`block py-2 px-2 rounded-md font-medium text-sm ${
-                    pathname === route.path
-                      ? "bg-blue-50 text-blue-500"
-                      : "text-gray-700 hover:bg-gray-100"
-                  } transition`}
+                  className={`block py-2 px-2 rounded-md font-medium text-sm ${pathname === route.path
+                    ? "bg-blue-50 text-blue-500"
+                    : "text-gray-700 hover:bg-gray-100"
+                    } transition`}
                 >
-                  {route.name}
+                  {route.path === "/messages" && messageCount > 0
+                    ? `${route.name} (${messageCount})`
+                    : route.name}
                 </Link>
               ))}
 
-              <div className="mt-4 border-t pt-4 flex items-center gap-4">
-                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
-                  <span className="text-gray-500 text-sm font-semibold">
-                    {activeProfile?.name.slice(0, 2).toUpperCase()}
-                  </span>
-                </div>
+              <div className="mt-4 border-t pt-4 flex items-center justify-between gap-4">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-gray-100 transition">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+                        <span className="text-gray-500 text-sm font-semibold">
+                          {activeProfile?.name
+                            ?.split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </span>
+                      </div>
+                      <div className="text-left">
+                        <div className="text-sm font-semibold text-textGray">
+                          {activeProfile?.name}
+                        </div>
+                      </div>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    className="w-60 max-h-[70vh] overflow-auto scrollbar-hide p-1 mt-1 !rounded-xl shadow-lg"
+                    align="start"
+                  >
+                    <DropdownMenuItem className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center">
+                      <UserCircle className="text-gray-400" />
+                      Contact Us
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setMobileOpen(false);
+                        push("/settings");
+                      }}
+                      className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center"
+                    >
+                      <Settings className="text-gray-400" />
+                      Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="my-1" />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setMobileOpen(false);
+                        logout();
+                        if (typeof window !== "undefined") {
+                          localStorage.removeItem("selectedProfile");
+                          localStorage.removeItem("activeProfile");
+                        }
+                        push("/sign-in");
+                      }}
+                      className="px-3 py-2 text-sm cursor-pointer font-inter text-red-500 hover:bg-red-50 hover:text-red-600 rounded-sm flex gap-3 ml-3 items-center"
+                    >
+                      <LogoutIcon />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>

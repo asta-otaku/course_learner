@@ -14,14 +14,14 @@ import {
   useGetCurrentUser,
 } from "@/lib/api/queries";
 import { usePostMessage } from "@/lib/api/mutations";
-import { useSelectedProfile } from "@/hooks/use-selectedProfile";
+import { useProfile } from "@/context/profileContext";
 import { Message } from "@/lib/types";
 import { useSocketContext } from "@/context/SocketContext";
 
 const MessagingPlatform = () => {
   const pathname = usePathname();
   const isTutorMode = pathname.includes("tutor");
-  const { activeProfile } = useSelectedProfile();
+  const { activeProfile } = useProfile();
   const [page, setPage] = useState(1);
   const [limit, _] = useState(100);
 
@@ -49,7 +49,7 @@ const MessagingPlatform = () => {
   const chatList = chatListData?.data || [];
 
   // Get socket from global context
-  const { isConnected, markAsRead, deleteMessages } = useSocketContext();
+  const { markAsRead, deleteMessages } = useSocketContext();
 
   const [newMessage, setNewMessage] = useState("");
   const [showChatList, setShowChatList] = useState(true);
@@ -61,9 +61,13 @@ const MessagingPlatform = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const previousMessageCountRef = useRef(0);
 
   // Reset when chat changes - MUST come before the update effect
   const activeChatRef = useRef(activeChat);
+  // Tracks the last message ID for which markAsRead was emitted, so we only
+  // call it when a genuinely new message arrives rather than on every render.
+  const lastMarkedReadIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (activeChat && activeChat !== activeChatRef.current) {
@@ -71,6 +75,8 @@ const MessagingPlatform = () => {
       setPage(1);
       setAllMessages([]);
       setHasMore(true);
+      previousMessageCountRef.current = 0;
+      lastMarkedReadIdRef.current = null;
     }
   }, [activeChat]);
 
@@ -113,42 +119,38 @@ const MessagingPlatform = () => {
   // Get current user ID for passing to ChatList
   const currentUserId = isTutorMode
     ? // @ts-ignore
-      currentUserData?.data?.tutorProfile?.id
+    currentUserData?.data?.tutorProfile?.id
     : activeProfile?.id;
 
-  // Only scroll to bottom on initial load or when new messages arrive (not when loading more)
-  const previousMessageCountRef = useRef(0);
-
   useEffect(() => {
-    if (activeChat) {
-      const currentMessageCount = allMessages.length;
+    if (!activeChat) return;
 
-      // Scroll to bottom only if:
-      // 1. First time loading (previousCount is 0)
-      // 2. New messages added at the end (count increased and page is 1)
-      if (
-        previousMessageCountRef.current === 0 ||
-        (page === 1 && currentMessageCount > previousMessageCountRef.current)
-      ) {
-        scrollToBottom();
-      }
+    const currentMessageCount = allMessages.length;
 
-      previousMessageCountRef.current = currentMessageCount;
-      inputRef.current?.focus();
-
-      // Mark messages as read when viewing them
-      if (currentUserId && page === 1) {
-        markAsRead(activeChat, currentUserId);
-      }
+    if (
+      previousMessageCountRef.current === 0 ||
+      (page === 1 && currentMessageCount > previousMessageCountRef.current)
+    ) {
+      scrollToBottom();
     }
-  }, [
-    allMessages,
-    activeChat,
-    scrollToBottom,
-    markAsRead,
-    currentUserId,
-    page,
-  ]);
+
+    previousMessageCountRef.current = currentMessageCount;
+    inputRef.current?.focus();
+  }, [allMessages, activeChat, scrollToBottom, page]);
+
+  // Mark messages as read when the chat is opened OR when a new message
+  // arrives while the chat is already open. Using a ref to track the last
+  // marked message ID prevents the read→invalidate→refetch→read loop that
+  // would occur if we called markAsRead on every allMessages reference change.
+  useEffect(() => {
+    if (!activeChat || !currentUserId || allMessages.length === 0) return;
+
+    const lastMessage = allMessages[allMessages.length - 1];
+    if (lastMessage._id === lastMarkedReadIdRef.current) return;
+
+    lastMarkedReadIdRef.current = lastMessage._id;
+    markAsRead(activeChat, currentUserId);
+  }, [activeChat, currentUserId, allMessages, markAsRead]);
 
   useEscapeClose(() => {
     setActiveChat(null);
@@ -160,7 +162,7 @@ const MessagingPlatform = () => {
       // Determine the correct sender ID based on mode
       const senderId = isTutorMode
         ? // @ts-ignore
-          currentUserData?.data?.tutorProfile?.id
+        currentUserData?.data?.tutorProfile?.id
         : activeProfile?.id;
 
       if ((newMessage.trim() || file) && activeChat && senderId) {
@@ -170,10 +172,10 @@ const MessagingPlatform = () => {
             senderId: senderId,
             senderName: isTutorMode
               ? // @ts-ignore
-                currentUserData?.data?.firstName +
-                " " +
-                // @ts-ignore
-                currentUserData?.data?.lastName
+              currentUserData?.data?.firstName +
+              " " +
+              // @ts-ignore
+              currentUserData?.data?.lastName
               : activeProfile?.name || "",
             content: newMessage,
             media: file,
@@ -200,21 +202,16 @@ const MessagingPlatform = () => {
   const handleSelectChat = (id: string) => {
     setActiveChat(id);
     setShowChatList(false);
-    // Reset selection mode when switching chats
     setSelectionMode(false);
     setSelectedMessages(new Set());
   };
 
-  // Selection mode handlers
   const handleToggleSelection = (messageId: string) => {
     setSelectedMessages((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(messageId)) {
-        newSet.delete(messageId);
-      } else {
-        newSet.add(messageId);
-      }
-      return newSet;
+      const next = new Set(prev);
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
+      return next;
     });
   };
 
@@ -266,9 +263,8 @@ const MessagingPlatform = () => {
         </div>
 
         <div
-          className={`${
-            showChatList ? "hidden md:flex" : "flex"
-          } flex-1 flex-col`}
+          className={`${showChatList ? "hidden md:flex" : "flex"
+            } flex-1 flex-col`}
         >
           {activeChat && (
             <ChatHeader
@@ -312,11 +308,10 @@ const MessagingPlatform = () => {
                       <button
                         onClick={handleLoadMore}
                         disabled={isFetching}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          isFetching
-                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                            : "bg-blue-500 text-white hover:bg-blue-600 hover:shadow-md"
-                        }`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${isFetching
+                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                          : "bg-blue-500 text-white hover:bg-blue-600 hover:shadow-md"
+                          }`}
                       >
                         {isFetching ? (
                           <span className="flex items-center space-x-2">
@@ -349,32 +344,76 @@ const MessagingPlatform = () => {
                     </div>
                   )}
 
-                  {getCurrentMessages().map((message: Message) => {
-                    // Determine the correct user ID for comparison based on mode
-                    const currentUserId = isTutorMode
+                  {(() => {
+                    const messages = getCurrentMessages();
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+
+                    const groups = new Map<string, Message[]>();
+                    for (const m of messages) {
+                      const d = m.createdAt ? new Date(m.createdAt) : null;
+                      // Skip messages that haven't received a server timestamp yet
+                      // (briefly true while the optimistic socket update is in flight)
+                      if (!d || isNaN(d.getTime())) continue;
+                      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                      if (!groups.has(key)) groups.set(key, []);
+                      groups.get(key)!.push(m);
+                    }
+
+                    const sortedKeys = Array.from(groups.keys()).sort();
+                    const currentUserIdForBubble = isTutorMode
                       ? // @ts-ignore
-                        currentUserData?.data?.tutorProfile?.id
+                      currentUserData?.data?.tutorProfile?.id
                       : activeProfile?.id;
 
-                    return (
-                      <MessageBubble
-                        key={message._id}
-                        message={message}
-                        chats={chatList}
-                        activeChat={activeChat}
-                        currentUserId={currentUserId}
-                        isSelected={selectedMessages.has(message._id)}
-                        onSelect={() => handleToggleSelection(message._id)}
-                        onDeselect={() => handleToggleSelection(message._id)}
-                        onToggleSelection={() =>
-                          setSelectionMode(!selectionMode)
-                        }
-                        selectionMode={selectionMode}
-                      />
-                    );
-                  })}
+                    return sortedKeys.map((dateKey) => {
+                      const dayMessages = groups.get(dateKey)!;
+                      const firstDate = new Date(dayMessages[0].createdAt);
+                      firstDate.setHours(0, 0, 0, 0);
+                      let label: string;
+                      if (firstDate.getTime() === today.getTime()) {
+                        label = "Today";
+                      } else if (firstDate.getTime() === yesterday.getTime()) {
+                        label = "Yesterday";
+                      } else {
+                        label = firstDate.toLocaleDateString(undefined, {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        });
+                      }
+                      return (
+                        <div key={dateKey} className="mb-4">
+                          <div className="flex justify-center my-3">
+                            <span className="text-xs font-medium text-gray-500 bg-gray-200/80 px-3 py-1 rounded-full">
+                              {label}
+                            </span>
+                          </div>
+                          {dayMessages.map((message: Message) => (
+                            <MessageBubble
+                              key={message._id}
+                              message={message}
+                              chats={chatList}
+                              activeChat={activeChat}
+                              currentUserId={currentUserIdForBubble}
+                              isSelected={selectedMessages.has(message._id)}
+                              onSelect={() => handleToggleSelection(message._id)}
+                              onDeselect={() => handleToggleSelection(message._id)}
+                              onToggleSelection={() =>
+                                setSelectionMode(!selectionMode)
+                              }
+                              selectionMode={selectionMode}
+                            />
+                          ))}
+                        </div>
+                      );
+                    });
+                  })()}
 
-                  <div ref={messagesEndRef} />
+                  <div ref={messagesEndRef} className="pb-12" />
                 </>
               )}
             </div>

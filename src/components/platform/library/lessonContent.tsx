@@ -2,6 +2,7 @@
 
 import React from "react";
 import BackArrow from "@/assets/svgs/arrowback";
+import type { Quiz } from "@/lib/types";
 import LessonVideoPlayer from "./lessonVideoPlayer";
 import LessonQuizzes from "./lessonQuizzes";
 
@@ -22,26 +23,18 @@ interface Video {
   fileName?: string;
 }
 
-interface Quiz {
-  id?: string;
-  title: string;
-  questionsCount?: number;
-  questions?: any[];
-  status: string;
-}
-
 interface LessonContentProps {
   selectedLesson: string;
   selectedCurriculum: string;
   lessonLoading: boolean;
   lessonData:
-    | {
-        title: string;
-        description?: string;
-        videos?: Video[];
-      }
-    | null
-    | undefined;
+  | {
+    title: string;
+    description?: string;
+    videos?: Video[];
+  }
+  | null
+  | undefined;
   currentLesson: Lesson | null | undefined;
   videos: Video[];
   quizzes: Quiz[];
@@ -70,7 +63,13 @@ export default function LessonContent({
   onBack,
   showTitleAndDescription = true,
 }: LessonContentProps) {
-  if (!selectedLesson) {
+  const playableVideos = React.useMemo(() => {
+    return (videos || []).filter(
+      (v) => Boolean(v?.fileName?.trim()) && Boolean(v?.playbackUrl?.trim())
+    );
+  }, [videos]);
+
+  if (!selectedLesson && !lessonData) {
     return (
       <div className="text-center py-12">
         <p className="text-textSubtitle text-lg">
@@ -111,14 +110,14 @@ export default function LessonContent({
         <div className="space-y-2">
           <h2 className="text-2xl font-bold">{lessonData.title}</h2>
           <p className="text-textSubtitle">
-            {lessonData.description || "No description available"}
+            {lessonData.description || ""}
           </p>
         </div>
       )}
 
       {/* Video Player(s) */}
       <LessonVideoPlayer
-        videos={videos}
+        videos={playableVideos}
         resumePositionSec={resumePositionSec}
         isCompleted={isCompleted}
         activeProfileId={activeProfileId}

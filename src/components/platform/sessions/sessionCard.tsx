@@ -16,6 +16,7 @@ const SessionSection = ({
   onConfirm,
   onComplete,
   onBook,
+  isPrevious,
 }: {
   title: string;
   description: string;
@@ -24,6 +25,7 @@ const SessionSection = ({
   onConfirm?: (session: Session) => void;
   onComplete?: (session: Session) => void;
   onBook?: (session: Session) => void;
+  isPrevious?: boolean;
 }) => {
   if (sessions.length === 0) return null;
 
@@ -42,6 +44,7 @@ const SessionSection = ({
           onConfirm={onConfirm}
           onComplete={onComplete}
           onBook={onBook}
+          isPrevious={isPrevious}
         />
       ))}
     </div>
@@ -55,25 +58,38 @@ const SessionCard = ({
   onConfirm,
   onComplete,
   onBook,
+  isPrevious,
 }: {
   session: Session;
   onCancel: (id: string) => void;
   onConfirm?: (session: Session) => void;
   onComplete?: (session: Session) => void;
   onBook?: (session: Session) => void;
+  isPrevious?: boolean;
 }) => {
   const displayDate = formatDisplayDate(session.date);
   const isConfirmedOrBooked =
-    session.status === "confirmed" || session.status === "booked";
+    session.status === "confirmed" ||
+    session.status === "booked" ||
+    session.status === "pending";
 
-  // Only fetch meeting URL for confirmed/booked sessions
+  // Only fetch meeting URL for upcoming confirmed/booked sessions
   const { data: meetingUrlData, isLoading: isLoadingUrl } =
-    useGetSessionMeetingUrl(isConfirmedOrBooked ? session.id : "");
+    useGetSessionMeetingUrl(
+      isConfirmedOrBooked && !isPrevious ? session.id : ""
+    );
 
-  // Append role parameter to meeting URL for regular users
   const meetingUrl = meetingUrlData?.data
     ? `${meetingUrlData.data}?role=user`
     : undefined;
+
+  // Status label: skip "confirmed" entirely
+  const statusLabel =
+    session.status === "confirmed"
+      ? null
+      : session.status
+        ? session.status.charAt(0).toUpperCase() + session.status.slice(1)
+        : null;
 
   return (
     <div className="flex flex-col md:flex-row md:items-center gap-2 mb-3 last:mb-0">
@@ -96,19 +112,18 @@ const SessionCard = ({
               Issue: {session.issue}
             </div>
           )}
-          {session.status && (
+          {statusLabel && (
             <div className="text-xs">
               <span
                 className={`font-medium ${
-                  session.status === "booked" || session.status === "confirmed"
+                  session.status === "booked"
                     ? "text-green-600"
                     : session.status === "cancelled"
                       ? "text-red-600"
                       : "text-gray-600"
                 }`}
               >
-                {session.status.charAt(0).toUpperCase() +
-                  session.status.slice(1)}
+                {statusLabel}
               </span>
             </div>
           )}
@@ -125,8 +140,8 @@ const SessionCard = ({
             </Button>
           )}
 
-          {/* Join Meeting button for confirmed/booked sessions */}
-          {isConfirmedOrBooked && (
+          {/* Join Meeting — upcoming only */}
+          {!isPrevious && isConfirmedOrBooked && (
             <>
               {isLoadingUrl ? (
                 <Button
@@ -150,36 +165,19 @@ const SessionCard = ({
             </>
           )}
 
-          {onConfirm && session.status === "pending" && (
-            <Button
-              variant="outline"
-              onClick={() => onConfirm(session)}
-              className="bg-blue-600 text-white rounded-full text-xs hover:bg-blue-700"
-            >
-              Confirm
-            </Button>
-          )}
-          {onComplete && session.status === "confirmed" && (
-            <Button
-              variant="outline"
-              onClick={() => onComplete(session)}
-              className="bg-purple-600 text-white rounded-full text-xs hover:bg-purple-700"
-            >
-              Complete
-            </Button>
-          )}
-
-          {session.status !== "cancelled" && 
-           session.status !== "completed" && 
-           session.status !== "available" && (
-            <Button
-              variant="outline"
-              className="rounded-full text-xs text-red-600 hover:bg-red-50 border-red-200"
-              onClick={() => onCancel(session.id)}
-            >
-              Cancel
-            </Button>
-          )}
+          {/* Cancel — upcoming only */}
+          {!isPrevious &&
+            session.status !== "cancelled" &&
+            session.status !== "completed" &&
+            session.status !== "available" && (
+              <Button
+                variant="outline"
+                className="rounded-full text-xs text-red-600 hover:bg-red-50 border-red-200"
+                onClick={() => onCancel(session.id)}
+              >
+                Cancel
+              </Button>
+            )}
         </div>
       </div>
     </div>
@@ -188,7 +186,7 @@ const SessionCard = ({
 
 export default SessionSection;
 
-// Empty State Component
+// Empty State Component (used when the student has never booked any session)
 export const EmptySessionsState = () => {
   const pathname = usePathname();
   return (
@@ -197,13 +195,27 @@ export const EmptySessionsState = () => {
         <CalendarDays className="w-12 h-12 text-blue-600" />
       </div>
       <h3 className="text-xl font-medium text-gray-900 mb-2">
-        No Sessions Booked Yet
+        No Upcoming Sessions
       </h3>
       <p className="text-gray-600 mb-6 max-w-md">
-        You haven't booked any sessions yet. Select a date on the calendar to
-        schedule your first session with a{" "}
+        You have no upcoming sessions. Select a date on the calendar to schedule a session with a{" "}
         {pathname.includes("tutor") ? "student" : "tutor"}.
       </p>
     </div>
   );
 };
+
+// No Upcoming Sessions State (used when student has previous/cancelled sessions but no upcoming ones)
+export const NoUpcomingSessionsState = () => (
+  <div className="bg-white rounded-2xl p-6 shadow-sm border text-center flex flex-col items-center">
+    <div className="bg-gray-100 p-3 rounded-full mb-3">
+      <CalendarDays className="w-8 h-8 text-gray-400" />
+    </div>
+    <h3 className="text-base font-medium text-gray-900 mb-1">
+      No upcoming sessions booked
+    </h3>
+    <p className="text-sm text-gray-500 max-w-xs">
+      Select a date on the calendar to book your next session.
+    </p>
+  </div>
+);

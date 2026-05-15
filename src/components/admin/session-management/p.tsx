@@ -130,14 +130,29 @@ function Sessions() {
     );
   }, [allSessions, filters.search]);
 
-  // Categorize sessions
+  // Categorize by session end datetime: previous = ended, today = today's date and not ended, upcoming = future date
   const { previous, today, upcoming } = useMemo(() => {
-    const todayStr = formatDateString(new Date());
+    const now = new Date();
+    const todayStr = formatDateString(now);
+
+    const getSessionEnd = (session: Session): Date | null => {
+      const endTimeStr = session.timeSlot.split(" - ")[1]?.trim();
+      if (!endTimeStr) return null;
+      return new Date(`${session.date}T${endTimeStr}`);
+    };
+
+    const isSessionEnded = (session: Session): boolean => {
+      const sessionEnd = getSessionEnd(session);
+      if (!sessionEnd) return session.date < todayStr;
+      return now > sessionEnd;
+    };
 
     return {
-      previous: filteredSessions.filter((session) => session.date < todayStr),
-      today: filteredSessions.filter((session) => session.date === todayStr),
-      upcoming: filteredSessions.filter((session) => session.date > todayStr),
+      previous: filteredSessions.filter(isSessionEnded),
+      today: filteredSessions.filter(
+        (s) => s.date === todayStr && !isSessionEnded(s)
+      ),
+      upcoming: filteredSessions.filter((s) => s.date > todayStr),
     };
   }, [filteredSessions]);
 

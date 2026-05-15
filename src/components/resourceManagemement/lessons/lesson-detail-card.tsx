@@ -381,7 +381,7 @@ export function LessonDetailCard({
               <div className="flex items-center gap-2">
                 {lesson.videoUrl && (
                   <Button asChild size="sm" variant="outline">
-                    <Link href={`/admin/lessons/${lesson.id}#video`}>
+                    <Link href={`/admin/lessons/${lesson.id}#video`} className="hover:text-primaryBlue">
                       <PlayCircle className="h-4 w-4 mr-2" />
                       Watch Video
                     </Link>

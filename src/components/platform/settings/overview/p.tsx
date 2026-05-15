@@ -2,11 +2,24 @@ import React from "react";
 import { PadlockIcon } from "@/assets/svgs/padlock";
 import { PaymentMethodIcon } from "@/assets/svgs/paymentCard";
 import { ArrowRightIcon } from "@/assets/svgs/arrowRight";
-import { useGetManageSubscription } from "@/lib/api/queries";
-import { toast } from "react-toastify";
+import { usePostSubscriptionBillingPortal } from "@/lib/api/mutations";
 
 function StepZero({ setStep }: { setStep: (step: number) => void }) {
-  const { data } = useGetManageSubscription();
+  const { mutateAsync: postBillingPortal, isPending } =
+    usePostSubscriptionBillingPortal();
+
+  const handleManagePayment = async () => {
+    if (isPending) return;
+    try {
+      const res = await postBillingPortal();
+      if (res.status === 201 && res.data?.data?.url) {
+        window.open(res.data.data.url, "_self");
+      }
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
   return (
     <>
       <div className="flex items-center gap-4 w-full">
@@ -27,13 +40,8 @@ function StepZero({ setStep }: { setStep: (step: number) => void }) {
           <ArrowRightIcon />
         </div>
         <div
-          onClick={() => {
-            if (data?.data?.url) {
-              toast.success(data.message);
-              window.open(data?.data.url, "_self");
-            }
-          }}
-          className="bg-bgWhiteGray border border-black/20 cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4"
+          onClick={handleManagePayment}
+          className={`bg-bgWhiteGray border border-black/20 rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 ${isPending ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
         >
           <div className="flex items-center gap-2">
             <PaymentMethodIcon />

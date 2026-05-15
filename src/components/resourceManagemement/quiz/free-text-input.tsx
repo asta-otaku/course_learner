@@ -11,6 +11,7 @@ interface FreeTextInputProps {
   maxLength?: number;
   minHeight?: string;
   placeholder?: string;
+  className?: string;
 }
 
 export function FreeTextInput({
@@ -21,6 +22,7 @@ export function FreeTextInput({
   maxLength = 2000,
   minHeight = "60px",
   placeholder = "Type your answer here...",
+  className,
 }: FreeTextInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
@@ -43,7 +45,8 @@ export function FreeTextInput({
         className={cn(
           "resize-none transition-colors",
           "focus:ring-2 focus:ring-blue-500 focus:border-transparent",
-          disabled && "opacity-60 cursor-not-allowed bg-gray-50"
+          disabled && "opacity-60 cursor-not-allowed bg-gray-50",
+          className,
         )}
         style={{ minHeight }}
         aria-label="Free text answer"
@@ -52,18 +55,7 @@ export function FreeTextInput({
 
       <div className="flex justify-between items-center text-sm">
         <span className="text-gray-500">
-          {disabled ? "Answer submitted" : "Enter your answer above"}
-        </span>
-        <span
-          id={`char-count-${questionId}`}
-          className={cn(
-            "transition-colors",
-            isNearLimit ? "text-orange-600 font-medium" : "text-gray-500",
-            characterCount >= maxLength && "text-red-600 font-semibold"
-          )}
-          aria-live="polite"
-        >
-          {characterCount} / {maxLength}
+          {disabled ? "Answer submitted" : ""}
         </span>
       </div>
     </div>

@@ -1,7 +1,11 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useGetQuizAttemptById, useGetQuizQuestions } from "@/lib/api/queries";
+import {
+  useGetQuizAttemptById,
+  useGetQuizQuestions,
+  useGetManageSubscription,
+} from "@/lib/api/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +21,10 @@ import {
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
+import { WatchLessonVideoButton } from "@/components/platform/library/watchLessonVideoButton";
+import { useProfile } from "@/context/profileContext";
+import { QuestionImage } from "@/components/ui/question-image";
 
 interface QuestionWithResults {
   id: string;
@@ -44,10 +52,26 @@ export default function BaselineReviewPage() {
   const router = useRouter();
   const id = params.id as string;
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const { activeProfile } = useProfile();
 
   // id is the quizAttemptId
   const { data: reviewResponse, isLoading, error } = useGetQuizAttemptById(id);
   const review = reviewResponse?.data;
+  const curriculumLessonId = (review as any)?.curriculumLessonId as
+    | string
+    | null
+    | undefined;
+  const { data: manageData } = useGetManageSubscription();
+  const activeProfileId = activeProfile?.id ? String(activeProfile.id) : "";
+  const manageAccessLevel = useMemo(() => {
+    const sub = manageData?.data;
+    if (!sub?.childSubscription || !activeProfileId) return null;
+    const row = sub.childSubscription.find(
+      (r: any) => String(r.childProfileId) === String(activeProfileId),
+    );
+    return row?.accessLevel ?? null;
+  }, [manageData?.data, activeProfileId]);
+  const isTuitionOfferType = manageAccessLevel === "tuition";
 
   const { data: questionsResponse } = useGetQuizQuestions(review?.quizId || "");
 
@@ -70,40 +94,42 @@ export default function BaselineReviewPage() {
           title: qq.question.title,
           content: qq.question.content,
           type: qq.question.type,
-          image_url: qq.question.image_url,
+          image: qq.question.image || qq.question.image_url,
+          image_url: qq.question.image_url || qq.question.image,
+          imageSettings: qq.question.imageSettings,
           explanation: qq.question.explanation,
           metadata: qq.question.metadata,
           options:
             qq.question.type === "multiple_choice" && qq.question.answers
               ? qq.question.answers
-                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                  .map((answer: any) => ({
-                    id: answer.id,
-                    text: answer.content,
-                    isCorrect: answer.isCorrect,
-                  }))
+                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                .map((answer: any) => ({
+                  id: answer.id,
+                  text: answer.content,
+                  isCorrect: answer.isCorrect,
+                }))
               : [],
           ...(qq.question.type === "true_false" && {
             options: qq.question.answers
               ? qq.question.answers
-                  .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                  .map((answer: any) => ({
-                    id: answer.id,
-                    text: answer.content,
-                    isCorrect: answer.isCorrect,
-                  }))
+                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                .map((answer: any) => ({
+                  id: answer.id,
+                  text: answer.content,
+                  isCorrect: answer.isCorrect,
+                }))
               : [
-                  {
-                    id: "true",
-                    text: "True",
-                    isCorrect: qq.question.metadata?.correct_answer === true,
-                  },
-                  {
-                    id: "false",
-                    text: "False",
-                    isCorrect: qq.question.metadata?.correct_answer === false,
-                  },
-                ],
+                {
+                  id: "true",
+                  text: "True",
+                  isCorrect: qq.question.metadata?.correct_answer === true,
+                },
+                {
+                  id: "false",
+                  text: "False",
+                  isCorrect: qq.question.metadata?.correct_answer === false,
+                },
+              ],
           }),
           ...(qq.question.type === "matching_pairs" && {
             pairs: (qq.question.answers?.[0]?.matchingPairs || []).map(
@@ -201,13 +227,12 @@ export default function BaselineReviewPage() {
                 <div>
                   <CardTitle>Baseline Test Review</CardTitle>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => router.push("/baseline-results")}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Results
-                </Button>
+                {isTuitionOfferType && curriculumLessonId?.trim() ? (
+                  <WatchLessonVideoButton
+                    curriculumLessonId={curriculumLessonId}
+                    className="bg-primaryBlue hover:bg-primaryBlue/90"
+                  />
+                ) : null}
               </div>
             </CardHeader>
             <CardContent>
@@ -264,18 +289,13 @@ export default function BaselineReviewPage() {
                   {/* Question Content */}
                   <div>
                     <p className="text-base font-medium mb-2">Question:</p>
-                    <p className="text-base whitespace-pre-wrap">
-                      {currentQ.question.content}
-                    </p>
-                    {currentQ.question.image_url && (
-                      <div className="mt-4">
-                        <img
-                          src={currentQ.question.image_url}
-                          alt="Question illustration"
-                          className="max-w-full h-auto rounded-lg border shadow-sm"
-                          style={{ maxHeight: "400px", objectFit: "contain" }}
-                        />
-                      </div>
+                    <MathPreview content={String(currentQ.question.content ?? "")} renderMarkdown={true} className="text-base text-textGray whitespace-pre-wrap" />
+                    {(currentQ.question.image || currentQ.question.image_url) && (
+                      <QuestionImage
+                        src={currentQ.question.image || currentQ.question.image_url}
+                        alt="Question illustration"
+                        metadata={currentQ.question.imageSettings ? { image_settings: currentQ.question.imageSettings } : undefined}
+                      />
                     )}
                   </div>
 
@@ -284,7 +304,7 @@ export default function BaselineReviewPage() {
                     <div>
                       <p className="text-base font-medium mb-2">Your Answer:</p>
                       {currentQ.question.type === "matching_pairs" &&
-                      currentResult.userAnswerContent ? (
+                        currentResult.userAnswerContent ? (
                         <div className="p-4 bg-gray-50 rounded-lg border">
                           {(() => {
                             try {
@@ -293,9 +313,9 @@ export default function BaselineReviewPage() {
                               ) as Record<string, string>;
                               const correctMatches =
                                 typeof currentResult.correctAnswers[0].content ===
-                                "object"
+                                  "object"
                                   ? (currentResult.correctAnswers[0]
-                                      .content as Record<string, string>)
+                                    .content as Record<string, string>)
                                   : {};
                               return (
                                 <div className="space-y-2">
@@ -350,13 +370,13 @@ export default function BaselineReviewPage() {
                         >
                           <p className="text-base">
                             {currentQ.question.type === "multiple_choice" ||
-                            currentQ.question.type === "true_false"
+                              currentQ.question.type === "true_false"
                               ? currentQ.question.options?.find(
-                                  (opt: any) =>
-                                    opt.id ===
-                                    (currentResult.userAnswerId ||
-                                      currentResult.userAnswerContent)
-                                )?.text || currentResult.userAnswerContent
+                                (opt: any) =>
+                                  opt.id ===
+                                  (currentResult.userAnswerId ||
+                                    currentResult.userAnswerContent)
+                              )?.text || currentResult.userAnswerContent
                               : currentResult.userAnswerContent || "No answer"}
                           </p>
                         </div>
@@ -372,7 +392,7 @@ export default function BaselineReviewPage() {
                       </p>
                       <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
                         {currentQ.question.type === "matching_pairs" &&
-                        typeof currentResult.correctAnswers[0].content ===
+                          typeof currentResult.correctAnswers[0].content ===
                           "object" ? (
                           <div className="space-y-2">
                             {Object.entries(
@@ -391,9 +411,11 @@ export default function BaselineReviewPage() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-base text-green-900 whitespace-pre-wrap">
-                            {getCorrectAnswerText(currentQ.question, currentResult)}
-                          </p>
+                          <MathPreview
+                            content={getCorrectAnswerText(currentQ.question, currentResult)}
+                            renderMarkdown={true}
+                            className="text-base text-green-900 whitespace-pre-wrap"
+                          />
                         )}
                       </div>
                     </div>
@@ -410,11 +432,9 @@ export default function BaselineReviewPage() {
                         <Alert className="border-blue-200 bg-blue-50">
                           <AlertCircle className="h-4 w-4 text-blue-600" />
                           <AlertDescription>
-                            <p className="text-blue-800 whitespace-pre-wrap">
-                              {currentResult.isCorrect
-                                ? currentQ.question.metadata.correctFeedback
-                                : currentQ.question.metadata.incorrectFeedback}
-                            </p>
+                            <MathPreview content={currentResult.isCorrect
+                              ? currentQ.question.metadata.correctFeedback
+                              : currentQ.question.metadata.incorrectFeedback} renderMarkdown={true} className="text-blue-800 whitespace-pre-wrap" />
                           </AlertDescription>
                         </Alert>
                       </div>
@@ -429,16 +449,14 @@ export default function BaselineReviewPage() {
                       <Alert className="border-yellow-200 bg-yellow-50">
                         <AlertCircle className="h-4 w-4 text-yellow-600" />
                         <AlertDescription>
-                          <p className="text-yellow-800 whitespace-pre-wrap">
-                            {(() => {
-                              try {
-                                const parsed = JSON.parse(currentResult.feedback!);
-                                return parsed?.feedback ?? currentResult.feedback;
-                              } catch {
-                                return currentResult.feedback;
-                              }
-                            })()}
-                          </p>
+                          <MathPreview content={(() => {
+                            try {
+                              const parsed = JSON.parse(currentResult.feedback!);
+                              return parsed?.feedback ?? currentResult.feedback;
+                            } catch {
+                              return currentResult.feedback;
+                            }
+                          })()} renderMarkdown={true} className="text-yellow-800 whitespace-pre-wrap" />
                         </AlertDescription>
                       </Alert>
                     </div>
@@ -451,9 +469,11 @@ export default function BaselineReviewPage() {
                       <Alert className="border-blue-200 bg-blue-50">
                         <AlertCircle className="h-4 w-4 text-blue-600" />
                         <AlertDescription>
-                          <p className="text-blue-800 whitespace-pre-wrap">
-                            {currentQ.question.explanation}
-                          </p>
+                          <MathPreview
+                            content={currentQ.question.explanation}
+                            renderMarkdown={true}
+                            className="text-blue-800 whitespace-pre-wrap"
+                          />
                         </AlertDescription>
                       </Alert>
                     </div>

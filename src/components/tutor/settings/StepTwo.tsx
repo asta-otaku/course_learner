@@ -12,7 +12,8 @@ function StepTwo({ setStep }: { setStep: (step: number) => void }) {
 
   // Local profile state initialized with fetched user data
   const [profile, setProfile] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     image: "",
     phone: "",
     email: "",
@@ -24,18 +25,21 @@ function StepTwo({ setStep }: { setStep: (step: number) => void }) {
   // Update profile when user data loads
   useEffect(() => {
     if (user?.data) {
-      // Type assertion since the API returns a different structure than TutorDetails
       const userData = user.data as any;
+      const nested = userData.user;
+      const firstName = String(
+        userData.firstName ?? nested?.firstName ?? ""
+      ).trim();
+      const lastName = String(
+        userData.lastName ?? nested?.lastName ?? ""
+      ).trim();
       setProfile({
-        name:
-          userData.firstName && userData.lastName
-            ? `${userData.firstName} ${userData.lastName}`
-            : "",
+        firstName,
+        lastName,
         image: userData.tutorProfile?.avatar || "",
-        phone: userData.phoneNumber || "",
-        email: userData.email || "",
+        phone: userData.phoneNumber ?? nested?.phoneNumber ?? "",
+        email: userData.email ?? nested?.email ?? "",
       });
-      // Reset changes flag when user data loads
       setHasChanges(false);
     }
   }, [user]);
@@ -76,9 +80,12 @@ function StepTwo({ setStep }: { setStep: (step: number) => void }) {
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  // Handle name change
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setProfile((prev) => ({ ...prev, name: e.target.value }));
+  const handleFirstNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProfile((prev) => ({ ...prev, firstName: e.target.value }));
+    setHasChanges(true);
+  };
+  const handleLastNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProfile((prev) => ({ ...prev, lastName: e.target.value }));
     setHasChanges(true);
   };
   // Handle phone change
@@ -86,19 +93,11 @@ function StepTwo({ setStep }: { setStep: (step: number) => void }) {
     setProfile((prev) => ({ ...prev, phone: e.target.value }));
     setHasChanges(true);
   };
-  // Handle email change
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setProfile((prev) => ({ ...prev, email: e.target.value }));
-    setHasChanges(true);
-  };
-
   // Handle save profile
   const handleSaveProfile = async () => {
     try {
-      // Split the name into firstName and lastName
-      const nameParts = profile.name.trim().split(" ");
-      const firstName = nameParts[0] || "";
-      const lastName = nameParts.slice(1).join(" ") || "";
+      const firstName = profile.firstName.trim();
+      const lastName = profile.lastName.trim();
 
       if (!firstName || !lastName) {
         toast.error("Please enter both first and last name");
@@ -138,6 +137,14 @@ function StepTwo({ setStep }: { setStep: (step: number) => void }) {
     }
   };
 
+  const displayName =
+    `${profile.firstName} ${profile.lastName}`.trim() || "Your name";
+  const initials =
+    [profile.firstName?.charAt(0), profile.lastName?.charAt(0)]
+      .filter(Boolean)
+      .join("")
+      .toUpperCase() || "U";
+
   return (
     <div className="w-full flex flex-col items-center px-4">
       <input
@@ -174,34 +181,53 @@ function StepTwo({ setStep }: { setStep: (step: number) => void }) {
             {profile.image && profile.image !== "null" ? (
               <img
                 src={profile.image}
-                alt={profile.name}
+                alt={displayName}
                 className="w-full h-full object-cover rounded-full"
               />
             ) : (
               <span className="text-lg font-semibold text-gray-600">
-                {profile.name ? profile.name.charAt(0) : "U"}
+                {initials.slice(0, 2)}
               </span>
             )}
             <div className="absolute -bottom-6 right-0 w-10 flex items-center justify-center cursor-pointer">
               <EditPencilIcon />
             </div>
           </div>
-          <div className="font-semibold text-sm mt-3">{profile.name}</div>
+          <div className="font-semibold text-sm mt-3">{displayName}</div>
         </div>
         {/* Personal Details Section */}
         <div className="w-full max-w-2xl mt-10">
           <h3 className="text-sm font-semibold text-black mb-2">
             Personal Details
           </h3>
-          {/* Name */}
+          {/* First name */}
           <div className="flex justify-between items-center py-2 border-b border-gray-200 w-full">
             <div className="w-full">
-              <div className="text-xs font-medium">Name</div>
+              <div className="text-xs font-medium">First name</div>
               <input
                 type="text"
-                value={profile.name}
-                onChange={handleNameChange}
+                autoComplete="given-name"
+                value={profile.firstName}
+                onChange={handleFirstNameChange}
                 className="text-sm text-textSubtitle font-medium bg-transparent border-none focus:outline-none focus:ring-0 py-2 w-full"
+                placeholder="First name"
+              />
+            </div>
+            <div className="cursor-pointer w-10 h-10 flex items-center justify-center">
+              <EditPencilIcon />
+            </div>
+          </div>
+          {/* Last name */}
+          <div className="flex justify-between items-center py-2 border-b border-gray-200 w-full">
+            <div className="w-full">
+              <div className="text-xs font-medium">Last name</div>
+              <input
+                type="text"
+                autoComplete="family-name"
+                value={profile.lastName}
+                onChange={handleLastNameChange}
+                className="text-sm text-textSubtitle font-medium bg-transparent border-none focus:outline-none focus:ring-0 py-2 w-full"
+                placeholder="Last name"
               />
             </div>
             <div className="cursor-pointer w-10 h-10 flex items-center justify-center">
@@ -231,7 +257,6 @@ function StepTwo({ setStep }: { setStep: (step: number) => void }) {
               <input
                 type="email"
                 value={profile.email}
-                onChange={handleEmailChange}
                 className="text-sm text-textSubtitle font-medium bg-transparent border-none focus:outline-none focus:ring-0 py-2 w-full"
                 placeholder="Enter email address"
                 disabled
@@ -247,14 +272,17 @@ function StepTwo({ setStep }: { setStep: (step: number) => void }) {
               // Reset to original values
               if (user?.data) {
                 const userData = user.data as any;
+                const nested = userData.user;
                 setProfile({
-                  name:
-                    userData.firstName && userData.lastName
-                      ? `${userData.firstName} ${userData.lastName}`
-                      : "",
+                  firstName: String(
+                    userData.firstName ?? nested?.firstName ?? ""
+                  ).trim(),
+                  lastName: String(
+                    userData.lastName ?? nested?.lastName ?? ""
+                  ).trim(),
                   image: userData.tutorProfile?.avatar || "",
-                  phone: userData.phoneNumber || "",
-                  email: userData.email || "",
+                  phone: userData.phoneNumber ?? nested?.phoneNumber ?? "",
+                  email: userData.email ?? nested?.email ?? "",
                 });
                 setAvatarFile(null);
                 setHasChanges(false);
