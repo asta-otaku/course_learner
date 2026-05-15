@@ -13,6 +13,16 @@ const PROFILES_KEY = "childProfiles";
 const PROFILE_CHANGE_EVENT = "activeProfileChange";
 const PROFILES_UPDATE_EVENT = "childProfilesUpdate";
 
+/** Marketing pages — no child-profiles / curricula fetches. */
+const PUBLIC_MARKETING_PATHS = ["/contact", "/about", "/faqs"] as const;
+
+function isPublicMarketingPath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  return PUBLIC_MARKETING_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
+
 const getDefaultProfileFromResponse = (
   profilesData: ChildProfile[]
 ): ChildProfile | null => {
@@ -47,6 +57,7 @@ export function useSelectedProfile() {
     // Keep the profile/curricula queries off to avoid 401 retry loops.
     if (p.startsWith("/tutor")) return false;
     if (p.startsWith("/admin")) return false;
+    if (isPublicMarketingPath(p)) return false;
     return true;
   }, [pathname]);
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { Menu, X } from "lucide-react";
-import { useAuthGuard } from "@/components/AuthGuard";
+import { useAuthStatus } from "@/components/AuthGuard";
 
 interface SiteNavProps {
   active?: "about" | "contact" | "faq";
@@ -13,7 +13,7 @@ interface SiteNavProps {
 
 export default function SiteNav({ active }: SiteNavProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { isAuthenticated, isLoading } = useAuthGuard("/sign-in");
+  const { isAuthenticated, isLoading } = useAuthStatus();
   const hideAuthButtons = Boolean(!isLoading && isAuthenticated);
 
   const navLink = (
