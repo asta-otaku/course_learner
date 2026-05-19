@@ -9,6 +9,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { tutorAccountCreationSchema } from "@/lib/schema";
 import { usePostTutorSignUp } from "@/lib/api/mutations";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { z } from "zod";
 import { toast } from "react-toastify";
 
@@ -44,9 +51,15 @@ export default function AccountCreation({
     },
   });
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [countryCode, setCountryCode] = useState("+44");
   const { mutateAsync: postTutorSignUp, isPending } =
     usePostTutorSignUp(isAdmin);
   const { push } = useRouter();
+
+  const countryCodes = [
+    { code: "+44", label: "UK" },
+    { code: "+1", label: "US" },
+  ];
 
   const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
@@ -57,7 +70,12 @@ export default function AccountCreation({
   const toggleVisibility = () => setPasswordVisible((v) => !v);
 
   const onSubmit = async (data: z.infer<typeof tutorAccountCreationSchema>) => {
-    const res = await postTutorSignUp(data);
+    const cleanedPhone = data.phoneNumber.replace(/^0+/, "");
+    const fullPhoneNumber = `${countryCode}${cleanedPhone}`;
+    const res = await postTutorSignUp({
+      ...data,
+      phoneNumber: fullPhoneNumber,
+    });
     if (res.status === 201) {
       toast.success(res.data.message);
       localStorage.setItem(
@@ -184,11 +202,26 @@ export default function AccountCreation({
         {/** Phone */}
         <div className="flex flex-col gap-1">
           <label className="font-medium">Phone Number</label>
-          <Input
-            {...register("phoneNumber")}
-            className="!rounded-xl !h-11 placeholder:text-textSubtitle"
-            placeholder="Type Number"
-          />
+          <div className="flex gap-2">
+            <Select value={countryCode} onValueChange={setCountryCode}>
+              <SelectTrigger className="w-[100px] !rounded-xl !h-11">
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {countryCodes.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              {...register("phoneNumber")}
+              className="!rounded-xl !h-11 placeholder:text-textSubtitle flex-1"
+              placeholder="Type Number"
+              type="tel"
+            />
+          </div>
           {errors.phoneNumber && (
             <span className="text-red-500 text-xs">
               {errors.phoneNumber.message}
