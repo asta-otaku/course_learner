@@ -134,6 +134,7 @@ export function LearningPreviewMedia({
               preload="metadata"
               poster={imageSrc}
               muted
+              controlsList="nodownload noremoteplayback"
               onError={() => setVideoFailed(true)}
             >
               <source src={VIDEO_SRC} type="video/mp4" />
