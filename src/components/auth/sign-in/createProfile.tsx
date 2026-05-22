@@ -342,7 +342,7 @@ function CreateProfile({
             className="h-11 rounded-xl bg-transparent border border-[#D1D5DB] px-4 text-base"
           >
             <option value="platform">Platform</option>
-            <option value="tuition">Tuition</option>
+            <option value="tuition">Guided Learning</option>
           </select>
         </div>
 
