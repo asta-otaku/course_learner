@@ -1652,9 +1652,11 @@ export function QuizPlayer({
                                 );
                               } catch {
                                 return (
-                                  <p className="text-sm text-gray-600">
-                                    {reviewQuestionResult.userAnswerContent}
-                                  </p>
+                                  <MathPreview
+                                    content={String(reviewQuestionResult.userAnswerContent ?? "")}
+                                    renderMarkdown={true}
+                                    className="text-base text-textGray whitespace-pre-wrap"
+                                  />
                                 );
                               }
                             })()}

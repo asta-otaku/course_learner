@@ -296,18 +296,18 @@ export default function QuizAttemptReviewPage() {
 
   const mcTfUserAnswered =
     !currentQ ||
-    !currentResult ||
-    (currentQ.question.type !== "multiple_choice" &&
-      currentQ.question.type !== "true_false")
+      !currentResult ||
+      (currentQ.question.type !== "multiple_choice" &&
+        currentQ.question.type !== "true_false")
       ? true
       : (() => {
-          const r = currentResult;
-          if (r.userAnswerId != null && String(r.userAnswerId).trim() !== "")
-            return true;
-          const c = r.userAnswerContent;
-          if (c == null) return false;
-          return String(c).trim() !== "";
-        })();
+        const r = currentResult;
+        if (r.userAnswerId != null && String(r.userAnswerId).trim() !== "")
+          return true;
+        const c = r.userAnswerContent;
+        if (c == null) return false;
+        return String(c).trim() !== "";
+      })();
   const lessonTitle =
     (quizData as any)?.lessonName || "---";
   const quizName = quizData?.title || "Quiz";
@@ -473,8 +473,8 @@ export default function QuizAttemptReviewPage() {
                     <p className="text-base font-medium mb-2">Your Answer:</p>
                     {(currentQ.question.type === "multiple_choice" ||
                       currentQ.question.type === "true_false") &&
-                    currentQ.question.options &&
-                    currentQ.question.options.length > 0 ? (
+                      currentQ.question.options &&
+                      currentQ.question.options.length > 0 ? (
                       <div className="space-y-3">
                         {!mcTfUserAnswered && (
                           <Alert className="border-muted bg-muted/40">
@@ -495,7 +495,7 @@ export default function QuizAttemptReviewPage() {
                             selectedId !== "" &&
                             (selectedId === option.id ||
                               String(option.text ?? "").trim().toLowerCase() ===
-                                String(selectedId).trim().toLowerCase());
+                              String(selectedId).trim().toLowerCase());
                           const isCorrectOption =
                             (currentResult.correctAnswers?.some(
                               (ans: any) => ans.id === option.id,
@@ -583,9 +583,11 @@ export default function QuizAttemptReviewPage() {
                               );
                             } catch {
                               return (
-                                <p className="text-sm text-gray-600">
-                                  {String(currentResult.userAnswerContent)}
-                                </p>
+                                <MathPreview
+                                  content={String(currentResult.userAnswerContent ?? "")}
+                                  renderMarkdown={true}
+                                  className="text-base text-textGray whitespace-pre-wrap"
+                                />
                               );
                             }
                           })()}
@@ -604,7 +606,7 @@ export default function QuizAttemptReviewPage() {
                           "p-4 rounded-lg border-2",
                           currentResult.userAnswerContent != null &&
                             String(currentResult.userAnswerContent).trim() !==
-                              ""
+                            ""
                             ? currentResult.isCorrect
                               ? "bg-green-50 border-green-300"
                               : "bg-red-50 border-red-300"
@@ -612,7 +614,7 @@ export default function QuizAttemptReviewPage() {
                         )}
                       >
                         {currentResult.userAnswerContent != null &&
-                        String(currentResult.userAnswerContent).trim() !==
+                          String(currentResult.userAnswerContent).trim() !==
                           "" ? (
                           <MathPreview
                             content={String(
@@ -621,13 +623,13 @@ export default function QuizAttemptReviewPage() {
                                 ? currentResult.userAnswerId ||
                                   currentResult.userAnswerContent
                                   ? currentQ.question.options?.find(
-                                      (opt: any) =>
-                                        opt.id ===
-                                        (currentResult.userAnswerId ||
-                                          currentResult.userAnswerContent),
-                                    )?.text ||
-                                    currentResult.userAnswerContent ||
-                                    ""
+                                    (opt: any) =>
+                                      opt.id ===
+                                      (currentResult.userAnswerId ||
+                                        currentResult.userAnswerContent),
+                                  )?.text ||
+                                  currentResult.userAnswerContent ||
+                                  ""
                                   : ""
                                 : currentResult.userAnswerContent || "",
                             )}
@@ -649,44 +651,44 @@ export default function QuizAttemptReviewPage() {
                     currentQ.question.type === "short_answer" ||
                     currentQ.question.type === "long_answer" ||
                     currentQ.question.type === "coding") && (
-                    <div>
-                      <p className="text-base font-medium mb-2 text-green-700">
-                        Correct Answer:
-                      </p>
-                      <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
-                        {currentQ.question.type === "matching_pairs" &&
-                        currentResult.correctAnswers[0] &&
-                        typeof currentResult.correctAnswers[0].content ===
-                          "object" ? (
-                          <div className="space-y-2">
-                            {Object.entries(
-                              currentResult.correctAnswers[0].content as Record<
-                                string,
-                                string
-                              >,
-                            ).map(([left, right]) => (
-                              <div
-                                key={left}
-                                className="p-2 bg-white rounded border border-green-200"
-                              >
-                                <span className="font-medium">{left}</span> →{" "}
-                                <span>{right}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <MathPreview
-                            content={getCorrectAnswerText(
-                              currentQ.question,
-                              currentResult,
-                            )}
-                            className="text-base text-green-900 whitespace-pre-wrap"
-                            renderMarkdown={true}
-                          />
-                        )}
+                      <div>
+                        <p className="text-base font-medium mb-2 text-green-700">
+                          Correct Answer:
+                        </p>
+                        <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
+                          {currentQ.question.type === "matching_pairs" &&
+                            currentResult.correctAnswers[0] &&
+                            typeof currentResult.correctAnswers[0].content ===
+                            "object" ? (
+                            <div className="space-y-2">
+                              {Object.entries(
+                                currentResult.correctAnswers[0].content as Record<
+                                  string,
+                                  string
+                                >,
+                              ).map(([left, right]) => (
+                                <div
+                                  key={left}
+                                  className="p-2 bg-white rounded border border-green-200"
+                                >
+                                  <span className="font-medium">{left}</span> →{" "}
+                                  <span>{right}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <MathPreview
+                              content={getCorrectAnswerText(
+                                currentQ.question,
+                                currentResult,
+                              )}
+                              className="text-base text-green-900 whitespace-pre-wrap"
+                              renderMarkdown={true}
+                            />
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   {/* Question Metadata Feedback */}
                   {currentQ.question.metadata &&

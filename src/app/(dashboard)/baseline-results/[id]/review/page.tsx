@@ -352,9 +352,11 @@ export default function BaselineReviewPage() {
                               );
                             } catch {
                               return (
-                                <p className="text-sm text-gray-600">
-                                  {currentResult.userAnswerContent}
-                                </p>
+                                <MathPreview
+                                  content={String(currentResult.userAnswerContent ?? "")}
+                                  renderMarkdown={true}
+                                  className="text-base text-textGray whitespace-pre-wrap"
+                                />
                               );
                             }
                           })()}
@@ -368,17 +370,15 @@ export default function BaselineReviewPage() {
                               : "bg-red-50 border-red-300"
                           )}
                         >
-                          <p className="text-base">
-                            {currentQ.question.type === "multiple_choice" ||
+                          <MathPreview
+                            content={String(currentQ.question.type === "multiple_choice" ||
                               currentQ.question.type === "true_false"
                               ? currentQ.question.options?.find(
-                                (opt: any) =>
-                                  opt.id ===
-                                  (currentResult.userAnswerId ||
-                                    currentResult.userAnswerContent)
-                              )?.text || currentResult.userAnswerContent
-                              : currentResult.userAnswerContent || "No answer"}
-                          </p>
+                                (opt: any) => opt.id === (currentResult.userAnswerId || currentResult.userAnswerContent))?.text || currentResult.userAnswerContent
+                              : currentResult.userAnswerContent || "")}
+                            renderMarkdown={true}
+                            className="text-base text-textGray whitespace-pre-wrap"
+                          />
                         </div>
                       )}
                     </div>
