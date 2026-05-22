@@ -396,8 +396,8 @@ function Page() {
                       setStep(1);
                     }}
                     className={`bg-bgWhiteGray border cursor-pointer rounded-xl px-4 py-6 flex justify-between w-full items-center gap-4 relative ${profile.isActive === false
-                        ? "border-gray-300 bg-gray-50"
-                        : "border-black/20"
+                      ? "border-gray-300 bg-gray-50"
+                      : "border-black/20"
                       }`}
                   >
                     <div className="flex items-center gap-2">
@@ -547,7 +547,7 @@ function Page() {
                 </div>
               </form>
 
-              {isEditMode && selectedProfile && (
+              {/* {isEditMode && selectedProfile && (
                 <div className="w-full max-w-3xl mt-8">
                   <h3 className="text-sm font-semibold text-black mb-2">Manage Account</h3>
                   <div className="flex justify-between items-start">
@@ -617,7 +617,7 @@ function Page() {
                     </AlertDialog>
                   </div>
                 </div>
-              )}
+              )} */}
             </div>
           ),
         }[step]
