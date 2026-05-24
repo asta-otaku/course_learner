@@ -269,7 +269,7 @@ export default function TutorHomeworkReviewPage() {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <CardTitle>Homework Review - Tutor View</CardTitle>
-                    {review?.status === "reviewed" && (
+                    {review.isBuddyReviewed && (
                       <Badge variant="default" className="ml-2">
                         Reviewed
                       </Badge>
@@ -277,7 +277,7 @@ export default function TutorHomeworkReviewPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {review?.status !== "reviewed" && (
+                  {!review.isBuddyReviewed && (
                     <Button
                       onClick={() => setShowMarkReviewedDialog(true)}
                       disabled={isMarkingAsReviewed}

@@ -1098,6 +1098,7 @@ export interface HomeworkReview {
   timeSpent: number;
   /** When set (e.g. tuition-linked homework), links to curriculum lesson video. */
   curriculumLessonId?: string | null;
+  isBuddyReviewed: boolean;
 }
 
 export interface Section {
