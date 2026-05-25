@@ -1951,6 +1951,26 @@ export const usePatchMarkHomeworkAsReviewed = (id: string) => {
   });
 };
 
+export const usePatchDismissHomeworkReview = (id: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-dismiss-homework-review", id],
+    mutationFn: (): Promise<ApiResponse<Homework>> =>
+      axiosInstance.patch(`/homework/${id}/dismiss-from-list`, {
+        removedFromList: true,
+      }),
+    onSuccess: (data: ApiResponse<Homework>) => {
+      queryClient.invalidateQueries({
+        queryKey: ["homeworks"],
+      });
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
 // Baseline Test Mutations
 export const usePostBaselineTest = () => {
   const queryClient = useQueryClient();

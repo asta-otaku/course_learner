@@ -5,6 +5,7 @@ import { useGetHomeworkById, useGetQuizQuestions } from "@/lib/api/queries";
 import {
   usePatchAddQuizFeedback,
   usePatchMarkHomeworkAsReviewed,
+  usePatchDismissHomeworkReview
 } from "@/lib/api/mutations";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +81,10 @@ export default function TutorHomeworkReviewPage() {
   // Mark as reviewed mutation
   const { mutate: markAsReviewed, isPending: isMarkingAsReviewed } =
     usePatchMarkHomeworkAsReviewed(id);
+
+  // Dismiss from list mutation
+  const { mutate: dismissFromList, isPending: isDismissingFromList } =
+    usePatchDismissHomeworkReview(id);
 
   // Fetch questions for the quiz
   const { data: questionsResponse } = useGetQuizQuestions(review?.quizId || "");
@@ -294,7 +299,13 @@ export default function TutorHomeworkReviewPage() {
                   )}
                   <Button
                     variant="outline"
-                    onClick={() => router.push("/tutor/homework")}
+                    onClick={() => {
+                      dismissFromList(undefined, {
+                        onSuccess: () => {
+                          router.push("/tutor/homework");
+                        },
+                      });
+                    }}
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Back to Homework
