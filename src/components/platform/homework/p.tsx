@@ -150,20 +150,20 @@ export default function HomeworkStatusPage() {
                                 <Badge
                                   variant={
                                     isMarked ||
-                                    isBuddyReviewed ||
-                                    isAwaitingBuddyReview ||
-                                    isTodo
+                                      isBuddyReviewed ||
+                                      isAwaitingBuddyReview ||
+                                      isTodo
                                       ? "default"
                                       : "secondary"
                                   }
                                   className={cn(
                                     "font-medium",
                                     isTodo &&
-                                      "bg-amber-500 hover:bg-amber-500/90 text-white",
+                                    "bg-amber-500 hover:bg-amber-500/90 text-white",
                                     isAwaitingBuddyReview &&
-                                      "bg-primaryBlue hover:bg-primaryBlue/90 text-white",
+                                    "bg-primaryBlue hover:bg-primaryBlue/90 text-white",
                                     (isBuddyReviewed || isMarked) &&
-                                      "bg-emerald-600 hover:bg-emerald-600/90 text-white"
+                                    "bg-emerald-600 hover:bg-emerald-600/90 text-white"
                                   )}
                                 >
                                   {status}
@@ -267,7 +267,7 @@ export default function HomeworkStatusPage() {
                           const type = String(item.type ?? "").toLowerCase();
                           const scoreText =
                             typeof item.score === "number" && !Number.isNaN(item.score)
-                              ? `${Math.round(item.score)}%`
+                              ? `${Math.round(item.score)}`
                               : "—";
                           const isPassed = item.isPassed === true;
                           const result = isPassed ? "Passed" : "Failed";
@@ -287,7 +287,7 @@ export default function HomeworkStatusPage() {
                                   variant={isPassed ? "default" : "destructive"}
                                   className={cn(
                                     isPassed &&
-                                      "bg-emerald-600 hover:bg-emerald-600/90"
+                                    "bg-emerald-600 hover:bg-emerald-600/90"
                                   )}
                                 >
                                   {result}
