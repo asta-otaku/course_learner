@@ -19,6 +19,7 @@ import {
   TutorDetails,
   TransformedTutorProfile,
   type QuizPlayerQuestion,
+  type QuizPlayerQuestionItem,
   type QuizQuestionResult,
   type QuizSubmissionResults,
 } from "./types";
@@ -911,14 +912,91 @@ export function parseQuizQuestionSubmitResponse(
   };
 }
 
-export function getCorrectAnswerText(
-  question: QuizPlayerQuestion,
-  result: QuizQuestionResult
+type QuizQuestionLike = QuizPlayerQuestion | QuizPlayerQuestionItem;
+
+function getQuizQuestionItem(question: QuizQuestionLike): QuizPlayerQuestionItem {
+  return "question" in question && question.question
+    ? question.question
+    : (question as QuizPlayerQuestionItem);
+}
+
+/** Resolve MC/TF option label from id or raw answer value (matches review pages). */
+export function findQuizOptionDisplayText(
+  options: Array<{ id: string; text: string }> | undefined,
+  answerRef: string | null | undefined,
+): string | null {
+  if (!options?.length || answerRef == null) return null;
+  const ref = String(answerRef).trim();
+  if (!ref) return null;
+  const option = options.find(
+    (opt) =>
+      opt.id === ref ||
+      String(opt.text ?? "").trim().toLowerCase() === ref.toLowerCase(),
+  );
+  return option?.text != null ? String(option.text) : null;
+}
+
+export function getQuizUserAnswerDisplayText(
+  question: QuizQuestionLike,
+  result: Pick<QuizQuestionResult, "userAnswerId" | "userAnswerContent">,
 ): string {
+  const q = getQuizQuestionItem(question);
+  const ref =
+    result.userAnswerId != null && String(result.userAnswerId).trim() !== ""
+      ? String(result.userAnswerId)
+      : result.userAnswerContent != null
+        ? String(result.userAnswerContent)
+        : "";
+
+  if (
+    (q.type === "multiple_choice" || q.type === "true_false") &&
+    q.options?.length
+  ) {
+    return findQuizOptionDisplayText(q.options, ref) ?? ref;
+  }
+
+  return ref;
+}
+
+function resolveCorrectAnswerEntryText(
+  q: QuizPlayerQuestionItem,
+  ans: QuizQuestionResult["correctAnswers"][number],
+): string {
+  if (typeof ans.content === "object" && ans.content !== null) {
+    return Object.entries(ans.content as Record<string, string>)
+      .map(([left, right]) => `${left} → ${right}`)
+      .join("\n");
+  }
+
+  const contentStr = ans.content != null ? String(ans.content) : "";
+  const idStr = ans.id != null ? String(ans.id).trim() : "";
+
+  if (
+    (q.type === "multiple_choice" || q.type === "true_false") &&
+    q.options?.length
+  ) {
+    return (
+      findQuizOptionDisplayText(q.options, idStr) ??
+      findQuizOptionDisplayText(q.options, contentStr) ??
+      contentStr
+    );
+  }
+
+  return contentStr || idStr;
+}
+
+export function getCorrectAnswerText(
+  question: QuizQuestionLike,
+  result: QuizQuestionResult,
+): string {
+  const q = getQuizQuestionItem(question);
+  const correctAnswers = Array.isArray(result.correctAnswers)
+    ? result.correctAnswers
+    : [];
+
   // Some endpoints don't include correctAnswers for unanswered questions.
   // Fall back to the question payload where possible.
-  if (result.correctAnswers.length === 0) {
-    const q = question.question;
+  if (correctAnswers.length === 0) {
     if (q.type === "matching_pairs") {
       const pairs = Array.isArray(q.correctAnswer)
         ? (q.correctAnswer as any[])
@@ -939,13 +1017,17 @@ export function getCorrectAnswerText(
         return correctOptions.map((o: any) => String(o.text ?? "")).join(" or ");
       }
       if (typeof (q as any).correctAnswer === "string") {
-        const opt = q.options.find((o: any) => o.id === (q as any).correctAnswer);
-        if (opt?.text) return String(opt.text);
+        const fromId = findQuizOptionDisplayText(
+          q.options,
+          (q as any).correctAnswer,
+        );
+        if (fromId) return fromId;
       }
     }
 
-    const possible =
-      Array.isArray((q as any).correctAnswers) ? (q as any).correctAnswers : [];
+    const possible = Array.isArray((q as any).correctAnswers)
+      ? (q as any).correctAnswers
+      : [];
     if (possible.length > 0) {
       return possible.map((a: any) => String(a)).join(" or ");
     }
@@ -956,27 +1038,16 @@ export function getCorrectAnswerText(
 
     return "No correct answer";
   }
+
   if (
-    question.question.type === "matching_pairs" &&
-    typeof result.correctAnswers[0].content === "object"
+    q.type === "matching_pairs" &&
+    typeof correctAnswers[0]?.content === "object"
   ) {
-    const matches = result.correctAnswers[0].content as Record<string, string>;
-    return Object.entries(matches)
-      .map(([left, right]) => `${left} → ${right}`)
-      .join("\n");
+    return resolveCorrectAnswerEntryText(q, correctAnswers[0]);
   }
-  if (
-    (question.question.type === "multiple_choice" ||
-      question.question.type === "true_false") &&
-    question.question.options
-  ) {
-    const correctAnswer = result.correctAnswers[0];
-    const option = question.question.options.find(
-      (opt) => opt.id === correctAnswer.id
-    );
-    return option?.text || correctAnswer.content.toString();
-  }
-  return result.correctAnswers
-    .map((ans) => ans.content.toString())
+
+  return correctAnswers
+    .map((ans) => resolveCorrectAnswerEntryText(q, ans))
+    .filter((text) => text.trim() !== "")
     .join(" or ");
 }

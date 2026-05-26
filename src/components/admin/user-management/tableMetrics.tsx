@@ -234,7 +234,7 @@ function TableMetrics({
                         parent.planType
                       )}`}
                     >
-                      {parent.planType}
+                      {parent.planType === "tuition" ? "Guided Learning" : "The Platform"}
                     </span>
                   </td>
 

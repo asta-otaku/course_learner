@@ -74,6 +74,8 @@ export default function TutorHomeworkReviewPage() {
   );
   const [editingFeedback, setEditingFeedback] = useState<string | null>(null);
   const [showMarkReviewedDialog, setShowMarkReviewedDialog] = useState(false);
+  const [showDismissFromListDialog, setShowDismissFromListDialog] =
+    useState(false);
 
   const { data: reviewResponse, isLoading, error } = useGetHomeworkById(id);
   const review = reviewResponse?.data;
@@ -299,13 +301,8 @@ export default function TutorHomeworkReviewPage() {
                   )}
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      dismissFromList(undefined, {
-                        onSuccess: () => {
-                          router.push("/tutor/homework");
-                        },
-                      });
-                    }}
+                    onClick={() => setShowDismissFromListDialog(true)}
+                    disabled={isDismissingFromList}
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Back to Homework
@@ -720,6 +717,61 @@ export default function TutorHomeworkReviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Remove from homework list confirmation */}
+      <AlertDialog
+        open={showDismissFromListDialog}
+        onOpenChange={setShowDismissFromListDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from homework list?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cancel returns you to the homework page without removing this item.
+              Remove from List removes this quiz from your homework list, then
+              returns you to the list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={isDismissingFromList}
+              onClick={() => {
+                setShowDismissFromListDialog(false);
+                router.push("/tutor/homework");
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                dismissFromList(undefined, {
+                  onSuccess: () => {
+                    setShowDismissFromListDialog(false);
+                    toast.success("Removed from homework list");
+                    router.push("/tutor/homework");
+                  },
+                  onError: () => {
+                    toast.error(
+                      "Failed to remove from homework list. Please try again.",
+                    );
+                  },
+                });
+              }}
+              disabled={isDismissingFromList}
+            >
+              {isDismissingFromList ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                "Remove from List"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Mark as Reviewed Confirmation Dialog */}
       <AlertDialog
