@@ -55,6 +55,7 @@ import {
   serializeQuizAnswerForApi,
   parseQuizQuestionSubmitResponse,
   getCorrectAnswerText,
+  getQuizUserAnswerDisplayText,
 } from "@/lib/utils";
 
 export function QuizPlayer({
@@ -1686,8 +1687,9 @@ export function QuizPlayer({
                             String(reviewQuestionResult.userAnswerContent).trim() !==
                             "" ? (
                             <MathPreview
-                              content={String(
-                                reviewQuestionResult.userAnswerContent || "",
+                              content={getQuizUserAnswerDisplayText(
+                                currentQ,
+                                reviewQuestionResult,
                               )}
                               className="text-base text-textGray whitespace-pre-wrap"
                               renderMarkdown={true}
@@ -2337,12 +2339,14 @@ export function QuizPlayer({
                                     ))}
                                   </div>
                                 ) : (
-                                  <p className="text-sm text-green-900 whitespace-pre-wrap">
-                                    {getCorrectAnswerText(
+                                  <MathPreview
+                                    content={getCorrectAnswerText(
                                       currentQ,
                                       currentResult,
                                     )}
-                                  </p>
+                                    renderMarkdown={true}
+                                    className="text-sm text-green-900 whitespace-pre-wrap"
+                                  />
                                 )}
                               </div>
                             </div>
