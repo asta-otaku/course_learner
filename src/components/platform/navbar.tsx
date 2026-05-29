@@ -106,6 +106,25 @@ export default function Navbar() {
     return effectiveOfferType !== "platform" && effectiveOfferType !== "tuition";
   }, [effectiveOfferType, hasResolvedAccessLevel, manageAccessLevel]);
 
+  // Guard 1: No active profile → redirect to profile selection screen.
+  // This covers the case where a user created an account but never created / selected a child profile.
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!isLoaded) return;
+    if (activeProfile) return;
+    const p = pathname || "";
+    // Allow these routes without a profile selected.
+    if (
+      p.startsWith("/select-profile") ||
+      p.startsWith("/sign-in") ||
+      p.startsWith("/sign-up") ||
+      p.startsWith("/pricing")
+    )
+      return;
+    push("/select-profile");
+  }, [isAuthenticated, isLoaded, activeProfile, pathname, push]);
+
+  // Guard 2: Active profile exists but subscription is invalid → redirect to pricing.
   React.useEffect(() => {
     if (!isAuthenticated) return;
     if (!isAccessDenied) return;

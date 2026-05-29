@@ -183,8 +183,14 @@ export default function DashboardClient() {
   }, [isLoaded, activeProfile]);
 
   const offerType = effectiveOfferType;
+  // Only gate access once a profile is selected — if no profile is selected yet,
+  // the Navbar guard will redirect to /select-profile first.
   const isAccessDenied =
-    offerType !== "platform" && offerType !== "tuition";
+    activeProfile != null &&
+    !manageFetching &&
+    !childProfilesFetching &&
+    offerType !== "platform" &&
+    offerType !== "tuition";
 
   React.useEffect(() => {
     if (!isAccessDenied) return;
@@ -202,14 +208,8 @@ export default function DashboardClient() {
     return <DashboardLoadingSkeleton />;
   }
   if (!activeProfile) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">No Profile Selected</h1>
-          <p className="text-gray-600">Please select a profile</p>
-        </div>
-      </div>
-    );
+    // Navbar guard redirects to /select-profile; show skeleton while navigating.
+    return <DashboardLoadingSkeleton />;
   }
 
   if (isAccessDenied) {
