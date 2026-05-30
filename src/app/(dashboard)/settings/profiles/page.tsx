@@ -5,18 +5,7 @@ import { ArrowRightIcon } from "@/assets/svgs/arrowRight";
 import EditPencilIcon from "@/assets/svgs/editPencil";
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
-import { Trash2, Loader } from "lucide-react";
+import { Loader } from "lucide-react";
 import { useGetChildProfile, useGetManageSubscription } from "@/lib/api/queries";
 import { ChildProfile, UpgradeToTuitionPreviewResponse } from "@/lib/types";
 import {

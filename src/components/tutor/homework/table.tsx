@@ -74,7 +74,7 @@ function HomeWorkTable({
               {status === "All"
                 ? "All"
                 : statusLabels[status as keyof typeof statusLabels] ||
-                  status.toUpperCase()}{" "}
+                status.toUpperCase()}{" "}
               <ChevronDown className="h-4 w-4" />
             </button>
           </DropdownMenuTrigger>
@@ -179,10 +179,9 @@ function HomeWorkTable({
                   </td>
                   <td className="py-4 px-4 md:px-0">
                     <span
-                      className={`inline-block rounded-full px-3 py-1 text-xs whitespace-nowrap ${
-                        statusColors[row.status?.toLowerCase()] ||
+                      className={`inline-block rounded-full px-3 py-1 text-xs whitespace-nowrap ${statusColors[row.status?.toLowerCase()] ||
                         "bg-gray-500 text-white"
-                      }`}
+                        }`}
                     >
                       {statusLabels[
                         row.status?.toLowerCase() as keyof typeof statusLabels

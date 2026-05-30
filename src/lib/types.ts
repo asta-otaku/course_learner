@@ -1290,6 +1290,7 @@ export interface HistoryHomeworkItem {
   quizName: string;
   score: number;
   dateCompleted: string;
+  percentage: number;
   isPassed: boolean;
 }
 export interface SchemeOfWork {

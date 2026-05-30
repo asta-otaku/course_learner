@@ -265,10 +265,6 @@ export default function HomeworkStatusPage() {
                               ? anyItem.homeworkId
                               : null;
                           const type = String(item.type ?? "").toLowerCase();
-                          const scoreText =
-                            typeof item.score === "number" && !Number.isNaN(item.score)
-                              ? `${Math.round(item.score)}`
-                              : "—";
                           const isPassed = item.isPassed === true;
                           const result = isPassed ? "Passed" : "Failed";
                           return (
@@ -280,7 +276,7 @@ export default function HomeworkStatusPage() {
                                 {item.quizName || "—"}
                               </TableCell>
                               <TableCell className="tabular-nums text-muted-foreground">
-                                {scoreText}
+                                {item.percentage}%
                               </TableCell>
                               <TableCell>
                                 <Badge
