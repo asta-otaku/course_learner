@@ -62,7 +62,7 @@ export default function AccountCreation({
   };
 
   const handleNext = () => {
-    setCurrentStep(1);
+    setCurrentStep(1); // step 1 is now Subscriptions
   };
 
   const countryCodes = [
@@ -73,7 +73,7 @@ export default function AccountCreation({
   return (
     <>
       <h5 className="text-textSubtitle font-medium uppercase text-sm md:text-base">
-        step {currentStep + 1} out of 3
+        step {currentStep + 1} out of 2
       </h5>
       <h2 className="font-semibold text-primaryBlue text-xl md:text-2xl lg:text-4xl my-3 text-center uppercase">
         {successStep ? "Account created successfully" : "SET UP YOUR ACCOUNT"}
@@ -85,7 +85,7 @@ export default function AccountCreation({
       {successStep ? (
         <div className="mt-6 text-center w-full max-w-md">
           <p className="max-w-[300px] mx-auto text-textGray font-medium text-lg md:text-2xl">
-            Great, now let's create your kid's profile
+            Great, now let's choose your subscription plan
           </p>
           <Button
             onClick={handleNext}

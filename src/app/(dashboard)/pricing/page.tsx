@@ -32,7 +32,14 @@ function Pricing() {
             <Button
               variant="outline"
               className="rounded-full"
-              onClick={() => logout()}
+              onClick={() => {
+                logout();
+                if (typeof window !== "undefined") {
+                  localStorage.removeItem("selectedProfile");
+                  localStorage.removeItem("activeProfile");
+                  localStorage.removeItem("childProfiles");
+                }
+              }}
             >
               Sign out
             </Button>

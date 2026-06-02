@@ -33,7 +33,10 @@ export type PreviewActionType =
   | "upgrade_to_tuition"
   | "remove_tuition"
   | "new_child_tuition"
-  | "add_platform";
+  | "add_platform"
+  | "assign_platform"
+  | "remove_platform"
+  | "assign_tuition";
 
 const ACTION_META: Record<
   PreviewActionType,
@@ -52,6 +55,13 @@ const ACTION_META: Record<
     badge: "Upgrade",
     badgeColor: "bg-violet-100 text-violet-700",
     confirm: "Confirm & Add Guided Learning",
+  },
+  assign_tuition: {
+    title: "Assign Guided Learning",
+    subtitle: "Review what will be charged before confirming.",
+    badge: "Assign seat",
+    badgeColor: "bg-violet-100 text-violet-700",
+    confirm: "Confirm & Assign Guided Learning",
   },
   upgrade_to_tuition: {
     title: "Upgrade to Guided Learning",
@@ -82,6 +92,20 @@ const ACTION_META: Record<
     badgeColor: "bg-emerald-100 text-emerald-700",
     confirm: "Confirm & Add Child",
   },
+  assign_platform: {
+    title: "Assign Platform Seat",
+    subtitle: "No billing changes — platform access is included in your subscription.",
+    badge: "No charge",
+    badgeColor: "bg-emerald-100 text-emerald-700",
+    confirm: "Confirm & Assign Platform",
+  },
+  remove_platform: {
+    title: "Remove Platform Seat",
+    subtitle: "Review what will change on your next invoice.",
+    badge: "Remove seat",
+    badgeColor: "bg-amber-100 text-amber-700",
+    confirm: "Confirm Removal",
+  },
 };
 
 interface SubscriptionPreviewModalProps {
@@ -107,8 +131,8 @@ export function SubscriptionPreviewModal({
   onSkipOptional,
 }: SubscriptionPreviewModalProps) {
   const meta = ACTION_META[actionType];
-  const isRemoval = actionType === "remove_tuition";
-  const isPlatformAdd = actionType === "add_platform";
+  const isRemoval = actionType === "remove_tuition" || actionType === "remove_platform";
+  const isPlatformAdd = actionType === "add_platform" || actionType === "assign_platform";
 
   const nowItems = previewData?.breakdown.filter((b) => b.timing === "now") ?? [];
   const nextItems = previewData?.breakdown.filter((b) => b.timing === "next_billing") ?? [];

@@ -1,8 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import Image from "next/image";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useGetSubscriptionPlans } from "@/lib/api/queries";
 import { usePostSubscriptionCheckout } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
@@ -71,21 +69,7 @@ function planToFeatures(plan: SubscriptionPlan): Feature[] {
   return [];
 }
 
-// Same key as profileSelection / ProfileSetup
-function getCreatedChildProfileFromStorage(): { id: number } | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem("activeProfile");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { id: number };
-    return parsed?.id != null ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 function Subscriptions({ currentStep }: { currentStep?: number }) {
-  const [childProfileId, setChildProfileId] = useState<string | null>(null);
   const [pendingOfferType, setPendingOfferType] = useState<string | null>(null);
   const { data: plansData, isLoading: plansLoading } = useGetSubscriptionPlans();
   const { mutateAsync: postSubscriptionCheckout, isPending } =
@@ -93,24 +77,17 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
 
   const plans = (plansData?.data || []) as SubscriptionPlan[];
 
-  useEffect(() => {
-    const profile = getCreatedChildProfileFromStorage();
-    setChildProfileId(profile ? String(profile.id) : null);
-  }, []);
-
+  // Parent-level checkout — no childProfileId required.
+  // Child profiles are created separately after sign-up on /select-profile.
   const handleSelectPlan = async (offerType: string) => {
-    if (!childProfileId) {
-      toast.error("Child profile not found. Please complete profile setup first.");
-      return;
-    }
     setPendingOfferType(offerType);
     try {
-      const res = await postSubscriptionCheckout({ childProfileId, offerType });
+      const res = await postSubscriptionCheckout({ offerType });
       if (res.status === 201 && res.data?.data?.url) {
         window.open(res.data.data.url, "_self");
       }
     } catch {
-      // Error already handled by mutation
+      // Error handled by mutation
     } finally {
       setPendingOfferType(null);
     }
@@ -121,7 +98,7 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
       <div className="mx-auto w-full h-full p-4 md:p-8 lg:p-12">
         {currentStep != null ? (
           <h5 className="text-textSubtitle font-medium uppercase text-sm md:text-base">
-            step {currentStep + 1} out of 3
+            step {currentStep + 1} out of 2
           </h5>
         ) : null}
         <h2 className="font-semibold text-primaryBlue text-xl md:text-2xl lg:text-4xl my-3 uppercase">

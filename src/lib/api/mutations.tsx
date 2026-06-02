@@ -555,6 +555,43 @@ export const usePostUpgradeToTuitionPreview = () => {
   });
 };
 
+// ── Platform seat mutations ──────────────────────────────────────────────────
+
+export const usePostPlatformSubscription = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["post-platform-subscription"],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<ManageSubscriptionResponse>> =>
+      axiosInstance.post("/subscriptions/platform", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["manage-subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["child-profiles"] });
+    },
+    onError: (error: AxiosError) => handleErrorMessage(error),
+  });
+};
+
+export const useDeletePlatformSubscription = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["delete-platform-subscription"],
+    mutationFn: (data: {
+      childProfileId: string;
+    }): Promise<ApiResponse<ManageSubscriptionResponse>> =>
+      axiosInstance.delete("/subscriptions/platform", { data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["manage-subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["child-profiles"] });
+    },
+    onError: (error: AxiosError) => handleErrorMessage(error),
+  });
+};
+
+
 // Timeslot Mutations
 export const usePostTimeslot = () => {
   const queryClient = useQueryClient();

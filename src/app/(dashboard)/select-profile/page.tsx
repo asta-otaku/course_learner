@@ -22,13 +22,6 @@ function SelectProfileContent() {
     status: "active",
   });
 
-  // If a profile is already selected, skip this screen entirely.
-  React.useEffect(() => {
-    if (isLoaded && activeProfile) {
-      router.replace("/dashboard");
-    }
-  }, [isLoaded, activeProfile, router]);
-
   const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     e.preventDefault();

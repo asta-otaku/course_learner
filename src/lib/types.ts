@@ -499,7 +499,8 @@ export interface UpgradeToTuitionPreviewResponse {
 }
 
 export interface CreateSubscriptionData {
-  childProfileId: string;
+  /** Removed from parent-level checkout — child profile is created separately after signup. */
+  childProfileId?: string;
   offerType: string;
 }
 
