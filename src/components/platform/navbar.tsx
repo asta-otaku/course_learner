@@ -134,7 +134,7 @@ export default function Navbar() {
     if (!isManageLoaded) return;
     if (childAccessLevel !== "locked") return;
     const p = pathname || "";
-    if (p.startsWith("/settings") || p.startsWith("/select-profile") || p.startsWith("/pricing"))
+    if (p.startsWith("/settings") || p.startsWith("/select-profile") || p.startsWith("/pricing") || p.startsWith("/dashboard"))
       return;
     push("/settings/subscription");
   }, [isAuthenticated, isManageLoaded, childAccessLevel, pathname, push]);
