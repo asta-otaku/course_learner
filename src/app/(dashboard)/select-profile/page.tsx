@@ -9,11 +9,9 @@ import ProfileSelection from "@/components/auth/sign-in/profileSelection";
 import CreateProfile from "@/components/auth/sign-in/createProfile";
 import { ChildProfile } from "@/components/auth/sign-up/profileSetup";
 import { AuthGuard } from "@/components/AuthGuard";
-import { useProfile } from "@/context/profileContext";
 
 function SelectProfileContent() {
   const router = useRouter();
-  const { activeProfile, isLoaded } = useProfile();
   const [step, setStep] = useState<number>(1);
   const [data, setData] = useState<ChildProfile>({
     avatar: null,

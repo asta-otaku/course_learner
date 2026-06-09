@@ -13,7 +13,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { childProfileEditSchema } from "@/lib/schema";
 import { z } from "zod";
 import { toast } from "react-toastify";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 // Child profile creation is now decoupled from seat assignment.
 // After creating a profile the parent returns to /select-profile to pick who to view.
@@ -33,7 +33,7 @@ function CreateProfile({
   const router = useRouter();
   const { refetch: refetchChildProfiles } = useGetChildProfile();
   const { mutateAsync: postChildProfiles, isPending } = usePostChildProfiles();
-
+  const pathname = usePathname();
   const {
     register,
     handleSubmit,
@@ -60,7 +60,11 @@ function CreateProfile({
       window.dispatchEvent(new CustomEvent("activeProfileChange", { detail: null }));
     }
     setData({ avatar: null, name: "", year: "", status: "active" });
-    router.replace("/select-profile");
+    if (pathname.includes("select-profile")) {
+      setStep(1);
+    } else {
+      router.replace("/select-profile");
+    }
   };
 
   const handleCreateProfile = async (formData: z.infer<typeof childProfileEditSchema>) => {
