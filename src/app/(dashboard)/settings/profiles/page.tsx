@@ -144,16 +144,17 @@ function Page() {
         });
 
         if (res.status === 201) {
-          toast.success("Profile created! Return to the dashboard to select them.");
-          await syncChildProfiles();
+          toast.success("Profile created! Now assign a seat from the subscription page.");
+          const updated = await syncChildProfiles();
+          // Activate the newly created profile so the parent can assign a seat immediately.
+          const newProfile = (res.data as any)?.data ?? updated[updated.length - 1];
+          if (newProfile && typeof window !== "undefined") {
+            localStorage.setItem("activeProfile", JSON.stringify(newProfile));
+            window.dispatchEvent(new CustomEvent("activeProfileChange", { detail: newProfile }));
+          }
           setAvatarData({ avatar: null, avatarFile: null });
           setStep(0);
-          // Clear active profile so the parent explicitly picks one.
-          if (typeof window !== "undefined") {
-            localStorage.removeItem("activeProfile");
-            window.dispatchEvent(new CustomEvent("activeProfileChange", { detail: null }));
-          }
-          router.push("/select-profile");
+          router.push("/settings/subscription");
         }
       }
     } catch (error) {
