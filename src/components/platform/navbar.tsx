@@ -63,6 +63,10 @@ export default function Navbar() {
     { name: "Sessions", path: "/sessions" },
   ];
 
+  const noPlanRoutes = [
+    { name: "Dashboard", path: "/dashboard" },
+  ];
+
   const activeProfileId = (activeProfile as any)?.id as string | undefined;
   const activeProfileFresh = React.useMemo(() => {
     const list = childProfilesData?.data ?? [];
@@ -134,9 +138,9 @@ export default function Navbar() {
     if (!isManageLoaded) return;
     if (childAccessLevel !== "locked") return;
     const p = pathname || "";
-    if (p.startsWith("/settings") || p.startsWith("/select-profile") || p.startsWith("/pricing") || p.startsWith("/dashboard"))
+    if (p.startsWith("/select-plan") || p.startsWith("/select-profile") || p.startsWith("/pricing") || p.startsWith("/dashboard"))
       return;
-    push("/settings/subscription");
+    push("/select-plan");
   }, [isAuthenticated, isManageLoaded, childAccessLevel, pathname, push]);
 
   // Guard 4: Offer-specific route enforcement.
@@ -146,7 +150,7 @@ export default function Navbar() {
     if (childAccessLevel === "locked") return; // handled by guard 3
     const p = pathname || "";
 
-    if (p.startsWith("/pricing") || p.startsWith("/sign-in") || p.startsWith("/settings")) return;
+    if (p.startsWith("/pricing") || p.startsWith("/sign-in") || p.startsWith("/settings") || p.startsWith("/select-plan")) return;
 
     const sharedPrefixes = ["/dashboard"];
     if (sharedPrefixes.some((pref) => p.startsWith(pref))) return;
@@ -167,7 +171,7 @@ export default function Navbar() {
   }, [isAuthenticated, isManageLoaded, childAccessLevel, effectiveOfferType, pathname, push]);
 
   const routes =
-    effectiveOfferType === "platform" ? platformRoutes : tuitionRoutes;
+    effectiveOfferType === "platform" ? platformRoutes : effectiveOfferType === "tuition" ? tuitionRoutes : noPlanRoutes;
 
   const showMessagesLink = routes.some((r) => r.path === "/messages");
   const { data: chatListData } = useGetStudentChatList({

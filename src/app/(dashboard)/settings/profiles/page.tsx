@@ -158,7 +158,7 @@ function Page() {
           setStep(0);
           setIsSwitching(true);
           await new Promise((resolve) => setTimeout(resolve, 3000));
-          router.push("/settings/subscription");
+          router.push("/select-plan");
         }
       }
     } catch (error) {

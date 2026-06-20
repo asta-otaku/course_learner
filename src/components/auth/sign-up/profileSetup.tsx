@@ -58,9 +58,13 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
       if (res.status === 201) {
         const createdProfile = res.data?.data;
         if (createdProfile && typeof window !== "undefined") {
-          // Mirror profileSelection: store the child we just created for use in Subscriptions
           localStorage.setItem("activeProfile", JSON.stringify(createdProfile));
           localStorage.setItem("childProfiles", JSON.stringify([createdProfile]));
+          // Notify the profile context so it updates without a page reload.
+          window.dispatchEvent(
+            new CustomEvent("activeProfileChange", { detail: createdProfile })
+          );
+          window.dispatchEvent(new Event("childProfilesUpdate"));
         }
         toast.success(res.data.message);
         setCurrentStep(2);

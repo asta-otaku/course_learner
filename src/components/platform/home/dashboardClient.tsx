@@ -220,13 +220,13 @@ export default function DashboardClient() {
         <div className="text-center max-w-md">
           <h1 className="text-2xl font-bold mb-3">No Seat Assigned</h1>
           <p className="text-gray-600 mb-6">
-            {activeProfile.name} doesn&apos;t have an active plan yet. Head to Settings → Subscription to assign one.
+            {activeProfile.name} doesn&apos;t have an active plan yet. Head to Select Plan to assign one.
           </p>
           <Link
-            href="/settings/subscription"
+            href="/select-plan"
             className="inline-flex items-center gap-2 bg-primaryBlue text-white text-sm font-semibold rounded-full px-6 py-2.5 hover:bg-primaryBlue/90 transition"
           >
-            Manage Subscription
+            Select Plan
           </Link>
         </div>
       </div>
