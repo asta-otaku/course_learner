@@ -1,7 +1,7 @@
 import BackArrow from "@/assets/svgs/arrowback";
 import { Button } from "@/components/ui/button";
 import React from "react";
-import { getPlanTypeColors } from "./p";
+import { getPlanTypeColors, getPlanTypeLabel } from "./p";
 
 export default function UserProfile({
   user,
@@ -63,7 +63,7 @@ export default function UserProfile({
                     user.planType
                   )}`}
                 >
-                  {user.planType}
+                  {getPlanTypeLabel(user.planType)}
                 </span>
               </div>
               <Button

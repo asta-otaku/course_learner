@@ -6,6 +6,7 @@ import { usePostSubscriptionCheckout } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { SubscriptionPlan } from "@/lib/types";
 import { BadgeCheck } from "lucide-react";
+import { useProfile } from "@/context/profileContext";
 
 type Feature = { text: string; strong?: boolean };
 
@@ -70,6 +71,10 @@ function planToFeatures(plan: SubscriptionPlan): Feature[] {
 }
 
 function Subscriptions({ currentStep }: { currentStep?: number }) {
+  const { activeProfile } = useProfile();
+  const childProfileId = activeProfile?.id ? String(activeProfile.id) : null;
+  const childName = activeProfile?.name ?? null;
+
   const [pendingOfferType, setPendingOfferType] = useState<string | null>(null);
   const { data: plansData, isLoading: plansLoading } = useGetSubscriptionPlans();
   const { mutateAsync: postSubscriptionCheckout, isPending } =
@@ -77,12 +82,14 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
 
   const plans = (plansData?.data || []) as SubscriptionPlan[];
 
-  // Parent-level checkout — no childProfileId required.
-  // Child profiles are created separately after sign-up on /select-profile.
   const handleSelectPlan = async (offerType: string) => {
+    if (!childProfileId) {
+      toast.error("Child profile not found. Please complete profile setup first.");
+      return;
+    }
     setPendingOfferType(offerType);
     try {
-      const res = await postSubscriptionCheckout({ offerType });
+      const res = await postSubscriptionCheckout({ childProfileId, offerType });
       if (res.status === 201 && res.data?.data?.url) {
         window.open(res.data.data.url, "_self");
       }
@@ -98,11 +105,13 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
       <div className="mx-auto w-full h-full p-4 md:p-8 lg:p-12">
         {currentStep != null ? (
           <h5 className="text-textSubtitle font-medium uppercase text-sm md:text-base">
-            step {currentStep + 1} out of 2
+            step {currentStep + 1} out of 3
           </h5>
         ) : null}
         <h2 className="font-semibold text-primaryBlue text-xl md:text-2xl lg:text-4xl my-3 uppercase">
-          CHOOSE THE PLAN BEST SUITED FOR YOUR CHILD
+          {childName
+            ? `CHOOSE THE PLAN BEST SUITED FOR ${childName.toUpperCase()}`
+            : "CHOOSE THE PLAN BEST SUITED FOR YOUR CHILD"}
         </h2>
         {plansLoading ? (
           <p className="text-textSubtitle text-sm py-8">Loading plans…</p>

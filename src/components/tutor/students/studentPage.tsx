@@ -325,7 +325,7 @@ export default function StudentPage({ id }: { id: string }) {
             value={
               <div className="flex items-center gap-2">
                 <span>
-                  {profile.offerType === "platform" ? "Platform" : "Tuition"}
+                  {profile.offerType === "platform" ? "Platform" : profile.offerType === "tuition" ? "Tuition" : "No Plan"}
                 </span>
                 <Badge
                   className={`px-2 py-0.5 rounded-full text-xs font-medium ${profile.status === "active"

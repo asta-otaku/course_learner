@@ -9,7 +9,26 @@ import { useGetAllParents, useGetTutors } from "@/lib/api/queries";
 export const getPlanTypeColors = (planType: string) => {
   return planType === "tuition"
     ? "bg-green-50 text-[#34C759]"
-    : "bg-orange-50 text-[#C77234]";
+    : planType === "platform"
+      ? "bg-blue-50 text-[#286cff]"
+      : "bg-gray-50 text-[#6b7280]";
+};
+
+export type PlanTypeFilter = "tuition" | "platform" | "no-plan";
+
+export const getPlanTypeLabel = (planType: string) => {
+  if (planType === "tuition") return "Guided Learning";
+  if (planType === "platform") return "The Platform";
+  return "No Plan";
+};
+
+export const planTypeMatchesFilter = (
+  planType: string,
+  filterPlanType?: PlanTypeFilter,
+) => {
+  if (!filterPlanType) return true;
+  if (filterPlanType === "no-plan") return planType === "No Plan";
+  return planType === filterPlanType;
 };
 
 // Statistics data
@@ -52,7 +71,14 @@ function UserManagement() {
   // Create grouped data structure with parents and their children
   const groupedUserData =
     parentsData?.data?.map((parent: any) => {
-      const planType = parent.offerType === "tuition" ? "tuition" : "platform";
+      const planType = parent.offerType == null
+        ? "No Plan"
+        : parent.offerType === "tuition"
+          ? "tuition"
+          : parent.offerType === "platform"
+            ? "platform"
+            : "No Plan";
+
       const canAssignTutor = parent.offerType === "tuition";
 
       return {
@@ -66,7 +92,7 @@ function UserManagement() {
         children: parent.childProfiles.map((child: any) => ({
           id: child.id,
           childName: child.name,
-          year: `Year ${child.year}`,
+          year: child.year,
           avatar: child.avatar,
           assignedTutor: child.tutor ? child.tutor.id : null,
           assignedTutorName: child.tutor
