@@ -23,6 +23,7 @@ import {
   getPeriodEndFromChildProfileRegisterError,
   isChildProfileBlockedByCancelledSubscription,
 } from "@/lib/childProfileCreation";
+import ProfileLoader from "@/components/platform/profile-loader";
 
 const ACCESS_BADGE: Record<string, { label: string; className: string }> = {
   tuition: { label: "Guided Learning", className: "bg-violet-100 text-violet-700 border border-violet-200" },
@@ -55,6 +56,7 @@ function Page() {
 
   const [showChildCreationBlocked, setShowChildCreationBlocked] = useState(false);
   const [childCreationBlockedPeriodEnd, setChildCreationBlockedPeriodEnd] = useState<string | undefined>(undefined);
+  const [isSwitching, setIsSwitching] = useState(false);
 
   const [avatarData, setAvatarData] = useState<{ avatar: string | null; avatarFile: File | null }>({
     avatar: null,
@@ -154,6 +156,7 @@ function Page() {
           }
           setAvatarData({ avatar: null, avatarFile: null });
           setStep(0);
+          setIsSwitching(true);
           router.push("/settings/subscription");
         }
       }
@@ -185,6 +188,7 @@ function Page() {
 
   return (
     <div className="w-full space-y-4">
+      {isSwitching && <ProfileLoader />}
       <input
         type="file"
         ref={fileInputRef}
