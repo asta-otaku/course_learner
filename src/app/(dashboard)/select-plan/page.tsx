@@ -183,7 +183,15 @@ export default function SelectPlanPage() {
         <div className="mx-auto w-full h-full p-4 md:p-8 lg:p-12">
           <h2 className="font-semibold text-primaryBlue text-xl md:text-2xl lg:text-4xl my-3 uppercase">
             {childName
-              ? `CHOOSE THE PLAN BEST SUITED FOR ${childName.toUpperCase()}`
+              ? (
+                <>
+                  CHOOSE THE PLAN BEST SUITED FOR{" "}
+                  <span style={{ textDecoration: "underline" }}>
+                    {childName.toUpperCase()}
+                  </span>
+                </>
+              )
+
               : "CHOOSE THE PLAN BEST SUITED FOR YOUR CHILD"}
           </h2>
 
