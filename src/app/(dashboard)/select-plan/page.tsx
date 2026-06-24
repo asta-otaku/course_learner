@@ -180,14 +180,14 @@ export default function SelectPlanPage() {
       </nav>
 
       <div className="flex items-center flex-col justify-center py-4 md:py-12 lg:py-20 px-4">
-        <div className="mx-auto w-full h-full p-4 md:p-8 lg:p-12">
+        <div className="mx-auto max-w-screen-2xl text-center w-full h-full p-4 md:p-8 lg:p-12">
           <h2 className="font-semibold text-primaryBlue text-xl md:text-2xl lg:text-4xl my-3 uppercase">
             {childName
               ? (
                 <>
                   CHOOSE THE PLAN BEST SUITED FOR{" "}
                   <span style={{ textDecoration: "underline" }}>
-                    {childName.toUpperCase()}
+                    {childName.toUpperCase()}:
                   </span>
                 </>
               )
@@ -223,7 +223,6 @@ export default function SelectPlanPage() {
     </div>
   );
 }
-
 function PlanCard({
   plan,
   onSelect,
@@ -295,3 +294,4 @@ function PlanCard({
     </div>
   );
 }
+

@@ -114,7 +114,7 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
               <>
                 CHOOSE THE PLAN BEST SUITED FOR{" "}
                 <span style={{ textDecoration: "underline" }}>
-                  {childName.toUpperCase()}
+                  {childName.toUpperCase()}:
                 </span>
               </>
             )
@@ -147,7 +147,6 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
 }
 
 export default Subscriptions;
-
 function Card({
   title,
   priceDisplay,
@@ -235,3 +234,4 @@ function Card({
     </div>
   );
 }
+

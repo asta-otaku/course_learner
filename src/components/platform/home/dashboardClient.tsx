@@ -220,7 +220,7 @@ export default function DashboardClient() {
         <div className="text-center max-w-md">
           <h1 className="text-2xl font-bold mb-3">No Seat Assigned</h1>
           <p className="text-gray-600 mb-6">
-            {activeProfile.name} doesn&apos;t have an active plan yet. Head to Select Plan to assign one.
+            {activeProfile.name} doesn&apos;t have an active plan yet. <br />Head to "Select Plan" to assign one.
           </p>
           <Link
             href="/select-plan"
