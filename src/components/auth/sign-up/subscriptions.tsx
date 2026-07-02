@@ -70,10 +70,34 @@ function planToFeatures(plan: SubscriptionPlan): Feature[] {
   return [];
 }
 
+/** Fallback when the profile context hasn't hydrated the just-created child yet. */
+function readProfileFromStorage(): { id: string; name?: string } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const active = localStorage.getItem("activeProfile");
+    if (active) {
+      const parsed = JSON.parse(active);
+      if (parsed?.id) return { id: String(parsed.id), name: parsed.name };
+    }
+    const list = localStorage.getItem("childProfiles");
+    if (list) {
+      const parsed = JSON.parse(list);
+      const first = Array.isArray(parsed) ? parsed[0] : null;
+      if (first?.id) return { id: String(first.id), name: first.name };
+    }
+  } catch {
+    // ignore malformed storage
+  }
+  return null;
+}
+
 function Subscriptions({ currentStep }: { currentStep?: number }) {
   const { activeProfile } = useProfile();
-  const childProfileId = activeProfile?.id ? String(activeProfile.id) : null;
-  const childName = activeProfile?.name ?? null;
+  const storageProfile = activeProfile?.id ? null : readProfileFromStorage();
+  const childProfileId = activeProfile?.id
+    ? String(activeProfile.id)
+    : storageProfile?.id ?? null;
+  const childName = activeProfile?.name ?? storageProfile?.name ?? null;
 
   const [pendingOfferType, setPendingOfferType] = useState<string | null>(null);
   const { data: plansData, isLoading: plansLoading } = useGetSubscriptionPlans();

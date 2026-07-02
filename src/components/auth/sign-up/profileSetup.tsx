@@ -10,7 +10,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { childProfileSchema } from "@/lib/schema";
 import { z } from "zod";
 import { usePostChildProfiles } from "@/lib/api/mutations";
-import { useGetManageSubscription } from "@/lib/api/queries";
+import { useGetChildProfile, useGetManageSubscription } from "@/lib/api/queries";
+import type { ChildProfile as ApiChildProfile } from "@/lib/types";
 import { ChildProfileSubscriptionBlockedDialog } from "@/components/platform/child-profiles/ChildProfileSubscriptionBlockedDialog";
 import {
   getPeriodEndFromChildProfileRegisterError,
@@ -30,6 +31,8 @@ type ChildProfileForm = z.infer<typeof childProfileSchema>;
 
 function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
   const { mutateAsync: postChildProfiles, isPending } = usePostChildProfiles();
+  // Disabled: only used to refetch the authoritative list right after creation.
+  const { refetch: refetchChildProfiles } = useGetChildProfile({ enabled: false });
   const { data: manageData, refetch: refetchManage } = useGetManageSubscription();
   const [showChildCreationBlocked, setShowChildCreationBlocked] = useState(false);
   const [childCreationBlockedPeriodEnd, setChildCreationBlockedPeriodEnd] = useState<
@@ -56,13 +59,48 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
         avatar: data.avatar as File,
       });
       if (res.status === 201) {
-        const createdProfile = res.data?.data;
+        // The register response body is not always a complete profile (and may
+        // omit fields like isActive), so refetch the authoritative list and
+        // resolve the created child from it before advancing. Otherwise the
+        // subscriptions step can end up without a child in storage.
+        let createdProfile: ApiChildProfile | undefined =
+          res.data?.data as unknown as ApiChildProfile | undefined;
+        try {
+          const fresh = await refetchChildProfiles();
+          const list = (fresh.data?.data ?? []) as ApiChildProfile[];
+          if (list.length > 0) {
+            const fromList =
+              (createdProfile?.id &&
+                list.find((p) => String(p.id) === String(createdProfile?.id))) ||
+              list.find((p) => p.name === data.name) ||
+              list[list.length - 1];
+            createdProfile = fromList ?? createdProfile;
+            if (typeof window !== "undefined") {
+              localStorage.setItem("childProfiles", JSON.stringify(list));
+            }
+          }
+        } catch {
+          // Fall back to the POST response below.
+        }
+
         if (createdProfile && typeof window !== "undefined") {
-          localStorage.setItem("activeProfile", JSON.stringify(createdProfile));
-          localStorage.setItem("childProfiles", JSON.stringify([createdProfile]));
+          // Sign-up children are active by default; keep the flag explicit so
+          // profile hydration never drops the profile for a missing isActive.
+          const normalizedProfile = {
+            ...createdProfile,
+            isActive: createdProfile.isActive ?? true,
+          };
+          localStorage.setItem("activeProfile", JSON.stringify(normalizedProfile));
+          const storedList = localStorage.getItem("childProfiles");
+          if (!storedList) {
+            localStorage.setItem(
+              "childProfiles",
+              JSON.stringify([normalizedProfile])
+            );
+          }
           // Notify the profile context so it updates without a page reload.
           window.dispatchEvent(
-            new CustomEvent("activeProfileChange", { detail: createdProfile })
+            new CustomEvent("activeProfileChange", { detail: normalizedProfile })
           );
           window.dispatchEvent(new Event("childProfilesUpdate"));
         }
