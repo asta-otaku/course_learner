@@ -18,6 +18,8 @@ import {
   usePostAddTuitionPreview,
   usePostUpgradeToTuitionPreview,
   usePostDeleteTuitionPreview,
+  usePostPlatformSubscription,
+  useDeletePlatformSubscription,
 } from "@/lib/api/mutations";
 import {
   ManageSubscriptionResponse,
@@ -247,18 +249,17 @@ function Page() {
     usePostSubscriptionBillingPortal();
   const { mutateAsync: cancelAll, isPending: cancelAllPending } =
     useDeleteCancelSubscriptions();
-  const { mutateAsync: upgradeToTuition, isPending: upgradePending } =
-    usePostUpgradeToTuition();
-  const { mutateAsync: addTuitionSeat, isPending: addTuitionPending } =
-    usePostTuitionSubscription();
-  const { mutateAsync: deleteTuition, isPending: deleteTuitionPending } =
-    useDeleteTuitionSubscription();
+  const { mutateAsync: upgradeToTuition } = usePostUpgradeToTuition();
+  const { mutateAsync: addTuitionSeat } = usePostTuitionSubscription();
+  const { mutateAsync: deleteTuition } = useDeleteTuitionSubscription();
   const { mutateAsync: previewAddTuition, isPending: previewAddPending } =
     usePostAddTuitionPreview();
   const { mutateAsync: previewUpgrade, isPending: previewUpgradePending } =
     usePostUpgradeToTuitionPreview();
   const { mutateAsync: previewDeleteTuition, isPending: previewDeletePending } =
     usePostDeleteTuitionPreview();
+  const { mutateAsync: addPlatformSeat } = usePostPlatformSubscription();
+  const { mutateAsync: removePlatformSeat } = useDeletePlatformSubscription();
 
   const sub = manageData?.data as ManageSubscriptionResponse | undefined;
 
@@ -278,7 +279,7 @@ function Page() {
   );
 
   // Preview modal state
-  const [previewData, setPreviewData] = useState<UpgradeToTuitionPreviewResponse | null>(null);
+  const [previewData, setPreviewData] = useState<UpgradeToTuitionPreviewResponse | undefined>(undefined);
   const [previewActionType, setPreviewActionType] = useState<PreviewActionType>("add_tuition");
   const [previewChildId, setPreviewChildId] = useState<string | null>(null);
   const [previewChildName, setPreviewChildName] = useState<string | undefined>(undefined);
@@ -288,13 +289,7 @@ function Page() {
   const [isConfirmingPreview, setIsConfirmingPreview] = useState(false);
 
   const anyPreviewPending = previewAddPending || previewUpgradePending || previewDeletePending;
-  const anyActionPending =
-    billingPending ||
-    cancelAllPending ||
-    upgradePending ||
-    addTuitionPending ||
-    deleteTuitionPending ||
-    anyPreviewPending;
+  const anyActionPending = billingPending || cancelAllPending || anyPreviewPending;
 
   const handleManageSubscription = async () => {
     try {
@@ -318,54 +313,58 @@ function Page() {
     }
   };
 
-  // ── Preview-then-confirm helpers ──────────────────────────────────────────
+  // ── Unified action handler — opens the correct preview modal for each action ──
 
-  const handlePreviewAddTuition = async (childProfileId: string, childName: string) => {
+  const handleAction = async (action: string, childProfileId: string, childName: string) => {
     setActingChildId(childProfileId);
     try {
-      const res = await previewAddTuition({ childProfileId });
-      if (res.data?.data) {
-        setPreviewData(res.data.data);
-        setPreviewActionType("add_tuition");
-        setPreviewChildId(childProfileId);
-        setPreviewChildName(childName);
-        setShowPreviewModal(true);
-      }
-    } catch {
-      // handled by mutation
-    } finally {
-      setActingChildId(null);
-    }
-  };
+      switch (action) {
+        case "assign_platform":
+        case "remove_platform":
+          // Always £0 — open zero-cost confirmation modal directly (no preview API).
+          setPreviewData(undefined);
+          setPreviewActionType(action === "assign_platform" ? "assign_platform" : "remove_platform");
+          setPreviewChildId(childProfileId);
+          setPreviewChildName(childName);
+          setShowPreviewModal(true);
+          break;
 
-  const handlePreviewUpgradeToTuition = async (childProfileId: string, childName: string) => {
-    setActingChildId(childProfileId);
-    try {
-      const res = await previewUpgrade({ childProfileId });
-      if (res.data?.data) {
-        setPreviewData(res.data.data);
-        setPreviewActionType("upgrade_to_tuition");
-        setPreviewChildId(childProfileId);
-        setPreviewChildName(childName);
-        setShowPreviewModal(true);
-      }
-    } catch {
-      // handled by mutation
-    } finally {
-      setActingChildId(null);
-    }
-  };
-
-  const handlePreviewRemoveTuition = async (childProfileId: string, childName: string) => {
-    setActingChildId(childProfileId);
-    try {
-      const res = await previewDeleteTuition({ childProfileId });
-      if (res.data?.data) {
-        setPreviewData(res.data.data);
-        setPreviewActionType("remove_tuition");
-        setPreviewChildId(childProfileId);
-        setPreviewChildName(childName);
-        setShowPreviewModal(true);
+        case "assign_tuition":
+        case "add_tuition": {
+          const res = await previewAddTuition({ childProfileId });
+          if (res.data?.data) {
+            setPreviewData(res.data.data);
+            setPreviewActionType("assign_tuition");
+            setPreviewChildId(childProfileId);
+            setPreviewChildName(childName);
+            setShowPreviewModal(true);
+          }
+          break;
+        }
+        case "remove_tuition": {
+          const res = await previewDeleteTuition({ childProfileId });
+          if (res.data?.data) {
+            setPreviewData(res.data.data);
+            setPreviewActionType("remove_tuition");
+            setPreviewChildId(childProfileId);
+            setPreviewChildName(childName);
+            setShowPreviewModal(true);
+          }
+          break;
+        }
+        case "upgrade_to_tuition": {
+          const res = await previewUpgrade({ childProfileId });
+          if (res.data?.data) {
+            setPreviewData(res.data.data);
+            setPreviewActionType("upgrade_to_tuition");
+            setPreviewChildId(childProfileId);
+            setPreviewChildName(childName);
+            setShowPreviewModal(true);
+          }
+          break;
+        }
+        default:
+          break;
       }
     } catch {
       // handled by mutation
@@ -378,15 +377,35 @@ function Page() {
     if (!previewChildId) return;
     setIsConfirmingPreview(true);
     try {
-      if (previewActionType === "add_tuition") {
-        const res = await addTuitionSeat({ childProfileId: previewChildId });
-        if (res.status === 201) toast.success(res.data.message);
-      } else if (previewActionType === "upgrade_to_tuition") {
-        const res = await upgradeToTuition({ childProfileId: previewChildId });
-        if (res.status === 201) toast.success(res.data.message);
-      } else if (previewActionType === "remove_tuition") {
-        const res = await deleteTuition({ childProfileId: previewChildId });
-        if (res.status === 200) toast.success(res.data.message);
+      switch (previewActionType) {
+        case "assign_tuition":
+        case "add_tuition": {
+          const res = await addTuitionSeat({ childProfileId: previewChildId });
+          if (res.status === 201) toast.success(res.data.message);
+          break;
+        }
+        case "upgrade_to_tuition": {
+          const res = await upgradeToTuition({ childProfileId: previewChildId });
+          if (res.status === 201) toast.success(res.data.message);
+          break;
+        }
+        case "remove_tuition": {
+          const res = await deleteTuition({ childProfileId: previewChildId });
+          if (res.status === 200) toast.success(res.data.message);
+          break;
+        }
+        case "assign_platform": {
+          const res = await addPlatformSeat({ childProfileId: previewChildId });
+          if (res.status === 201) toast.success(res.data.message);
+          break;
+        }
+        case "remove_platform": {
+          const res = await removePlatformSeat({ childProfileId: previewChildId });
+          if (res.status === 200) toast.success(res.data.message);
+          break;
+        }
+        default:
+          break;
       }
       setShowPreviewModal(false);
     } catch {
@@ -502,88 +521,123 @@ function Page() {
           {sub.childSubscription && sub.childSubscription.length > 0 && (
             <div className="bg-white rounded-2xl border border-black/15 shadow-sm p-6">
               <h2 className="text-textGray font-semibold text-lg mb-4">Children / seats</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 text-left text-textSubtitle font-medium">
-                      <th className="pb-3 pr-4">Child</th>
-                      <th className="pb-3 pr-4">Access Level</th>
-                      <th className="pb-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sub.childSubscription.map((row) => {
-                      const isActing = actingChildId === row.childProfileId && anyPreviewPending;
-                      return (
-                        <tr key={row.childProfileId} className="border-b border-gray-100">
-                          <td className="py-3 pr-4 font-medium text-textGray">{row.childName}</td>
-                          <td className="py-3 pr-4 text-textSubtitle">
-                            {formatAccessLevel(row.accessLevel, row.accessEndsAt)}
-                          </td>
-                          <td className="py-3 text-right">
-                            {row.actions?.includes("remove_tuition") ? (
+              <div className="space-y-4">
+                {sub.childSubscription.map((row) => {
+                  const isActingRow = actingChildId === row.childProfileId && anyPreviewPending;
+                  const actions = row.actions ?? [];
+
+                  const ACTION_META: Record<
+                    string,
+                    { label: string; isDestructive: boolean }
+                  > = {
+                    assign_platform: { label: "Add Platform", isDestructive: false },
+                    remove_platform: { label: "Remove Platform", isDestructive: true },
+                    assign_tuition: { label: "Add Guided Learning", isDestructive: false },
+                    add_tuition: { label: "Add Guided Learning", isDestructive: false },
+                    remove_tuition: { label: "Remove Guided Learning", isDestructive: true },
+                    upgrade_to_tuition: { label: "Upgrade to Guided Learning", isDestructive: false },
+                  };
+
+                  const ACCESS_BADGE: Record<string, string> = {
+                    tuition: "bg-violet-100 text-violet-800 border-violet-200",
+                    platform: "bg-sky-100 text-sky-800 border-sky-200",
+                    locked: "bg-gray-100 text-gray-600 border-gray-200",
+                  };
+
+                  const badgeClass =
+                    ACCESS_BADGE[row.accessLevel] ?? "bg-gray-100 text-gray-600 border-gray-200";
+
+                  return (
+                    <div
+                      key={row.childProfileId}
+                      className="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-gray-100 last:border-0"
+                    >
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium text-textGray text-sm">{row.childName}</span>
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium w-fit",
+                            badgeClass,
+                          )}
+                        >
+                          {formatAccessLevel(row.accessLevel, row.accessEndsAt)}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 justify-end">
+                        {actions.length === 0 && (
+                          <span className="text-textSubtitle text-sm">—</span>
+                        )}
+
+                        {actions.includes("choose_plan") && (
+                          <>
+                            <Button
+                              key="choose_platform"
+                              size="sm"
+                              className="rounded-full text-xs bg-primaryBlue text-white hover:bg-primaryBlue/90"
+                              disabled={anyActionPending || isActingRow}
+                              onClick={() =>
+                                handleAction("assign_platform", row.childProfileId, row.childName)
+                              }
+                            >
+                              Add Platform
+                            </Button>
+                            {(sub.state === "tuition_single" ||
+                              sub.state === "tuition_multi") && (
                               <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-full text-xs text-red-600 border-red-200 hover:bg-red-50"
-                                disabled={anyActionPending}
-                                onClick={() =>
-                                  handlePreviewRemoveTuition(row.childProfileId, row.childName)
-                                }
-                              >
-                                {isActing && previewDeletePending ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  "Remove Guided Learning"
-                                )}
-                              </Button>
-                            ) : row.actions?.includes("add_tuition") ? (
-                              <Button
+                                key="choose_tuition"
                                 size="sm"
                                 className="rounded-full text-xs bg-primaryBlue text-white hover:bg-primaryBlue/90"
-                                disabled={anyActionPending}
+                                disabled={anyActionPending || isActingRow}
                                 onClick={() =>
-                                  handlePreviewAddTuition(row.childProfileId, row.childName)
+                                  handleAction("assign_tuition", row.childProfileId, row.childName)
                                 }
                               >
-                                {isActing && previewAddPending ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  "Add Guided Learning"
-                                )}
+                                Add Guided Learning
                               </Button>
-                            ) : row.actions?.includes("upgrade_to_tuition") ? (
-                              <Button
-                                size="sm"
-                                className="rounded-full text-xs bg-primaryBlue text-white hover:bg-primaryBlue/90"
-                                disabled={anyActionPending}
-                                onClick={() =>
-                                  handlePreviewUpgradeToTuition(row.childProfileId, row.childName)
-                                }
-                              >
-                                {isActing && previewUpgradePending ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  "Add Guided Learning"
-                                )}
-                              </Button>
-                            ) : row.actions?.includes("choose_plan") ? (
-                              <Button
-                                size="sm"
-                                asChild
-                                className="rounded-full text-xs bg-primaryBlue text-white hover:bg-primaryBlue/90"
-                              >
-                                <Link href="/pricing">Choose Plan</Link>
-                              </Button>
-                            ) : (
-                              "—"
                             )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </>
+                        )}
+
+                        {actions
+                          .filter((a) => a !== "choose_plan")
+                          .map((action) => {
+                            const meta = ACTION_META[action];
+                            if (!meta) return null;
+                            const isPendingThisAction =
+                              isActingRow &&
+                              ((action === "add_tuition" || action === "assign_tuition") &&
+                                previewAddPending ||
+                                action === "upgrade_to_tuition" && previewUpgradePending ||
+                                action === "remove_tuition" && previewDeletePending);
+                            return (
+                              <Button
+                                key={action}
+                                size="sm"
+                                variant={meta.isDestructive ? "outline" : "default"}
+                                className={cn(
+                                  "rounded-full text-xs",
+                                  meta.isDestructive
+                                    ? "text-red-600 border-red-200 hover:bg-red-50"
+                                    : "bg-primaryBlue text-white hover:bg-primaryBlue/90",
+                                )}
+                                disabled={anyActionPending || isActingRow}
+                                onClick={() =>
+                                  handleAction(action, row.childProfileId, row.childName)
+                                }
+                              >
+                                {isPendingThisAction ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  meta.label
+                                )}
+                              </Button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -671,17 +725,15 @@ function Page() {
       </div>
 
       {/* ── Preview modal ─────────────────────────────────────────────────── */}
-      {previewData && (
-        <SubscriptionPreviewModal
-          open={showPreviewModal}
-          onOpenChange={setShowPreviewModal}
-          previewData={previewData}
-          actionType={previewActionType}
-          childName={previewChildName}
-          onConfirm={handleConfirmPreview}
-          isConfirming={isConfirmingPreview}
-        />
-      )}
+      <SubscriptionPreviewModal
+        open={showPreviewModal}
+        onOpenChange={setShowPreviewModal}
+        previewData={previewData}
+        actionType={previewActionType}
+        childName={previewChildName}
+        onConfirm={handleConfirmPreview}
+        isConfirming={isConfirmingPreview}
+      />
     </div>
   );
 }

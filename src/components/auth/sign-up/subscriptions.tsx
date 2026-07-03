@@ -1,13 +1,12 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import Image from "next/image";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useGetSubscriptionPlans } from "@/lib/api/queries";
 import { usePostSubscriptionCheckout } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { SubscriptionPlan } from "@/lib/types";
 import { BadgeCheck } from "lucide-react";
+import { useProfile } from "@/context/profileContext";
 
 type Feature = { text: string; strong?: boolean };
 
@@ -71,32 +70,41 @@ function planToFeatures(plan: SubscriptionPlan): Feature[] {
   return [];
 }
 
-// Same key as profileSelection / ProfileSetup
-function getCreatedChildProfileFromStorage(): { id: number } | null {
+/** Fallback when the profile context hasn't hydrated the just-created child yet. */
+function readProfileFromStorage(): { id: string; name?: string } | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem("activeProfile");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { id: number };
-    return parsed?.id != null ? parsed : null;
+    const active = localStorage.getItem("activeProfile");
+    if (active) {
+      const parsed = JSON.parse(active);
+      if (parsed?.id) return { id: String(parsed.id), name: parsed.name };
+    }
+    const list = localStorage.getItem("childProfiles");
+    if (list) {
+      const parsed = JSON.parse(list);
+      const first = Array.isArray(parsed) ? parsed[0] : null;
+      if (first?.id) return { id: String(first.id), name: first.name };
+    }
   } catch {
-    return null;
+    // ignore malformed storage
   }
+  return null;
 }
 
 function Subscriptions({ currentStep }: { currentStep?: number }) {
-  const [childProfileId, setChildProfileId] = useState<string | null>(null);
+  const { activeProfile } = useProfile();
+  const storageProfile = activeProfile?.id ? null : readProfileFromStorage();
+  const childProfileId = activeProfile?.id
+    ? String(activeProfile.id)
+    : storageProfile?.id ?? null;
+  const childName = activeProfile?.name ?? storageProfile?.name ?? null;
+
   const [pendingOfferType, setPendingOfferType] = useState<string | null>(null);
   const { data: plansData, isLoading: plansLoading } = useGetSubscriptionPlans();
   const { mutateAsync: postSubscriptionCheckout, isPending } =
     usePostSubscriptionCheckout();
 
   const plans = (plansData?.data || []) as SubscriptionPlan[];
-
-  useEffect(() => {
-    const profile = getCreatedChildProfileFromStorage();
-    setChildProfileId(profile ? String(profile.id) : null);
-  }, []);
 
   const handleSelectPlan = async (offerType: string) => {
     if (!childProfileId) {
@@ -110,7 +118,7 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
         window.open(res.data.data.url, "_self");
       }
     } catch {
-      // Error already handled by mutation
+      // Error handled by mutation
     } finally {
       setPendingOfferType(null);
     }
@@ -125,7 +133,17 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
           </h5>
         ) : null}
         <h2 className="font-semibold text-primaryBlue text-xl md:text-2xl lg:text-4xl my-3 uppercase">
-          CHOOSE THE PLAN BEST SUITED FOR YOUR CHILD
+          {childName
+            ? (
+              <>
+                CHOOSE THE PLAN BEST SUITED FOR{" "}
+                <span style={{ textDecoration: "underline" }}>
+                  {childName.toUpperCase()}:
+                </span>
+              </>
+            )
+
+            : "CHOOSE THE PLAN BEST SUITED FOR YOUR CHILD"}
         </h2>
         {plansLoading ? (
           <p className="text-textSubtitle text-sm py-8">Loading plans…</p>
@@ -153,7 +171,6 @@ function Subscriptions({ currentStep }: { currentStep?: number }) {
 }
 
 export default Subscriptions;
-
 function Card({
   title,
   priceDisplay,
@@ -241,3 +258,4 @@ function Card({
     </div>
   );
 }
+

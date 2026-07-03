@@ -409,6 +409,9 @@ export function logout(userType?: "admin" | "tutor" | "user") {
   // Clear user data immediately
   localStorage.removeItem(storageKey);
   localStorage.removeItem("intendedUrl");
+  localStorage.removeItem("selectedProfile");
+  localStorage.removeItem("activeProfile");
+  localStorage.removeItem("childProfiles");
 
   // Determine the appropriate sign-in page
   let signInPath = "/sign-in";
@@ -442,6 +445,9 @@ export function logoutAll() {
   localStorage.removeItem("tutor");
   localStorage.removeItem("user");
   localStorage.removeItem("intendedUrl");
+  localStorage.removeItem("selectedProfile");
+  localStorage.removeItem("activeProfile");
+  localStorage.removeItem("childProfiles");
 
   // Small delay to ensure all pending operations are cancelled
   setTimeout(() => {

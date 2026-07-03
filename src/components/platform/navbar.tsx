@@ -63,6 +63,10 @@ export default function Navbar() {
     { name: "Sessions", path: "/sessions" },
   ];
 
+  const noPlanRoutes = [
+    { name: "Dashboard", path: "/dashboard" },
+  ];
+
   const activeProfileId = (activeProfile as any)?.id as string | undefined;
   const activeProfileFresh = React.useMemo(() => {
     const list = childProfilesData?.data ?? [];
@@ -79,83 +83,95 @@ export default function Navbar() {
     return row?.accessLevel ?? null;
   }, [manageData?.data, activeProfileId]);
 
+  // Child access level from manage-subscriptions (authoritative source).
+  const childRow = React.useMemo(() => {
+    const sub = manageData?.data;
+    if (!sub?.childSubscription || !activeProfileId) return null;
+    return sub.childSubscription.find(
+      (r) => String(r.childProfileId) === String(activeProfileId)
+    ) ?? null;
+  }, [manageData?.data, activeProfileId]);
+
+  const childAccessLevel: string | undefined =
+    childRow?.accessLevel ?? (activeProfileFresh as any)?.offerType;
+
   const effectiveOfferType =
-    manageAccessLevel === "tuition"
+    childAccessLevel === "tuition"
       ? "tuition"
-      : manageAccessLevel === "platform"
+      : childAccessLevel === "platform"
         ? "platform"
-        : (activeProfileFresh as any)?.offerType;
+        : childAccessLevel;
 
-  const hasResolvedAccessLevel = React.useMemo(() => {
-    // We consider access "resolved" if either:
-    // - manage subscription explicitly says platform/tuition, or
-    // - the refreshed profile row contains an offerType.
-    // Also treat "locked" as resolved (explicitly no seat assigned).
+  // Parent subscription state.
+  const parentState = (manageData?.data as any)?.state as string | undefined;
+  const isManageLoaded = manageData !== undefined;
+
+  // Guard 1: No active profile → /select-profile.
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!isLoaded) return;
+    if (activeProfile) return;
+    const p = pathname || "";
     if (
-      manageAccessLevel === "platform" ||
-      manageAccessLevel === "tuition" ||
-      manageAccessLevel === "locked"
+      p.startsWith("/select-profile") ||
+      p.startsWith("/sign-in") ||
+      p.startsWith("/sign-up") ||
+      p.startsWith("/pricing")
     )
-      return true;
-    return (activeProfileFresh as any)?.offerType != null;
-  }, [manageAccessLevel, activeProfileFresh]);
+      return;
+    push("/select-profile");
+  }, [isAuthenticated, isLoaded, activeProfile, pathname, push]);
 
-  const isAccessDenied = React.useMemo(() => {
-    if (!hasResolvedAccessLevel) return false;
-    if (manageAccessLevel === "locked") return true;
-    return effectiveOfferType !== "platform" && effectiveOfferType !== "tuition";
-  }, [effectiveOfferType, hasResolvedAccessLevel, manageAccessLevel]);
-
+  // Guard 2: Parent has no subscription (state === "none") → /pricing.
   React.useEffect(() => {
     if (!isAuthenticated) return;
-    if (!isAccessDenied) return;
-    if ((pathname || "").startsWith("/pricing")) return;
+    if (!isManageLoaded) return;
+    if (parentState !== "none") return;
+    const p = pathname || "";
+    if (p.startsWith("/pricing") || p.startsWith("/select-profile")) return;
     push("/pricing");
-  }, [isAuthenticated, isAccessDenied, pathname, push]);
+  }, [isAuthenticated, isManageLoaded, parentState, pathname, push]);
 
+  // Guard 3: Child profile is locked (no seat) → only /settings accessible.
   React.useEffect(() => {
     if (!isAuthenticated) return;
-    if (!hasResolvedAccessLevel) return;
+    if (!isManageLoaded) return;
+    if (childAccessLevel !== "locked") return;
+    const p = pathname || "";
+    if (p.startsWith("/select-plan") || p.startsWith("/select-profile") || p.startsWith("/pricing") || p.startsWith("/dashboard"))
+      return;
+    push("/select-plan");
+  }, [isAuthenticated, isManageLoaded, childAccessLevel, pathname, push]);
+
+  // Guard 4: Offer-specific route enforcement.
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!isManageLoaded) return;
+    if (childAccessLevel === "locked") return; // handled by guard 3
     const p = pathname || "";
 
-    // Allow pricing and auth routes to avoid loops.
-    if (p.startsWith("/pricing") || p.startsWith("/sign-in")) return;
+    if (p.startsWith("/pricing") || p.startsWith("/sign-in") || p.startsWith("/settings") || p.startsWith("/select-plan")) return;
 
-    // Shared routes for all offers
     const sharedPrefixes = ["/dashboard"];
     if (sharedPrefixes.some((pref) => p.startsWith(pref))) return;
     const isLibraryRoot = p === "/library" || p === "/library/";
     const isLibraryDeepLink = p.startsWith("/library/") && !isLibraryRoot;
     if (isLibraryDeepLink) return;
 
-    // Offer-specific routes
-    const tuitionOnlyPrefixes = [
-      "/homework",
-      "/messages",
-      "/sessions",
-      "/independent-learning",
-    ];
+    const tuitionOnlyPrefixes = ["/homework", "/messages", "/sessions", "/independent-learning"];
     const platformOnlyPrefixes = ["/glossary"];
 
     if (effectiveOfferType === "platform") {
-      if (tuitionOnlyPrefixes.some((pref) => p.startsWith(pref))) {
-        push("/dashboard");
-      }
+      if (tuitionOnlyPrefixes.some((pref) => p.startsWith(pref))) push("/dashboard");
     }
-
     if (effectiveOfferType === "tuition") {
-      if (isLibraryRoot) {
-        push("/dashboard");
-        return;
-      }
-      if (platformOnlyPrefixes.some((pref) => p.startsWith(pref))) {
-        push("/dashboard");
-      }
+      if (isLibraryRoot) { push("/dashboard"); return; }
+      if (platformOnlyPrefixes.some((pref) => p.startsWith(pref))) push("/dashboard");
     }
-  }, [isAuthenticated, hasResolvedAccessLevel, effectiveOfferType, pathname, push]);
+  }, [isAuthenticated, isManageLoaded, childAccessLevel, effectiveOfferType, pathname, push]);
 
   const routes =
-    effectiveOfferType === "platform" ? platformRoutes : tuitionRoutes;
+    effectiveOfferType === "platform" ? platformRoutes : effectiveOfferType === "tuition" ? tuitionRoutes : noPlanRoutes;
 
   const showMessagesLink = routes.some((r) => r.path === "/messages");
   const { data: chatListData } = useGetStudentChatList({
@@ -295,6 +311,7 @@ export default function Navbar() {
                     if (typeof window !== "undefined") {
                       localStorage.removeItem("selectedProfile");
                       localStorage.removeItem("activeProfile");
+                      localStorage.removeItem("childProfiles");
                     }
                     push("/sign-in");
                   }}
@@ -382,6 +399,7 @@ export default function Navbar() {
                         if (typeof window !== "undefined") {
                           localStorage.removeItem("selectedProfile");
                           localStorage.removeItem("activeProfile");
+                          localStorage.removeItem("childProfiles");
                         }
                         push("/sign-in");
                       }}

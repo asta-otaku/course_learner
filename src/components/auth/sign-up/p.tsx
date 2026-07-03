@@ -10,16 +10,14 @@ import AccountCreation from "./accountCreation";
 import ProfileSetup from "./profileSetup";
 import Subscriptions from "./subscriptions";
 
+// Sign-up is 3 steps: account creation → child profile → subscription selection.
 function SignUp() {
   const [currentStep, setCurrentStep] = useState<number>(0);
   const router = useRouter();
 
-  // Check if user is already signed in and redirect to dashboard
   useEffect(() => {
     if (typeof window === "undefined") return;
-
     if (isUserTypeAuthenticated("user")) {
-      // Check for intended URL first
       const intendedUrl = getAndClearIntendedUrl();
       router.push(intendedUrl || "/dashboard");
     }
@@ -31,13 +29,10 @@ function SignUp() {
         {Array.from({ length: 3 }).map((_, idx: number) => (
           <div
             key={idx}
-            className={`w-full h-[6px] rounded-sm ${idx < currentStep
-              ? "bg-primaryBlue"
-              : currentStep === idx
-                ? "bg-primaryBlue"
-                : "bg-borderGray"
-              }`}
-          ></div>
+            className={`w-full h-[6px] rounded-sm ${
+              idx <= currentStep ? "bg-primaryBlue" : "bg-borderGray"
+            }`}
+          />
         ))}
       </div>
       {

@@ -62,7 +62,7 @@ export default function AccountCreation({
   };
 
   const handleNext = () => {
-    setCurrentStep(1);
+    setCurrentStep(1); // step 1 is now Subscriptions
   };
 
   const countryCodes = [
@@ -85,7 +85,7 @@ export default function AccountCreation({
       {successStep ? (
         <div className="mt-6 text-center w-full max-w-md">
           <p className="max-w-[300px] mx-auto text-textGray font-medium text-lg md:text-2xl">
-            Great, now let's create your kid's profile
+            Great, now let's set up your child's profile
           </p>
           <Button
             onClick={handleNext}

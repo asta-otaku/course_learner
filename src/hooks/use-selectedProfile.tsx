@@ -23,14 +23,6 @@ function isPublicMarketingPath(pathname: string | null | undefined): boolean {
   );
 }
 
-const getDefaultProfileFromResponse = (
-  profilesData: ChildProfile[]
-): ChildProfile | null => {
-  if (!profilesData.length) return null;
-  const firstActive = profilesData.find((p) => p.isActive === true);
-  return firstActive || profilesData[0];
-};
-
 function getPreferenceCurriculumId(profile: ChildProfile | undefined) {
   const v = profile?.preferences?.selectedCurriculumId;
   return typeof v === "string" && v.length > 0 ? v : null;
@@ -170,10 +162,11 @@ export function useSelectedProfile() {
         if (storedProfiles) {
           try {
             const profilesData = JSON.parse(storedProfiles);
-            const defaultProfile = getDefaultProfileFromResponse(profilesData);
-            const updatedProfile = profilesData.find(
-              (p: ChildProfile) => p.id === profile.id
-            );
+            // Try to match by id first, then by name — honour isActive flag.
+            const updatedProfile =
+              profilesData.find((p: ChildProfile) => p.id === profile.id) ??
+              profilesData.find((p: ChildProfile) => p.name === profile.name);
+
             if (updatedProfile) {
               if (updatedProfile.isActive === true) {
                 setActiveProfile(updatedProfile);
@@ -181,64 +174,20 @@ export function useSelectedProfile() {
                   ACTIVE_PROFILE_KEY,
                   JSON.stringify(updatedProfile)
                 );
-                return;
               } else {
-                if (defaultProfile) {
-                  setActiveProfile(defaultProfile);
-                  localStorage.setItem(
-                    ACTIVE_PROFILE_KEY,
-                    JSON.stringify(defaultProfile)
-                  );
-                  return;
-                } else {
-                  setActiveProfile(null);
-                  localStorage.removeItem(ACTIVE_PROFILE_KEY);
-                  return;
-                }
-              }
-            } else if (
-              profilesData.some((p: ChildProfile) => p.name === profile.name)
-            ) {
-              const profileByName = profilesData.find(
-                (p: ChildProfile) => p.name === profile.name
-              );
-              if (profileByName && profileByName.isActive === true) {
-                setActiveProfile(profileByName);
-                localStorage.setItem(
-                  ACTIVE_PROFILE_KEY,
-                  JSON.stringify(profileByName)
-                );
-                return;
-              } else {
-                if (defaultProfile) {
-                  setActiveProfile(defaultProfile);
-                  localStorage.setItem(
-                    ACTIVE_PROFILE_KEY,
-                    JSON.stringify(defaultProfile)
-                  );
-                  return;
-                } else {
-                  setActiveProfile(null);
-                  localStorage.removeItem(ACTIVE_PROFILE_KEY);
-                  return;
-                }
-              }
-            } else {
-              if (defaultProfile) {
-                setActiveProfile(defaultProfile);
-                localStorage.setItem(
-                  ACTIVE_PROFILE_KEY,
-                  JSON.stringify(defaultProfile)
-                );
-                return;
-              } else {
+                // The previously selected profile is no longer active — clear it
+                // and let the dashboard redirect to /select-profile.
                 setActiveProfile(null);
                 localStorage.removeItem(ACTIVE_PROFILE_KEY);
-                return;
               }
+            } else {
+              // Profile no longer exists in the list — clear it.
+              setActiveProfile(null);
+              localStorage.removeItem(ACTIVE_PROFILE_KEY);
             }
-          } catch (e) {
-            // fall through
+            return;
+          } catch {
+            // fall through to raw stored value below
           }
         }
 
@@ -252,25 +201,8 @@ export function useSelectedProfile() {
         console.error("Error parsing active profile", e);
       }
     }
-
-    if (!storedProfile && storedProfiles) {
-      try {
-        const profilesData = JSON.parse(storedProfiles) as ChildProfile[];
-        const defaultProfile = getDefaultProfileFromResponse(profilesData);
-        if (defaultProfile) {
-          setActiveProfile(defaultProfile);
-          localStorage.setItem(
-            ACTIVE_PROFILE_KEY,
-            JSON.stringify(defaultProfile)
-          );
-        } else {
-          setActiveProfile(null);
-          localStorage.removeItem(ACTIVE_PROFILE_KEY);
-        }
-      } catch (e) {
-        console.error("Error parsing profiles for default active profile", e);
-      }
-    }
+    // No stored active profile — leave as null so the dashboard redirects
+    // to /select-profile instead of silently picking the first child.
   };
 
   useEffect(() => {

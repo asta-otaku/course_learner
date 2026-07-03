@@ -97,49 +97,49 @@ function AdminDashboard() {
 
   const stats = analytics
     ? [
-        {
-          label: "Total Children",
-          value: analytics.totalChildren,
-          route: "/admin/user-management",
-        },
-        {
-          label: "Total Tutors",
-          value: analytics.totalTutors,
-          route: "/admin/user-management",
-        },
-        {
-          label: "Completed Sessions",
-          value: analytics.completedSessions,
-          route: "/admin/session-management",
-        },
-        {
-          label: "New Sign Ups",
-          value: analytics.newSignups,
-          route: "/admin/user-management",
-        },
-      ]
+      {
+        label: "Total Children",
+        value: analytics.totalChildren,
+        route: "/admin/user-management",
+      },
+      {
+        label: "Total Tutors",
+        value: analytics.totalTutors,
+        route: "/admin/tutor-management",
+      },
+      {
+        label: "Completed Sessions",
+        value: analytics.completedSessions,
+        route: "/admin/session-management",
+      },
+      {
+        label: "New Sign Ups",
+        value: analytics.newSignups,
+        route: "/admin/user-management",
+      },
+    ]
     : [
-        {
-          label: "Total Children",
-          value: 0,
-          route: "/admin/user-management",
-        },
-        {
-          label: "Total Tutors",
-          value: 0,
-          route: "/admin/user-management",
-        },
-        {
-          label: "Completed Sessions",
-          value: 0,
-          route: "/admin/session-management",
-        },
-        {
-          label: "New Sign Ups",
-          value: 0,
-          route: "/admin/user-management",
-        },
-      ];
+      {
+        label: "Total Children",
+        value: 0,
+        route: "/admin/user-management",
+      },
+      {
+        label: "Total Tutors",
+        value: 0,
+        route: "/admin/user-management",
+      },
+      {
+        label: "Completed Sessions",
+        value: 0,
+        route: "/admin/session-management",
+      },
+      {
+        label: "New Sign Ups",
+        value: 0,
+        route: "/admin/user-management",
+      },
+    ];
 
   // Show loading state
   if (isLoading) {

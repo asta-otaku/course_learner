@@ -7,11 +7,12 @@ import React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGetChildProfile, useGetManageSubscription } from "@/lib/api/queries";
+import { ManageSubscriptionResponse } from "@/lib/types";
+import Link from "next/link";
 
 function DashboardLoadingSkeleton() {
   return (
     <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
-      {/* Header Skeleton */}
       <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center mb-8">
         <div className="flex items-center gap-2">
           <Skeleton className="w-12 h-12 rounded-full" />
@@ -22,8 +23,6 @@ function DashboardLoadingSkeleton() {
         </div>
         <Skeleton className="h-16 w-32 rounded-lg" />
       </div>
-
-      {/* Continue Learning Section Skeleton */}
       <div className="my-8">
         <div className="mb-4">
           <Skeleton className="h-6 w-48 mb-2" />
@@ -31,10 +30,7 @@ function DashboardLoadingSkeleton() {
         </div>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="max-w-2xl p-2 rounded-2xl bg-[#FAFAFA] border flex items-center gap-3 md:gap-5"
-            >
+            <div key={i} className="max-w-2xl p-2 rounded-2xl bg-[#FAFAFA] border flex items-center gap-3 md:gap-5">
               <Skeleton className="max-w-[180px] h-[150px] w-full rounded-2xl flex-shrink-0" />
               <div className="flex w-full flex-col gap-2 md:gap-4">
                 <Skeleton className="h-3 w-24" />
@@ -54,8 +50,6 @@ function DashboardLoadingSkeleton() {
           ))}
         </div>
       </div>
-
-      {/* Your Progress Section Skeleton */}
       <div className="my-8">
         <div className="mb-4">
           <Skeleton className="h-6 w-40 mb-2" />
@@ -63,10 +57,7 @@ function DashboardLoadingSkeleton() {
         </div>
         <div className="my-8 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="p-2 rounded-2xl bg-[#FAFAFA] border flex flex-col gap-4"
-            >
+            <div key={i} className="p-2 rounded-2xl bg-[#FAFAFA] border flex flex-col gap-4">
               <Skeleton className="h-[181px] w-full rounded-2xl" />
               <div className="flex justify-between items-center">
                 <div className="space-y-1">
@@ -108,6 +99,9 @@ export default function DashboardClient() {
     isFetching: childProfilesFetching,
   } = useGetChildProfile();
 
+  const sub = manageData?.data as ManageSubscriptionResponse | undefined;
+  const parentState = sub?.state;
+
   const activeProfileId = (activeProfile as any)?.id as string | undefined;
   const activeProfileFresh = React.useMemo(() => {
     const list = childProfilesData?.data ?? [];
@@ -115,23 +109,25 @@ export default function DashboardClient() {
     return list.find((p) => String(p.id) === String(activeProfileId)) ?? null;
   }, [childProfilesData?.data, activeProfileId]);
 
-  const manageAccessLevel = React.useMemo(() => {
-    const sub = manageData?.data;
+  // Derive child's access level from manage-subscriptions (authoritative) or profile data.
+  const childRow = React.useMemo(() => {
     if (!sub?.childSubscription || !activeProfileId) return null;
-    const row = sub.childSubscription.find(
+    return sub.childSubscription.find(
       (r) => String(r.childProfileId) === String(activeProfileId)
-    );
-    return row?.accessLevel ?? null;
-  }, [manageData?.data, activeProfileId]);
+    ) ?? null;
+  }, [sub?.childSubscription, activeProfileId]);
 
-  const effectiveOfferType =
-    manageAccessLevel === "tuition"
+  const childAccessLevel: string | undefined =
+    childRow?.accessLevel ?? (activeProfileFresh as any)?.offerType;
+
+  const offerType =
+    childAccessLevel === "tuition"
       ? "tuition"
-      : manageAccessLevel === "platform"
+      : childAccessLevel === "platform"
         ? "platform"
-        : (activeProfileFresh as any)?.offerType;
+        : childAccessLevel;
 
-  // After Stripe redirect (?paymentSuccess), refetch fresh data and normalize storage.
+  // After Stripe redirect (?paymentSuccess), refetch fresh data.
   React.useEffect(() => {
     if (!paymentSuccess) return;
     (async () => {
@@ -143,14 +139,9 @@ export default function DashboardClient() {
             try {
               const parsed = JSON.parse(stored) as { id?: string | number };
               if (parsed?.id != null) {
-                localStorage.setItem(
-                  "activeProfile",
-                  JSON.stringify({ id: parsed.id })
-                );
+                localStorage.setItem("activeProfile", JSON.stringify({ id: parsed.id }));
               }
-            } catch {
-              // ignore
-            }
+            } catch { /* ignore */ }
           }
         }
       } finally {
@@ -159,16 +150,14 @@ export default function DashboardClient() {
     })();
   }, [paymentSuccess, refetchManage, refetchChildProfiles, router]);
 
-  // Give a small grace period for profile to load after navigation
+  // Grace period to let profile load after navigation.
   React.useEffect(() => {
     if (isLoaded && !activeProfile) {
       const checkProfile = () => {
         if (typeof window !== "undefined") {
           const storedProfile = localStorage.getItem("activeProfile");
           if (storedProfile) {
-            const timer = setTimeout(() => {
-              setHasCheckedProfile(true);
-            }, 200);
+            const timer = setTimeout(() => setHasCheckedProfile(true), 200);
             return () => clearTimeout(timer);
           } else {
             setHasCheckedProfile(true);
@@ -182,18 +171,21 @@ export default function DashboardClient() {
     }
   }, [isLoaded, activeProfile]);
 
-  const offerType = effectiveOfferType;
-  const isAccessDenied =
-    offerType !== "platform" && offerType !== "tuition";
+  // ── Redirect: parent has no subscription → pricing ──────────────────────
+  // Only redirect after manage-subscription data has settled.
+  const parentHasNoSubscription =
+    activeProfile != null &&
+    !manageFetching &&
+    manageData !== undefined &&
+    parentState === "none";
 
   React.useEffect(() => {
-    if (!isAccessDenied) return;
-    const timer = setTimeout(() => {
-      router.push("/pricing");
-    }, 3000);
+    if (!parentHasNoSubscription) return;
+    const timer = setTimeout(() => router.push("/pricing"), 2000);
     return () => clearTimeout(timer);
-  }, [isAccessDenied, router]);
+  }, [parentHasNoSubscription, router]);
 
+  // ── Loading states ───────────────────────────────────────────────────────
   if (
     !isLoaded ||
     (isLoaded && !activeProfile && !hasCheckedProfile) ||
@@ -201,25 +193,41 @@ export default function DashboardClient() {
   ) {
     return <DashboardLoadingSkeleton />;
   }
+
+  // No profile selected — Navbar guard redirects to /select-profile.
   if (!activeProfile) {
+    return <DashboardLoadingSkeleton />;
+  }
+
+  // Parent has no active subscription → show message + redirect.
+  if (parentHasNoSubscription) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">No Profile Selected</h1>
-          <p className="text-gray-600">Please select a profile</p>
+          <h1 className="text-2xl font-bold mb-4">No Active Subscription</h1>
+          <p className="text-gray-600">
+            You don&apos;t have an active subscription. Redirecting to pricing…
+          </p>
         </div>
       </div>
     );
   }
 
-  if (isAccessDenied) {
+  // Child profile has no seat assigned (locked) → block dashboard, show message.
+  if (childAccessLevel === "locked") {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-gray-600">
-            You do not have access to this page as you don't have an active subscription. Redirecting to pricing…
+      <div className="flex items-center justify-center h-screen px-4">
+        <div className="text-center max-w-md">
+          <h1 className="text-2xl font-bold mb-3">No Seat Assigned</h1>
+          <p className="text-gray-600 mb-6">
+            {activeProfile.name} doesn&apos;t have an active plan yet. <br />Head to "Select Plan" to assign one.
           </p>
+          <Link
+            href="/select-plan"
+            className="inline-flex items-center gap-2 bg-primaryBlue text-white text-sm font-semibold rounded-full px-6 py-2.5 hover:bg-primaryBlue/90 transition"
+          >
+            Select Plan
+          </Link>
         </div>
       </div>
     );

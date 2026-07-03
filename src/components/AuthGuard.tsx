@@ -167,6 +167,9 @@ export function useLogout() {
       // Import logout function dynamically to avoid circular deps
       const { logout } = await import("@/lib/services/axiosInstance");
       logout();
+      localStorage.removeItem("selectedProfile");
+      localStorage.removeItem("activeProfile");
+      localStorage.removeItem("childProfiles");
     } catch (error) {
       console.error("Logout failed:", error);
       // Force redirect even if logout fails

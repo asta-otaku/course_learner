@@ -15,7 +15,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { getPlanTypeColors } from "./p";
+import { getPlanTypeColors, getPlanTypeLabel, planTypeMatchesFilter, type PlanTypeFilter } from "./p";
 
 type TableMetricsProps = {
   groupedUserData: any[];
@@ -36,7 +36,7 @@ function TableMetrics({
 }: TableMetricsProps) {
   const [search, setSearch] = useState("");
   const [showFilter, setShowFilter] = useState(false);
-  const [filter, setFilter] = useState<{ planType?: string; year?: string }>(
+  const [filter, setFilter] = useState<{ planType?: PlanTypeFilter; year?: string }>(
     {}
   );
 
@@ -56,10 +56,7 @@ function TableMetrics({
           child.childName.toLowerCase().includes(search.toLowerCase())
         );
 
-      const matchesPlanType =
-        !filter.planType ||
-        filter.planType === "all" ||
-        parent.planType === filter.planType;
+      const matchesPlanType = planTypeMatchesFilter(parent.planType, filter.planType);
 
       const hasMatchingChildren = parent.children.length > 0;
 
@@ -102,7 +99,8 @@ function TableMetrics({
                     onValueChange={(val) =>
                       setFilter((f) => ({
                         ...f,
-                        planType: val === "all" ? undefined : val,
+                        planType:
+                          val === "all" ? undefined : (val as PlanTypeFilter),
                       }))
                     }
                   >
@@ -111,8 +109,9 @@ function TableMetrics({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="Offer 1">Offer 1</SelectItem>
-                      <SelectItem value="Offer 2">Offer 2</SelectItem>
+                      <SelectItem value="tuition">Guided Learning</SelectItem>
+                      <SelectItem value="platform">The Platform</SelectItem>
+                      <SelectItem value="no-plan">No Plan</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -234,7 +233,7 @@ function TableMetrics({
                         parent.planType
                       )}`}
                     >
-                      {parent.planType === "tuition" ? "Guided Learning" : "The Platform"}
+                      {getPlanTypeLabel(parent.planType)}
                     </span>
                   </td>
 
