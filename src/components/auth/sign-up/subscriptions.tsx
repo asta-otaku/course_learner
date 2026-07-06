@@ -7,7 +7,6 @@ import { toast } from "react-toastify";
 import { SubscriptionPlan } from "@/lib/types";
 import { BadgeCheck } from "lucide-react";
 import { useProfile } from "@/context/profileContext";
-
 type Feature = { text: string; strong?: boolean };
 
 function offerTypeLabel(offerType: string | undefined): string {

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Gorditas, Inter, Poppins } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import Providers from "./providers";
+import MetaPixel from "@/components/MetaPixel";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -172,6 +173,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${gorditas.variable} ${generalSans.className} ${poppins.variable} `}
       >
+        <MetaPixel />
         <Providers>{children}</Providers>
       </body>
     </html>

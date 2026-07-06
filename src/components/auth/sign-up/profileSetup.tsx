@@ -11,6 +11,7 @@ import { childProfileSchema } from "@/lib/schema";
 import { z } from "zod";
 import { usePostChildProfiles } from "@/lib/api/mutations";
 import { useGetChildProfile, useGetManageSubscription } from "@/lib/api/queries";
+import { trackPixelEvent } from "@/components/MetaPixel";
 import type { ChildProfile as ApiChildProfile } from "@/lib/types";
 import { ChildProfileSubscriptionBlockedDialog } from "@/components/platform/child-profiles/ChildProfileSubscriptionBlockedDialog";
 import {
@@ -104,6 +105,7 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
           );
           window.dispatchEvent(new Event("childProfilesUpdate"));
         }
+        trackPixelEvent("Lead");
         toast.success(res.data.message);
         setCurrentStep(2);
       }

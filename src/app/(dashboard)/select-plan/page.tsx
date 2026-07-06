@@ -21,6 +21,7 @@ import {
   PreviewActionType,
 } from "@/components/platform/subscriptions/SubscriptionPreviewModal";
 import { ManageSubscriptionResponse, UpgradeToTuitionPreviewResponse } from "@/lib/types";
+import { trackPixelEvent } from "@/components/MetaPixel";
 
 type Feature = { text: string; strong?: boolean };
 
@@ -132,13 +133,22 @@ export default function SelectPlanPage() {
     try {
       if (previewActionType === "assign_platform") {
         const res = await addPlatformSeat({ childProfileId });
-        if (res.status === 201) toast.success(res.data.message);
+        if (res.status === 201) {
+          toast.success(res.data.message);
+          trackPixelEvent("Purchase", { value: 0, currency: "GBP", content_name: "The Platform" });
+        }
       } else if (previewActionType === "upgrade_to_tuition") {
         const res = await upgradeTuition({ childProfileId });
-        if (res.status === 201) toast.success(res.data.message);
+        if (res.status === 201) {
+          toast.success(res.data.message);
+          trackPixelEvent("Purchase", { value: 40, currency: "GBP", content_name: "Guided Learning" });
+        }
       } else {
         const res = await addTuitionSeat({ childProfileId });
-        if (res.status === 201) toast.success(res.data.message);
+        if (res.status === 201) {
+          toast.success(res.data.message);
+          trackPixelEvent("Purchase", { value: 40, currency: "GBP", content_name: "Guided Learning" });
+        }
       }
       setShowPreviewModal(false);
       router.push("/dashboard");

@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { accountCreationSchema } from "@/lib/schema";
 import { z } from "zod";
 import { usePostSignUp } from "@/lib/api/mutations";
+import { trackPixelEvent } from "@/components/MetaPixel";
 import {
   Select,
   SelectContent,
@@ -53,6 +54,7 @@ export default function AccountCreation({
       if (res.status === 201) {
         // Store the user data in localStorage
         localStorage.setItem("user", JSON.stringify(res.data));
+        trackPixelEvent("CompleteRegistration");
         setSuccessStep(true);
         toast.success(res.data.message);
       }

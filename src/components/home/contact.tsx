@@ -3,6 +3,7 @@
 import { Mail, MessageCircle, ArrowUpRight } from "lucide-react";
 import SiteNav from "./siteNav";
 import Footer from "./footer";
+import { trackPixelEvent } from "@/components/MetaPixel";
 
 const channels = [
   {
@@ -61,6 +62,7 @@ export default function ContactPage() {
               href={href}
               target={href.startsWith("http") ? "_blank" : undefined}
               rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+              onClick={() => trackPixelEvent("Contact", { content_name: label })}
               className="group bg-white rounded-2xl p-8 shadow-sm border border-gray-100 flex flex-col gap-6 hover:shadow-md hover:border-primaryBlue/20 transition-all duration-200"
             >
               {/* Icon + label row */}

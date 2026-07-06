@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGetChildProfile, useGetManageSubscription } from "@/lib/api/queries";
 import { ManageSubscriptionResponse } from "@/lib/types";
+import { trackPixelEvent } from "@/components/MetaPixel";
 import Link from "next/link";
 
 function DashboardLoadingSkeleton() {
@@ -127,12 +128,21 @@ export default function DashboardClient() {
         ? "platform"
         : childAccessLevel;
 
-  // After Stripe redirect (?paymentSuccess), refetch fresh data.
+  // After Stripe redirect (?paymentSuccess), refetch fresh data and fire Purchase.
   React.useEffect(() => {
     if (!paymentSuccess) return;
     (async () => {
       try {
-        await Promise.all([refetchManage(), refetchChildProfiles()]);
+        const [manageRes] = await Promise.all([refetchManage(), refetchChildProfiles()]);
+        // Determine plan value from the freshly-fetched subscription state.
+        const freshSub = (manageRes.data as any)?.data as ManageSubscriptionResponse | undefined;
+        const isTuition =
+          freshSub?.state === "tuition_single" || freshSub?.state === "tuition_multi";
+        trackPixelEvent("Purchase", {
+          value: isTuition ? 69.99 : 29.99,
+          currency: "GBP",
+          content_name: isTuition ? "Guided Learning" : "The Platform",
+        });
         if (typeof window !== "undefined") {
           const stored = localStorage.getItem("activeProfile");
           if (stored) {
