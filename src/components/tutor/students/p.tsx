@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { useGetCurrentUser, useGetTutorStudent } from "@/lib/api/queries";
 import { ChildProfile } from "@/lib/types";
+import { toast } from "react-toastify";
 
 // These will be dynamically generated from API data
 
@@ -143,7 +144,13 @@ export default function TutorStudentPage() {
         {filteredProfiles.map((profile: ChildProfile) => (
           <div
             key={profile.id}
-            onClick={() => push(`/tutor/students/${profile.id}`)}
+            onClick={() => {
+              if (profile.offerType !== null) {
+                push(`/tutor/students/${profile.id}`);
+              } else {
+                toast.error("This student has no plan. Please contact support.");
+              }
+            }}
             className="bg-white rounded-xl shadow flex flex-col items-center p-4 relative min-h-[210px] cursor-pointer"
           >
             {/* Avatar */}
@@ -162,12 +169,12 @@ export default function TutorStudentPage() {
 
             {/* Status Badge */}
             <span
-              className={`absolute right-2 top-2 text-xs font-semibold px-2 py-0.5 rounded-full ${profile.isActive
+              className={`absolute right-2 top-2 text-xs font-semibold px-2 py-0.5 rounded-full ${profile.isActive && profile.offerType !== null
                 ? "bg-green-100 text-green-600"
                 : "bg-red-100 text-red-600"
                 }`}
             >
-              {profile.isActive ? "Active" : "Inactive"}
+              {profile.isActive && profile.offerType !== null ? "Active" : "Inactive"}
             </span>
             {/* Name */}
             <div className="mt-2 text-center">

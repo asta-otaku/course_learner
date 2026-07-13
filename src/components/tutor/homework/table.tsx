@@ -170,7 +170,7 @@ function HomeWorkTable({
                     </div>
                   </td>
                   <td className="py-4 px-4 md:px-0">
-                    <div className="font-medium">Quiz Assignment</div>
+                    <div className="font-medium">{row.homeworkName}</div>
                     <div className="text-xs text-gray-400">
                       {row.dueDate
                         ? `Due: ${format(new Date(row.dueDate), "MMM d, yyyy")}`

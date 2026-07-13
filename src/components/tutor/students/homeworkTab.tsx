@@ -43,8 +43,8 @@ function StudentHomeworkScheduleTab({ studentId }: { studentId: string }) {
     status === "All"
       ? homeworks
       : homeworks.filter(
-          (h) => h.status?.toLowerCase() === status.toLowerCase()
-        );
+        (h) => h.status?.toLowerCase() === status.toLowerCase()
+      );
 
   const statusColor: Record<string, string> = {
     "to-do": "bg-amber-500 text-white",
@@ -135,7 +135,7 @@ function StudentHomeworkScheduleTab({ studentId }: { studentId: string }) {
                 className="grid grid-cols-3 border-b last:border-b-0 py-4"
               >
                 <div>
-                  <div className="font-medium text-sm">Quiz Assignment</div>
+                  <div className="font-medium text-sm">{row.homeworkName || "Quiz Assignment"}</div>
                   <div className="text-xs text-muted-foreground">
                     {row.dueDate
                       ? `Due ${format(new Date(row.dueDate), "MMM d, yyyy")}`
@@ -144,9 +144,8 @@ function StudentHomeworkScheduleTab({ studentId }: { studentId: string }) {
                 </div>
 
                 <span
-                  className={`rounded-full px-3 py-1 w-fit h-fit text-xs font-semibold ${
-                    statusColor[hwStatus || ""] || "bg-gray-500 text-white"
-                  }`}
+                  className={`rounded-full px-3 py-1 w-fit h-fit text-xs font-semibold ${statusColor[hwStatus || ""] || "bg-gray-500 text-white"
+                    }`}
                 >
                   {statusLabels[hwStatus as keyof typeof statusLabels] ||
                     row.status?.toUpperCase() ||
