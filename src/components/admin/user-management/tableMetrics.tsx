@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { DotIcon, Search } from "lucide-react";
 import ManagementFilter from "@/assets/svgs/managementfilter";
 import {
   Popover,
@@ -184,6 +184,9 @@ function TableMetrics({
                     <div className="flex flex-col">
                       <span className="font-semibold text-base">
                         {parent.parentName}
+                      </span>
+                      <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                        {parent.parentEmail} <DotIcon className="w-4 h-4 text-gray-500" /> {parent.parentPhone}
                       </span>
                       <span className="text-xs text-gray-500 mt-1">
                         {parent.children.length} child
