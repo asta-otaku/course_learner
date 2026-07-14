@@ -38,20 +38,20 @@ export default function CollectionsPage() {
         try {
           const userData = JSON.parse(localStorage.getItem("admin") || "{}");
           if (!userData || !userData.data) {
-            router.push("/admin/sign-in");
+            router.push("/sign-in");
             return;
           }
 
           const userRole = userData.data.userRole;
           if (userRole !== "teacher" && userRole !== "admin") {
-            router.push("/admin/sign-in");
+            router.push("/sign-in");
             return;
           }
 
           setIsAuthorized(true);
         } catch (error) {
           console.error("Error:", error);
-          router.push("/admin/sign-in");
+          router.push("/sign-in");
           return;
         } finally {
           setIsLoading(false);

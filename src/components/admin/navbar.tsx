@@ -44,13 +44,13 @@ export default function Navbar() {
       try {
         const userData = JSON.parse(localStorage.getItem("admin") || "{}");
         if (!userData || !userData.data) {
-          window.location.href = "/admin/sign-in";
+          window.location.href = "/sign-in";
         } else {
           setUser(userData.data);
         }
       } catch (error) {
         console.error("Error parsing user data:", error);
-        window.location.href = "/admin/sign-in";
+        window.location.href = "/sign-in";
       } finally {
         setIsLoading(false);
       }
@@ -158,13 +158,12 @@ export default function Navbar() {
             <Link
               key={route.name}
               href={route.path}
-              className={`font-medium text-sm whitespace-nowrap ${
-                route.path === "/admin"
+              className={`font-medium text-sm whitespace-nowrap ${route.path === "/admin"
                   ? pathname === route.path
                   : pathname.startsWith(route.path)
                     ? "text-blue-500"
                     : "text-textSubtitle"
-              } hover:text-blue-500 transition`}
+                } hover:text-blue-500 transition`}
             >
               {route.name}
             </Link>
@@ -174,11 +173,10 @@ export default function Navbar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className={`font-medium text-sm whitespace-nowrap flex items-center gap-1 ${
-                  isResourceManagementRoute
+                className={`font-medium text-sm whitespace-nowrap flex items-center gap-1 ${isResourceManagementRoute
                     ? "text-blue-500"
                     : "text-textSubtitle"
-                } hover:text-blue-500 transition`}
+                  } hover:text-blue-500 transition`}
               >
                 Resource Management
                 <ChevronDown className="w-4 h-4" />
@@ -288,13 +286,12 @@ export default function Navbar() {
                 key={route.name}
                 href={route.path}
                 onClick={() => setMobileOpen(false)}
-                className={`block py-2 px-2 rounded-md font-medium text-sm ${
-                  route.path === "/admin"
+                className={`block py-2 px-2 rounded-md font-medium text-sm ${route.path === "/admin"
                     ? pathname === route.path
                     : pathname.startsWith(route.path)
                       ? "bg-blue-50 text-blue-500"
                       : "text-gray-700 hover:bg-gray-100"
-                } transition`}
+                  } transition`}
               >
                 {route.name}
               </Link>
@@ -310,11 +307,10 @@ export default function Navbar() {
                   key={route.path}
                   href={route.path}
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2 py-2 px-2 rounded-md font-medium text-sm ${
-                    pathname.startsWith(route.path)
+                  className={`flex items-center gap-2 py-2 px-2 rounded-md font-medium text-sm ${pathname.startsWith(route.path)
                       ? "bg-blue-50 text-blue-500"
                       : "text-gray-700 hover:bg-gray-100"
-                  } transition`}
+                    } transition`}
                 >
                   {route.icon}
                   {route.name}

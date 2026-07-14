@@ -113,13 +113,13 @@ export function TopNavigation() {
       try {
         const userData = JSON.parse(localStorage.getItem("admin") || "{}");
         if (!userData || !userData.data) {
-          window.location.href = "/admin/sign-in";
+          window.location.href = "/sign-in";
         } else {
           setUser(userData.data);
         }
       } catch (error) {
         console.error("Error parsing user data:", error);
-        window.location.href = "/admin/sign-in";
+        window.location.href = "/sign-in";
       } finally {
         setIsLoading(false);
       }
@@ -172,8 +172,7 @@ export function TopNavigation() {
   }
 
   const handleSignOut = async () => {
-    // await supabase.auth.signOut();
-    router.push("/admin/sign-in");
+    router.push("/sign-in");
   };
 
   return (

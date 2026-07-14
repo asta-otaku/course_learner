@@ -170,10 +170,10 @@ export function QuizPlayer({
     isBaselineTest && quizAttemptId ? quizAttemptId : attemptId || "";
 
   // Submit a new single-question answer (POST)
-  const { mutate: submitQuestion, isPending: isSubmittingQuestion } =
+  const { mutate: submitQuestion, mutateAsync: submitQuestionAsync, isPending: isSubmittingQuestion } =
     usePostSubmitQuizQuestionDynamic(quizId, attemptIdForQuestionSubmit);
   // Update a previously submitted single-question answer (PATCH — used on resume)
-  const { mutate: updateQuestion } =
+  const { mutate: updateQuestion, mutateAsync: updateQuestionAsync } =
     usePatchUpdateQuizQuestionDynamic(quizId, attemptIdForQuestionSubmit);
 
   const getTransitionForPosition = (
@@ -866,6 +866,54 @@ export function QuizPlayer({
     }
   };
 
+  /**
+   * In `after_completion` mode every question is saved to the server as the
+   * student navigates away (via saveCurrentAnswerForResume / handleAnswerChange).
+   * The LAST question is never navigated away from — the student goes straight
+   * from answering to "Submit Quiz".  This function ensures that answer is
+   * persisted per-question on the server BEFORE the bulk submit fires, covering
+   * ALL question types (MC/TF included, in case handleAnswerChange's fire-and-
+   * forget hasn't completed yet).
+   */
+  const flushCurrentQuestionAnswerAsync = async (): Promise<void> => {
+    if (showResults || isImmediateFeedback || !attemptId) return;
+    if (currentPosition.type !== "question") return;
+    const q = questions[getCurrentQuestionIndex()];
+    if (!q || lockedQuestions.has(q.question.id)) return;
+    const ans = answers[q.question.id];
+    if (ans == null) return;
+
+    // MC/TF are already saved by handleAnswerChange — skip them to avoid a
+    // redundant POST/PATCH that would double-submit the last question.
+    const qType = q.question.type;
+    if (
+      qType !== "free_text" &&
+      qType !== "short_answer" &&
+      qType !== "long_answer" &&
+      qType !== "coding" &&
+      qType !== "matching_pairs"
+    ) {
+      return;
+    }
+
+    const payload = serializeQuizAnswerForApi(q, ans);
+    const timeSpentSecs = Math.round(
+      (Date.now() - questionStartTimeRef.current) / 1000,
+    );
+    const questionId = q.question.id;
+
+    try {
+      if (answeredOnServer.has(questionId)) {
+        await updateQuestionAsync({ questionId, answer: payload, timeSpent: timeSpentSecs });
+      } else {
+        await submitQuestionAsync({ questionId, answer: payload, timeSpent: timeSpentSecs });
+        setAnsweredOnServer((prev) => new Set(prev).add(questionId));
+      }
+    } catch {
+      // Non-fatal: the bulk submit still includes the answer in its payload.
+    }
+  };
+
   const handleNext = () => {
     saveCurrentAnswerForResume();
     const currentQuestionIndex = getCurrentQuestionIndex();
@@ -1145,6 +1193,11 @@ export function QuizPlayer({
       toast.error("No attempt ID found. Please restart the quiz.");
       return;
     }
+
+    // In after_completion mode the last question is never navigated away from,
+    // so its answer hasn't been flushed to the server via the per-question API.
+    // Await that save before sending the bulk submit so the server has it.
+    await flushCurrentQuestionAnswerAsync();
 
     // Prepare answers for submission
     // Convert true/false option IDs to "true" or "false" text
