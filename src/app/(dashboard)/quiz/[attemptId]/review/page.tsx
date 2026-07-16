@@ -810,7 +810,7 @@ export default function QuizAttemptReviewPage() {
         {/* Results Navigation Sidebar */}
         <Card className="w-64 h-fit sticky top-6">
           <CardContent className="pt-6">
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[80vh] overflow-y-auto pr-1">
               {questionsWithResults.map(
                 (q: QuestionWithResults, index: number) => {
                   const result = q.result;

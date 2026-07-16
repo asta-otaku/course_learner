@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useGetCurrentUser, useGetTutorStudent } from "@/lib/api/queries";
 import { ChildProfile } from "@/lib/types";
 import { toast } from "react-toastify";
+import profileIcon from "@/assets/profileIcon.svg";
 
 // These will be dynamically generated from API data
 
@@ -157,13 +158,19 @@ export default function TutorStudentPage() {
             <div className="w-28 h-28 rounded-full bg-gray-200 flex items-center justify-center mb-2 overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={profile.avatar || ""}
+                src={profile.avatar ? profile.avatar : profileIcon.src}
                 alt={profile.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    "https://via.placeholder.com/80x80?text=Avatar";
+                  // fallback to profileIcon if not already set, otherwise fallback to a placeholder
+                  const img = e.target as HTMLImageElement;
+                  if (img.src !== profileIcon && img.src !== window.location.origin + profileIcon) {
+                    img.src = profileIcon;
+                  } else {
+                    img.src = profileIcon;
+                  }
                 }}
+
               />
             </div>
 

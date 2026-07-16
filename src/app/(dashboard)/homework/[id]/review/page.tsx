@@ -572,7 +572,7 @@ export default function HomeworkReviewPage() {
             <CardTitle className="text-base">Question Review</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[80vh] overflow-y-auto pr-1">
               {questionsWithResults.map(
                 (q: QuestionWithResults, index: number) => {
                   const result = q.result;
