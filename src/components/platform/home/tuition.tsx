@@ -28,6 +28,7 @@ type TuitionHomeProps = {
 function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomeProps) {
   const { activeProfile } = useProfile();
   const effectiveProfile = (activeProfileOverride ?? activeProfile) as any;
+  console.log(effectiveProfile);
   const [showChangeRequestDialog, setShowChangeRequestDialog] = useState(false);
   const { push } = useRouter();
   const { mutateAsync: createChat } = usePostCreateChat();
@@ -222,8 +223,8 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
               <div className="flex flex-col items-center">
                 <div className="w-32 h-32 rounded-full bg-gray-200 mb-3">
                   <Image
-                    src={profileIcon}
-                    alt="Profile Icon"
+                    src={effectiveProfile?.tutorAvatar || profileIcon}
+                    alt="Tutor Avatar"
                     width={32}
                     height={32}
                     className="rounded-full w-full h-full object-cover"

@@ -519,6 +519,7 @@ export interface ChildProfile {
   parentLastName: string;
   tutorFirstName: string;
   tutorLastName: string;
+  tutorAvatar: string;
   status: string;
   /** Present on `/child-profiles` API responses */
   preferences?: {
