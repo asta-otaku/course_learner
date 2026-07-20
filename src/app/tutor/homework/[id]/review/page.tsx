@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useGetHomeworkById, useGetQuizQuestions } from "@/lib/api/queries";
 import {
   usePatchAddQuizFeedback,
+  usePatchMarkQuizQuestionAsCorrect,
   usePatchMarkHomeworkAsReviewed,
   usePatchDismissHomeworkReview
 } from "@/lib/api/mutations";
@@ -581,9 +582,10 @@ export default function TutorHomeworkReviewPage() {
                       questionAttemptId={
                         currentResult.id ||
                         currentResult.questionAttemptId ||
-                        currentResult.userAnswerId ||
                         ""
                       }
+                      isCorrect={currentResult.isCorrect}
+                      homeworkId={id}
                       existingFeedback={currentResult.feedback || ""}
                       feedbackText={feedbackTexts[currentQ.question.id] || ""}
                       onFeedbackChange={(text) => {
@@ -834,6 +836,8 @@ export default function TutorHomeworkReviewPage() {
 interface FeedbackSectionProps {
   questionId: string;
   questionAttemptId: string;
+  isCorrect: boolean;
+  homeworkId: string;
   existingFeedback: string;
   feedbackText: string;
   onFeedbackChange: (text: string) => void;
@@ -844,12 +848,17 @@ interface FeedbackSectionProps {
 function FeedbackSection({
   questionId,
   questionAttemptId,
+  isCorrect,
+  homeworkId,
   existingFeedback,
   feedbackText,
   onFeedbackChange,
   editingFeedback,
   setEditingFeedback,
 }: FeedbackSectionProps) {
+  const queryClient = useQueryClient();
+  const [showMarkCorrectDialog, setShowMarkCorrectDialog] = useState(false);
+
   // Parse feedback if it's a JSON string
   const parseFeedback = (feedback: string): string => {
     if (!feedback) return "";
@@ -881,6 +890,11 @@ function FeedbackSection({
   const { mutate: addFeedback, isPending } =
     usePatchAddQuizFeedback(questionAttemptId);
 
+  const {
+    mutate: markQuestionAsCorrect,
+    isPending: isMarkingQuestionAsCorrect,
+  } = usePatchMarkQuizQuestionAsCorrect(questionAttemptId);
+
   const handleSaveFeedback = () => {
     if (!localFeedback.trim()) {
       toast.error("Feedback cannot be empty");
@@ -903,6 +917,31 @@ function FeedbackSection({
     );
   };
 
+  const handleMarkAsCorrect = () => {
+    if (!questionAttemptId) {
+      toast.error("Missing question attempt ID. Cannot mark as correct.");
+      return;
+    }
+
+    const trimmed = localFeedback.trim();
+    markQuestionAsCorrect(
+      trimmed ? { feedback: trimmed } : {},
+      {
+        onSuccess: () => {
+          if (trimmed) onFeedbackChange(trimmed);
+          setEditingFeedback(null);
+          setShowMarkCorrectDialog(false);
+          queryClient.invalidateQueries({ queryKey: ["homework", homeworkId] });
+          toast.success("Question marked as correct.");
+        },
+        onError: (error) => {
+          console.error("Error marking question as correct:", error);
+          toast.error("Failed to mark question as correct. Please try again.");
+        },
+      }
+    );
+  };
+
   const handleCancel = () => {
     setLocalFeedback(currentFeedback);
     setEditingFeedback(null);
@@ -910,20 +949,34 @@ function FeedbackSection({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
         <Label className="text-base font-medium flex items-center gap-2">
           <MessageSquare className="h-4 w-4" />
           Feedback:
         </Label>
-        {!isEditing && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setEditingFeedback(questionId)}
-          >
-            {currentFeedback ? "Edit Feedback" : "Add Feedback"}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {!isCorrect && questionAttemptId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-green-700 border-green-300 hover:bg-green-50"
+              onClick={() => setShowMarkCorrectDialog(true)}
+              disabled={isMarkingQuestionAsCorrect}
+            >
+              <CheckCircle className="h-4 w-4 mr-1.5" />
+              Mark as Correct
+            </Button>
+          )}
+          {!isEditing && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditingFeedback(questionId)}
+            >
+              {currentFeedback ? "Edit Feedback" : "Add Feedback"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {isEditing ? (
@@ -933,21 +986,25 @@ function FeedbackSection({
             onChange={(e) => setLocalFeedback(e.target.value)}
             placeholder="Enter feedback for the student..."
             className="min-h-[100px]"
-            disabled={isPending}
+            disabled={isPending || isMarkingQuestionAsCorrect}
           />
           <div className="flex gap-2 justify-end">
             <Button
               variant="outline"
               size="sm"
               onClick={handleCancel}
-              disabled={isPending}
+              disabled={isPending || isMarkingQuestionAsCorrect}
             >
               Cancel
             </Button>
             <Button
               size="sm"
               onClick={handleSaveFeedback}
-              disabled={isPending || !localFeedback.trim()}
+              disabled={
+                isPending ||
+                isMarkingQuestionAsCorrect ||
+                !localFeedback.trim()
+              }
             >
               {isPending ? (
                 <>
@@ -980,6 +1037,58 @@ function FeedbackSection({
           </AlertDescription>
         </Alert>
       )}
+
+      <AlertDialog
+        open={showMarkCorrectDialog}
+        onOpenChange={(open) => {
+          if (!isMarkingQuestionAsCorrect) setShowMarkCorrectDialog(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark this question as correct?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This overrides the automatic grade and awards full points for this
+              question. You can optionally include feedback for the student.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor={`mark-correct-feedback-${questionId}`}>
+              Feedback (optional)
+            </Label>
+            <Textarea
+              id={`mark-correct-feedback-${questionId}`}
+              value={localFeedback}
+              onChange={(e) => setLocalFeedback(e.target.value)}
+              placeholder="Optional note for the student..."
+              className="min-h-[90px]"
+              disabled={isMarkingQuestionAsCorrect}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMarkingQuestionAsCorrect}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleMarkAsCorrect();
+              }}
+              disabled={isMarkingQuestionAsCorrect}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isMarkingQuestionAsCorrect ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Marking...
+                </>
+              ) : (
+                "Mark as Correct"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

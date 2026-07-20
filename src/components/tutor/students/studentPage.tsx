@@ -16,6 +16,8 @@ import {
 import {
   usePatchChildPreferences,
   usePostAssignBaselineTest,
+  usePatchSkipLearningPathItem,
+  usePatchUnskipLearningPathItem,
 } from "@/lib/api/mutations";
 import { Badge } from "@/components/ui/badge";
 import BackArrow from "@/assets/svgs/arrowback";
@@ -211,6 +213,29 @@ export default function StudentPage({ id }: { id: string }) {
 
   const { mutateAsync: assignBaseline, isPending: assigning } =
     usePostAssignBaselineTest();
+  const { mutateAsync: skipLearningPathItem, isPending: isSkipping } =
+    usePatchSkipLearningPathItem();
+  const { mutateAsync: unskipLearningPathItem, isPending: isUnskipping } =
+    usePatchUnskipLearningPathItem();
+  const [skipActionQuizId, setSkipActionQuizId] = useState<string | null>(null);
+
+  const handleSkipToggle = async (item: SchemeOfWork) => {
+    const isSkipped = String(item.status).toLowerCase() === "skipped";
+    setSkipActionQuizId(item.quizId);
+    try {
+      if (isSkipped) {
+        await unskipLearningPathItem({ childId: id, quizId: item.quizId });
+        toast.success("Quiz unskipped");
+      } else {
+        await skipLearningPathItem({ childId: id, quizId: item.quizId });
+        toast.success("Quiz skipped");
+      }
+    } catch {
+      // handled inside mutation
+    } finally {
+      setSkipActionQuizId(null);
+    }
+  };
 
   const handleAssignBaseline = async () => {
     if (!selectedYearGroupId) {
@@ -535,18 +560,20 @@ export default function StudentPage({ id }: { id: string }) {
                         <TableHead>Section</TableHead>
                         <TableHead>Lesson</TableHead>
                         <TableHead>Quiz title</TableHead>
-                        <TableHead>Quiz description</TableHead>
+                        {/* <TableHead>Quiz description</TableHead> */}
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {schemeRows.map((item) => {
-                        const statusLabel =
-                          String(item.status).toLowerCase() === "skipped"
-                            ? "Skipped"
-                            : "Queue";
+                        const isSkipped =
+                          String(item.status).toLowerCase() === "skipped";
+                        const statusLabel = isSkipped ? "Skipped" : "Queue";
                         const canAssign = item.inLearningPath;
+                        const isRowSkipPending =
+                          skipActionQuizId === item.quizId &&
+                          (isSkipping || isUnskipping);
                         return (
                           <TableRow
                             key={`${item.quizId}-${item.orderIndex}`}
@@ -561,12 +588,12 @@ export default function StudentPage({ id }: { id: string }) {
                             <TableCell className="font-medium text-sm max-w-[220px]">
                               <span className="line-clamp-2">{item.quizTitle}</span>
                             </TableCell>
-                            <TableCell className="text-sm text-gray-400 max-w-[260px]">
+                            {/* <TableCell className="text-sm text-gray-400 max-w-[260px]">
                               <span className="line-clamp-2">—</span>
-                            </TableCell>
+                            </TableCell> */}
                             <TableCell>
                               <Badge
-                                className={`text-xs font-medium capitalize ${statusLabel === "Skipped"
+                                className={`text-xs font-medium capitalize ${isSkipped
                                   ? "bg-gray-100 text-gray-600"
                                   : "bg-yellow-100 text-yellow-700"
                                   }`}
@@ -575,18 +602,37 @@ export default function StudentPage({ id }: { id: string }) {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="rounded-full"
-                                disabled={!canAssign}
-                                onClick={() => {
-                                  setSchemeQuizToAssign(item);
-                                  setShowAssignQuizDialog(true);
-                                }}
-                              >
-                                Assign Quiz
-                              </Button>
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="rounded-full"
+                                  disabled={
+                                    (!canAssign && !isSkipped) || isRowSkipPending
+                                  }
+                                  onClick={() => handleSkipToggle(item)}
+                                >
+                                  {isRowSkipPending ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : isSkipped ? (
+                                    "Unskip Quiz"
+                                  ) : (
+                                    "Skip Quiz"
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="rounded-full"
+                                  disabled={!canAssign || isSkipped}
+                                  onClick={() => {
+                                    setSchemeQuizToAssign(item);
+                                    setShowAssignQuizDialog(true);
+                                  }}
+                                >
+                                  Assign Quiz
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );

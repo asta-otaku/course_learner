@@ -122,6 +122,10 @@ export function QuizPlayer({
   const quiz = quizResponse?.data;
   const quizTimeLimit = propTimeLimit ?? quiz?.timeLimit;
   const isImmediateFeedback = quiz?.feedbackMode === "immediate";
+  /** Results / scores are withheld until later (delayed delivery or tutor review). */
+  const isDeferredResultsFeedback =
+    quiz?.feedbackMode === "delayed_random" ||
+    quiz?.feedbackMode === "manual_tutor_review";
 
   // Determine the actual time limit to use (only if > 0)
   const actualTimeLimit =
@@ -1457,6 +1461,69 @@ export function QuizPlayer({
 
   // Results Summary View
   if (showResults && submissionResults) {
+    // Delayed / tutor-review modes: students don't get a scored breakdown yet.
+    if (isDeferredResultsFeedback) {
+      const isTutorReview = quiz?.feedbackMode === "manual_tutor_review";
+      const exitLabel = isHomework
+        ? "Back to Homework"
+        : isBaselineTest
+          ? "Back"
+          : "Back to Lessons";
+
+      return (
+        <div className="max-w-2xl mx-auto py-12 px-4">
+          <Card>
+            <CardHeader className="text-center space-y-3">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-blue-50">
+                <CheckCircle className="h-8 w-8 text-primaryBlue" />
+              </div>
+              <CardTitle className="text-xl">
+                {isHomework ? "Homework submitted" : "Quiz submitted"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 text-center">
+              <Alert className="border-blue-200 bg-blue-50 text-left">
+                <AlertCircle className="h-4 w-4 text-primaryBlue" />
+                <AlertDescription className="text-blue-900">
+                  {isTutorReview ? (
+                    <>
+                      Your answers have been sent for tutor review. Results and
+                      feedback will be shared with you once your Learning Buddy
+                      has finished reviewing them.
+                    </>
+                  ) : (
+                    <>
+                      Your answers have been submitted. Results and feedback
+                      will be released a little later — we&apos;ll let you know
+                      when they&apos;re ready.
+                    </>
+                  )}
+                </AlertDescription>
+              </Alert>
+              <p className="text-sm text-muted-foreground">
+                You won&apos;t see a question-by-question breakdown on this
+                screen. Check back later for your results.
+              </p>
+              <Button
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  if (isHomework) {
+                    router.push("/homework");
+                  } else if (isBaselineTest) {
+                    router.back();
+                  } else {
+                    router.push("/dashboard");
+                  }
+                }}
+              >
+                {exitLabel}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     const normalizeSubmissionQuestionResult = (
       r: QuizQuestionResult,
       fallbackPoints: number,

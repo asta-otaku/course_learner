@@ -1277,6 +1277,22 @@ export interface LearningPath {
   homeworkId: string;
 }
 
+export interface LearningPathItem {
+  id: string
+  childId: string
+  quizId: string
+  orderIndex: number
+  status: string
+  assignedAt: string
+  completedAt: string
+  dueAt: string
+  failCount: number
+  lastFailedAt: string
+  baselineAttemptId: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface RecentHomeworkItem {
   type: string;
   lessonName: string;

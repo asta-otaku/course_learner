@@ -40,6 +40,7 @@ import {
   BaselineTestEntry,
   UpgradeToTuitionPreviewResponse,
   ChildPreferences,
+  LearningPathItem,
 } from "../types";
 
 // Helper function to handle error messages
@@ -1318,10 +1319,30 @@ export const usePatchAddQuizFeedback = (questionAttemptId: string) => {
     mutationKey: ["patch-add-quiz-feedback", questionAttemptId],
     mutationFn: (data: { feedback: string }): Promise<ApiResponse<Quiz>> =>
       axiosInstance.patch(
-        `/quizzes/attempt/${questionAttemptId}/feedback`,
+        `/question-attempts/${questionAttemptId}/feedback`,
         data,
       ),
     onSuccess: (data: ApiResponse<Quiz>) => {
+      return data;
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchMarkQuizQuestionAsCorrect = (questionAttemptId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-mark-quiz-question-as-correct", questionAttemptId],
+    mutationFn: (data: { feedback?: string } = {}): Promise<ApiResponse<Quiz>> =>
+      axiosInstance.patch(
+        `/question-attempts/${questionAttemptId}/mark-correct`,
+        data,
+      ),
+    onSuccess: (data: ApiResponse<Quiz>) => {
+      queryClient.invalidateQueries({ queryKey: ["homework"] });
+      queryClient.invalidateQueries({ queryKey: ["homeworks"] });
       return data;
     },
     onError: (error: AxiosError) => {
@@ -2348,6 +2369,56 @@ export const usePostAssignBaselineTest = () => {
       });
       queryClient.invalidateQueries({
         queryKey: ["child-learning-path-summary", childId],
+      });
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchSkipLearningPathItem = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-skip-learning-path-item"],
+    mutationFn: (data: {
+      childId: string;
+      quizId: string;
+    }): Promise<ApiResponse<LearningPathItem>> =>
+      axiosInstance.patch(
+        `/learning-path/${data.childId}/items/${data.quizId}/skip`,
+      ),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["child-learning-path-summary", variables.childId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["child-scheme-of-work", variables.childId],
+      });
+    },
+    onError: (error: AxiosError) => {
+      handleErrorMessage(error);
+    },
+  });
+};
+
+export const usePatchUnskipLearningPathItem = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["patch-unskip-learning-path-item"],
+    mutationFn: (data: {
+      childId: string;
+      quizId: string;
+    }): Promise<ApiResponse<LearningPathItem>> =>
+      axiosInstance.patch(
+        `/learning-path/${data.childId}/items/${data.quizId}/unskip`,
+      ),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["child-learning-path-summary", variables.childId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["child-scheme-of-work", variables.childId],
       });
     },
     onError: (error: AxiosError) => {
