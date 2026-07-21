@@ -2,10 +2,24 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useGetQuizAttemptById, useGetQuizQuestions } from "@/lib/api/queries";
+import { usePatchMarkQuizQuestionAsCorrect } from "@/lib/api/mutations";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   CheckCircle,
   XCircle,
@@ -17,6 +31,7 @@ import {
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { toast } from "react-toastify";
 import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
 import { QuestionImage } from "@/components/ui/question-image";
 
@@ -39,6 +54,7 @@ interface QuizResult {
   pointsEarned: number;
   pointsPossible: number;
   feedback?: string;
+  questionAttemptId?: string;
 }
 
 export default function BaselineReviewPage() {
@@ -446,6 +462,18 @@ export default function BaselineReviewPage() {
                     </div>
                   )}
 
+                  {/* Mark incorrect answers as correct */}
+                  {currentResult && !currentResult.isCorrect && (
+                    <MarkAsCorrectSection
+                      questionId={currentQ.question.id}
+                      questionAttemptId={
+                        currentResult.id || currentResult.questionAttemptId || ""
+                      }
+                      attemptId={id}
+                      existingFeedback={currentResult.feedback || ""}
+                    />
+                  )}
+
                   {/* Explanation */}
                   {currentQ.question.explanation && (
                     <div>
@@ -558,6 +586,138 @@ export default function BaselineReviewPage() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function MarkAsCorrectSection({
+  questionId,
+  questionAttemptId,
+  attemptId,
+  existingFeedback,
+}: {
+  questionId: string;
+  questionAttemptId: string;
+  attemptId: string;
+  existingFeedback: string;
+}) {
+  const queryClient = useQueryClient();
+  const [showMarkCorrectDialog, setShowMarkCorrectDialog] = useState(false);
+
+  const parseFeedback = (feedback: string): string => {
+    if (!feedback) return "";
+    try {
+      const parsed = JSON.parse(feedback);
+      if (parsed && typeof parsed === "object" && parsed.feedback) {
+        return parsed.feedback;
+      }
+    } catch {
+      // Not JSON
+    }
+    return feedback;
+  };
+
+  const [localFeedback, setLocalFeedback] = useState(
+    parseFeedback(existingFeedback),
+  );
+
+  const {
+    mutate: markQuestionAsCorrect,
+    isPending: isMarkingQuestionAsCorrect,
+  } = usePatchMarkQuizQuestionAsCorrect(questionAttemptId);
+
+  const handleMarkAsCorrect = () => {
+    if (!questionAttemptId) {
+      toast.error("Missing question attempt ID. Cannot mark as correct.");
+      return;
+    }
+
+    const trimmed = localFeedback.trim();
+    markQuestionAsCorrect(trimmed ? { feedback: trimmed } : {}, {
+      onSuccess: () => {
+        setShowMarkCorrectDialog(false);
+        queryClient.invalidateQueries({ queryKey: ["quiz-attempt", attemptId] });
+        toast.success("Question marked as correct.");
+      },
+      onError: (error) => {
+        console.error("Error marking question as correct:", error);
+        toast.error("Failed to mark question as correct. Please try again.");
+      },
+    });
+  };
+
+  if (!questionAttemptId) return null;
+
+  return (
+    <div className="flex items-center justify-between gap-2 flex-wrap rounded-lg border border-green-200 bg-green-50/50 p-3">
+      <p className="text-sm text-green-800">
+        Override the automatic grade if this answer should count as correct.
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-green-700 border-green-300 hover:bg-green-50"
+        onClick={() => {
+          setLocalFeedback(parseFeedback(existingFeedback));
+          setShowMarkCorrectDialog(true);
+        }}
+        disabled={isMarkingQuestionAsCorrect}
+      >
+        <CheckCircle className="h-4 w-4 mr-1.5" />
+        Mark as Correct
+      </Button>
+
+      <AlertDialog
+        open={showMarkCorrectDialog}
+        onOpenChange={(open) => {
+          if (!isMarkingQuestionAsCorrect) setShowMarkCorrectDialog(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark this question as correct?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This overrides the automatic grade and awards full points for this
+              question. You can optionally include feedback for the student.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor={`mark-correct-feedback-${questionId}`}>
+              Feedback (optional)
+            </Label>
+            <Textarea
+              id={`mark-correct-feedback-${questionId}`}
+              value={localFeedback}
+              onChange={(e) => setLocalFeedback(e.target.value)}
+              placeholder="Optional note for the student..."
+              className="min-h-[90px]"
+              disabled={isMarkingQuestionAsCorrect}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMarkingQuestionAsCorrect}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleMarkAsCorrect();
+              }}
+              disabled={isMarkingQuestionAsCorrect}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isMarkingQuestionAsCorrect ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Marking...
+                </>
+              ) : (
+                "Mark as Correct"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

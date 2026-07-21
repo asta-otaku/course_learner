@@ -77,3 +77,44 @@ export function isChildProfileBlockedByCancelledSubscription(error: unknown): bo
 
   return false;
 }
+
+/** JPEG / PNG / WebP only — no GIF, SVG, video, or other media. */
+export const AVATAR_ACCEPT =
+  "image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
+
+const ALLOWED_AVATAR_MIME = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+]);
+
+const ALLOWED_AVATAR_EXT = new Set(["jpg", "jpeg", "png", "webp"]);
+
+export function isValidAvatarImageFile(file: File): boolean {
+  const mime = (file.type || "").toLowerCase();
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+
+  // Reject known non-photo types even if MIME is missing/spoofed.
+  if (
+    mime === "image/gif" ||
+    mime === "image/svg+xml" ||
+    mime.startsWith("video/") ||
+    ext === "gif" ||
+    ext === "svg" ||
+    ext === "mp4" ||
+    ext === "webm" ||
+    ext === "mov"
+  ) {
+    return false;
+  }
+
+  const mimeOk = mime ? ALLOWED_AVATAR_MIME.has(mime) : false;
+  const extOk = ALLOWED_AVATAR_EXT.has(ext);
+  // Require both when MIME is present; fall back to extension when MIME is empty.
+  return mime ? mimeOk && extOk : extOk;
+}
+
+export const AVATAR_IMAGE_ERROR =
+  "Avatar must be a JPEG, PNG, or WebP image (no GIF, SVG, or video).";
+

@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  AVATAR_IMAGE_ERROR,
+  isValidAvatarImageFile,
+} from "@/lib/childProfileCreation";
 
 export const accountCreationSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -11,7 +15,11 @@ export const accountCreationSchema = z.object({
 });
 
 export const childProfileSchema = z.object({
-  avatar: z.instanceof(File).nullable().optional(),
+  avatar: z
+    .instanceof(File)
+    .refine(isValidAvatarImageFile, { message: AVATAR_IMAGE_ERROR })
+    .nullable()
+    .optional(),
   name: z.string().min(1, "Name is required"),
   year: z.string().min(1, "Year is required"),
 });

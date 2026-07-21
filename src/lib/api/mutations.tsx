@@ -1343,6 +1343,7 @@ export const usePatchMarkQuizQuestionAsCorrect = (questionAttemptId: string) => 
     onSuccess: (data: ApiResponse<Quiz>) => {
       queryClient.invalidateQueries({ queryKey: ["homework"] });
       queryClient.invalidateQueries({ queryKey: ["homeworks"] });
+      queryClient.invalidateQueries({ queryKey: ["quiz-attempt"] });
       return data;
     },
     onError: (error: AxiosError) => {

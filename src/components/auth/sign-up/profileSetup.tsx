@@ -15,8 +15,11 @@ import { trackPixelEvent } from "@/components/MetaPixel";
 import type { ChildProfile as ApiChildProfile } from "@/lib/types";
 import { ChildProfileSubscriptionBlockedDialog } from "@/components/platform/child-profiles/ChildProfileSubscriptionBlockedDialog";
 import {
+  AVATAR_ACCEPT,
+  AVATAR_IMAGE_ERROR,
   getPeriodEndFromChildProfileRegisterError,
   isChildProfileBlockedByCancelledSubscription,
+  isValidAvatarImageFile,
 } from "@/lib/childProfileCreation";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -60,10 +63,6 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
         avatar: data.avatar as File,
       });
       if (res.status === 201) {
-        // The register response body is not always a complete profile (and may
-        // omit fields like isActive), so refetch the authoritative list and
-        // resolve the created child from it before advancing. Otherwise the
-        // subscriptions step can end up without a child in storage.
         let createdProfile: ApiChildProfile | undefined =
           res.data?.data as unknown as ApiChildProfile | undefined;
         try {
@@ -188,12 +187,17 @@ function ProfileSetup({ currentStep, setCurrentStep }: AccountCreationProps) {
                 <input
                   id="avatar-upload"
                   type="file"
-                  accept="image/*"
+                  accept={AVATAR_ACCEPT}
                   className="hidden"
                   onChange={(e) => {
-                    if (e.target.files?.[0]) {
-                      field.onChange(e.target.files[0]);
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (!isValidAvatarImageFile(file)) {
+                      toast.error(AVATAR_IMAGE_ERROR);
+                      e.target.value = "";
+                      return;
                     }
+                    field.onChange(file);
                   }}
                 />
               </label>

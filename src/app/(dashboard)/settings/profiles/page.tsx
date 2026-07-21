@@ -20,8 +20,11 @@ import { z } from "zod";
 import { toast } from "react-toastify";
 import { ChildProfileSubscriptionBlockedDialog } from "@/components/platform/child-profiles/ChildProfileSubscriptionBlockedDialog";
 import {
+  AVATAR_ACCEPT,
+  AVATAR_IMAGE_ERROR,
   getPeriodEndFromChildProfileRegisterError,
   isChildProfileBlockedByCancelledSubscription,
+  isValidAvatarImageFile,
 } from "@/lib/childProfileCreation";
 import ProfileLoader from "@/components/platform/profile-loader";
 
@@ -103,6 +106,11 @@ function Page() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!isValidAvatarImageFile(file)) {
+      toast.error(AVATAR_IMAGE_ERROR);
+      e.target.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (event) => setAvatarData({ avatar: event.target?.result as string, avatarFile: file });
     reader.readAsDataURL(file);
@@ -194,7 +202,7 @@ function Page() {
         type="file"
         ref={fileInputRef}
         className="hidden"
-        accept="image/*"
+        accept={AVATAR_ACCEPT}
         onChange={handleImageUpload}
       />
 
