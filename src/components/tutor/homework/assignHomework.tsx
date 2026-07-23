@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import BackArrow from "@/assets/svgs/arrowback";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -92,7 +92,7 @@ export default function AssignHomeworkForm({
   );
 
   // Fetch quizzes with search and pagination
-  const { data: quizzesResponse, isLoading: isLoadingQuizzes } = useGetQuizzes({
+  const { data: quizzesResponse, isLoading: isLoadingQuizzes, isFetching: isFetchingQuizzes } = useGetQuizzes({
     search: quizSearch,
     status: "published",
     page: quizPage,
@@ -127,29 +127,73 @@ export default function AssignHomeworkForm({
   // Mutation for assigning homework
   const postHomeworkMutation = usePostHomework();
 
-  // Ref for quiz dropdown scroll
-  const quizDropdownRef = useRef<HTMLDivElement>(null);
+  // Keep pagination/loading flags in refs so the scroll listener always sees
+  // current values without needing to re-bind on every fetch.
+  const canFetchMoreQuizzesRef = useRef(false);
+  const isFetchingQuizzesRef = useRef(false);
+  const quizListElRef = useRef<HTMLDivElement | null>(null);
 
-  // Handle scroll to load more quizzes
+  const hasMoreQuizzes =
+    Boolean(quizPagination?.hasNextPage) ||
+    Boolean(
+      quizPagination &&
+        quizPagination.totalPages > 0 &&
+        quizPagination.page < quizPagination.totalPages
+    );
+
   useEffect(() => {
-    if (!quizDropdownOpen || !quizDropdownRef.current) return;
+    canFetchMoreQuizzesRef.current = hasMoreQuizzes;
+    isFetchingQuizzesRef.current = isFetchingQuizzes;
+  }, [hasMoreQuizzes, isFetchingQuizzes]);
 
-    const handleScroll = () => {
-      const element = quizDropdownRef.current;
-      if (!element) return;
+  const tryLoadMoreQuizzes = useCallback(() => {
+    const element = quizListElRef.current;
+    if (!element) return;
+    if (!canFetchMoreQuizzesRef.current || isFetchingQuizzesRef.current) return;
 
-      const { scrollTop, scrollHeight, clientHeight } = element;
-      const isNearBottom = scrollTop + clientHeight >= scrollHeight - 10;
+    const { scrollTop, scrollHeight, clientHeight } = element;
+    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 24;
+    if (!isNearBottom) return;
 
-      if (isNearBottom && quizPagination?.hasNextPage && !isLoadingQuizzes) {
-        setQuizPage((prev) => prev + 1);
+    setQuizPage((prev) => prev + 1);
+  }, []);
+
+  // Callback ref: Popover content mounts after open=true, so a useEffect that
+  // reads quizDropdownRef.current on that same tick often sees null and never
+  // attaches. Bind/unbind when the scrollable node actually appears.
+  const quizDropdownRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      const prev = quizListElRef.current;
+      if (prev) {
+        prev.removeEventListener("scroll", tryLoadMoreQuizzes);
       }
-    };
+      quizListElRef.current = node;
+      if (node) {
+        node.addEventListener("scroll", tryLoadMoreQuizzes, { passive: true });
+      }
+    },
+    [tryLoadMoreQuizzes]
+  );
 
-    const element = quizDropdownRef.current;
-    element.addEventListener("scroll", handleScroll);
-    return () => element.removeEventListener("scroll", handleScroll);
-  }, [quizDropdownOpen, quizPagination, isLoadingQuizzes]);
+  // If the first page(s) don't fill the panel, there is no scroll event — fetch
+  // the next page until the list is scrollable or there are no more results.
+  useEffect(() => {
+    if (!quizDropdownOpen || isFetchingQuizzes || !hasMoreQuizzes) return;
+    const element = quizListElRef.current;
+    if (!element) return;
+    const cannotScroll = element.scrollHeight <= element.clientHeight + 1;
+    if (!cannotScroll) return;
+    // Stop chaining if the last fetch returned nothing new.
+    if ((quizzesResponse?.quizzes?.length ?? 0) === 0 && quizPage > 1) return;
+    setQuizPage((prev) => prev + 1);
+  }, [
+    quizDropdownOpen,
+    isFetchingQuizzes,
+    hasMoreQuizzes,
+    accumulatedQuizzes.length,
+    quizzesResponse?.quizzes?.length,
+    quizPage,
+  ]);
 
   const selectedQuiz = accumulatedQuizzes.find((q) => q.id === quiz);
 
@@ -319,7 +363,10 @@ export default function AssignHomeworkForm({
                 open={quizDropdownOpen}
                 onOpenChange={(open) => {
                   setQuizDropdownOpen(open);
-                  if (!open) setQuizSearch("");
+                  if (!open) {
+                    setQuizSearch("");
+                    setQuizPage(1);
+                  }
                 }}
               >
                 <PopoverTrigger asChild>
@@ -411,7 +458,7 @@ export default function AssignHomeworkForm({
                         <Loader2 className="h-5 w-5 animate-spin mx-auto text-gray-400" />
                       </div>
                     )}
-                    {quizPagination?.hasNextPage && !isLoadingQuizzes && (
+                    {hasMoreQuizzes && !isLoadingQuizzes && (
                       <div className="p-2 text-center text-xs text-gray-400">
                         Scroll for more
                       </div>

@@ -1252,6 +1252,13 @@ export function QuizPlayer({
     };
 
     const handleSubmissionSuccess = (resultData: any) => {
+      // Offer 2 / Learning Buddy review: leave the quiz immediately and show
+      // the confirmation message on the homework page.
+      if (quiz?.feedbackMode === "manual_tutor_review") {
+        router.replace("/homework?buddyReviewSubmitted=1");
+        return;
+      }
+
       // In immediate-feedback mode we already have per-question results collected
       // during the quiz. The homework submit endpoint returns a Homework object (not
       // scored quiz results), so we build the review from the local data instead of

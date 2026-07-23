@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, FileQuestion, ClipboardCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,15 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useProfile } from "@/context/profileContext";
 import {
   useGetRecentHomework,
@@ -42,11 +51,21 @@ function statusDisplay(status: string | null | undefined): string {
 }
 
 export default function HomeworkStatusPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { activeProfile } = useProfile();
   const childIdFromUrl = searchParams.get("childId") ?? "";
   const childIdFromProfile = activeProfile?.id ? String(activeProfile.id) : "";
   const studentId = childIdFromUrl || childIdFromProfile;
+
+  const [showBuddyReviewSubmitted, setShowBuddyReviewSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("buddyReviewSubmitted") !== "1") return;
+    setShowBuddyReviewSubmitted(true);
+    // Drop the query flag so a refresh / back doesn't re-open the dialog.
+    router.replace("/homework", { scroll: false });
+  }, [searchParams, router]);
 
   const { data: recentResponse, isLoading: recentLoading } =
     useGetRecentHomework(studentId);
@@ -62,6 +81,30 @@ export default function HomeworkStatusPage() {
 
   return (
     <div className="w-full space-y-6">
+      <AlertDialog
+        open={showBuddyReviewSubmitted}
+        onOpenChange={setShowBuddyReviewSubmitted}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Homework submitted!</AlertDialogTitle>
+            <AlertDialogDescription className="text-base text-textGray leading-relaxed">
+              Your Learning Buddy is going to check your work. Once they&apos;re
+              done, you&apos;ll be able to come back and see your results. Nice
+              work! ✅
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              className="bg-primaryBlue hover:bg-primaryBlue/90"
+              onClick={() => setShowBuddyReviewSubmitted(false)}
+            >
+              Got it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold tracking-tight">Homework</h2>
       </div>

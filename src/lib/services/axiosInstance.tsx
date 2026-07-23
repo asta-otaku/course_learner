@@ -140,18 +140,9 @@ function redirectToSignIn() {
 
   // Clear user data for the current user type
   localStorage.removeItem(storageKey);
-
-  // Determine the appropriate sign-in page
-  let signInPath = "/sign-in";
-  if (userType === "admin") {
-    signInPath = "/admin/sign-in";
-  } else if (userType === "tutor") {
-    signInPath = "/tutor/sign-in";
-  }
-
   // Small delay to ensure all pending requests are handled
   setTimeout(() => {
-    window.location.replace(signInPath);
+    window.location.replace("/sign-in");
   }, 100);
 }
 

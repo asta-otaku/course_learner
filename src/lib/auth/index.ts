@@ -68,9 +68,7 @@ export async function requireAuth() {
   const user = getCachedUser();
   
   if (!user || !isAuthenticated()) {
-    const userType = getUserTypeFromRoute();
-    const redirectPath = userType === "admin" ? "/admin/sign-in" : 
-                        userType === "tutor" ? "/tutor/sign-in" : "/sign-in";
+    const redirectPath = "/sign-in"
     redirect(redirectPath);
   }
   
