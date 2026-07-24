@@ -364,10 +364,10 @@ export const MessageInput = React.memo(
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Enter sends; Shift+Enter inserts a newline (preserved in the bubble).
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSendMessage(selectedFile || undefined);
-        // Clear file after sending (same as Send button)
         if (selectedFile) {
           handleRemoveFile();
         }
@@ -552,8 +552,8 @@ export const MessageInput = React.memo(
                 isTyping
                   ? "They are typing..."
                   : isTutorMode
-                    ? "Type your response..."
-                    : "Type your message..."
+                    ? "Type your response… (Shift+Enter for new line)"
+                    : "Type your message… (Shift+Enter for new line)"
               }
               className="w-full px-4 py-3 bg-transparent border-0 resize-none focus:outline-none focus:ring-0 max-h-32 text-sm"
               rows={1}

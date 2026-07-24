@@ -37,20 +37,66 @@ const linkify = (text: string): React.ReactNode => {
   const parts = text.split(urlRegex);
 
   return parts.map((part, index) => {
-    if (urlRegex.test(part)) {
+    if (/^https?:\/\/[^\s]+$/.test(part)) {
       return (
         <a
           key={index}
           href={part}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-500 hover:underline"
+          className="text-blue-500 hover:underline break-all"
         >
           {part}
         </a>
       );
     }
     return part;
+  });
+};
+
+/**
+ * Renders chat text with preserved newlines and light inline formatting:
+ * **bold**, *italic* / _italic_, and auto-linked URLs.
+ */
+export const formatMessageContent = (text: string): React.ReactNode => {
+  if (!text) return null;
+
+  const lines = text.split("\n");
+
+  return lines.map((line, lineIndex) => {
+    // Split on **bold**, *italic*, _italic_ (non-greedy, non-crossing newlines)
+    const tokenRegex = /(\*\*[^*]+\*\*|\*[^*\n]+\*|_[^_\n]+_)/g;
+    const segments = line.split(tokenRegex);
+
+    const formatted = segments.map((segment, i) => {
+      if (!segment) return null;
+
+      if (segment.startsWith("**") && segment.endsWith("**") && segment.length > 4) {
+        return (
+          <strong key={i} className="font-semibold">
+            {linkify(segment.slice(2, -2))}
+          </strong>
+        );
+      }
+      if (
+        (segment.startsWith("*") && segment.endsWith("*") && segment.length > 2) ||
+        (segment.startsWith("_") && segment.endsWith("_") && segment.length > 2)
+      ) {
+        return (
+          <em key={i} className="italic">
+            {linkify(segment.slice(1, -1))}
+          </em>
+        );
+      }
+      return <React.Fragment key={i}>{linkify(segment)}</React.Fragment>;
+    });
+
+    return (
+      <React.Fragment key={lineIndex}>
+        {formatted}
+        {lineIndex < lines.length - 1 ? <br /> : null}
+      </React.Fragment>
+    );
   });
 };
 
@@ -72,9 +118,13 @@ export const TextMessage = ({
   content: string;
   isMe: boolean;
 }) => (
-  <div className={`px-1 py-1 ${isMe ? "text-white" : "text-gray-700"}`}>
+  <div
+    className={`px-1 py-1 whitespace-pre-wrap break-words ${
+      isMe ? "text-white" : "text-gray-700"
+    }`}
+  >
     <span className="overflow-hidden max-w-full inline-block [&_a]:break-all [&_a]:break-words [&_a]:max-w-full">
-      {linkify(content)}
+      {formatMessageContent(content)}
     </span>
   </div>
 );
