@@ -87,9 +87,16 @@ function storeIntendedUrl(url: string) {
     "/tutor/sign-up",
     "/tutor/forgot-password",
   ];
-  if (!authPages.some((page) => url.includes(page))) {
+  if (!authPages.some((page) => url.includes(page)) && isSafeInternalPath(url)) {
     localStorage.setItem("intendedUrl", url);
   }
+}
+
+export function isSafeInternalPath(url: string): boolean {
+  if (!url.startsWith("/")) return false;
+  if (url.startsWith("//") || url.startsWith("/\\")) return false;
+  if (url.includes("://")) return false;
+  return true;
 }
 
 // Track the last URL that produced a 401 redirect-to-login.
@@ -114,7 +121,7 @@ export function getAndClearIntendedUrl(): string | null {
   const intendedUrl = localStorage.getItem("intendedUrl");
   if (intendedUrl) {
     localStorage.removeItem("intendedUrl");
-    return intendedUrl;
+    return isSafeInternalPath(intendedUrl) ? intendedUrl : null;
   }
   return null;
 }
@@ -140,9 +147,16 @@ function redirectToSignIn() {
 
   // Clear user data for the current user type
   localStorage.removeItem(storageKey);
+  let signInPath = "/sign-in";
+  if (userType === "admin") {
+    signInPath = "/admin/sign-in";
+  } else if (userType === "tutor") {
+    signInPath = "/tutor/sign-in";
+  }
+
   // Small delay to ensure all pending requests are handled
   setTimeout(() => {
-    window.location.replace("/sign-in");
+    window.location.replace(signInPath);
   }, 100);
 }
 

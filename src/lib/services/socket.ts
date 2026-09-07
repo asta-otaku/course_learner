@@ -59,7 +59,6 @@ export const initSocket = (): Socket<
     socket.io.on("reconnect_attempt", () => {
       const newToken = getAccessToken();
       if (socket) {
-        // @ts-ignore - ensure each reconnect uses latest token
         socket.io.opts.query = { jwtToken: newToken ?? socket.io.opts?.query?.jwtToken };
       }
     });
@@ -71,7 +70,6 @@ export const initSocket = (): Socket<
 /** Call before connect() to ensure the socket uses the current token (e.g. after login). */
 export const setSocketQueryToken = (token: string | null) => {
   if (socket) {
-    // @ts-ignore
     socket.io.opts.query = { jwtToken: token };
   }
 };

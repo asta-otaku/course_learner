@@ -46,7 +46,7 @@ function StudentHomeworkScheduleTab() {
         ];
       }
       // Update date and time for all assignments
-      return updated.map((a, idx) => ({
+      return updated.map((a, _idx) => ({
         ...a,
         date: `To Be Assigned 24th March${
           dateAssigned !== "SUNDAY" ? ` (${dateAssigned})` : ""

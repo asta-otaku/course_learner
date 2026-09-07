@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useMemo } from "react";
-import Image from "next/image";
 import { Layers, Play } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";

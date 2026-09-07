@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Users, Video, XCircle } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Session } from "@/lib/types";
 import { formatDisplayDate } from "@/lib/utils";
+import { Video, XCircle } from "lucide-react";
 import { useGetSessionMeetingUrl } from "@/lib/api/queries";
 import type { SessionSectionType } from "./SessionSection";
 

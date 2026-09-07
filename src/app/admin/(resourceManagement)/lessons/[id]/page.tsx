@@ -12,22 +12,20 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LessonContent } from "@/components/resourceManagemement/lessons/lesson-content";
-import { LessonQuizzes } from "@/components/resourceManagemement/lessons/lesson-quizzes";
+import { LessonContent } from "@/components/resourceManagement/lessons/lesson-content";
+import { LessonQuizzes } from "@/components/resourceManagement/lessons/lesson-quizzes";
 import { UnpublishedBanner } from "@/components/ui/unpublished-banner";
 import {
   ArrowLeft,
   Clock,
   Target,
-  AlertCircle,
   Edit,
-  Plus,
   BookOpen,
   GraduationCap,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useGetLessonById, useGetQuizzesForLesson } from "@/lib/api/queries";
-import { LoadingSkeleton } from "../../questions/page";
+import { LoadingSkeleton } from "../../questions/loading-skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,7 +79,7 @@ export default function LessonPage() {
   // For now, allow editing for all users
   const canEdit = true;
 
-  const getDifficultyLabel = (level: number | null) => {
+  const _getDifficultyLabel = (level: number | null) => {
     if (!level) return "Not Set";
     if (level <= 2) return "Easy";
     if (level <= 3) return "Medium";
@@ -89,7 +87,7 @@ export default function LessonPage() {
     return "Expert";
   };
 
-  const getDifficultyColor = (level: number | null) => {
+  const _getDifficultyColor = (level: number | null) => {
     if (!level) return "bg-gray-100 text-gray-800";
     if (level <= 2) return "bg-green-100 text-green-800";
     if (level <= 3) return "bg-yellow-100 text-yellow-800";

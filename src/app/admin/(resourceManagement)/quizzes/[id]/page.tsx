@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { QuizActions } from "@/components/resourceManagemement/quiz/quiz-actions";
-import { QuizSettingsEditor } from "@/components/resourceManagemement/quiz/quiz-settings-editor";
-import { PublishQuizButton } from "@/components/resourceManagemement/quiz/publish-quiz-button";
+import { QuizActions } from "@/components/resourceManagement/quiz/quiz-actions";
+import { QuizSettingsEditor } from "@/components/resourceManagement/quiz/quiz-settings-editor";
+import { PublishQuizButton } from "@/components/resourceManagement/quiz/publish-quiz-button";
 import { UnpublishedBanner } from "@/components/ui/unpublished-banner";
 import {
   Edit,
@@ -23,7 +23,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useGetQuiz, useGetQuizQuestions } from "@/lib/api/queries";
 import { formatDistanceToNow } from "date-fns";
 import { useMemo, useState, useEffect } from "react";
-import { MathPreview } from "@/components/resourceManagemement/editor";
+import { MathPreview } from "@/components/resourceManagement/editor";
 
 // Force dynamic rendering
 export const dynamic = "force-dynamic";

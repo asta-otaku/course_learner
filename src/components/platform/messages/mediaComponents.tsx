@@ -132,7 +132,7 @@ export const TextMessage = ({
 // Image Message Component
 export const ImageMessage = ({
   mediaUrl,
-  isMe,
+  isMe: _isMe,
 }: {
   mediaUrl: string;
   isMe: boolean;
@@ -220,7 +220,7 @@ export const FileMessage = ({
 // Main Media Component that determines type based on file extension
 export const MediaMessage = ({
   mediaUrl,
-  content,
+  content: _content,
   isMe,
 }: {
   mediaUrl: string;

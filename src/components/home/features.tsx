@@ -3,7 +3,6 @@ import Image from "next/image";
 import { BadgeCheck } from "lucide-react";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
-import alwaysWithYou from "@/assets/always-with.png";
 
 function Features() {
   const { push } = useRouter();

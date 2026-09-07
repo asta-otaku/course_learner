@@ -1,4 +1,4 @@
-import HomeworkComponent from "@/components/tutor/homework/p";
+import HomeworkComponent from "@/components/tutor/homework/TutorHomeworkPage";
 import React from "react";
 
 function Page() {

@@ -15,15 +15,11 @@
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug",
-    "test:all": "npm run lint && npm run test && npm run test:e2e",
+    "test:all": "npm run lint && npm run test",
     "analyze": "ANALYZE=true npm run build",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\"",
-    "postinstall": "playwright install"
+    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\""
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -68,7 +64,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "cookies-next": "^6.1.0",
     "date-fns": "^4.1.0",
     "emoji-picker-react": "^4.13.1",
     "fuse.js": "^7.1.0",
@@ -96,16 +91,13 @@
     "remark-math": "^6.0.0",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
-    "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
-    "zod": "^3.25.76",
-    "zustand": "^5.0.8"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@playwright/test": "^1.55.0",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.7.0",
@@ -124,7 +116,6 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
     "jsdom": "^26.1.0",
-    "playwright": "^1.55.0",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "tailwindcss": "^3.4.17",

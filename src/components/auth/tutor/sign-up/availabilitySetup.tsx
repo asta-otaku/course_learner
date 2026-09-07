@@ -7,7 +7,6 @@ import { useGetTimeslots } from "@/lib/api/queries";
 import { Loader } from "lucide-react";
 import { Timeslot } from "@/lib/types";
 import {
-  days,
   formatTimeSlotLabel,
   getAvailableDays,
   isDaySelected,

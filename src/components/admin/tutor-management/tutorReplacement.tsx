@@ -48,7 +48,7 @@ const TutorReplacement: React.FC<TutorReplacementProps> = ({
   );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [tutorSearchQuery, setTutorSearchQuery] = useState("");
-  const [reviewNote, setReviewNote] = useState("");
+  const [reviewNote, _setReviewNote] = useState("");
 
   const approveMutation = usePatchUpdateTutorChangeRequest(request.id);
   const rejectMutation = usePatchUpdateTutorChangeRequest(request.id);
@@ -89,7 +89,7 @@ const TutorReplacement: React.FC<TutorReplacementProps> = ({
         toast.success("Request rejected successfully");
         onBack();
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to reject request");
     }
   };
@@ -119,7 +119,7 @@ const TutorReplacement: React.FC<TutorReplacementProps> = ({
         setTutorSearchQuery("");
         onComplete();
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to approve request");
     }
   };
@@ -146,7 +146,7 @@ const TutorReplacement: React.FC<TutorReplacementProps> = ({
           </h2>
           <Popover
             open={isPopoverOpen["profile"]}
-            onOpenChange={(open) => handlePopoverToggle("profile")}
+            onOpenChange={(_open) => handlePopoverToggle("profile")}
           >
             <PopoverTrigger asChild>
               <button className="text-primaryBlue hover:text-blue-700 text-xs font-geist font-medium flex items-center gap-2 mx-auto">

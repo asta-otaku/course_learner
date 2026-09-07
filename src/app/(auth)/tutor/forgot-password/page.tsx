@@ -1,4 +1,4 @@
-import ForgotPassword from "@/components/auth/tutor/forgot-password/p";
+import ForgotPassword from "@/components/auth/tutor/forgot-password/TutorForgotPasswordPage";
 import React from "react";
 
 function Page() {

@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
+import { MathPreview } from "@/components/resourceManagement/editor/math-preview";
 import { usePatchQuizAttemptOverallFeedback } from "@/lib/api/mutations";
 import { parseQuizFeedbackText } from "@/lib/utils";
 import { AlertCircle, Loader2, MessageSquare } from "lucide-react";

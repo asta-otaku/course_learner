@@ -1,21 +1,19 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
+
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowUpDown,
-  BookOpen,
   User,
   Eye,
   Edit,
-  ChevronRight,
   GripVertical,
 } from "lucide-react";
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
-import { CurriculumActions } from "@/components/resourceManagemement/curriculum/curriculum-actions";
+
+import { CurriculumActions } from "@/components/resourceManagement/curriculum/curriculum-actions";
 
 export const createColumns = (canReorder?: boolean): ColumnDef<any>[] => [
   ...(canReorder

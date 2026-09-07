@@ -1,6 +1,6 @@
 import React from "react";
 import { X, MessageCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
+
 
 interface MessageNotificationProps {
   senderName: string;

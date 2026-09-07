@@ -21,7 +21,7 @@ function StepThree({ setStep }: { setStep: (step: number) => void }) {
   const { data: tutorAvailability, isLoading: isTutorAvailabilityLoading } =
     useGetTutorAvailability();
 
-  const { mutateAsync: postTutorAvailability, isPending } =
+  const { mutateAsync: postTutorAvailability, isPending: _isPending } =
     usePostTutorAvailability();
 
   // Initialize selected timeslots with existing tutor availability

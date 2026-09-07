@@ -34,9 +34,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { parseCSV } from "@/lib/csv";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import type { Question } from "@/lib/validations/question";
-import { FolderSelect } from "@/components/resourceManagemement/questions/folder-select";
+import { FolderSelect } from "@/components/resourceManagement/questions/folder-select";
 import { useGetTemplate } from "@/lib/api/queries";
 import { usePostBulkImport } from "@/lib/api/mutations";
 
@@ -58,13 +58,13 @@ export default function ImportQuestionsPage() {
 
   // Fetch templates from API
   const {
-    data: csvTemplateResponse,
+    data: _csvTemplateResponse,
     isLoading: csvTemplateLoading,
     refetch: refetchCSVTemplate,
   } = useGetTemplate("csv", { enabled: false });
 
   const {
-    data: jsonTemplateResponse,
+    data: _jsonTemplateResponse,
     isLoading: jsonTemplateLoading,
     refetch: refetchJSONTemplate,
   } = useGetTemplate("json", { enabled: false });
@@ -138,7 +138,7 @@ export default function ImportQuestionsPage() {
             "Invalid JSON structure. Expected array of questions or {questions: [...]} format.",
           ];
         }
-      } catch (jsonError) {
+      } catch (_jsonError) {
         questions = [];
         errors = ["Invalid JSON format"];
       }

@@ -1,5 +1,6 @@
-import { AlertTriangle, Eye, EyeOff } from 'lucide-react'
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { EyeOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface UnpublishedBannerProps {

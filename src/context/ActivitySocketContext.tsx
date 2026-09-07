@@ -42,7 +42,7 @@ export const ActivitySocketProvider: React.FC<{
       setIsConnected(true);
     };
 
-    const onDisconnect = (reason?: string) => {
+    const onDisconnect = (_reason?: string) => {
       setIsConnected(false);
     };
 

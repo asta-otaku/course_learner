@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, useMemo } from "react";
 import { QuizPageClient } from "./quiz-page-client";
-import QuizControls from "@/components/resourceManagemement/quiz/quiz-controls";
+import QuizControls from "@/components/resourceManagement/quiz/quiz-controls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import Link from "next/link";

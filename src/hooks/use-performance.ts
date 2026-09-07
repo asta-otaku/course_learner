@@ -17,10 +17,11 @@ export function useRenderPerformance(componentName: string) {
     return () => {
       const renderEndTime = performance.now()
       const renderTime = renderEndTime - renderStartTime.current
-      renderCount.current++
+      const nextCount = renderCount.current + 1
+      renderCount.current = nextCount
 
       if (process.env.NODE_ENV === 'development') {
-        console.log(`[Performance] ${componentName} rendered in ${renderTime.toFixed(2)}ms (render #${renderCount.current})`)
+        console.log(`[Performance] ${componentName} rendered in ${renderTime.toFixed(2)}ms (render #${nextCount})`)
       }
 
       // Send metrics to analytics in production
@@ -37,7 +38,7 @@ export function useRenderPerformance(componentName: string) {
 }
 
 // Hook to debounce expensive operations
-export function useDebounceCallback<T extends (...args: any[]) => any>(
+export function useDebounceCallback<T extends (...args: never[]) => unknown>(
   callback: T,
   delay: number
 ): T {
@@ -120,14 +121,15 @@ export function useMemoryLeakDetector(componentName: string) {
 
   useEffect(() => {
     mountedRef.current = true
+    const listeners = listenersRef.current
 
     return () => {
       mountedRef.current = false
       
       // Check for potential memory leaks
-      if (listenersRef.current.size > 0) {
+      if (listeners.size > 0) {
         console.warn(
-          `[Memory Leak] ${componentName} unmounted with ${listenersRef.current.size} active listeners`
+          `[Memory Leak] ${componentName} unmounted with ${listeners.size} active listeners`
         )
       }
     }

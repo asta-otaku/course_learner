@@ -29,7 +29,7 @@ import { logout } from "@/lib/services/axiosInstance";
 
 export default function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
+  const _router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<{
     firstName: string;
@@ -44,13 +44,13 @@ export default function Navbar() {
       try {
         const userData = JSON.parse(localStorage.getItem("admin") || "{}");
         if (!userData || !userData.data) {
-          window.location.href = "/sign-in";
+          window.location.href = "/admin/sign-in";
         } else {
           setUser(userData.data);
         }
       } catch (error) {
         console.error("Error parsing user data:", error);
-        window.location.href = "/sign-in";
+        window.location.href = "/admin/sign-in";
       } finally {
         setIsLoading(false);
       }

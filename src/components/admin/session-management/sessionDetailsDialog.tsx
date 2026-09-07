@@ -29,16 +29,16 @@ export default function SessionDetailsDialog({
   session: Session | null;
   onCancel: (id: string) => void;
 }) {
+  const isConfirmedOrBooked =
+    session?.status === "confirmed" || session?.status === "booked";
+
+  const { data: meetingUrlData, isLoading: isLoadingUrl } =
+    useGetSessionMeetingUrl(isConfirmedOrBooked && session ? session.id : "");
+
   if (!session) return null;
 
   const displayDate = formatDisplayDate(session.date);
   const participantCount = session.participants?.length || 1;
-  const isConfirmedOrBooked =
-    session.status === "confirmed" || session.status === "booked";
-
-  // Fetch meeting URL for confirmed/booked sessions
-  const { data: meetingUrlData, isLoading: isLoadingUrl } =
-    useGetSessionMeetingUrl(isConfirmedOrBooked ? session.id : "");
 
   // Append role parameter to meeting URL for admin
   const meetingUrl = meetingUrlData?.data 

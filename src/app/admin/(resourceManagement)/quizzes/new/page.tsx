@@ -1,6 +1,6 @@
 "use client";
 
-import { CreateQuizForm } from "@/components/resourceManagemement/quiz/create-quiz-form";
+import { CreateQuizForm } from "@/components/resourceManagement/quiz/create-quiz-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info } from "lucide-react";
 

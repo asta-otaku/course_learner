@@ -3,7 +3,7 @@
 import { notFound } from "next/navigation";
 import { useParams } from "next/navigation";
 import { useGetLessonById } from "@/lib/api/queries";
-import { LessonFormWrapper } from "@/components/resourceManagemement/lessons";
+import { LessonFormWrapper } from "@/components/resourceManagement/lessons";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 // Loading component

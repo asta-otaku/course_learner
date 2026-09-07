@@ -1,6 +1,6 @@
 "use client";
 
-import Home from "@/components/platform/home/p";
+import Home from "@/components/platform/home/HomePage";
 import TuitionHome from "@/components/platform/home/tuition";
 import { useProfile } from "@/context/profileContext";
 import React from "react";

@@ -27,7 +27,7 @@ interface LessonListProps {
 export default function LessonList({
   lessons,
   selectedLesson,
-  selectedCurriculum,
+  selectedCurriculum: _selectedCurriculum,
   onSelectLesson,
 }: LessonListProps) {
   const router = useRouter();

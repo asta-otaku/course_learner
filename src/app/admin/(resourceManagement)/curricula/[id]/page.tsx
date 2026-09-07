@@ -10,8 +10,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CurriculumActions } from "@/components/resourceManagemement/curriculum/curriculum-actions";
-import { LessonManager } from "@/components/resourceManagemement/curriculum/lesson-manager";
+import { CurriculumActions } from "@/components/resourceManagement/curriculum/curriculum-actions";
+import { LessonManager } from "@/components/resourceManagement/curriculum/lesson-manager";
 
 import {
   Edit,
@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useGetCurriculum } from "@/lib/api/queries";
 import { useEffect, useState } from "react";
-import { LoadingSkeleton } from "../../questions/page";
+import { LoadingSkeleton } from "../../questions/loading-skeleton";
 
 interface CurriculumPageProps {
   params: Promise<{
@@ -58,7 +58,6 @@ export default function CurriculumPage({ params }: CurriculumPageProps) {
     return <div>Curriculum not found</div>;
   }
 
-  // @ts-ignore
   const canEdit = true;
 
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,13 +25,13 @@ import {
   MultipleChoiceEditor,
   TrueFalseEditor,
   FreeTextEditor,
-} from "@/components/resourceManagemement/questions";
-import { MatchingPairsEditor } from "@/components/resourceManagemement/questions/matching-pairs-editor";
-import { FolderSelect } from "@/components/resourceManagemement/questions/folder-select";
-import { MarkdownEditor } from "@/components/resourceManagemement/editor/markdown-editor";
+} from "@/components/resourceManagement/questions";
+import { MatchingPairsEditor } from "@/components/resourceManagement/questions/matching-pairs-editor";
+import { FolderSelect } from "@/components/resourceManagement/questions/folder-select";
+import { MarkdownEditor } from "@/components/resourceManagement/editor/markdown-editor";
 
 import { usePostQuestion } from "@/lib/api/mutations";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { ArrowLeft, Loader2, Upload, X } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -39,7 +39,7 @@ import dynamic from "next/dynamic";
 const BulkUploadDialog = dynamic(
   () =>
     import(
-      "@/components/resourceManagemement/questions/bulk-upload-dialog"
+      "@/components/resourceManagement/questions/bulk-upload-dialog"
     ).then((mod) => mod.BulkUploadDialog),
   {
     ssr: false,
@@ -582,13 +582,9 @@ function NewQuestionForm({
   );
 }
 
-export default async function NewQuestionPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ folder?: string }>;
-}) {
-  const params = await searchParams;
-  const currentFolderId = params.folder || null;
+export default function NewQuestionPage() {
+  const searchParams = useSearchParams();
+  const currentFolderId = searchParams.get("folder") || null;
 
   return <NewQuestionForm initialFolderId={currentFolderId} />;
 }

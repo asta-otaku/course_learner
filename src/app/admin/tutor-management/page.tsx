@@ -1,4 +1,4 @@
-import TutorManagement from "@/components/admin/tutor-management/p";
+import TutorManagement from "@/components/admin/tutor-management/TutorManagementPage";
 
 function page() {
   return <TutorManagement />;

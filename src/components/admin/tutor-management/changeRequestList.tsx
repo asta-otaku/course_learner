@@ -69,7 +69,7 @@ const ChangeRequestCard = ({
       if (result.status === 200) {
         toast.success("Request rejected successfully");
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to reject request");
     }
   };

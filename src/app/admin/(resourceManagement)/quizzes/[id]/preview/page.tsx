@@ -197,7 +197,7 @@ export default function PreviewQuizPage() {
                         <div className="space-y-2">
                           <p className="text-sm font-medium">Items</p>
                           {qq.question.matching_pairs.map(
-                            (pair: any, index: number) => (
+                            (pair: any, _index: number) => (
                               <div
                                 key={`left-${pair.id}`}
                                 className="p-3 border rounded-lg bg-muted/50"
@@ -210,7 +210,7 @@ export default function PreviewQuizPage() {
                         <div className="space-y-2">
                           <p className="text-sm font-medium">Matches</p>
                           {qq.question.matching_pairs.map(
-                            (pair: any, index: number) => (
+                            (pair: any, _index: number) => (
                               <div
                                 key={`right-${pair.id}`}
                                 className="p-3 border rounded-lg bg-muted/50"

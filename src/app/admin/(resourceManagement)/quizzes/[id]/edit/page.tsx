@@ -1,7 +1,7 @@
 "use client";
 
 import { notFound } from "next/navigation";
-import { QuizBuilder } from "@/components/resourceManagemement/quiz/quiz-builder";
+import { QuizBuilder } from "@/components/resourceManagement/quiz/quiz-builder";
 import { useParams } from "next/navigation";
 import { useGetQuiz, useGetQuizQuestions } from "@/lib/api/queries";
 

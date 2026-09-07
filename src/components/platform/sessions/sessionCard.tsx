@@ -55,8 +55,8 @@ const SessionSection = ({
 const SessionCard = ({
   session,
   onCancel,
-  onConfirm,
-  onComplete,
+  onConfirm: _onConfirm,
+  onComplete: _onComplete,
   onBook,
   isPrevious,
 }: {

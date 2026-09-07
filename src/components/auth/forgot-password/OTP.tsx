@@ -10,7 +10,7 @@ export interface OTPProps {
   setOtp: (otp: string) => void;
 }
 
-export default function OTP({ email, onNext, setOtp }: OTPProps) {
+export default function OTP({ email: _email, onNext, setOtp }: OTPProps) {
   const {
     register,
     handleSubmit,
@@ -21,9 +21,14 @@ export default function OTP({ email, onNext, setOtp }: OTPProps) {
     resolver: zodResolver(otpSchema),
     defaultValues: { otp: Array(6).fill("") },
   });
-  const inputs = Array(6)
-    .fill(0)
-    .map(() => useRef<HTMLInputElement>(null));
+  const inputs = [
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+  ];
 
   const handleOtpInput = (index: number, value: string) => {
     const digits = value.replace(/\D/g, "");

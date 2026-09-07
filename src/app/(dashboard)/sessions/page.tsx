@@ -1,5 +1,5 @@
 import React from "react";
-import Sessions from "@/components/platform/sessions/p";
+import Sessions from "@/components/platform/sessions/SessionsPage";
 
 function page() {
   return <Sessions />;

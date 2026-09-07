@@ -24,9 +24,10 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { getQuestions } from "@/app/actions/questions";
+import { fetchQuestions, fetchQuestionById } from "@/lib/api/queries";
+import type { Question } from "@/lib/types";
 import { generateCSV, downloadCSV } from "@/lib/csv";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 const questionTypes = [
   { value: "multiple_choice", label: "Multiple Choice" },
@@ -52,37 +53,34 @@ export default function ExportQuestionsPage() {
   // Load question count
   useEffect(() => {
     loadQuestionCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadQuestionCount is recreated from filters
   }, [filters]);
 
   const loadQuestionCount = async () => {
     try {
-      const result = await getQuestions({
+      const result = await fetchQuestions({
         page: 1,
         sortBy: "created_at",
-        sortOrder: "desc",
+        sortOrder: "DESC",
         search: filters.search || undefined,
-        type: filters.types.length > 0 ? (filters.types as any) : undefined,
-        difficulty_level: {
-          min: filters.difficultyMin,
-          max: filters.difficultyMax,
-        },
+        type: filters.types.length > 0 ? filters.types : undefined,
+        difficultyMin: filters.difficultyMin,
+        difficultyMax: filters.difficultyMax,
         tags: filters.tags
           ? filters.tags
               .split(",")
               .map((t) => t.trim())
               .filter(Boolean)
           : undefined,
-        is_public: filters.publicOnly
+        isPublic: filters.publicOnly
           ? true
           : filters.privateOnly
             ? false
             : undefined,
-        limit: 1, // Just to get count
+        limit: 1,
       });
 
-      if (result.success) {
-        setQuestionCount(result.data.total);
-      }
+      setQuestionCount(result.pagination.totalCount);
     } catch (error) {
       console.error("Failed to load question count:", error);
     }
@@ -92,46 +90,38 @@ export default function ExportQuestionsPage() {
     setIsExporting(true);
     try {
       // Fetch all questions that match the filters
-      const result = await getQuestions({
+      const result = await fetchQuestions({
         page: 1,
         sortBy: "created_at",
-        sortOrder: "desc",
+        sortOrder: "DESC",
         search: filters.search || undefined,
-        type: filters.types.length > 0 ? (filters.types as any) : undefined,
-        difficulty_level: {
-          min: filters.difficultyMin,
-          max: filters.difficultyMax,
-        },
+        type: filters.types.length > 0 ? filters.types : undefined,
+        difficultyMin: filters.difficultyMin,
+        difficultyMax: filters.difficultyMax,
         tags: filters.tags
           ? filters.tags
               .split(",")
               .map((t) => t.trim())
               .filter(Boolean)
           : undefined,
-        is_public: filters.publicOnly
+        isPublic: filters.publicOnly
           ? true
           : filters.privateOnly
             ? false
             : undefined,
-        limit: 1000, // Large limit to get all questions
+        limit: 1000,
       });
 
-      if (!result.success) {
-        toast.error((result as any).error);
-        return;
-      }
-
-      // Fetch answers for each question
       const questionsWithAnswers = await Promise.all(
-        result.data.questions.map(async (question) => {
+        result.questions.map(async (question) => {
           try {
-            const { getQuestionById } = await import("@/app/actions/questions");
-            const questionResult = await getQuestionById(question.id);
+            const questionResult = await fetchQuestionById(question.id);
+            const payload = questionResult.data as Question & {
+              answers?: unknown[];
+            };
             return {
               question,
-              answers: questionResult.success
-                ? questionResult.data.answers
-                : [],
+              answers: payload.answers ?? [],
             };
           } catch {
             return { question, answers: [] };
@@ -146,14 +136,14 @@ export default function ExportQuestionsPage() {
       });
 
       // Generate CSV
-      const csvContent = generateCSV(result.data.questions, answersMap);
+      const csvContent = generateCSV(result.questions, answersMap);
 
       // Download file
       const timestamp = new Date().toISOString().split("T")[0];
       const filename = `questions-export-${timestamp}.csv`;
       downloadCSV(filename, csvContent);
 
-      toast.success(`Exported ${result.data.questions.length} questions`);
+      toast.success(`Exported ${result.questions.length} questions`);
     } catch (error) {
       toast.error("Failed to export questions");
       console.error("Export error:", error);

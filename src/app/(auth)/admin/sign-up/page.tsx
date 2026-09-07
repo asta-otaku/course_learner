@@ -1,4 +1,4 @@
-import SignUp from "@/components/auth/tutor/sign-up/p";
+import SignUp from "@/components/auth/tutor/sign-up/TutorSignUpPage";
 import React from "react";
 
 function Page() {

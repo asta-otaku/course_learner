@@ -49,7 +49,7 @@ function Page() {
   const sub = manageData?.data as ManageSubscriptionResponse | undefined;
 
   const { mutateAsync: postChildProfiles, isPending } = usePostChildProfiles();
-  const { mutateAsync: patchChildProfile, isPending: isPatching } = usePatchChildProfile();
+  const { mutateAsync: _patchChildProfile, isPending: _isPatching } = usePatchChildProfile();
 
   const [profiles, setProfiles] = useState<ChildProfile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<ChildProfile | null>(null);

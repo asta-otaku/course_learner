@@ -21,7 +21,7 @@ import AssignHomeworkForm from "@/components/tutor/homework/assignHomework";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { MathPreview } from "@/components/resourceManagemement/editor/math-preview";
+import { MathPreview } from "@/components/resourceManagement/editor/math-preview";
 import { QuestionImage } from "@/components/ui/question-image";
 
 export default function LessonPage() {

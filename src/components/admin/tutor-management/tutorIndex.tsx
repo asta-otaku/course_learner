@@ -123,7 +123,7 @@ function TutorIndex({
                       <td className="py-4 px-6">
                         <Popover
                           open={isPopoverOpen[tutor.id]}
-                          onOpenChange={(open) => handlePopoverToggle(tutor.id)}
+                          onOpenChange={(_open) => handlePopoverToggle(tutor.id)}
                         >
                           <PopoverTrigger asChild>
                             <Button

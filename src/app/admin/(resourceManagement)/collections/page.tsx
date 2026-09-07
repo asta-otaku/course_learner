@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { CollectionManager } from "@/components/resourceManagemement/collections/collection-manager";
+import { CollectionManager } from "@/components/resourceManagement/collections/collection-manager";
 import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGetCollections, useGetCollection } from "@/lib/api/queries";
@@ -22,14 +22,14 @@ export default function CollectionsPage() {
   // Use React Query hook instead of server action
   const {
     data: collectionsResponse,
-    isLoading: collectionsLoading,
+    isLoading: _collectionsLoading,
     error: collectionsError,
   } = useGetCollections();
 
   // Get selected collection if ID is provided
   const {
     data: selectedCollectionResponse,
-    isLoading: selectedCollectionLoading,
+    isLoading: _selectedCollectionLoading,
   } = useGetCollection(selectedId);
 
   useEffect(() => {

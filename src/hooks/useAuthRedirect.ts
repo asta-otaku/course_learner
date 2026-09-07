@@ -1,6 +1,6 @@
 // hooks/useAuthRedirect.ts
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import {
   getAndClearIntendedUrl,
   resetAuthState,
@@ -9,7 +9,7 @@ import {
 export function useAuthRedirect() {
   const router = useRouter();
 
-  const redirectAfterAuth = () => {
+  const redirectAfterAuth = useCallback(() => {
     // Reset auth state when successfully authenticated
     resetAuthState();
 
@@ -19,7 +19,7 @@ export function useAuthRedirect() {
     } else {
       router.push("/dashboard");
     }
-  };
+  }, [router]);
 
   return { redirectAfterAuth };
 }
@@ -29,7 +29,7 @@ export function useAutoRedirectAfterAuth() {
 
   useEffect(() => {
     redirectAfterAuth();
-  }, []);
+  }, [redirectAfterAuth]);
 
   return { redirectAfterAuth };
 }

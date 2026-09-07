@@ -498,7 +498,7 @@ export const studentQuickResponses = [
 ];
 
 // Response generation functions for messaging platform
-export const generateTutorResponse = (studentName: string, userMessage: string): string => {
+export const generateTutorResponse = (_studentName: string, _userMessage: string): string => {
   const responses = [
     "Thank you for explaining that! I understand it better now.",
     "I'll practice this and let you know if I have more questions.",
@@ -520,7 +520,7 @@ export const generateTutorResponse = (studentName: string, userMessage: string):
   return responses[Math.floor(Math.random() * responses.length)];
 };
 
-export const generateStudentResponse = (tutorName: string, userMessage: string): string => {
+export const generateStudentResponse = (_tutorName: string, _userMessage: string): string => {
   const responses = [
     `Thank you for your message! I'll review this and provide you with a detailed explanation.`,
     `Great question! Let me break this down for you step by step.`,
@@ -862,7 +862,9 @@ export function buildQuizSubmissionResults(
   };
 }
 
-export function parseQuizFeedbackText(feedback: string | undefined): string {
+export function parseQuizFeedbackText(
+  feedback: string | null | undefined,
+): string {
   if (!feedback) return "";
   try {
     const parsed = JSON.parse(feedback);

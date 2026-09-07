@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import PlayIcon from "@/assets/svgs/play";
 import RecommendIcon from "@/assets/svgs/recommend";
-import type { Lesson } from "@/lib/types";
+
 import Link from "next/link";
 
 export const TopicCard = ({

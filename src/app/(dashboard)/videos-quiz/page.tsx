@@ -1,5 +1,5 @@
 import Navbar from "@/components/platform/navbar";
-import VideoQuizComponent from "@/components/platform/videos-quiz/p";
+import VideoQuizComponent from "@/components/platform/videos-quiz/VideosQuizPage";
 import React from "react";
 
 function Page() {

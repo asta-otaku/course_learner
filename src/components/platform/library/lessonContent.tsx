@@ -49,10 +49,10 @@ interface LessonContentProps {
 
 export default function LessonContent({
   selectedLesson,
-  selectedCurriculum,
+  selectedCurriculum: _selectedCurriculum,
   lessonLoading,
   lessonData,
-  currentLesson,
+  currentLesson: _currentLesson,
   videos,
   quizzes,
   resumePositionSec,

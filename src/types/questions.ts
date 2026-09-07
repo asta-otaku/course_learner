@@ -9,7 +9,7 @@ export interface BaseQuestion {
   hint?: string;
   explanation?: string;
   timeLimit?: number; // in seconds
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Multiple Choice Question (2-6 options)

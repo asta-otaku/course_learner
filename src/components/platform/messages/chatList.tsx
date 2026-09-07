@@ -56,7 +56,7 @@ const ChatItem = ({
   const confirmDeleteChat = async () => {
     try {
       await deleteChatMutation.mutateAsync();
-    } catch (error) {
+    } catch (_error) {
       // Error is handled by mutation
     } finally {
       setShowDeleteDialog(false);
@@ -85,20 +85,19 @@ const ChatItem = ({
   const lastMessage = chat.lastMessagePreview || "No messages yet";
   const lastTime = chat.lastMessageAt
     ? new Date(chat.lastMessageAt).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+      hour: "2-digit",
+      minute: "2-digit",
+    })
     : "";
   const chatName = isTutorMode ? chat.childName : chat.tutorName;
 
   return (
     <>
       <div
-        className={`p-4 border-b border-gray-100 transition-all duration-200 hover:bg-gray-50 group ${
-          activeChat === chat.id
+        className={`p-4 border-b border-gray-100 transition-all duration-200 hover:bg-gray-50 group ${activeChat === chat.id
             ? "bg-blue-50 border-l-4 border-l-blue-500"
             : ""
-        }`}
+          }`}
       >
         <div
           className="flex items-center space-x-3 cursor-pointer"
@@ -122,11 +121,10 @@ const ChatItem = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <h3
-                className={`font-medium truncate ${
-                  unreadCount > 0
+                className={`font-medium truncate ${unreadCount > 0
                     ? "text-gray-900 font-semibold"
                     : "text-gray-900"
-                }`}
+                  }`}
               >
                 {chatName}
               </h3>
@@ -172,11 +170,10 @@ const ChatItem = ({
 
             <div className="flex items-center justify-between mt-1">
               <p
-                className={`text-sm truncate ${
-                  unreadCount > 0
+                className={`text-sm truncate ${unreadCount > 0
                     ? "text-gray-900 font-medium"
                     : "text-textSubtitle"
-                }`}
+                  }`}
               >
                 {lastMessage}
               </p>
@@ -232,10 +229,16 @@ function ChatList({
 }) {
   const [searchTerm, setSearchTerm] = React.useState("");
 
-  const filteredChats = chats.filter((chat) => {
-    const chatName = isTutorMode ? chat.childName : chat.tutorName;
-    return chatName.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const filteredChats = chats
+    .filter((chat) => {
+      const chatName = isTutorMode ? chat.childName : chat.tutorName;
+      return chatName.toLowerCase().includes(searchTerm.toLowerCase());
+    })
+    .sort((a, b) => {
+      const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return bTime - aTime;
+    });
 
   // Calculate total unread messages across all conversations
   const getTotalUnreadCount = () => {

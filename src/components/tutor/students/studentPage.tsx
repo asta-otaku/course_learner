@@ -297,11 +297,11 @@ export default function StudentPage({ id }: { id: string }) {
   // Tutor info
   const { data: tutorProfileResponse } = useGetCurrentUser();
   const tutorProfile = tutorProfileResponse?.data;
-  //@ts-ignore
+  //@ts-expect-error -- existing ignore
   const tutorId = tutorProfile?.tutorProfile?.id || "";
-  //@ts-ignore
+  //@ts-expect-error -- existing ignore
   const tutorFirstName = tutorProfile?.firstName || "";
-  //@ts-ignore
+  //@ts-expect-error -- existing ignore
   const tutorLastName = tutorProfile?.lastName || "";
 
   const { mutateAsync: createChat } = usePostCreateChat();
@@ -544,7 +544,6 @@ export default function StudentPage({ id }: { id: string }) {
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={profile.avatar || ""}
                 alt={profile.name}

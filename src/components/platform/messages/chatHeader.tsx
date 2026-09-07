@@ -29,7 +29,7 @@ export const ChatHeader = ({
   isTutorMode,
   selectionMode = false,
   selectedCount = 0,
-  onToggleSelection = () => { },
+  onToggleSelection: _onToggleSelection = () => { },
   onDeleteSelected = () => { },
   onCancelSelection = () => { },
 }: {
@@ -210,14 +210,14 @@ const MessageStatus = ({
 
 export const MessageBubble = ({
   message,
-  chats,
-  activeChat,
+  chats: _chats,
+  activeChat: _activeChat,
   currentUserId,
   isSending = false,
   isSelected = false,
   onSelect = () => { },
   onDeselect = () => { },
-  onToggleSelection = () => { },
+  onToggleSelection: _onToggleSelection = () => { },
   selectionMode = false,
 }: {
   message: Message;
@@ -576,3 +576,4 @@ export const MessageInput = React.memo(
     );
   }
 );
+MessageInput.displayName = "MessageInput";

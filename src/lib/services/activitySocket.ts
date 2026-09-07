@@ -67,7 +67,6 @@ export const initActivitySocket = (): Socket<
     activitySocket.io.on("reconnect_attempt", () => {
       const newToken = getAccessToken();
       if (activitySocket && newToken) {
-        // @ts-ignore
         activitySocket.io.opts.query = { jwtToken: newToken };
       }
     });

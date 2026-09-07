@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { QuizActions } from "@/components/resourceManagemement/quiz/quiz-actions";
+import { QuizActions } from "@/components/resourceManagement/quiz/quiz-actions";
 
 export const createColumns = (canEdit: boolean = false): ColumnDef<any>[] => {
   const columns: ColumnDef<any>[] = [];

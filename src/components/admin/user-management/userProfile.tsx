@@ -1,7 +1,7 @@
 import BackArrow from "@/assets/svgs/arrowback";
 import { Button } from "@/components/ui/button";
 import React from "react";
-import { getPlanTypeColors, getPlanTypeLabel } from "./p";
+import { getPlanTypeColors, getPlanTypeLabel } from "./UserManagementPage";
 
 export default function UserProfile({
   user,

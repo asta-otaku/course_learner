@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { X } from "lucide-react";
+
 import { CalendarIcon } from "@/assets/svgs/calendar";
 
 const daysOfWeek = [

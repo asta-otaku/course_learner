@@ -74,7 +74,6 @@ import {
 import {
   usePostAddQuizzesToMasterList,
   usePostBulkAddQuizzesToMasterList,
-  useDeleteQuizFromMasterList,
   useDeleteQuizzesFromMasterList,
   usePostReorderMasterList,
   usePostBaselineTestEntry,
@@ -615,7 +614,10 @@ export default function MasterQuizListPage() {
   // Year groups
   const { data: yearGroupsResponse, isLoading: yearGroupsLoading } =
     useGetYearGroups();
-  const yearGroups = yearGroupsResponse?.data || [];
+  const yearGroups = useMemo(
+    () => yearGroupsResponse?.data || [],
+    [yearGroupsResponse?.data],
+  );
 
   useEffect(() => {
     if (yearGroups.length > 0 && !selectedYearGroup) {
@@ -681,7 +683,7 @@ export default function MasterQuizListPage() {
     usePostBulkAddQuizzesToMasterList();
   const { mutate: deleteQuizzes, isPending: isBulkDeleting } =
     useDeleteQuizzesFromMasterList(selectedYearGroup);
-  const { mutate: reorderList, isPending: isReordering } =
+  const { mutate: reorderList, isPending: _isReordering } =
     usePostReorderMasterList(selectedYearGroup);
   const sensors = useSensors(
     useSensor(PointerSensor),

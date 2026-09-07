@@ -1,4 +1,4 @@
-import AdminDashboard from "@/components/admin/home/p";
+import AdminDashboard from "@/components/admin/home/AdminHomePage";
 import React from "react";
 
 function Page() {

@@ -57,7 +57,7 @@ export function CreateTicketDialog({
       setDescription("");
       setMedia(null);
       onOpenChange(false);
-    } catch (error) {
+    } catch (_error) {
       // Error is handled in the mutation
     }
   };

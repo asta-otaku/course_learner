@@ -20,7 +20,7 @@ function formatPriceDisplay(plan: SubscriptionPlan): string {
   // Match landing page wording exactly (ignore raw API amount display).
   if (plan.offerType === "platform") return "£29.99/month";
   if (plan.offerType === "tuition") return "£69.99/month";
-  const { amount, currency, interval, intervalCount, tiers } = plan;
+  const { amount, currency, interval, intervalCount, tiers: _tiers } = plan;
   const symbol = currency === "gbp" ? "£" : currency?.toUpperCase() === "GBP" ? "£" : currency || "£";
   const perInterval = intervalCount === 1 ? `/${interval}` : `/${intervalCount} ${interval}s`;
   const tierList = plan.tiers;

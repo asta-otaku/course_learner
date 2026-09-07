@@ -141,7 +141,7 @@ export function SubscriptionPreviewModal({
   const isCredit = dueNow < 0;
   const isZero = dueNow === 0;
 
-  const handleCancel = () => {
+  const _handleCancel = () => {
     if (!isConfirming) onOpenChange(false);
   };
 

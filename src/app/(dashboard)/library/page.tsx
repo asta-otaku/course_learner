@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import Component from "@/components/platform/library/p";
+import Component from "@/components/platform/library/LibraryPage";
 
 function Library() {
   return (

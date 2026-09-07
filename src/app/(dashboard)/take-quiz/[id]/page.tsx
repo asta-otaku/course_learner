@@ -1,6 +1,6 @@
 "use client";
 
-import { QuizPlayer } from "@/components/resourceManagemement/quiz/quiz-player";
+import { QuizPlayer } from "@/components/resourceManagement/quiz/quiz-player";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";

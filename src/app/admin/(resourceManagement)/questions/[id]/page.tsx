@@ -1,6 +1,7 @@
 "use client";
 
 import { useGetQuestionById } from "@/lib/api/queries";
+import { useParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -12,8 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Clock, Edit, Hash } from "lucide-react";
 import Link from "next/link";
-import { QuestionPreview } from "@/components/resourceManagemement/questions";
-import { MathPreview } from "@/components/resourceManagemement/editor";
+import { QuestionPreview } from "@/components/resourceManagement/questions";
+import { MathPreview } from "@/components/resourceManagement/editor";
 
 // Force dynamic rendering since this page uses authentication
 export const dynamic = "force-dynamic";
@@ -42,12 +43,9 @@ const typeLabels: Record<string, string> = {
   fill_in_the_gap: "Fill in the Gap",
 };
 
-export default function QuestionDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const { id } = params;
+export default function QuestionDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
 
   const { data: result, isLoading, error } = useGetQuestionById(id);
 

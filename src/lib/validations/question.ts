@@ -1,8 +1,4 @@
 import { z } from 'zod';
-import type { Database } from '../database.types';
-
-// Type aliases for cleaner code
-type QuestionType = Database['public']['Enums']['question_type'];
 
 // Base schema for all questions
 export const baseQuestionSchema = z.object({
@@ -107,6 +103,13 @@ export const questionFilterSchema = z.object({
   folder_id: z.string().uuid().nullable().optional(), // null means root level
   category_id: z.string().uuid().optional(),
   grade_id: z.string().uuid().optional(),
+  difficulty_level: z
+    .object({
+      min: z.number().optional(),
+      max: z.number().optional(),
+    })
+    .optional(),
+  tags: z.array(z.string()).optional(),
   // Date filters
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),

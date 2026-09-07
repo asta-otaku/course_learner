@@ -19,9 +19,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CurriculumList } from "@/components/resourceManagemement/curriculum/curriculum-list";
+import { CurriculumList } from "@/components/resourceManagement/curriculum/curriculum-list";
 import { useGetCurricula, useGetBaselineTests } from "@/lib/api/queries";
-import { TableSkeleton } from "../questions/page";
+import { TableSkeleton } from "../questions/loading-skeleton";
 import type { BaselineTest } from "@/lib/types";
 
 export default function CurriculaPage() {

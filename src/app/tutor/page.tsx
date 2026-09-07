@@ -1,4 +1,4 @@
-import TutorDashboard from "@/components/tutor/home/p";
+import TutorDashboard from "@/components/tutor/home/TutorHomePage";
 import React from "react";
 
 function Page() {

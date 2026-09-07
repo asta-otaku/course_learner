@@ -12,9 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  CircleHelp,
   Menu,
-  PencilLine,
   Settings,
   UserCircle,
   X,
@@ -74,7 +72,7 @@ export default function Navbar() {
     return list.find((p) => String(p.id) === String(activeProfileId)) ?? null;
   }, [childProfilesData?.data, activeProfileId]);
 
-  const manageAccessLevel = React.useMemo(() => {
+  const _manageAccessLevel = React.useMemo(() => {
     const sub = manageData?.data;
     if (!sub?.childSubscription || !activeProfileId) return null;
     const row = sub.childSubscription.find(

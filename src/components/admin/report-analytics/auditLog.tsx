@@ -36,7 +36,7 @@ export function AuditLog() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Get activity socket
-  const { isConnected, lastActivity } = useActivitySocket();
+  const { isConnected: _isConnected, lastActivity } = useActivitySocket();
 
   // Update activities when new data arrives
   useEffect(() => {

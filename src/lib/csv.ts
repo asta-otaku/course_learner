@@ -1,8 +1,5 @@
 import { parse, unparse } from 'papaparse';
 import type { Question } from '@/lib/validations/question';
-import type { Database } from '@/lib/database.types';
-
-type QuestionRow = Database['public']['Tables']['questions']['Row'];
 
 export interface CSVQuestion {
   content: string;
@@ -46,7 +43,7 @@ export function parseCSV(csvContent: string): { questions: any[]; errors: string
       header: true,
       skipEmptyLines: true,
       transformHeader: (header) => header.toLowerCase().replace(/\s+/g, '_'),
-      transform: (value, field) => {
+      transform: (value, _field) => {
         // Handle empty values
         if (value === '' || value === undefined || value === null) {
           return undefined;
@@ -74,7 +71,7 @@ export function parseCSV(csvContent: string): { questions: any[]; errors: string
   return { questions, errors };
 }
 
-function parseQuestionRow(row: CSVQuestion, rowNumber: number): any {
+function parseQuestionRow(row: CSVQuestion, _rowNumber: number): any {
   // Validate required fields
   if (!row.content?.trim()) {
     throw new Error('Content is required');
@@ -95,7 +92,7 @@ function parseQuestionRow(row: CSVQuestion, rowNumber: number): any {
   };
 
   // Initialize metadata for type-specific data
-  const metadata: any = {};
+  const _metadata: any = {};
 
   // Type-specific parsing
   if (row.type === 'multiple_choice' || row.type === 'true_false') {
@@ -180,15 +177,34 @@ function parseQuestionRow(row: CSVQuestion, rowNumber: number): any {
   throw new Error('Invalid question type');
 }
 
-export function generateCSV(questions: QuestionRow[], answers: Record<string, any[]>): string {
+type CsvExportQuestion = {
+  id: string;
+  content: string;
+  type: string;
+  time_limit?: number | null;
+  timeLimit?: number | null;
+  hint?: string | null;
+  is_public?: boolean;
+  isPublic?: boolean;
+  image_url?: string | null;
+  image?: string | null;
+  correct_feedback?: string | null;
+  incorrect_feedback?: string | null;
+  metadata?: unknown;
+};
+
+export function generateCSV(
+  questions: CsvExportQuestion[],
+  answers: Record<string, any[]>,
+): string {
   const csvData: CSVQuestion[] = questions.map(question => {
     const baseRow: CSVQuestion = {
       content: question.content,
-      type: question.type as any,
-      time_limit: question.time_limit || undefined,
+      type: question.type as CSVQuestion['type'],
+      time_limit: question.time_limit ?? question.timeLimit ?? undefined,
       hint: question.hint || '',
-      is_public: question.is_public,
-      image_url: question.image_url || '',
+      is_public: question.is_public ?? question.isPublic ?? false,
+      image_url: question.image_url || question.image || '',
     };
 
     // Add feedback from question fields

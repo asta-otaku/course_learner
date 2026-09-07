@@ -43,7 +43,7 @@ export function TicketDetailView({
       await sendMessageMutation.mutateAsync({ message: newMessage.trim() });
       toast.success("Message sent successfully");
       setNewMessage("");
-    } catch (error) {
+    } catch (_error) {
       // Error handled in mutation
     }
   };
@@ -52,7 +52,7 @@ export function TicketDetailView({
     try {
       await updateStatusMutation.mutateAsync({ status: "closed" });
       toast.success("Ticket closed successfully");
-    } catch (error) {
+    } catch (_error) {
       // Error handled in mutation
     }
   };
@@ -61,7 +61,7 @@ export function TicketDetailView({
     try {
       await updateStatusMutation.mutateAsync({ status: "open" });
       toast.success("Ticket reopened successfully");
-    } catch (error) {
+    } catch (_error) {
       // Error handled in mutation
     }
   };

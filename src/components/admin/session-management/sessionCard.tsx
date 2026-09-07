@@ -132,7 +132,7 @@ export default SessionSection;
 
 // Empty State Component
 export const EmptySessionsState = () => {
-  const pathname = usePathname();
+  const _pathname = usePathname();
   return (
     <div className="bg-white rounded-2xl p-8 shadow-sm border text-center flex flex-col items-center">
       <div className="bg-blue-100 p-4 rounded-full mb-4">

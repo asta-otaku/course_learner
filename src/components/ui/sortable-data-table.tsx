@@ -29,7 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+
 import { Search } from "lucide-react";
 import {
   ColumnDef,
@@ -122,7 +122,7 @@ export function SortableDataTable<TData extends { id: string }, TValue>({
   onReorder,
   enableSorting = true,
   onRowClick,
-  searchKey = "title",
+  searchKey: _searchKey = "title",
   searchPlaceholder = "Search curricula...",
 }: SortableDataTableProps<TData, TValue>) {
   const [localData, setLocalData] = React.useState(data);

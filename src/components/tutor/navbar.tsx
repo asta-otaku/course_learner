@@ -28,6 +28,10 @@ export default function Navbar() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const user = getTutorUser();
+      if (!user || !user.data) {
+        window.location.href = "/tutor/sign-in";
+        return;
+      }
       setTutorUser(user);
     }
   }, []);

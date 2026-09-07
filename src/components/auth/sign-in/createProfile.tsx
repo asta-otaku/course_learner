@@ -47,9 +47,9 @@ function CreateProfile({
     },
   });
 
-  const watchedName = watch("name");
+  const _watchedName = watch("name");
 
-  const syncAndReturn = async (newProfileId?: string) => {
+  const syncAndReturn = async (_newProfileId?: string) => {
     const fresh = await refetchChildProfiles();
     const updatedProfiles = fresh.data?.data ?? [];
     if (typeof window !== "undefined") {

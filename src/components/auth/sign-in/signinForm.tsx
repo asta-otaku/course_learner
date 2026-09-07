@@ -18,6 +18,7 @@ import {
   getAndClearLastUnauthorizedUrl,
   resetAuthState,
 } from "@/lib/services/axiosInstance";
+import { getErrorMessage, getErrorStatus } from "@/lib/errors";
 
 function SigninForm({
   setStep,
@@ -62,11 +63,14 @@ function SigninForm({
           toast.success(res.data.message);
         }
       }
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const message =
-        err?.response?.data?.message ||
-        (status === 401 ? "Invalid email or password. Please try again." : "Something went wrong.");
+    } catch (err: unknown) {
+      const status = getErrorStatus(err);
+      const message = getErrorMessage(
+        err,
+        status === 401
+          ? "Invalid email or password. Please try again."
+          : "Something went wrong.",
+      );
       setError("root", { message });
     }
   };

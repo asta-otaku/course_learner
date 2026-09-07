@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Trash2, Plus, X } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -123,11 +123,11 @@ export default function EditCurriculumClient({
 
   const handleDelete = () => {
     deleteCurriculum(undefined, {
-      onSuccess: (response) => {
+      onSuccess: (_response) => {
         toast.success("Curriculum deleted successfully");
         router.push("/admin/curricula");
       },
-      onError: (error) => {
+      onError: (_error) => {
         toast.error("Failed to delete curriculum");
       },
     });

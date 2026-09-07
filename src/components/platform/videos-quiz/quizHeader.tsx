@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { slugify } from "@/lib/utils";
-import { ArrowLeft } from "lucide-react";
+
 import { VideoTopic } from "@/lib/types";
 import { ParamValue } from "next/dist/server/request/params";
 import BackArrow from "@/assets/svgs/arrowback";

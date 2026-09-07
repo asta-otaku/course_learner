@@ -50,7 +50,7 @@ const getCachedUser = cache(() => {
 });
 
 // Cache the profile data for the duration of the request
-const getCachedProfile = cache((userId?: string) => {
+const getCachedProfile = cache((_userId?: string) => {
   try {
     const user = getCachedUser();
     if (!user) return null;
@@ -76,7 +76,7 @@ export async function requireAuth() {
 }
 
 export async function requireRole(roles: string[]) {
-  const user = await requireAuth();
+  const _user = await requireAuth();
   const profile = getCachedProfile();
   
   if (!profile || !roles.includes(profile.userRole || profile.role)) {

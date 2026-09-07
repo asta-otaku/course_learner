@@ -1,14 +1,11 @@
+import path from "path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  reactStrictMode: false,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  reactStrictMode: true,
+  // Parent-directory yarn.lock would otherwise make Next treat ~ as the app root
+  // and fail collecting page data with "Cannot find module for page: /_document".
+  outputFileTracingRoot: path.join(__dirname),
   images: {
     unoptimized: true,
     remotePatterns: [

@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -26,14 +26,14 @@ import {
   MultipleChoiceEditor,
   TrueFalseEditor,
   FreeTextEditor,
-} from "@/components/resourceManagemement/questions";
-import { MatchingPairsEditor } from "@/components/resourceManagemement/questions/matching-pairs-editor";
+} from "@/components/resourceManagement/questions";
+import { MatchingPairsEditor } from "@/components/resourceManagement/questions/matching-pairs-editor";
 import { useGetQuestionById } from "@/lib/api/queries";
 import { usePutQuestion } from "@/lib/api/mutations";
 import { toast } from "react-toastify";
 import { ArrowLeft, Loader2, X, ImageIcon } from "lucide-react";
 import Link from "next/link";
-import { ImageControls } from "@/components/resourceManagemement/editor/image-controls";
+import { ImageControls } from "@/components/resourceManagement/editor/image-controls";
 import { QuestionImage } from "@/components/ui/question-image";
 
 const questionTypes = [
@@ -44,14 +44,11 @@ const questionTypes = [
   { value: "matching_pairs", label: "Matching" },
 ] as const;
 
-export default function EditQuestionPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function EditQuestionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { id: questionId } = params;
+  const params = useParams();
+  const questionId = params.id as string;
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [originalType, setOriginalType] = useState<string>("multiple_choice");
@@ -270,7 +267,7 @@ export default function EditQuestionPage({
           );
         }, 1000);
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to update question");
     } finally {
       setIsSubmitting(false);

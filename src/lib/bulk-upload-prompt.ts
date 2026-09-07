@@ -9,6 +9,7 @@ export const getBulkUploadPrompt = (config?: {
   correctFeedbackStyle?: string
   incorrectFeedbackStyle?: string
   defaultTimeLimit?: string
+  difficulty?: string
 }) => {
   const {
     subject = 'Mathematics',
@@ -16,7 +17,6 @@ export const getBulkUploadPrompt = (config?: {
     questionTypes = ['multiple_choice', 'true_false', 'free_text'],
     count = 20,
     topic = '',
-    questionFormat = 'standard',
     hintStyle = 'helpful',
     correctFeedbackStyle = 'encouraging',
     incorrectFeedbackStyle = 'constructive',

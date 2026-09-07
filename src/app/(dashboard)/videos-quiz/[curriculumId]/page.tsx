@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import Image from "next/image";
 import { Layers } from "lucide-react";
-import { notFound, useParams, useRouter } from "next/navigation";
+
 import videoLine from "@/assets/video-line.svg";
 import groupLines from "@/assets/grouplines.svg";
 import completedStep from "@/assets/completedStep.svg";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import BackArrow from "@/assets/svgs/arrowback";
+import { useParams, useRouter } from "next/navigation";
 import { useProfile } from "@/context/profileContext";
 import { useGetSectionById } from "@/lib/api/queries";
 import algebra from "@/assets/algebra.png";

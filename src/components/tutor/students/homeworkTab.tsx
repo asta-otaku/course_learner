@@ -53,7 +53,7 @@ function StudentHomeworkScheduleTab({ studentId }: { studentId: string }) {
     marked: "bg-emerald-600 text-white",
   };
 
-  const actionColor = {
+  const _actionColor = {
     REVIEW: "text-primaryBlue",
   };
   return (

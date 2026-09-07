@@ -1,4 +1,4 @@
-import TimeSlotManagement from "@/components/admin/timeslot-management/p";
+import TimeSlotManagement from "@/components/admin/timeslot-management/TimeslotManagementPage";
 
 function Page() {
   return <TimeSlotManagement />;

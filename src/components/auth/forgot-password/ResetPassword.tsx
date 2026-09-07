@@ -31,7 +31,7 @@ export default function ResetPassword({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { password: "", confirmPassword: "" },
   });
-  const { mutateAsync: postResetPassword, isPending: isResetPasswordPending } =
+  const { mutateAsync: postResetPassword, isPending: _isResetPasswordPending } =
     usePostResetPassword();
   const { push } = useRouter();
 

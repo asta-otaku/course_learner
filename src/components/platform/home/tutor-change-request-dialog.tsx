@@ -52,7 +52,7 @@ export function TutorChangeRequestDialog({
         // Reset form
         setReason("");
       }
-    } catch (error) {
+    } catch (_error) {
       // Error handled by mutation
     }
   };

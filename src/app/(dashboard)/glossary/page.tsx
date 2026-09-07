@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import Component from "@/components/platform/glossary/p";
+import Component from "@/components/platform/glossary/GlossaryPage";
 
 function Page() {
   return (

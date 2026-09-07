@@ -15,7 +15,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { getPlanTypeColors, getPlanTypeLabel, planTypeMatchesFilter, type PlanTypeFilter } from "./p";
+import { getPlanTypeColors, getPlanTypeLabel, planTypeMatchesFilter, type PlanTypeFilter } from "./UserManagementPage";
 
 type TableMetricsProps = {
   groupedUserData: any[];
@@ -28,7 +28,7 @@ type TableMetricsProps = {
 
 function TableMetrics({
   groupedUserData,
-  userData,
+  userData: _userData,
   setSelectedUser,
   setStep,
   setShowTutorModal,

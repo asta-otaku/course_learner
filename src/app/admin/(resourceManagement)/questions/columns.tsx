@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Copy, Pencil, Trash, Eye } from "lucide-react";
 import Link from "next/link";
-import { useDeleteQuestion } from "@/lib/api/mutations";
+import { useDeleteQuestion, usePostDuplicateQuestion } from "@/lib/api/mutations";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -29,9 +29,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "react-toastify";
 import type { Question } from "@/lib/types";
-import { duplicateQuestion } from "@/app/actions/questions";
-import { QuestionPreviewModal } from "@/components/resourceManagemement/questions";
-import { MathPreview } from "@/components/resourceManagemement/editor";
+import { QuestionPreviewModal } from "@/components/resourceManagement/questions";
+import { MathPreview } from "@/components/resourceManagement/editor";
 
 const typeColors = {
   multiple_choice: "bg-blue-100 text-blue-800 whitespace-nowrap",
@@ -208,7 +207,8 @@ function QuestionActions({ question }: { question: Question }) {
   const [isDuplicating, setIsDuplicating] = useState(false);
 
   const deleteQuestionMutation = useDeleteQuestion(question.id);
-  
+  const duplicateQuestionMutation = usePostDuplicateQuestion();
+
   // Get current folder context from URL
   const getFolderContext = () => {
     if (typeof window === 'undefined') return '';
@@ -223,7 +223,7 @@ function QuestionActions({ question }: { question: Question }) {
       if (result.status === 200) {
         toast.success(result.data.message);
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to delete question");
     } finally {
       setShowDeleteDialog(false);
@@ -233,14 +233,10 @@ function QuestionActions({ question }: { question: Question }) {
   const handleDuplicate = async () => {
     setIsDuplicating(true);
     try {
-      const result = await duplicateQuestion(question.id);
-      if (!result.success) {
-        toast.error((result as any).error);
-        return;
-      }
+      await duplicateQuestionMutation.mutateAsync(question.id);
       toast.success("Question duplicated successfully");
       router.refresh();
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to duplicate question");
     } finally {
       setIsDuplicating(false);

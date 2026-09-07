@@ -4,7 +4,8 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, X, Loader2 } from "lucide-react";
 import { axiosInstance } from "@/lib/services/axiosInstance";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
+import { getErrorMessage } from "@/lib/errors";
 
 interface ImageUploadProps {
   value?: string;
@@ -51,10 +52,10 @@ export function ImageUpload({
       } else {
         throw new Error("No URL returned from upload");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Upload error:", error);
       const errorMessage =
-        error.response?.data?.message || error.message || "Upload failed";
+        getErrorMessage(error, "Upload failed");
       toast.error(errorMessage);
     } finally {
       setIsUploading(false);

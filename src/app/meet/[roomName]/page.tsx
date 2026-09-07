@@ -6,6 +6,7 @@ import { usePostTwilioAccessToken } from "@/lib/api/mutations";
 import { Video, Mic, MicOff, VideoOff, PhoneOff, Loader2, Monitor, MonitorOff, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Script from "next/script";
+import { getErrorMessage, getErrorName } from "@/lib/errors";
 
 declare global {
   interface Window {
@@ -57,15 +58,18 @@ export default function VideoMeetingPage() {
     setTwilioLoaded(true);
   };
 
+  // Join once when Twilio is ready. joinRoom/isConnecting/room would retrigger mid-call.
   useEffect(() => {
     if (twilioLoaded && !room && !isConnecting && roomName) {
       joinRoom();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/join once per roomName
   }, [twilioLoaded, roomName]);
 
   // Handle screen share track attachment/detachment using React lifecycle
   useEffect(() => {
-    if (screenTrack && screenVideoRef.current) {
+    const container = screenVideoRef.current;
+    if (screenTrack && container) {
       console.log("📦 Attaching screen track to video element...");
       const videoElement = screenTrack.attach();
       videoElement.className = "w-full h-full object-contain bg-black";
@@ -74,18 +78,18 @@ export default function VideoMeetingPage() {
       videoElement.muted = true;
 
       // Replace the ref's content with the attached video
-      if (screenVideoRef.current.firstChild) {
-        screenVideoRef.current.removeChild(screenVideoRef.current.firstChild);
+      if (container.firstChild) {
+        container.removeChild(container.firstChild);
       }
-      screenVideoRef.current.appendChild(videoElement);
+      container.appendChild(videoElement);
 
       console.log("✅ Screen track attached via useEffect");
 
       // Cleanup function
       return () => {
         console.log("🧹 Cleaning up screen track from useEffect");
-        if (screenVideoRef.current?.firstChild) {
-          screenVideoRef.current.removeChild(screenVideoRef.current.firstChild);
+        if (container.firstChild) {
+          container.removeChild(container.firstChild);
         }
       };
     }
@@ -112,17 +116,23 @@ export default function VideoMeetingPage() {
     const placeholder = document.createElement("div");
     placeholder.className =
       "absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900";
-    placeholder.innerHTML = `
-      <div class="text-center">
-        <div class="w-16 h-16 md:w-24 md:h-24 rounded-full bg-blue-600 flex items-center justify-center mx-auto mb-3">
-          <span class="text-2xl md:text-4xl font-bold text-white">${participant.identity
-        .substring(0, 2)
-        .toUpperCase()}</span>
-        </div>
-        <p class="text-sm md:text-base text-gray-300 font-medium">${isLocal ? "You" : "Participant"
-      }</p>
-      </div>
-    `;
+    const inner = document.createElement("div");
+    inner.className = "text-center";
+    const avatar = document.createElement("div");
+    avatar.className =
+      "w-16 h-16 md:w-24 md:h-24 rounded-full bg-blue-600 flex items-center justify-center mx-auto mb-3";
+    const initials = document.createElement("span");
+    initials.className = "text-2xl md:text-4xl font-bold text-white";
+    initials.textContent = String(participant.identity || "")
+      .substring(0, 2)
+      .toUpperCase();
+    avatar.appendChild(initials);
+    const label = document.createElement("p");
+    label.className = "text-sm md:text-base text-gray-300 font-medium";
+    label.textContent = isLocal ? "You" : "Participant";
+    inner.appendChild(avatar);
+    inner.appendChild(label);
+    placeholder.appendChild(inner);
     placeholder.style.display = "none";
     participantDiv.appendChild(placeholder);
 
@@ -333,9 +343,9 @@ export default function VideoMeetingPage() {
 
       window.addEventListener("pagehide", () => connectedRoom.disconnect());
       window.addEventListener("beforeunload", () => connectedRoom.disconnect());
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error joining room:", err);
-      setError(err.message || "Failed to join room");
+      setError(getErrorMessage(err, "Failed to join room"));
     } finally {
       setIsConnecting(false);
     }
@@ -446,9 +456,10 @@ export default function VideoMeetingPage() {
         }
       });
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("❌ Screen share error:", err);
-      if (err.name !== "NotAllowedError" && err.name !== "AbortError") {
+      const name = getErrorName(err);
+      if (name !== "NotAllowedError" && name !== "AbortError") {
         setError("Failed to share screen. Please try again.");
       }
       setIsScreenSharing(false);
@@ -518,6 +529,7 @@ export default function VideoMeetingPage() {
         room.disconnect();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount cleanup; stopScreenShare is stable enough for disconnect
   }, [room]);
 
   return (

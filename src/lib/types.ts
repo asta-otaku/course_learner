@@ -59,7 +59,7 @@ export interface Quiz {
   availableUntil?: string;
   curriculumLessonId?: string;
   scheduledFor?: string | null;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   questions?: QuizQuestion[];
   questionsCount?: number; // Number of questions in the quiz
   /** Present when quizzes are fetched with childId — whether the child has met the passing score. */
@@ -74,6 +74,9 @@ export interface Quiz {
     | "delayed_random"
     | "manual_tutor_review";
   createdBy?: string;
+  createdByName?: string;
+  created_by_name?: string;
+  quiz_questions?: { length: number }[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -104,7 +107,7 @@ export interface QuizAttempt {
   gradedAt: string | null;
   gradedBy: string | null;
   feedback: string | null;
-  metadata: any | null;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
   isResuming?: boolean;
@@ -286,7 +289,7 @@ export interface TutorProfile {
 }
 
 // API Response Types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   status: number;
   data: {
     status: string;
@@ -295,7 +298,7 @@ export interface ApiResponse<T = any> {
   };
 }
 
-export interface APIGetResponse<T = any> {
+export interface APIGetResponse<T = unknown> {
   status: string;
   message: string;
   data: T;
@@ -401,14 +404,14 @@ export interface SubscriptionPlan {
   trialPeriodDays: number;
   displayName: string;
   description: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface FullSubscriptionPlan {
   id: string;
   object: string;
   active: boolean;
-  attributes: any[];
+  attributes: unknown[];
   created: number;
   default_price: {
     id: string;
@@ -420,7 +423,7 @@ export interface FullSubscriptionPlan {
     custom_unit_amount: number | null;
     livemode: boolean;
     lookup_key: string | null;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
     nickname: string | null;
     product: string;
     recurring: {
@@ -440,12 +443,12 @@ export interface FullSubscriptionPlan {
   description: string;
   images: string[];
   livemode: boolean;
-  marketing_features: any[];
+  marketing_features: unknown[];
   metadata: {
     offerType: string;
   };
   name: string;
-  package_dimensions: any | null;
+  package_dimensions: Record<string, unknown> | null;
   shippable: boolean | null;
   statement_descriptor: string | null;
   tax_code: string | null;
@@ -785,7 +788,7 @@ export interface Question {
   metadata: {
     correctFeedback?: string;
     incorrectFeedback?: string;
-    matchingPairs?: any[];
+    matchingPairs?: unknown[];
   } | null;
   isPublic: boolean;
   image: string | null;
@@ -842,7 +845,7 @@ export interface QuestionAnswer {
   orderIndex: number;
   gradingCriteria: string | null;
   sampleAnswer: string | null;
-  matchingPairs: any[] | null;
+  matchingPairs: unknown[] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1086,6 +1089,24 @@ export interface Homework {
   curriculumLessonId: string;
 }
 
+export interface QuizAttemptResult {
+  id?: string;
+  questionId: string;
+  userAnswerContent?: string;
+  userAnswerId?: string;
+  correctAnswers: Array<{
+    id: string;
+    content: string | Record<string, string>;
+  }>;
+  isCorrect: boolean;
+  pointsEarned: number;
+  pointsPossible: number;
+  feedback?: string;
+  questionFeedback?: string;
+  tutorFeedback?: string;
+  questionAttemptId?: string;
+}
+
 export interface HomeworkReview {
   attemptId: string;
   quizId: string;
@@ -1095,7 +1116,7 @@ export interface HomeworkReview {
   score: number;
   totalPoints: number;
   percentage: number;
-  results: any[];
+  results: QuizAttemptResult[];
   timeSpent: number;
   /** When set (e.g. tuition-linked homework), links to curriculum lesson video. */
   curriculumLessonId?: string | null;

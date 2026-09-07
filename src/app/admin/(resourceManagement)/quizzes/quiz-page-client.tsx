@@ -1,6 +1,6 @@
 "use client";
 
-import { QuizDataTable } from "@/components/resourceManagemement/quiz/quiz-data-table";
+import { QuizDataTable } from "@/components/resourceManagement/quiz/quiz-data-table";
 
 interface QuizPageClientProps {
   quizzes: any[];
