@@ -19,6 +19,8 @@ function HomeWorkTable({
   setSearch,
   status,
   setStatus,
+  activeSubscriptionOnly,
+  setActiveSubscriptionOnly,
   filteredData,
   isLoading,
 }: {
@@ -27,6 +29,8 @@ function HomeWorkTable({
   setSearch: (search: string) => void;
   status: string;
   setStatus: (status: string) => void;
+  activeSubscriptionOnly: boolean;
+  setActiveSubscriptionOnly: (value: boolean) => void;
   filteredData: any[];
   isLoading?: boolean;
 }) {
@@ -67,6 +71,23 @@ function HomeWorkTable({
             className="w-full pl-9 pr-4 py-2 focus:outline-none shadow-none bg-white rounded-xl"
           />
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="bg-white border rounded-xl px-4 py-2 text-sm font-medium text-black flex items-center gap-1">
+              Students:{" "}
+              {activeSubscriptionOnly ? "Active subscription" : "All"}{" "}
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setActiveSubscriptionOnly(true)}>
+              Active subscription
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setActiveSubscriptionOnly(false)}>
+              All
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="bg-white border rounded-xl px-4 py-2 text-sm font-medium text-black flex items-center gap-1">
@@ -139,7 +160,9 @@ function HomeWorkTable({
                       <p className="text-gray-500 text-sm">
                         {search || status !== "All"
                           ? "Try adjusting your filters"
-                          : "Get started by assigning homework to your students"}
+                          : activeSubscriptionOnly
+                            ? "No homework for students with an active subscription. Switch to All to see every assigned student."
+                            : "Get started by assigning homework to your students"}
                       </p>
                     </div>
                     {!search && status === "All" && (

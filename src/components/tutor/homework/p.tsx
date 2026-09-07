@@ -4,17 +4,21 @@ import React from "react";
 import HomeWorkTable from "./table";
 import AssignHomeworkForm from "./assignHomework";
 import { useGetHomework } from "@/lib/api/queries";
+import type { Homework } from "@/lib/types";
 
 function HomeworkComponent() {
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState("All");
+  const [activeSubscriptionOnly, setActiveSubscriptionOnly] =
+    React.useState(true);
   const [step, setStep] = React.useState(0);
 
-  // Fetch homework data - passing undefined to get all homeworks for the tutor
-  const { data: homeworkResponse, isLoading } = useGetHomework(undefined);
-  const homeworkData = homeworkResponse?.data || [];
+  const { data: homeworkResponse, isLoading } = useGetHomework(
+    undefined,
+    activeSubscriptionOnly,
+  );
+  const homeworkData = (homeworkResponse?.data ?? []) as Homework[];
 
-  // Filter homework data based on search and status
   const filteredData = homeworkData.filter((row) => {
     const matchesSearch =
       row.studentName?.toLowerCase().includes(search.toLowerCase()) ||
@@ -35,6 +39,8 @@ function HomeworkComponent() {
               setSearch={setSearch}
               status={status}
               setStatus={setStatus}
+              activeSubscriptionOnly={activeSubscriptionOnly}
+              setActiveSubscriptionOnly={setActiveSubscriptionOnly}
               filteredData={filteredData}
               isLoading={isLoading}
             />
@@ -43,7 +49,6 @@ function HomeworkComponent() {
             <AssignHomeworkForm
               onBack={() => setStep(0)}
               onAssign={() => {
-                // The mutation will automatically refetch the homework list
                 setStep(0);
               }}
             />

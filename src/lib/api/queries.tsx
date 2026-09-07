@@ -1107,13 +1107,17 @@ export const useGetChangeRequestById = (id: string) => {
 };
 
 // Homework Queries
-export const useGetHomework = (childId?: string) => {
+export const useGetHomework = (
+  childId?: string,
+  activeSubscriptionOnly: boolean = true,
+) => {
   return useQuery({
-    queryKey: ["homeworks", childId],
+    queryKey: ["homeworks", childId, activeSubscriptionOnly],
     queryFn: async (): Promise<APIGetResponse<Homework[] | LearningPath[]>> => {
       const response = await axiosInstance.get(`/homework`, {
         params: {
           childId,
+          activeSubscriptionOnly,
         },
       });
       return response.data;
