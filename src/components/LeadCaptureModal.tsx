@@ -1,234 +1,238 @@
-"use client"
+"use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { isUserTypeAuthenticated } from "@/lib/services/axiosInstance";
 
-const TALLY_URL = "https://tally.so"
-const LOCAL_STORAGE_KEY = "leadCaptured"
-const SESSION_CLOSED_KEY = "leadModalClosed"
+const TALLY_ORIGINS = new Set(["https://tally.so", "https://www.tally.so"]);
+const TALLY_WIDGET_SRC = "https://tally.so/widgets/embed.js";
+const TALLY_FORM_SRC =
+  "https://tally.so/embed/68llaP?alignLeft=1&transparentBackground=1&dynamicHeight=1";
+const CONVERTED_KEY = "leadCaptured";
+const SESSION_CLOSED_KEY = "leadModalClosed";
+const OPEN_AFTER_MS = 30_000;
+const SCROLL_THRESHOLD = 0.6;
+const DEFAULT_FORM_HEIGHT = 520;
 
-function isLikelyTallySuccessPayload(value: unknown): boolean {
-  if (value == null) return false
+type TallyWindow = Window & { Tally?: { loadEmbeds: () => void } };
 
-  if (typeof value === "string") {
-    const normalized = value.toLowerCase()
-    return ["submit", "submitted", "success", "thank you", "thanks"].some((token) => normalized.includes(token))
+function storageGet(storage: Storage, key: string): string | null {
+  try {
+    return storage.getItem(key);
+  } catch {
+    return null;
   }
-
-  if (typeof value !== "object") return false
-
-  const seen = new WeakSet<object>()
-
-  function walk(node: unknown): boolean {
-    if (node == null) return false
-    if (typeof node === "string") {
-      const normalized = node.toLowerCase()
-      return ["submit", "submitted", "success", "thank you", "thanks", "completed"].some((token) => normalized.includes(token))
-    }
-    if (typeof node !== "object") return false
-
-    const obj = node as Record<string, unknown>
-    if (seen.has(obj)) return false
-    seen.add(obj)
-
-    const keys = Object.keys(obj)
-    for (const key of keys) {
-      const normalizedKey = key.toLowerCase()
-      const matchKey = ["type", "event", "action", "status", "state", "message", "payload", "submit", "submitted", "success"].some((token) => normalizedKey.includes(token))
-      if (matchKey) {
-        const val = obj[key]
-        if (walk(val)) return true
-      }
-
-      if (typeof obj[key] === "object") {
-        if (walk(obj[key])) return true
-      }
-    }
-
-    return false
-  }
-
-  return walk(value)
 }
 
-export default function LeadCaptureModal(): JSX.Element | null {
-  const [visible, setVisible] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const timerRef = useRef<number | null>(null)
-  const firedRef = useRef(false)
+function storageSet(storage: Storage, key: string, value: string) {
+  try {
+    storage.setItem(key, value);
+  } catch {
+    // Private mode / blocked storage
+  }
+}
+
+function hasConverted(): boolean {
+  return storageGet(localStorage, CONVERTED_KEY) === "1";
+}
+
+function hasClosedThisSession(): boolean {
+  return storageGet(sessionStorage, SESSION_CLOSED_KEY) === "1";
+}
+
+function isSignedIn(): boolean {
+  return (
+    isUserTypeAuthenticated("user") ||
+    isUserTypeAuthenticated("tutor") ||
+    isUserTypeAuthenticated("admin")
+  );
+}
+
+function shouldSuppressModal(): boolean {
+  return isSignedIn() || hasConverted() || hasClosedThisSession();
+}
+
+function parseTallyPayload(data: unknown): Record<string, unknown> | null {
+  if (typeof data === "string") {
+    try {
+      return JSON.parse(data) as Record<string, unknown>;
+    } catch {
+      return data.includes("Tally.FormSubmitted")
+        ? { event: "Tally.FormSubmitted" }
+        : null;
+    }
+  }
+  if (data && typeof data === "object") {
+    return data as Record<string, unknown>;
+  }
+  return null;
+}
+
+function isTallyFormSubmitted(data: unknown): boolean {
+  const payload = parseTallyPayload(data);
+  return payload?.event === "Tally.FormSubmitted";
+}
+
+function getTallyFormHeight(data: unknown): number | null {
+  const payload = parseTallyPayload(data);
+  if (!payload) return null;
+
+  const nested = payload.payload;
+  const heightCandidates = [
+    payload.height,
+    nested && typeof nested === "object"
+      ? (nested as { height?: unknown }).height
+      : null,
+  ];
+
+  for (const value of heightCandidates) {
+    const height = typeof value === "number" ? value : Number(value);
+    if (Number.isFinite(height) && height > 80 && height < 1200) {
+      return height;
+    }
+  }
+  return null;
+}
+
+function getScrollProgress(): number {
+  const doc = document.documentElement;
+  const scrollTop = window.scrollY || doc.scrollTop;
+  const winHeight = window.innerHeight || doc.clientHeight;
+  const fullHeight = Math.max(document.body.scrollHeight, doc.scrollHeight);
+  if (fullHeight <= 0) return 0;
+  return (scrollTop + winHeight) / fullHeight;
+}
+
+function loadTallyEmbeds() {
+  const tallyWindow = window as TallyWindow;
+  if (tallyWindow.Tally) {
+    tallyWindow.Tally.loadEmbeds();
+    return;
+  }
+
+  if (document.querySelector(`script[src="${TALLY_WIDGET_SRC}"]`)) return;
+
+  const script = document.createElement("script");
+  script.src = TALLY_WIDGET_SRC;
+  script.async = true;
+  script.onload = () => tallyWindow.Tally?.loadEmbeds();
+  document.body.appendChild(script);
+}
+
+export default function LeadCaptureModal() {
+  const [mounted, setMounted] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [formHeight, setFormHeight] = useState(DEFAULT_FORM_HEIGHT);
+  const timerRef = useRef<number | null>(null);
+  const firedRef = useRef(false);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current != null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
 
   const openModal = useCallback(() => {
-    if (firedRef.current) return
-    // don't open if already completed or closed this session
-    if (typeof window === "undefined") return
-    if (localStorage.getItem(LOCAL_STORAGE_KEY)) return
-    if (sessionStorage.getItem(SESSION_CLOSED_KEY)) return
-    firedRef.current = true
-    setVisible(true)
-  }, [])
+    if (firedRef.current || shouldSuppressModal()) return;
+    firedRef.current = true;
+    clearTimer();
+    setOpen(true);
+  }, [clearTimer]);
 
   const closeModal = useCallback(() => {
-    setVisible(false)
-    try {
-      sessionStorage.setItem(SESSION_CLOSED_KEY, "1")
-    } catch (e) {}
-  }, [])
-
-  // Listen for postMessage from Tally (mark as submitted)
-  useEffect(() => {
-    function messageHandler(e: MessageEvent) {
-      try {
-        const data = e.data
-        const origin = (e.origin || "").toLowerCase()
-
-        if (origin.includes("tally.so") || origin.includes("tally.co") || origin.includes("tally")) {
-          console.debug("[LeadCaptureModal] Tally message received:", {
-            origin,
-            data,
-          })
-
-          if (isLikelyTallySuccessPayload(data)) {
-            localStorage.setItem(LOCAL_STORAGE_KEY, "1")
-            return
-          }
-        }
-      } catch (err) {
-        // ignore
-      }
-    }
-
-    window.addEventListener("message", messageHandler)
-    return () => window.removeEventListener("message", messageHandler)
-  }, [])
+    setOpen(false);
+    storageSet(sessionStorage, SESSION_CLOSED_KEY, "1");
+  }, []);
 
   useEffect(() => {
-    setMounted(true)
-
-    if (typeof window === "undefined") return
-
-    // if user already converted, don't attach listeners
-    if (localStorage.getItem(LOCAL_STORAGE_KEY)) return
-    if (sessionStorage.getItem(SESSION_CLOSED_KEY)) return
-
-    // timer: 30s (30000ms)
-    timerRef.current = window.setTimeout(() => openModal(), 30000)
-
-    // scroll listener to detect 60% scroll
-    function onScroll() {
-      if (firedRef.current) return
-      const doc = document.documentElement
-      const scrollTop = window.scrollY || doc.scrollTop
-      const winHeight = window.innerHeight || doc.clientHeight
-      const fullHeight = Math.max(document.body.scrollHeight, doc.scrollHeight)
-      const scrolled = (scrollTop + winHeight) / fullHeight
-      if (scrolled >= 0.6) {
-        if (timerRef.current) {
-          clearTimeout(timerRef.current)
-          timerRef.current = null
-        }
-        openModal()
+    function messageHandler(event: MessageEvent) {
+      if (!TALLY_ORIGINS.has(event.origin)) return;
+      if (isTallyFormSubmitted(event.data)) {
+        storageSet(localStorage, CONVERTED_KEY, "1");
       }
+      const height = getTallyFormHeight(event.data);
+      if (height) setFormHeight(height);
     }
 
-    window.addEventListener("scroll", onScroll, { passive: true })
+    window.addEventListener("message", messageHandler);
+    return () => window.removeEventListener("message", messageHandler);
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !open) return;
+    loadTallyEmbeds();
+  }, [mounted, open]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    if (shouldSuppressModal()) return;
+
+    const tryOpenFromScroll = () => {
+      if (firedRef.current) return;
+      if (getScrollProgress() >= SCROLL_THRESHOLD) {
+        openModal();
+      }
+    };
+
+    timerRef.current = window.setTimeout(openModal, OPEN_AFTER_MS);
+    window.addEventListener("scroll", tryOpenFromScroll, { passive: true });
+    tryOpenFromScroll();
 
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-      window.removeEventListener("scroll", onScroll)
-    }
-  }, [openModal])
+      clearTimer();
+      window.removeEventListener("scroll", tryOpenFromScroll);
+    };
+  }, [mounted, openModal, clearTimer]);
 
-  // if already converted don't render
-  if (!mounted) return null
-  if (typeof window !== "undefined" && localStorage.getItem(LOCAL_STORAGE_KEY)) return null
-
-  if (!visible) return null
+  if (!mounted) return null;
 
   return (
-    <div
-      aria-hidden={!visible}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        pointerEvents: "auto",
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) closeModal();
       }}
     >
-      {/* Backdrop */}
-      <div
-        onClick={closeModal}
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(0,0,0,0.5)",
-          transition: "opacity 300ms ease",
-        }}
-      />
-
-      {/* Modal container */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        style={{
-          position: "relative",
-          width: "min(95%, 650px)",
-          maxHeight: "90vh",
-          background: "transparent",
-          borderRadius: 8,
-          boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
-          overflow: "hidden",
-          zIndex: 10000,
-          transform: "translateY(0)",
-          opacity: 1,
-          animation: "lead-fade-in 300ms ease",
-        }}
+      <DialogContent
+        className="w-[min(calc(100%-2rem),36rem)] max-w-2xl gap-0 overflow-visible border-0 bg-transparent p-0 shadow-none [&>button]:hidden"
+        onOpenAutoFocus={(event) => event.preventDefault()}
       >
-        <button
-          aria-label="Close lead capture"
-          onClick={closeModal}
-          style={{
-            position: "absolute",
-            right: 8,
-            top: 8,
-            zIndex: 10001,
-            background: "rgba(0,0,0,0.6)",
-            color: "white",
-            border: "none",
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            cursor: "pointer",
-          }}
-        >
-          ×
-        </button>
-
-        <div style={{ width: "100%", height: "100%", background: "white", borderRadius: 8 }}>
+        <div className="relative overflow-hidden rounded-2xl bg-white pt-12 shadow-2xl">
+          <DialogTitle className="sr-only">
+            Have questions about your child&apos;s maths?
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Leave your details and we will call within one working day.
+          </DialogDescription>
+          <DialogClose
+            className="absolute right-4 top-3.5 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primaryBlue/40"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </DialogClose>
           <iframe
-            src="https://tally.so/r/68llaP"
-            width="100%"
-            height="650"
-            frameBorder={0}
-            title="Call Back Request"
-            style={{ display: "block", border: 0, width: "100%", height: "650px" }}
+            data-tally-src={TALLY_FORM_SRC}
+            src={TALLY_FORM_SRC}
+            title="Have questions about your child's maths?"
+            loading="lazy"
+            className="block w-full border-0 px-4"
+            style={{ height: formHeight }}
           />
         </div>
-      </div>
-
-      <style jsx>{`
-        @keyframes lead-fade-in {
-          from { opacity: 0; transform: translateY(-8px) scale(0.995); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
-    </div>
-  )
+      </DialogContent>
+    </Dialog>
+  );
 }
