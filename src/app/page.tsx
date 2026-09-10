@@ -11,6 +11,8 @@ import Hero from "@/components/home/hero";
 import LevelSupport from "@/components/home/levelSupport";
 import Testimonials from "@/components/home/testimonials";
 import WhyWeAreBest from "@/components/home/whyWeAreBest";
+import LeadCaptureModal from "@/components/LeadCaptureModal";
+
 
 export default function Home() {
   const router = useRouter();
@@ -34,6 +36,7 @@ export default function Home() {
 
   return (
     <div className="bg-bgWhiteGray">
+      <LeadCaptureModal />
       <Hero />
       <LevelSupport />
       <WhyWeAreBest />
