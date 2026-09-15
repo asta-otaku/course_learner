@@ -262,17 +262,9 @@ function TableMetrics({
                               {child.assignedTutorName}
                             </Button>
                           ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-primaryBlue p-1 text-xs font-medium hover:text-blue-700"
-                              onClick={() => {
-                                setSelectedUser(child.id);
-                                setShowTutorModal(true);
-                              }}
-                            >
-                              Assign Tutor
-                            </Button>
+                            <span className="text-gray-500 text-xs">
+                              No tutor assigned
+                            </span>
                           )}
                         </div>
                       ))}

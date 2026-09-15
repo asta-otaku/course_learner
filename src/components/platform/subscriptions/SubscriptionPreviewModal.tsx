@@ -28,6 +28,13 @@ function formatDate(dateStr: string): string {
   });
 }
 
+function formatBillingDay(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+  });
+}
+
 export type PreviewActionType =
   | "add_tuition"
   | "upgrade_to_tuition"
@@ -136,6 +143,8 @@ export function SubscriptionPreviewModal({
 
   const nowItems = previewData?.breakdown.filter((b) => b.timing === "now") ?? [];
   const nextItems = previewData?.breakdown.filter((b) => b.timing === "next_billing") ?? [];
+  const visibleNowItems = nowItems.filter((item) => !item.isProration);
+  const hasProration = nowItems.some((item) => item.isProration);
 
   const dueNow = previewData?.dueNow ?? 0;
   const isCredit = dueNow < 0;
@@ -237,19 +246,11 @@ export function SubscriptionPreviewModal({
                   </span>
                 </div>
 
-                {/* Line items */}
-                {nowItems.length > 0 && (
-                  <div className="rounded-xl border border-black/8 overflow-hidden divide-y divide-black/5">
-                    {nowItems.map((item, i) => (
+                {visibleNowItems.length > 0 && (
+                  <div className="rounded-xl border border-black/8 overflow-hidden divide-y divide-black/5 mb-3">
+                    {visibleNowItems.map((item, i) => (
                       <div key={i} className="flex justify-between items-center gap-4 px-4 py-3 bg-white">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          {item.isProration && (
-                            <span className="shrink-0 text-[10px] font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100 rounded px-1.5 py-0.5 uppercase tracking-wide">
-                              Prorated
-                            </span>
-                          )}
-                          <span className="text-[13px] text-gray-600">{item.description}</span>
-                        </div>
+                        <span className="text-[13px] text-gray-600">{item.description}</span>
                         <span className={`text-[13px] font-semibold whitespace-nowrap tabular-nums ${item.amount < 0 ? "text-emerald-600" : "text-gray-800"}`}>
                           {formatAmountSigned(item.amount, item.currency)}
                         </span>
@@ -266,13 +267,20 @@ export function SubscriptionPreviewModal({
                   </div>
                 )}
 
-                {nowItems.length === 0 && (
-                  <div className="rounded-xl border border-black/8 px-4 py-3 bg-white">
+                {!hasProration && nowItems.length === 0 && (
+                  <div className="rounded-xl border border-black/8 px-4 py-3 bg-white mb-3">
                     <p className="text-[13px] text-gray-400">No immediate charges.</p>
                   </div>
                 )}
 
-                {/* Credit note */}
+                {hasProration && previewData?.billingDate && (
+                  <p className="text-[13px] text-gray-500 leading-relaxed">
+                    {isCredit
+                      ? `This is a prorated credit covering unused access until your next billing date on ${formatBillingDay(previewData.billingDate)}.`
+                      : `This is a prorated charge covering access until your next billing date on ${formatBillingDay(previewData.billingDate)}.`}
+                  </p>
+                )}
+
                 {isCredit && (
                   <div className="mt-3 flex gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
                     <div className="w-1 shrink-0 rounded-full bg-emerald-400 self-stretch" />
