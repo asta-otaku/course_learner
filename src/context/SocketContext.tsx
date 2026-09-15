@@ -9,7 +9,18 @@ import React, {
   useCallback,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { initSocket, getSocket, getAccessToken, setSocketQueryToken } from "@/lib/services/socket";
+import {
+  initSocket,
+  getSocket,
+  getSocketToken,
+  setSocketQueryToken,
+  connectSocketWithToken,
+} from "@/lib/services/socket";
+import {
+  getBucketFromRoute,
+  hasSession,
+  subscribeToAuthChanges,
+} from "@/lib/auth/client-session";
 import {
   SendMessageDto,
   MarkMessagesReadDto,
@@ -80,19 +91,17 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   // Decide whether to connect. Re-checks on pathname change (covers tutor login
-  // redirect) and listens for storage events (covers cross-tab login).
+  // redirect) and on session changes (login/logout, cross-tab, tab focus).
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const check = () => {
       const initFlag = localStorage.getItem("initializeSocket") === "true";
-      const token = getAccessToken();
-      setShouldConnect(initFlag || !!token);
+      setShouldConnect(initFlag || hasSession(getBucketFromRoute()));
     };
 
     check();
-    window.addEventListener("storage", check);
-    return () => window.removeEventListener("storage", check);
+    return subscribeToAuthChanges(check);
   }, [pathname]);
 
   // Fetch chat list once connected so rooms can be joined immediately
@@ -140,8 +149,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     const socket = initSocket();
     socketRef.current = socket;
-    const token = getAccessToken();
-    if (token) setSocketQueryToken(token);
 
     const handleConnect = () => {
       // Clear joined rooms so every room is re-joined after a reconnect.
@@ -298,8 +305,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const handleConnectError = () => {
-      const freshToken = getAccessToken();
-      if (freshToken) setSocketQueryToken(freshToken);
+      void getSocketToken().then((freshToken) => {
+        if (freshToken) setSocketQueryToken(freshToken);
+      });
     };
 
     const handleJoinedRoom = (_payload: JoinedRoomPayload) => {
@@ -314,8 +322,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     socket.on("messageDeleted", handleMessageDeleted);
     socket.on("joinedRoom", handleJoinedRoom);
 
-    if (token && !socket.connected) {
-      socket.connect();
+    if (!socket.connected) {
+      void connectSocketWithToken();
     }
 
     return () => {
@@ -329,14 +337,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [queryClient, shouldConnect]);
 
-  // Connect the socket when a token becomes available (handles tutor login redirect)
+  // Connect the socket when a session becomes available (handles tutor login redirect)
   useEffect(() => {
-    if (!shouldConnect) return;
-    const token = getAccessToken();
-    if (!token || !socketRef.current) return;
+    if (!shouldConnect || !socketRef.current) return;
     if (socketRef.current.connected) return;
-    setSocketQueryToken(token);
-    socketRef.current.connect();
+    void connectSocketWithToken();
   }, [shouldConnect, pathname]);
 
   // Join chat rooms. Clears and retries whenever isConnected flips to true

@@ -452,10 +452,11 @@ export default function StudentPage({ id }: { id: string }) {
 
     const previousItems = orderedSchemeRows;
     const reorderedInPath = arrayMove(inPath, oldIndex, newIndex);
-    const newItems = [...reorderedInPath, ...outOfPath];
-    setOrderedSchemeRows(newItems);
+    // Keep out-of-path rows in the UI, but the API only accepts the
+    // exact in-learning-path quiz ID set (inLearningPath: true).
+    setOrderedSchemeRows([...reorderedInPath, ...outOfPath]);
     reorderScheme(
-      { quizIdsInOrder: newItems.map((item) => item.quizId) },
+      { quizIdsInOrder: reorderedInPath.map((item) => item.quizId) },
       {
         onSuccess: () => {
           toast.success("Quiz order updated");

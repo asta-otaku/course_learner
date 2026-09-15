@@ -2,38 +2,50 @@
 
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, Suspense } from "react";
+import { Suspense } from "react";
 
 const PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
-/**
- * Fires fbq("track", "PageView") on every client-side navigation.
- * Must be inside a <Suspense> boundary because it reads useSearchParams.
- */
-function PageViewTracker() {
+const MARKETING_AND_CONVERSION_PREFIXES = [
+  "/about",
+  "/contact",
+  "/faqs",
+  "/pricing",
+  "/select-plan",
+  "/sign-in",
+  "/sign-up",
+  "/forgot-password",
+  "/admin/sign-in",
+  "/admin/sign-up",
+  "/admin/forgot-password",
+  "/tutor/sign-in",
+  "/tutor/sign-up",
+  "/tutor/forgot-password",
+];
+
+function shouldEnablePixel(
+  pathname: string | null,
+  searchParams: URLSearchParams | null,
+): boolean {
+  if (!pathname) return false;
+  if (pathname === "/") return true;
+  if (
+    MARKETING_AND_CONVERSION_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    )
+  ) {
+    return true;
+  }
+  // Stripe returns here with ?paymentSuccess; do not track other learner routes.
+  return pathname === "/dashboard" && Boolean(searchParams?.get("paymentSuccess"));
+}
+
+function MetaPixelInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  useEffect(() => {
-    if (!PIXEL_ID || typeof window === "undefined") return;
-    if (typeof (window as any).fbq !== "function") return;
-    (window as any).fbq("track", "PageView");
-  }, [pathname, searchParams]);
-
-  return null;
-}
-
-/**
- * Drop <MetaPixel /> anywhere in the layout — it injects the base pixel
- * snippet and automatically tracks every page view including soft navigations.
- *
- * Track custom events anywhere in the app:
- *   import { trackPixelEvent } from "@/components/MetaPixel";
- *   trackPixelEvent("Lead");
- *   trackPixelEvent("Purchase", { value: 29.99, currency: "GBP" });
- */
-export default function MetaPixel() {
   if (!PIXEL_ID) return null;
+  if (!shouldEnablePixel(pathname, searchParams)) return null;
 
   return (
     <>
@@ -64,10 +76,20 @@ export default function MetaPixel() {
           alt=""
         />
       </noscript>
-      <Suspense fallback={null}>
-        <PageViewTracker />
-      </Suspense>
     </>
+  );
+}
+
+/**
+ * Marketing and conversion pages only (home, auth, pricing, select-plan,
+ * Stripe return on /dashboard?paymentSuccess). Not loaded on homework/quiz/
+ * tutor/admin learner surfaces.
+ */
+export default function MetaPixel() {
+  return (
+    <Suspense fallback={null}>
+      <MetaPixelInner />
+    </Suspense>
   );
 }
 

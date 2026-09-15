@@ -8,11 +8,75 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-  DropResult,
-} from "@hello-pangea/dnd";
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+type Assignment = {
+  id: string;
+  title: string;
+  date: string;
+};
+
+function SortableAssignmentRow({
+  assignment,
+}: {
+  assignment: Assignment;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: assignment.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center justify-between border-b last:border-b-0 py-4 bg-white ${
+        isDragging ? "shadow-lg" : ""
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className="cursor-move text-gray-400"
+          {...attributes}
+          {...listeners}
+        >
+          ⋮⋮
+        </span>
+        <div>
+          <div className="font-medium text-sm">{assignment.title}</div>
+          <div className="text-xs text-muted-foreground">{assignment.date}</div>
+        </div>
+      </div>
+      <Button variant="link" className="text-primaryBlue text-xs px-0">
+        ASSIGN NOW <span className="ml-1">→</span>
+      </Button>
+    </div>
+  );
+}
 
 function StudentHomeworkScheduleTab() {
   const [frequency, setFrequency] = React.useState("3");
@@ -28,7 +92,15 @@ function StudentHomeworkScheduleTab() {
       }))
   );
 
-  // Update assignments when frequency, date, or time changes
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   React.useEffect(() => {
     setAssignments((prev) => {
       const newLength = Number(frequency);
@@ -45,8 +117,7 @@ function StudentHomeworkScheduleTab() {
             })),
         ];
       }
-      // Update date and time for all assignments
-      return updated.map((a, _idx) => ({
+      return updated.map((a) => ({
         ...a,
         date: `To Be Assigned 24th March${
           dateAssigned !== "SUNDAY" ? ` (${dateAssigned})` : ""
@@ -55,13 +126,15 @@ function StudentHomeworkScheduleTab() {
     });
   }, [frequency, dateAssigned, timeAssigned]);
 
-  // Drag and drop handler
-  const onDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-    const reordered = Array.from(assignments);
-    const [removed] = reordered.splice(result.source.index, 1);
-    reordered.splice(result.destination.index, 0, removed);
-    setAssignments(reordered);
+  const onDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setAssignments((items) => {
+      const oldIndex = items.findIndex((item) => item.id === active.id);
+      const newIndex = items.findIndex((item) => item.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return items;
+      return arrayMove(items, oldIndex, newIndex);
+    });
   };
 
   return (
@@ -111,49 +184,22 @@ function StudentHomeworkScheduleTab() {
           + ADD TO QUEUE
         </Button>
       </div>
-      <DragDropContext onDragEnd={onDragEnd}>
-        <Droppable droppableId="assignments">
-          {(provided) => (
-            <div
-              className="flex flex-col gap-2"
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-            >
-              {assignments.map((a, idx) => (
-                <Draggable key={a.id} draggableId={a.id} index={idx}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.draggableProps}
-                      {...provided.dragHandleProps}
-                      className={`flex items-center justify-between border-b last:border-b-0 py-4 bg-white ${
-                        snapshot.isDragging ? "shadow-lg" : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="cursor-move text-gray-400">⋮⋮</span>
-                        <div>
-                          <div className="font-medium text-sm">{a.title}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {a.date}
-                          </div>
-                        </div>
-                      </div>
-                      <Button
-                        variant="link"
-                        className="text-primaryBlue text-xs px-0"
-                      >
-                        ASSIGN NOW <span className="ml-1">→</span>
-                      </Button>
-                    </div>
-                  )}
-                </Draggable>
-              ))}
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
-      </DragDropContext>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={onDragEnd}
+      >
+        <SortableContext
+          items={assignments.map((a) => a.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="flex flex-col gap-2">
+            {assignments.map((a) => (
+              <SortableAssignmentRow key={a.id} assignment={a} />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }

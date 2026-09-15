@@ -65,8 +65,6 @@ export async function fetchQuestions(
   if (options?.isPublic !== undefined)
     params.append("isPublic", options.isPublic.toString());
   if (options?.createdBy) params.append("createdBy", options.createdBy);
-  if (options?.collectionId)
-    params.append("collectionId", options.collectionId);
   if (options?.folderId) params.append("folderId", options.folderId);
 
   if (options?.dateFrom) params.append("dateFrom", options.dateFrom);
@@ -116,7 +114,6 @@ export const useGetQuestions = (options?: QuestionQueryOptions) => {
       options?.tags?.join(",") ?? "",
       options?.isPublic ?? "",
       options?.createdBy ?? "",
-      options?.collectionId ?? "",
       options?.folderId ?? "",
       options?.dateFrom ?? "",
       options?.dateTo ?? "",
@@ -287,34 +284,6 @@ export const useGetResumeQuizAttempt = (attemptId: string) => {
       return response.data;
     },
     enabled: !!attemptId,
-  });
-};
-
-// Collection Queries
-export const useGetCollections = () => {
-  return useQuery({
-    queryKey: ["collections"],
-    queryFn: async (): Promise<APIGetResponse<any>> => {
-      const response = await axiosInstance.get("/collections");
-      return response.data;
-    },
-  });
-};
-
-export const useGetCollection = (id?: string) => {
-  return useQuery({
-    queryKey: ["collection", id],
-    queryFn: async (): Promise<APIGetResponse<any>> => {
-      if (!id)
-        return {
-          status: "success",
-          message: "No ID provided",
-          data: { collection: null },
-        };
-      const response = await axiosInstance.get(`/collections/${id}`);
-      return response.data;
-    },
-    enabled: !!id,
   });
 };
 

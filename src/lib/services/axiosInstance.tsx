@@ -1,20 +1,44 @@
 import axios from "axios";
 import { toast } from "react-toastify";
+import {
+  isAuthPagePath,
+  isSafeInternalPath,
+  PROXY_BASE_PATH,
+  ROLE_HEADER,
+  signInPathForBucket,
+  type SessionBucket,
+} from "@/lib/auth/session-constants";
+import {
+  endSession,
+  getBucketFromRoute,
+  hasSession,
+  notifyAuthChange,
+  refreshSession,
+} from "@/lib/auth/client-session";
+
+export { isSafeInternalPath };
 
 // Extend AxiosRequestConfig to include custom skipAuthRedirect property
 declare module "axios" {
   export interface AxiosRequestConfig {
     skipAuthRedirect?: boolean;
+    _retry?: boolean;
   }
 }
 
+/**
+ * All API traffic goes through the same-origin proxy (`/api/proxy/*`). The
+ * proxy reads the httpOnly session cookie for the bucket named in
+ * `x-ll-role` and attaches the bearer token — the browser never holds a JWT.
+ */
 export const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: PROXY_BASE_PATH,
   headers: {
     Accept: "application/json, text/plain, */*",
     "Content-Type": "application/json",
   },
   timeout: 30000,
+  withCredentials: true,
 });
 
 // Track logout and auth states
@@ -22,41 +46,13 @@ let isLoggingOut = false;
 let hasRedirected = false;
 let hasNavigatedBackOnForbidden = false;
 
-// Helper to determine user type based on current route
-function getUserTypeFromRoute(): "admin" | "tutor" | "user" {
-  if (typeof window === "undefined") return "user";
-  const pathname = window.location.pathname;
-
-  // Special handling for /meet route - check for role query parameter
-  if (pathname.startsWith("/meet/")) {
-    const searchParams = new URLSearchParams(window.location.search);
-    const role = searchParams.get("role");
-    if (role === "admin") return "admin";
-    if (role === "tutor") return "tutor";
-    if (role === "user") return "user";
-    // If no role specified, default to user
-    return "user";
-  }
-
-  if (pathname.startsWith("/admin")) {
-    return "admin";
-  } else if (pathname.startsWith("/tutor")) {
-    return "tutor";
-  } else {
-    return "user";
-  }
-}
-
-// Helper to get the appropriate storage key based on user type
-function getStorageKey(userType?: "admin" | "tutor" | "user"): string {
-  const type = userType || getUserTypeFromRoute();
-  return type === "admin" ? "admin" : type === "tutor" ? "tutor" : "user";
-}
-
-function getUserFromStorage(userType?: "admin" | "tutor" | "user") {
+/**
+ * Token-free copy of the sign-in payload (name, role, offerType…) kept in
+ * localStorage for UI reads. The proxy strips tokens before it reaches us.
+ */
+function getUserFromStorage(bucket?: SessionBucket) {
   if (typeof window === "undefined") return null;
-  const storageKey = getStorageKey(userType);
-  const userStr = localStorage.getItem(storageKey);
+  const userStr = localStorage.getItem(bucket ?? getBucketFromRoute());
   if (!userStr) return null;
   try {
     return JSON.parse(userStr);
@@ -65,38 +61,17 @@ function getUserFromStorage(userType?: "admin" | "tutor" | "user") {
   }
 }
 
-// Helper to set user object in localStorage based on user type
-function setUserToStorage(user: any, userType?: "admin" | "tutor" | "user") {
+function setUserToStorage(user: unknown, bucket?: SessionBucket) {
   if (typeof window === "undefined") return;
-  const storageKey = getStorageKey(userType);
-  localStorage.setItem(storageKey, JSON.stringify(user));
+  localStorage.setItem(bucket ?? getBucketFromRoute(), JSON.stringify(user));
 }
 
 // Helper to store the intended redirect URL
 function storeIntendedUrl(url: string) {
   if (typeof window === "undefined") return;
-  const authPages = [
-    "/sign-in",
-    "/sign-up",
-    "/forgot-password",
-    "/reset-password",
-    "/admin/sign-in",
-    "/admin/sign-up",
-    "/admin/forgot-password",
-    "/tutor/sign-in",
-    "/tutor/sign-up",
-    "/tutor/forgot-password",
-  ];
-  if (!authPages.some((page) => url.includes(page)) && isSafeInternalPath(url)) {
+  if (!isAuthPagePath(url.split("?")[0]) && isSafeInternalPath(url)) {
     localStorage.setItem("intendedUrl", url);
   }
-}
-
-export function isSafeInternalPath(url: string): boolean {
-  if (!url.startsWith("/")) return false;
-  if (url.startsWith("//") || url.startsWith("/\\")) return false;
-  if (url.includes("://")) return false;
-  return true;
 }
 
 // Track the last URL that produced a 401 redirect-to-login.
@@ -115,15 +90,33 @@ export function getAndClearLastUnauthorizedUrl(): string | null {
   return null;
 }
 
-// Helper to get and clear the intended redirect URL
+/**
+ * Where to send the user after sign-in. Prefers the `?next=` set by the
+ * middleware redirect, then the URL stored when a request 401'd.
+ */
 export function getAndClearIntendedUrl(): string | null {
   if (typeof window === "undefined") return null;
+
+  const next = new URLSearchParams(window.location.search).get("next");
+  if (next && isSafeInternalPath(next) && !isAuthPagePath(next.split("?")[0])) {
+    localStorage.removeItem("intendedUrl");
+    return next;
+  }
+
   const intendedUrl = localStorage.getItem("intendedUrl");
   if (intendedUrl) {
     localStorage.removeItem("intendedUrl");
     return isSafeInternalPath(intendedUrl) ? intendedUrl : null;
   }
   return null;
+}
+
+function clearProfileStorage() {
+  localStorage.removeItem("intendedUrl");
+  localStorage.removeItem("selectedProfile");
+  localStorage.removeItem("activeProfile");
+  localStorage.removeItem("childProfiles");
+  localStorage.removeItem("initializeSocket");
 }
 
 // Helper to redirect to appropriate sign-in page based on user type
@@ -141,144 +134,72 @@ function redirectToSignIn() {
   storeIntendedUrl(currentPath);
   storeLastUnauthorizedUrl(currentPath);
 
-  // Determine user type and redirect accordingly
-  const userType = getUserTypeFromRoute();
-  const storageKey = getStorageKey(userType);
+  const bucket = getBucketFromRoute();
+  localStorage.removeItem(bucket);
 
-  // Clear user data for the current user type
-  localStorage.removeItem(storageKey);
-  let signInPath = "/sign-in";
-  if (userType === "admin") {
-    signInPath = "/admin/sign-in";
-  } else if (userType === "tutor") {
-    signInPath = "/tutor/sign-in";
-  }
-
-  // Small delay to ensure all pending requests are handled
-  setTimeout(() => {
-    window.location.replace(signInPath);
-  }, 100);
-}
-
-// Helper to get access token for current route's user type
-function getAccessToken() {
-  if (isLoggingOut) return null; // Don't return token if logging out
-
-  const userType = getUserTypeFromRoute();
-  const user = getUserFromStorage(userType);
-  if (!user) return null;
-
-  // Handle different possible token locations
-  return (
-    user?.data?.accessToken ||
-    user?.accessToken ||
-    user?.data?.data?.accessToken ||
-    null
-  );
-}
-
-// Helper to get refresh token for current route's user type
-function getRefreshToken() {
-  if (isLoggingOut) return null; // Don't return refresh token if logging out
-
-  const userType = getUserTypeFromRoute();
-  const user = getUserFromStorage(userType);
-  if (!user) return null;
-
-  return (
-    user?.data?.refreshToken ||
-    user?.refreshToken ||
-    user?.data?.data?.refreshToken ||
-    null
-  );
+  // Cookies are already cleared by /api/auth/refresh on failure; make sure.
+  void endSession(bucket).finally(() => {
+    window.location.replace(signInPathForBucket(bucket));
+  });
 }
 
 let isRefreshing = false;
 type FailedQueueItem = {
-  resolve: (token: string) => void;
-  reject: (error: any) => void;
+  resolve: () => void;
+  reject: (error: unknown) => void;
 };
 let failedQueue: FailedQueueItem[] = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown) => {
   failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token!);
-    }
+    if (error) prom.reject(error);
+    else prom.resolve();
   });
   failedQueue = [];
 };
 
-// Request interceptor
+// Request interceptor: tell the proxy which session bucket to use.
 axiosInstance.interceptors.request.use(
   (config) => {
-    // Skip adding token if we're logging out or have redirected
-    if (isLoggingOut || hasRedirected) {
-      return config;
-    }
-
-    const token = getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    config.headers.set(ROLE_HEADER, getBucketFromRoute());
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error),
 );
 
-// Response interceptor
+// Response interceptor: single-flight refresh on 401, then retry once.
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
     // Immediately reject if we're logging out or have redirected
-    if (isLoggingOut || hasRedirected) {
+    if (isLoggingOut || hasRedirected || !originalRequest) {
       return Promise.reject(error);
     }
 
-    if (
-      error.response &&
-      error.response.status === 401 &&
-      !originalRequest._retry
-    ) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
+      const bucket = getBucketFromRoute();
 
-      // Double-check we're not logging out after marking retry
-      if (isLoggingOut || hasRedirected) {
-        return Promise.reject(error);
-      }
-
-      const refreshToken = getRefreshToken();
-
-      if (!refreshToken) {
-        // No refresh token, redirect to sign-in (unless skipAuthRedirect is set)
-        if (!originalRequest.skipAuthRedirect) {
-          redirectToSignIn();
-        }
+      if (!hasSession(bucket)) {
+        if (!originalRequest.skipAuthRedirect) redirectToSignIn();
         return Promise.reject(error);
       }
 
       if (isRefreshing) {
         // Queue the request until refresh is done
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
-          .then((token) => {
-            // Check again if we're still authenticated before retrying
+          .then(() => {
             if (isLoggingOut || hasRedirected) {
               return Promise.reject(new Error("Authentication cancelled"));
             }
-            originalRequest.headers["Authorization"] = "Bearer " + token;
             return axiosInstance(originalRequest);
           })
           .catch((err) => {
-            // If queued request fails, redirect to sign-in
-            if (!isLoggingOut && !hasRedirected) {
+            if (!isLoggingOut && !hasRedirected && !originalRequest.skipAuthRedirect) {
               redirectToSignIn();
             }
             return Promise.reject(err);
@@ -286,72 +207,25 @@ axiosInstance.interceptors.response.use(
       }
 
       isRefreshing = true;
-
       try {
-        // Use a separate axios instance for refresh to avoid interceptor loops
-        const response = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh-tokens`,
-          { refreshToken },
-          {
-            timeout: 10000, // Shorter timeout for refresh requests
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const refreshed = await refreshSession(bucket);
 
-        // Check if we've started logging out during the refresh request
         if (isLoggingOut || hasRedirected) {
-          processQueue(new Error("Authentication cancelled"), null);
+          processQueue(new Error("Authentication cancelled"));
           return Promise.reject(error);
         }
 
-        if (response.data?.status === "success") {
-          const newTokens = response.data.data;
-          const userType = getUserTypeFromRoute();
-          const user = getUserFromStorage(userType);
-
-          // Check if user still exists (might have been cleared during logout)
-          if (!user || isLoggingOut || hasRedirected) {
-            processQueue(error, null);
-            if (!originalRequest.skipAuthRedirect) {
-              redirectToSignIn();
-            }
-            return Promise.reject(error);
-          }
-
-          // Update user object with new tokens
-          const updatedUser = {
-            ...user,
-            data: {
-              ...user.data,
-              accessToken: newTokens.accessToken,
-              refreshToken: newTokens.refreshToken,
-            },
-          };
-
-          setUserToStorage(updatedUser, userType);
-          processQueue(null, newTokens.accessToken);
-          originalRequest.headers["Authorization"] =
-            "Bearer " + newTokens.accessToken;
-
-          return axiosInstance(originalRequest);
-        } else {
-          // Refresh failed, redirect to sign-in (unless skipAuthRedirect is set)
-          processQueue(error, null);
-          if (!originalRequest.skipAuthRedirect) {
-            redirectToSignIn();
-          }
+        if (!refreshed) {
+          processQueue(error);
+          if (!originalRequest.skipAuthRedirect) redirectToSignIn();
           return Promise.reject(error);
         }
+
+        processQueue(null);
+        return axiosInstance(originalRequest);
       } catch (err) {
-        // Refresh request failed, redirect to sign-in (unless skipAuthRedirect is set)
-        processQueue(err, null);
-        if (
-          !isLoggingOut &&
-          !hasRedirected &&
-          !originalRequest.skipAuthRedirect
-        ) {
+        processQueue(err);
+        if (!isLoggingOut && !hasRedirected && !originalRequest.skipAuthRedirect) {
           redirectToSignIn();
         }
         return Promise.reject(err);
@@ -391,11 +265,11 @@ axiosInstance.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 // Export utility function for manual logout
-export function logout(userType?: "admin" | "tutor" | "user") {
+export function logout(userType?: SessionBucket) {
   if (typeof window === "undefined") return;
   // Set flags to prevent any token operations
   isLoggingOut = true;
@@ -403,82 +277,52 @@ export function logout(userType?: "admin" | "tutor" | "user") {
 
   // Clear all pending refresh attempts
   if (isRefreshing) {
-    processQueue(new Error("Logout initiated"), null);
+    processQueue(new Error("Logout initiated"));
     isRefreshing = false;
   }
 
-  // Determine which user to logout
-  const typeToLogout = userType || getUserTypeFromRoute();
-  const storageKey = getStorageKey(typeToLogout);
+  const bucket = userType || getBucketFromRoute();
 
   // Clear user data immediately
-  localStorage.removeItem(storageKey);
-  localStorage.removeItem("intendedUrl");
-  localStorage.removeItem("selectedProfile");
-  localStorage.removeItem("activeProfile");
-  localStorage.removeItem("childProfiles");
+  localStorage.removeItem(bucket);
+  clearProfileStorage();
 
-  // Determine the appropriate sign-in page
-  let signInPath = "/sign-in";
-  if (typeToLogout === "admin") {
-    signInPath = "/admin/sign-in";
-  } else if (typeToLogout === "tutor") {
-    signInPath = "/tutor/sign-in";
-  }
-
-  // Small delay to ensure all pending operations are cancelled
-  setTimeout(() => {
-    window.location.replace(signInPath);
-  }, 50);
+  void endSession(bucket).finally(() => {
+    window.location.replace(signInPathForBucket(bucket));
+  });
 }
 
 // Export utility function to logout all user types
 export function logoutAll() {
   if (typeof window === "undefined") return;
-  // Set flags to prevent any token operations
   isLoggingOut = true;
   hasRedirected = true;
 
-  // Clear all pending refresh attempts
   if (isRefreshing) {
-    processQueue(new Error("Logout initiated"), null);
+    processQueue(new Error("Logout initiated"));
     isRefreshing = false;
   }
 
-  // Clear all user data
   localStorage.removeItem("admin");
   localStorage.removeItem("tutor");
   localStorage.removeItem("user");
-  localStorage.removeItem("intendedUrl");
-  localStorage.removeItem("selectedProfile");
-  localStorage.removeItem("activeProfile");
-  localStorage.removeItem("childProfiles");
+  clearProfileStorage();
 
-  // Small delay to ensure all pending operations are cancelled
-  setTimeout(() => {
+  void endSession("all").finally(() => {
     window.location.replace("/sign-in");
-  }, 50);
+  });
 }
 
 // Export utility function to check if user is authenticated for current route
 export function isAuthenticated(): boolean {
   if (isLoggingOut || hasRedirected) return false;
-  return !!getAccessToken();
+  return hasSession(getBucketFromRoute());
 }
 
 // Export utility function to check if specific user type is authenticated
-export function isUserTypeAuthenticated(
-  userType: "admin" | "tutor" | "user"
-): boolean {
+export function isUserTypeAuthenticated(userType: SessionBucket): boolean {
   if (isLoggingOut || hasRedirected) return false;
-  const user = getUserFromStorage(userType);
-  if (!user) return false;
-
-  const token =
-    user?.data?.accessToken ||
-    user?.accessToken ||
-    user?.data?.data?.accessToken;
-  return !!token;
+  return hasSession(userType);
 }
 
 // Export utility functions to get user data for different types
@@ -495,16 +339,19 @@ export function getCurrentUser() {
 }
 
 // Export utility functions to set user data for different types
-export function setAdminUser(admin: any) {
+export function setAdminUser(admin: unknown) {
   setUserToStorage(admin, "admin");
+  notifyAuthChange();
 }
 
-export function setTutorUser(tutor: any) {
+export function setTutorUser(tutor: unknown) {
   setUserToStorage(tutor, "tutor");
+  notifyAuthChange();
 }
 
-export function setCurrentUser(user: any) {
+export function setCurrentUser(user: unknown) {
   setUserToStorage(user);
+  notifyAuthChange();
 }
 
 // Reset flags when page loads (useful for SPA navigation)
@@ -516,21 +363,6 @@ export function resetAuthState() {
 }
 
 // On module load, only auto-reset when starting on an auth page
-if (typeof window !== "undefined") {
-  const currentPath = window.location.pathname;
-  const authPages = [
-    "/sign-in",
-    "/sign-up",
-    "/forgot-password",
-    "/reset-password",
-    "/admin/sign-in",
-    "/admin/sign-up",
-    "/admin/forgot-password",
-    "/tutor/sign-in",
-    "/tutor/sign-up",
-    "/tutor/forgot-password",
-  ];
-  if (authPages.some((page) => currentPath.includes(page))) {
-    resetAuthState();
-  }
+if (typeof window !== "undefined" && isAuthPagePath(window.location.pathname)) {
+  resetAuthState();
 }

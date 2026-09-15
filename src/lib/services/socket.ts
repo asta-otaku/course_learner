@@ -3,36 +3,17 @@ import {
   ServerToClientEvents,
   ClientToServerEvents,
 } from "@/lib/types/socket";
+import { fetchSocketToken, getBucketFromRoute } from "@/lib/auth/client-session";
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
-// Helper to get access token (same logic as axiosInstance) - exported for SocketContext
-export function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-
-  const pathname = window.location.pathname;
-  let userType: "admin" | "tutor" | "user" = "user";
-
-  if (pathname.startsWith("/admin")) {
-    userType = "admin";
-  } else if (pathname.startsWith("/tutor")) {
-    userType = "tutor";
-  }
-
-  const userStr = localStorage.getItem(userType);
-  if (!userStr) return null;
-
-  try {
-    const user = JSON.parse(userStr);
-    return (
-      user?.data?.accessToken ||
-      user?.accessToken ||
-      user?.data?.data?.accessToken ||
-      null
-    );
-  } catch {
-    return null;
-  }
+/**
+ * Access token for the Socket.IO handshake, fetched from our own
+ * `/api/auth/socket-token` route (the cookie itself is httpOnly).
+ */
+export function getSocketToken(): Promise<string | null> {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  return fetchSocketToken(getBucketFromRoute());
 }
 
 export const initSocket = (): Socket<
@@ -51,16 +32,14 @@ export const initSocket = (): Socket<
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      query: {
-        jwtToken: getAccessToken(),
-      },
+      query: {},
     });
 
+    // Refresh the handshake token before the next reconnect attempt lands.
     socket.io.on("reconnect_attempt", () => {
-      const newToken = getAccessToken();
-      if (socket) {
-        socket.io.opts.query = { jwtToken: newToken ?? socket.io.opts?.query?.jwtToken };
-      }
+      void getSocketToken().then((token) => {
+        if (token) setSocketQueryToken(token);
+      });
     });
   }
 
@@ -70,8 +49,19 @@ export const initSocket = (): Socket<
 /** Call before connect() to ensure the socket uses the current token (e.g. after login). */
 export const setSocketQueryToken = (token: string | null) => {
   if (socket) {
-    socket.io.opts.query = { jwtToken: token };
+    socket.io.opts.query = token ? { jwtToken: token } : {};
   }
+};
+
+/** Fetch a fresh token and connect. Resolves `false` when there is no session. */
+export const connectSocketWithToken = async (): Promise<boolean> => {
+  const current = initSocket();
+  if (current.connected) return true;
+  const token = await getSocketToken();
+  if (!token) return false;
+  setSocketQueryToken(token);
+  current.connect();
+  return true;
 };
 
 export const getSocket = (): Socket<
@@ -81,22 +71,9 @@ export const getSocket = (): Socket<
   return socket;
 };
 
-export const updateSocketAuth = () => {
-  if (socket) {
-    const token = getAccessToken();
-    socket.auth = { token };
-    // Reconnect with new auth
-    if (socket.connected) {
-      socket.disconnect();
-      socket.connect();
-    }
-  }
-};
-
 export const disconnectSocket = () => {
   if (socket) {
     socket.disconnect();
     socket = null;
   }
 };
-

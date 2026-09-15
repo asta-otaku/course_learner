@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   initActivitySocket,
+  connectActivitySocketWithToken,
   disconnectActivitySocket,
 } from "@/lib/services/activitySocket";
 import { Socket } from "socket.io-client";
@@ -34,8 +35,8 @@ export const ActivitySocketProvider: React.FC<{
     const activitySocket = initActivitySocket();
     setSocket(activitySocket);
 
-    // Connect socket
-    activitySocket.connect();
+    // Connect once a handshake token has been fetched from our session route.
+    void connectActivitySocketWithToken();
 
     // Socket event handlers
     const onConnect = () => {

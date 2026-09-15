@@ -4,6 +4,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { isAuthenticated } from "@/lib/services/axiosInstance";
+import { subscribeToAuthChanges } from "@/lib/auth/client-session";
+import { isAuthPagePath, isSafeInternalPath } from "@/lib/auth/session-constants";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -11,36 +13,34 @@ interface AuthGuardProps {
   redirectTo?: string;
 }
 
+function rememberIntendedUrl() {
+  if (typeof window === "undefined") return;
+  const currentPath = window.location.pathname + window.location.search;
+  if (!isAuthPagePath(window.location.pathname) && isSafeInternalPath(currentPath)) {
+    localStorage.setItem("intendedUrl", currentPath);
+  }
+}
+
+/**
+ * Client-side guard layered on top of `middleware.ts`. The middleware blocks
+ * unauthenticated navigations server-side; this reacts to sessions that end
+ * while a page is open (logout in another tab, refresh failure) instead of
+ * polling on an interval.
+ */
 export function AuthGuard({
   children,
   fallback = <div>Loading...</div>,
   redirectTo = "/sign-in",
 }: AuthGuardProps) {
   const [isAuth, setIsAuth] = useState<boolean | null>(null);
-  const [isChecking, setIsChecking] = useState(true);
   const router = useRouter();
 
   const checkAuth = useCallback(() => {
     try {
       const authenticated = isAuthenticated();
       setIsAuth(authenticated);
-
       if (!authenticated) {
-        // Store current page as intended URL
-        const currentPath = window.location.pathname + window.location.search;
-        const authPages = [
-          "/sign-in",
-          "/sign-up",
-          "/forgot-password",
-          "/reset-password",
-        ];
-
-        if (!authPages.some((page) => currentPath.includes(page))) {
-          if (typeof window !== "undefined") {
-            localStorage.setItem("intendedUrl", currentPath);
-          }
-        }
-
+        rememberIntendedUrl();
         // Use replace instead of push to prevent back button issues
         router.replace(redirectTo);
       }
@@ -48,38 +48,22 @@ export function AuthGuard({
       console.error("Auth check failed:", error);
       setIsAuth(false);
       router.replace(redirectTo);
-    } finally {
-      setIsChecking(false);
     }
   }, [router, redirectTo]);
 
   useEffect(() => {
     checkAuth();
-
-    // Also check periodically in case of token changes
-    const interval = setInterval(checkAuth, 5000);
-
-    return () => clearInterval(interval);
+    return subscribeToAuthChanges(checkAuth);
   }, [checkAuth]);
 
-  // Show loading state while checking authentication
-  if (isChecking || isAuth === null) {
-    return <>{fallback}</>;
-  }
-
-  // Show children if authenticated
-  if (isAuth) {
-    return <>{children}</>;
-  }
-
-  // Show fallback if not authenticated (though user should be redirected)
+  if (isAuth === null) return <>{fallback}</>;
+  if (isAuth) return <>{children}</>;
   return <>{fallback}</>;
 }
 
 /** Read auth state only — does not redirect (for public marketing pages). */
 export function useAuthStatus() {
   const [isAuth, setIsAuth] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const check = () => {
@@ -87,70 +71,46 @@ export function useAuthStatus() {
         setIsAuth(isAuthenticated());
       } catch {
         setIsAuth(false);
-      } finally {
-        setIsLoading(false);
       }
     };
     check();
-    const interval = setInterval(check, 5000);
-    return () => clearInterval(interval);
+    return subscribeToAuthChanges(check);
   }, []);
 
   return {
     isAuthenticated: isAuth,
-    isLoading: isLoading || isAuth === null,
+    isLoading: isAuth === null,
   };
 }
 
 // Hook version for more flexibility
 export function useAuthGuard(redirectTo: string = "/sign-in") {
   const [isAuth, setIsAuth] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   const checkAuth = useCallback(() => {
     try {
       const authenticated = isAuthenticated();
       setIsAuth(authenticated);
-
       if (!authenticated) {
-        const currentPath = window.location.pathname + window.location.search;
-        const authPages = [
-          "/sign-in",
-          "/sign-up",
-          "/forgot-password",
-          "/reset-password",
-        ];
-
-        if (!authPages.some((page) => currentPath.includes(page))) {
-          if (typeof window !== "undefined") {
-            localStorage.setItem("intendedUrl", currentPath);
-          }
-        }
-
+        rememberIntendedUrl();
         router.replace(redirectTo);
       }
     } catch (error) {
       console.error("Auth check failed:", error);
       setIsAuth(false);
       router.replace(redirectTo);
-    } finally {
-      setIsLoading(false);
     }
   }, [router, redirectTo]);
 
   useEffect(() => {
     checkAuth();
-
-    // Check periodically for auth state changes
-    const interval = setInterval(checkAuth, 5000);
-
-    return () => clearInterval(interval);
+    return subscribeToAuthChanges(checkAuth);
   }, [checkAuth]);
 
   return {
     isAuthenticated: isAuth,
-    isLoading: isLoading || isAuth === null,
+    isLoading: isAuth === null,
   };
 }
 
@@ -167,9 +127,6 @@ export function useLogout() {
       // Import logout function dynamically to avoid circular deps
       const { logout } = await import("@/lib/services/axiosInstance");
       logout();
-      localStorage.removeItem("selectedProfile");
-      localStorage.removeItem("activeProfile");
-      localStorage.removeItem("childProfiles");
     } catch (error) {
       console.error("Logout failed:", error);
       // Force redirect even if logout fails

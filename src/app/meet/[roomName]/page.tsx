@@ -7,6 +7,7 @@ import { Video, Mic, MicOff, VideoOff, PhoneOff, Loader2, Monitor, MonitorOff, M
 import { Button } from "@/components/ui/button";
 import Script from "next/script";
 import { getErrorMessage, getErrorName } from "@/lib/errors";
+import { getBucketFromRoute } from "@/lib/auth/client-session";
 
 declare global {
   interface Window {
@@ -41,11 +42,8 @@ export default function VideoMeetingPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const searchParams = new URLSearchParams(window.location.search);
-      const role = searchParams.get("role");
-      if (role === "admin" || role === "tutor" || role === "user") {
-        setUserRole(role);
-      }
+      // Role follows the signed-in session (see M6); ?role= is only a tiebreaker.
+      setUserRole(getBucketFromRoute());
 
       const isSecure =
         window.location.protocol === "https:" ||

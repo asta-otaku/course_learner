@@ -11,6 +11,8 @@ export default function QueryProvider({ children }: { children: ReactNode }) {
           queries: {
             refetchOnWindowFocus: false,
             retry: 1,
+            // No global staleTime: admin CMS and homework lists rely on
+            // invalidation; a window would hide updates when a key is missed.
           },
         },
       })

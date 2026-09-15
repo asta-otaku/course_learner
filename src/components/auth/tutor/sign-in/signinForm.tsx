@@ -19,6 +19,8 @@ import {
   resetAuthState,
 } from "@/lib/services/axiosInstance";
 import { getErrorMessage, getErrorStatus } from "@/lib/errors";
+import { bucketForRole } from "@/lib/auth/session-constants";
+import { notifyAuthChange } from "@/lib/auth/client-session";
 
 function SigninForm() {
   const {
@@ -44,8 +46,14 @@ function SigninForm() {
       const res = await postLogin(data);
       if (res.status === 200) {
         resetAuthState();
-        localStorage.setItem(res.data.data.userRole, JSON.stringify(res.data));
+        // Tokens live in httpOnly cookies (set by the proxy); this is the
+        // token-free profile used by the navbar etc.
+        localStorage.setItem(
+          bucketForRole(res.data.data.userRole),
+          JSON.stringify(res.data),
+        );
         localStorage.setItem("initializeSocket", "true");
+        notifyAuthChange();
         toast.success(res.data.message);
 
         const intendedUrl = getAndClearIntendedUrl();

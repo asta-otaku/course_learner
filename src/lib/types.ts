@@ -864,7 +864,6 @@ export interface QuestionQueryOptions {
   tags?: string[];
   isPublic?: boolean;
   createdBy?: string;
-  collectionId?: string;
   folderId?: string;
   dateFrom?: string;
   dateTo?: string;

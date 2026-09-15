@@ -19,6 +19,8 @@ import {
   resetAuthState,
 } from "@/lib/services/axiosInstance";
 import { getErrorMessage, getErrorStatus } from "@/lib/errors";
+import { bucketForRole } from "@/lib/auth/session-constants";
+import { notifyAuthChange } from "@/lib/auth/client-session";
 
 function SigninForm({
   setStep,
@@ -46,12 +48,17 @@ function SigninForm({
       const res = await postLogin(data);
       if (res.status === 200) {
         resetAuthState();
+        // Tokens were moved into httpOnly cookies by the proxy; res.data is
+        // the token-free profile (name, role, offerType) kept for UI reads.
+        localStorage.setItem(
+          bucketForRole(res.data.data.userRole),
+          JSON.stringify(res.data),
+        );
+        notifyAuthChange();
         if (res.data.data.userRole !== "parent") {
-          localStorage.setItem(res.data.data.userRole, JSON.stringify(res.data));
           push(`/${res.data.data.userRole}`);
           toast.success(res.data.message);
         } else {
-          localStorage.setItem("user", JSON.stringify(res.data));
           // Avoid redirect loop: don't send them back to the page that 401'd.
           const intendedUrl = getAndClearIntendedUrl();
           const lastUnauthorizedUrl = getAndClearLastUnauthorizedUrl();

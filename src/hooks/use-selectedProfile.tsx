@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChildProfile } from "@/lib/types";
 import { useGetChildProfile, useGetCurricula } from "@/lib/api/queries";
 import { usePatchChildPofilePreference } from "@/lib/api/mutations";
-import { isUserTypeAuthenticated } from "@/lib/services/axiosInstance";
+import { getBucketFromRoute, hasSession } from "@/lib/auth/client-session";
 
 const ACTIVE_PROFILE_KEY = "activeProfile";
 const PROFILES_KEY = "childProfiles";
@@ -49,27 +49,40 @@ export function useSelectedProfile() {
     // Keep the profile/curricula queries off to avoid 401 retry loops.
     if (p.startsWith("/tutor")) return false;
     if (p.startsWith("/admin")) return false;
+    // /meet is shared by every role and never needs child profiles.
+    if (p.startsWith("/meet")) return false;
     if (isPublicMarketingPath(p)) return false;
     return true;
   }, [pathname]);
+
+  /**
+   * Requests are proxied under the bucket for the current route, so only treat
+   * the parent as signed in when that bucket is `user` and has a session —
+   * otherwise a browser that also holds a tutor/admin session would fire
+   * parent-only queries with the wrong token and get 403s.
+   */
+  const parentSessionActive = useCallback(
+    () => getBucketFromRoute() === "user" && hasSession("user"),
+    [],
+  );
 
   useEffect(() => {
     if (!isPlatformRoute) {
       setPlatformUserSignedIn(false);
       return;
     }
-    setPlatformUserSignedIn(isUserTypeAuthenticated("user"));
-  }, [isPlatformRoute, pathname]);
+    setPlatformUserSignedIn(parentSessionActive());
+  }, [isPlatformRoute, pathname, parentSessionActive]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!isPlatformRoute) return;
     if (platformUserSignedIn) return;
     const id = window.setInterval(() => {
-      if (isUserTypeAuthenticated("user")) setPlatformUserSignedIn(true);
+      if (parentSessionActive()) setPlatformUserSignedIn(true);
     }, 400);
     return () => window.clearInterval(id);
-  }, [platformUserSignedIn, isPlatformRoute, pathname]);
+  }, [platformUserSignedIn, isPlatformRoute, pathname, parentSessionActive]);
 
   const {
     data: childProfilesResp,

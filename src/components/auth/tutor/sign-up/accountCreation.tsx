@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { z } from "zod";
 import { toast } from "react-toastify";
+import { notifyAuthChange } from "@/lib/auth/client-session";
 
 export interface AccountCreationProps {
   currentStep: number;
@@ -78,10 +79,12 @@ export default function AccountCreation({
     });
     if (res.status === 201) {
       toast.success(res.data.message);
+      // Token-free profile for UI reads; the session cookie was set by the proxy.
       localStorage.setItem(
         isAdmin ? "admin" : "tutor",
         JSON.stringify(res.data)
       );
+      notifyAuthChange();
       if (isAdmin) {
         push("/admin");
       } else {

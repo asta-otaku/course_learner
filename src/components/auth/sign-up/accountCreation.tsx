@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "react-toastify";
+import { notifyAuthChange } from "@/lib/auth/client-session";
 
 export interface AccountCreationProps {
   currentStep: number;
@@ -52,8 +53,9 @@ export default function AccountCreation({
       const res = await postSignUp({ ...data, phoneNumber: fullPhoneNumber });
 
       if (res.status === 201) {
-        // Store the user data in localStorage
+        // Token-free profile for UI reads; the session cookie was set by the proxy.
         localStorage.setItem("user", JSON.stringify(res.data));
+        notifyAuthChange();
         trackPixelEvent("CompleteRegistration");
         setSuccessStep(true);
         toast.success(res.data.message);

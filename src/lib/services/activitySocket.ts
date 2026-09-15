@@ -1,4 +1,5 @@
 import { io, Socket } from "socket.io-client";
+import { fetchSocketToken, getBucketFromRoute } from "@/lib/auth/client-session";
 
 interface ActivityServerToClientEvents {
   activity: (data: any) => void;
@@ -14,33 +15,9 @@ let activitySocket: Socket<
   ActivityClientToServerEvents
 > | null = null;
 
-// Helper to get access token (same logic as axiosInstance)
-function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-
-  const pathname = window.location.pathname;
-  let userType: "admin" | "tutor" | "user" = "user";
-
-  if (pathname.startsWith("/admin")) {
-    userType = "admin";
-  } else if (pathname.startsWith("/tutor")) {
-    userType = "tutor";
-  }
-
-  const userStr = localStorage.getItem(userType);
-  if (!userStr) return null;
-
-  try {
-    const user = JSON.parse(userStr);
-    return (
-      user?.data?.accessToken ||
-      user?.accessToken ||
-      user?.data?.data?.accessToken ||
-      null
-    );
-  } catch {
-    return null;
-  }
+function getSocketToken(): Promise<string | null> {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  return fetchSocketToken(getBucketFromRoute());
 }
 
 export const initActivitySocket = (): Socket<
@@ -51,28 +28,36 @@ export const initActivitySocket = (): Socket<
     const SOCKET_URL =
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-    const token = getAccessToken();
-
     activitySocket = io(`${SOCKET_URL}/activity`, {
       autoConnect: false,
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      query: {
-        jwtToken: token,
-      },
+      query: {},
     });
 
     activitySocket.io.on("reconnect_attempt", () => {
-      const newToken = getAccessToken();
-      if (activitySocket && newToken) {
-        activitySocket.io.opts.query = { jwtToken: newToken };
-      }
+      void getSocketToken().then((token) => {
+        if (activitySocket && token) {
+          activitySocket.io.opts.query = { jwtToken: token };
+        }
+      });
     });
   }
 
   return activitySocket;
+};
+
+/** Fetch a fresh token and connect. Resolves `false` when there is no session. */
+export const connectActivitySocketWithToken = async (): Promise<boolean> => {
+  const current = initActivitySocket();
+  if (current.connected) return true;
+  const token = await getSocketToken();
+  if (!token) return false;
+  current.io.opts.query = { jwtToken: token };
+  current.connect();
+  return true;
 };
 
 export const getActivitySocket = (): Socket<
@@ -82,22 +67,9 @@ export const getActivitySocket = (): Socket<
   return activitySocket;
 };
 
-export const updateActivitySocketAuth = () => {
-  if (activitySocket) {
-    const token = getAccessToken();
-    activitySocket.auth = { token };
-    // Reconnect with new auth
-    if (activitySocket.connected) {
-      activitySocket.disconnect();
-      activitySocket.connect();
-    }
-  }
-};
-
 export const disconnectActivitySocket = () => {
   if (activitySocket) {
     activitySocket.disconnect();
     activitySocket = null;
   }
 };
-

@@ -99,7 +99,6 @@ export const questionFilterSchema = z.object({
   type: z.array(z.enum(['multiple_choice', 'true_false', 'free_text', 'matching_pairs'] as const)).optional(),
   is_public: z.boolean().optional(),
   created_by: z.string().uuid().optional(),
-  collection_id: z.string().uuid().optional(),
   folder_id: z.string().uuid().nullable().optional(), // null means root level
   category_id: z.string().uuid().optional(),
   grade_id: z.string().uuid().optional(),
