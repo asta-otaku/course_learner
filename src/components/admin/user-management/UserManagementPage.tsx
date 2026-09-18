@@ -172,7 +172,6 @@ function UserManagement() {
             userData={userData}
             setSelectedUser={setSelectedUser}
             setStep={setStep}
-            setShowTutorModal={setShowTutorModal}
             uniqueYears={uniqueYears}
           />
         </>

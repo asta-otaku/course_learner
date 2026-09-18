@@ -22,7 +22,6 @@ type TableMetricsProps = {
   userData: any[];
   setSelectedUser: (id: string) => void;
   setStep: (step: number) => void;
-  setShowTutorModal: (show: boolean) => void;
   uniqueYears: string[];
 };
 
@@ -31,7 +30,6 @@ function TableMetrics({
   userData: _userData,
   setSelectedUser,
   setStep,
-  setShowTutorModal,
   uniqueYears,
 }: TableMetricsProps) {
   const [search, setSearch] = useState("");
