@@ -546,6 +546,18 @@ export interface ParentProfile {
   offerType: string;
 }
 
+export interface ChildStreak {
+  currentStreak: number;
+  longestStreak: number;
+  lastActivityDate: string;
+  todayCompleted: boolean;
+  week: {
+    date: string;
+    day: string;
+    completed: boolean;
+  }[];
+}
+
 export interface TutorUser {
   id: number;
   firstName: string;

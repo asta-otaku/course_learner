@@ -14,9 +14,11 @@ import { TutorChangeRequestDialog } from "./tutor-change-request-dialog";
 import {
   useGetChildBaselineTest,
   useGetChildProfileById,
+  useGetChildStreak,
   useGetCurricula,
   useGetHomework,
 } from "@/lib/api/queries";
+import Streak from "./streaks";
 import DoubleQuote from "@/assets/svgs/doubleQuote";
 import type { LearningPath } from "@/lib/types";
 
@@ -40,6 +42,9 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
   const { data: homeworkData, isLoading: homeworkLoading } =
     useGetHomework(effectiveProfile?.id || "");
   const homework = (homeworkData?.data || []) as LearningPath[];
+
+  const { data: streakResponse } = useGetChildStreak(effectiveProfile?.id || "");
+  const streak = streakResponse?.data;
 
   // Fetch baseline test for this child (API returns a single object)
   const { data: baselineTestResponse } = useGetChildBaselineTest(
@@ -75,7 +80,7 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
   return (
     <div className="px-4 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-4 max-w-screen-2xl mx-auto min-h-screen">
       {/* Header */}
-      <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
+      <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
         <div className="flex items-center gap-2">
           <div className="flex flex-col gap-1 items-start">
             <p className="font-medium text-lg text-textSubtitle ml-1">
@@ -83,6 +88,7 @@ function TuitionHome({ offerTypeOverride, activeProfileOverride }: TuitionHomePr
             </p>
           </div>
         </div>
+        {streak ? <Streak streak={streak} /> : null}
       </div>
 
       {/* Main Content */}

@@ -20,6 +20,7 @@ import {
   ChildPreferences,
   RecentHomeworkItem,
   HistoryHomeworkItem,
+  ChildStreak,
 } from "../../types";
 
 // Tag Queries
@@ -407,6 +408,17 @@ export const useGetChildPreferences = (childId: string) => {
     queryKey: ["child-preferences", childId],
     queryFn: async (): Promise<APIGetResponse<ChildPreferences>> => {
       const response = await axiosInstance.get(`/child-profiles/${childId}/preferences`);
+      return response.data;
+    },
+    enabled: !!childId,
+  });
+}
+
+export const useGetChildStreak = (childId: string) => {
+  return useQuery({
+    queryKey: ["child-streak", childId],
+    queryFn: async (): Promise<APIGetResponse<ChildStreak>> => {
+      const response = await axiosInstance.get(`/streak/${childId}`);
       return response.data;
     },
     enabled: !!childId,

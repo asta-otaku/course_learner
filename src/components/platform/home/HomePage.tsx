@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useMemo } from "react";
-// import Streak from "./streaks";
+import Streak from "./streaks";
 import LearningCard, { ProgressCard } from "./learningCard";
 import { useProfile } from "@/context/profileContext";
 import {
   useGetLibrary,
   useGetChildLastAccessedLessons,
   useGetCurricula,
+  useGetChildStreak,
 } from "@/lib/api/queries";
 import {
   Select,
@@ -68,6 +69,9 @@ function Home({ offerTypeOverride }: HomeProps) {
     activeProfile?.id || "",
     selectedCurriculumId
   );
+
+  const { data: streakResponse } = useGetChildStreak(activeProfile?.id || "");
+  const streak = streakResponse?.data;
 
   const sections = useMemo(() => {
     return library?.data || [];
@@ -149,17 +153,14 @@ function Home({ offerTypeOverride }: HomeProps) {
   }, [sections]);
 
   const renderHeader = () => (
-    <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
-      <div className="flex flex-col md:flex-row gap-3 justify-between w-full md:items-center">
-        <div className="flex items-center gap-2">
-          <div className="flex flex-col gap-1 items-start">
-            <p className="font-medium text-lg text-textSubtitle ml-1">
-              Welcome, <span className="text-textGray capitalize font-semibold">{activeProfile?.name}</span>
-            </p>
-          </div>
-        </div>
-      </div>
-      {/* <Streak streakDays={12} /> */}
+    <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+      <p className="shrink-0 font-medium text-lg text-textSubtitle">
+        Welcome,{" "}
+        <span className="text-textGray capitalize font-semibold">
+          {activeProfile?.name}
+        </span>
+      </p>
+      {streak ? <Streak streak={streak} /> : null}
     </div>
   );
 

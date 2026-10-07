@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Check,
   Menu,
   Settings,
   UserCircle,
@@ -263,23 +264,42 @@ export default function Navbar() {
                 onMouseEnter={() => setIsProfileOpen(true)}
                 onMouseLeave={() => setIsProfileOpen(false)}
               >
-                {profiles.map((profile, index) => (
-                  <DropdownMenuItem
-                    key={index}
-                    onClick={() => {
-                      changeProfile(profile.name);
-                      setIsProfileOpen(false);
-                    }}
-                    className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex items-center gap-2"
-                  >
-                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
-                      <span className="text-gray-400 text-xs font-medium">
-                        {profile.name.slice(0, 2).toUpperCase()}
-                      </span>
-                    </div>
-                    {profile.name}
-                  </DropdownMenuItem>
-                ))}
+                {profiles.map((profile) => {
+                  const isSelected =
+                    String(profile.id) === String(activeProfile?.id);
+                  return (
+                    <DropdownMenuItem
+                      key={profile.id}
+                      onClick={() => {
+                        changeProfile(profile.name);
+                        setIsProfileOpen(false);
+                      }}
+                      className={`px-3 py-2 text-sm cursor-pointer font-inter rounded-sm flex items-center gap-2 ${
+                        isSelected
+                          ? "bg-blue-50 text-primaryBlue font-semibold focus:bg-blue-50 focus:text-primaryBlue"
+                          : "hover:bg-gray-100"
+                      }`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center overflow-hidden ${
+                          isSelected ? "bg-primaryBlue" : "bg-gray-200"
+                        }`}
+                      >
+                        <span
+                          className={`text-xs font-medium ${
+                            isSelected ? "text-white" : "text-gray-400"
+                          }`}
+                        >
+                          {profile.name.slice(0, 2).toUpperCase()}
+                        </span>
+                      </div>
+                      <span className="flex-1">{profile.name}</span>
+                      {isSelected ? (
+                        <Check className="h-4 w-4 text-primaryBlue" />
+                      ) : null}
+                    </DropdownMenuItem>
+                  );
+                })}
                 {/* <DropdownMenuItem
                   onClick={() => push("/settings/profiles")}
                   className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center"
@@ -375,6 +395,43 @@ export default function Navbar() {
                     className="w-60 max-h-[70vh] overflow-auto scrollbar-hide p-1 mt-1 !rounded-xl shadow-lg"
                     align="start"
                   >
+                    {profiles.map((profile) => {
+                      const isSelected =
+                        String(profile.id) === String(activeProfile?.id);
+                      return (
+                        <DropdownMenuItem
+                          key={profile.id}
+                          onClick={() => {
+                            changeProfile(profile.name);
+                            setMobileOpen(false);
+                          }}
+                          className={`px-3 py-2 text-sm cursor-pointer font-inter rounded-sm flex items-center gap-2 ${
+                            isSelected
+                              ? "bg-blue-50 text-primaryBlue font-semibold focus:bg-blue-50 focus:text-primaryBlue"
+                              : "hover:bg-gray-100"
+                          }`}
+                        >
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center overflow-hidden ${
+                              isSelected ? "bg-primaryBlue" : "bg-gray-200"
+                            }`}
+                          >
+                            <span
+                              className={`text-xs font-medium ${
+                                isSelected ? "text-white" : "text-gray-400"
+                              }`}
+                            >
+                              {profile.name.slice(0, 2).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="flex-1">{profile.name}</span>
+                          {isSelected ? (
+                            <Check className="h-4 w-4 text-primaryBlue" />
+                          ) : null}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                    <DropdownMenuSeparator className="my-1" />
                     <DropdownMenuItem className="px-3 py-2 text-sm cursor-pointer font-inter hover:bg-gray-100 rounded-sm flex gap-3 ml-3 items-center">
                       <UserCircle className="text-gray-400" />
                       Contact Us
