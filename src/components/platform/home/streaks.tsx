@@ -32,7 +32,6 @@ function streakMessage(streak: ChildStreak) {
 
 export default function Streak({ streak }: { streak: ChildStreak }) {
   const days = streak.week ?? [];
-  const countLabel = streak.currentStreak === 1 ? "Day" : "Days";
 
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
@@ -48,7 +47,7 @@ export default function Streak({ streak }: { streak: ChildStreak }) {
           <span className="text-textGray font-semibold md:text-lg">
             You are on a{" "}
             <span className="font-semibold text-primaryBlue">
-              {streak.currentStreak} {countLabel}
+              {streak.currentStreak} Day
             </span>{" "}
             Streak
           </span>
