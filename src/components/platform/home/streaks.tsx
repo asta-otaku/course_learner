@@ -22,7 +22,7 @@ function isToday(date: string) {
 
 function streakMessage(streak: ChildStreak) {
   if (streak.currentStreak <= 0) {
-    return "Complete an activity today to start your streak.";
+    return "Answer a question every day to start your streak!";
   }
   if (streak.todayCompleted) {
     return "Nice work today. Come back tomorrow to keep it going.";
