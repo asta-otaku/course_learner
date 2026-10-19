@@ -27,7 +27,7 @@ function streakMessage(streak: ChildStreak) {
   if (streak.todayCompleted) {
     return "Nice work today. Come back tomorrow to keep it going.";
   }
-  return "Complete today's activity so your streak doesn't end.";
+  return "Answer a question every day to keep your streak going!";
 }
 
 export default function Streak({ streak }: { streak: ChildStreak }) {
